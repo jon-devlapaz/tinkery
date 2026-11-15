@@ -86,3 +86,5 @@ The first full repair verification failed the architecture source-line limit. On
 The full configured SDLC verification passed on 89b6509. It passed 1124 Rust tests with one ignored, all 39 Node tests, all 85 Python files, formatting, and Clippy with warnings denied. The current receipt covers the repaired source. The only failed full repair run was the source-line limit described above.
 
 The supervisor inspected the 80×24 capture and scrolled screens and found the repository, proposal, source context, and retained draft readable. Independent review of the repaired candidate remains the supervisor's next step. No push, PR, merge, or real model request occurred in this worker.
+
+The supervisor reproduced a CI-only test dependency in a depth-one clone: the old prompt Git object was unavailable. The legacy test now records its verified SHA256 with the #861 source commit. Legacy recovery passed with the fixed identity. CI fetch policy is unchanged.

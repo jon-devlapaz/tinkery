@@ -173,8 +173,9 @@ def malformed_and_legacy():
         assert record['pending']['origin']['schema']==1
         # Reconstruct the #861 wire format and its actual old prompt hash.
         record['schema']=1;del record['input']['correction']
-        old_prompt=subprocess.check_output(['git','show','1d14afc:src/tend/connection-prompt.txt'],cwd=flow.REPO,env=subprocess.environment())
-        record['input']['prompt']=hashlib.sha256(old_prompt).hexdigest()
+        # SHA256 of src/tend/connection-prompt.txt at #861 merge 1d14afc.
+        # Keep the verified legacy identity available in depth-one CI checkouts.
+        record['input']['prompt']='7c966a5d16ae34f412f09f8162d402222404d317a172cac012bad91d8158d477'
         record['saved']=None;shutil.rmtree(saved)
         path.write_text(json.dumps(record))
         term=flow.launch(root,repo,100,30,budget=0)
