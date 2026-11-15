@@ -1,0 +1,7 @@
+{
+  "item": "done-4",
+  "result": "passed",
+  "evidence": "runs/issue-874-thought-feedback/04-test/output/screens/: eight screens cover new and duplicate feedback, warnings and both terminal sizes. Visible second-goal clicks pass; goals and key bar remain visible.",
+  "candidate": "a66f2f91ea796d69fdc4f94c67cbbc643630d0d60a42f57dac005139bdd0ded3",
+  "time_ns": 1794774169234215000
+}

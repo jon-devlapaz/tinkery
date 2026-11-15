@@ -1,0 +1,15 @@
+{
+  "files": {
+    "tests/tend_thought_terminal.py": "3796b9b8a7ed1bf2ad9df1cc218e56a73e060749d5487e8ebe0b4943d44e3d99",
+    "tests/tend_connection_terminal.py": "9f589ceb591c9baf5c165746b9f541cf3372b144686229d1121983394bd2af66",
+    "tests/terminal_process.py": "2b8ec6dc185334405944c2efaf2b50ad2f97e9d01951864750ffd04d8ba9031b",
+    "tests/vt_screen.py": "5f390bfcb219243d5bf9e66411f33de1eaae557621ca0ddaf0a301b91ffab076",
+    "tests/test_launch.py": "2f8af1b1ec09bb378c4d3b56b930549ca76a7d8cb3568140cde33ec5758be9b7"
+  },
+  "candidate": {
+    "head": "c6783e7f3fbc078c32bc73040f9d8e982083ae09",
+    "tree": "13ec9e5f566a6f3f9e757908cc740d4dd2a972d2bd5ba3596e4c363cba0ec807"
+  },
+  "review_source": "Codex independent review /root/review_874_build, 2026-11-15, regression acceptance",
+  "failure_evidence": "runs/issue-874-thought-feedback/04-test/output/baseline-failure.txt"
+}

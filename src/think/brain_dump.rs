@@ -79,7 +79,12 @@ pub enum Exit {
     /// Open this saved session in tend.
     Tend(std::path::PathBuf),
     /// Open the garden after saving raw words, without a goal receipt.
-    Garden,
+    Garden {
+        /// Exact words whose durable save completed.
+        words: String,
+        /// Whether identical words were already saved in this repository.
+        duplicate: bool,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -957,8 +962,11 @@ impl BrainDump {
             None => Err("Open --home to save a thought in Tend.".into()),
         };
         match result {
-            Ok(crate::thought::Saved::New | crate::thought::Saved::Duplicate) => {
-                self.exit = Exit::Garden
+            Ok(saved @ (crate::thought::Saved::New | crate::thought::Saved::Duplicate)) => {
+                self.exit = Exit::Garden {
+                    words: self.input.text.clone(),
+                    duplicate: matches!(saved, crate::thought::Saved::Duplicate),
+                }
             }
             Ok(crate::thought::Saved::Uncertain(reason)) | Err(reason) => self.refuse(reason),
         }

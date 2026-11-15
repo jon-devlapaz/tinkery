@@ -123,6 +123,78 @@ def journey(size):
             term.close()
 
 
+def save_feedback(size, unreadable_records=False, evidence=None):
+    """Saving selects the exact thought, with honest feedback and usable goals."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-thought-feedback-') as directory:
+        root = Path(directory).resolve()
+        repo = flow.fixture(root)
+        for index in range(2):
+            flow.update_goal(root, f'goal-{index}', goal=f'TEST goal {index}')
+        original = {p: p.read_bytes() for p in (root/'sessions').rglob('*') if p.is_file()}
+        term = launch(root, repo, size, provider=True, budget=0)
+        try:
+            for words in ['A TEST first thought', 'B TEST second thought']:
+                flow.send(term, b't', 'F3 Save thought and open Tend')
+                paste(term, words)
+                flow.send(term, b'\x1bOR', 'Thoughts:')
+            if unreadable_records:
+                path = saved(root)[0]
+                prefix = path.name.rsplit('-', 1)[0]
+                (path.parent/f'{prefix}-malformed.json').write_text('{')
+            for words, outcome, position in [
+                ('Z TEST newly saved thought', 'Thought saved.', 3),
+                ('B TEST second thought', 'Thought already saved.', 2),
+            ]:
+                before = {p: p.read_bytes() for p in saved(root)}
+                flow.send(term, b't', 'F3 Save thought and open Tend')
+                paste(term, words)
+                screen = flow.send(term, b'\x1bOR', outcome)
+                if evidence is not None:
+                    case = 'new' if position == 3 else 'duplicate'
+                    warning = '-warning' if unreadable_records else ''
+                    (evidence/f'{size[0]}x{size[1]}-{case}{warning}.txt').write_text(screen)
+                assert 'tinkery › tend' in screen, screen
+                assert 'Thoughts: 3' in screen and f'Thought: {words}' in screen, screen
+                assert 'No goal confirmed.' in screen, screen
+                assert 'TEST goal 0' in screen and 'TEST goal 1' in screen, screen
+                if unreadable_records:
+                    assert '1 thoughts could not be read.' in screen, screen
+                if position == 2:
+                    assert {p: p.read_bytes() for p in saved(root)} == before, 'Duplicate changed thought records'
+                else:
+                    assert len(saved(root)) == len(before) + 1
+                # Clicking the visible right-hand goal must select that same goal.
+                lines = screen.splitlines()
+                ring = [(x, y) for y, line in enumerate(lines[4:-4], 4)
+                        for x, char in enumerate(line) if x > size[0] // 2 and '\u2801' <= char <= '\u28ff']
+                assert ring, screen
+                x = round((min(x for x, y in ring) + max(x for x, y in ring)) / 2)
+                y = round((min(y for x, y in ring) + max(y for x, y in ring)) / 2)
+                click = (f'\x1b[<0;{x+1};{y+1}M\x1b[<0;{x+1};{y+1}m').encode()
+                screen = flow.send(term, click, '› TEST goal 1')
+                assert f'Thought: {words}' in screen, screen
+                screen = flow.send(term, b'v', f'Thought {position} of 3')
+                assert words in screen and outcome not in screen, screen
+                if unreadable_records:
+                    assert '1 thoughts could not be read.' in screen, screen
+                screen = flow.send(term, b'\x1b', 'Thoughts: 3')
+                assert outcome not in screen, screen
+                assert not flow.requests(root)
+            # A new save notice also clears when Tend closes, without opening the reader.
+            flow.send(term, b't', 'F3 Save thought and open Tend')
+            paste(term, 'Z TEST newly saved thought')
+            flow.send(term, b'\x1bOR', 'Thought already saved.')
+            flow.send(term, b'\x1b', '1  think')
+            screen = flow.send(term, b'2', 'Thoughts: 3')
+            assert 'Thought already saved.' not in screen, screen
+            assert not flow.requests(root)
+            if unreadable_records:
+                (path.parent/f'{prefix}-malformed.json').unlink()
+            no_goal(root, original)
+        finally:
+            term.close()
+
+
 def unwritable(size):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-thought-refusal-') as directory:
         root = Path(directory).resolve()
@@ -300,6 +372,8 @@ def capture_guards(size):
 
 if __name__ == '__main__':
     for size in [(80, 24), (100, 30)]:
+        save_feedback(size)
+        save_feedback(size, unreadable_records=True)
         capture_guards(size)
         repository_link(size)
         journey(size)
