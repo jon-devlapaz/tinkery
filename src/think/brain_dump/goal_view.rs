@@ -353,6 +353,14 @@ impl BrainDump {
             return false;
         };
         match key.code {
+            KeyCode::Enter
+                if key.modifiers != KeyModifiers::NONE || key.kind != KeyEventKind::Press =>
+            {
+                self.refuse("Press plain Enter to confirm. Nothing saved.")
+            }
+            KeyCode::Char('j' | 'J') if key.modifiers == KeyModifiers::CONTROL => {
+                self.refuse("Press plain Enter to confirm. Nothing saved.")
+            }
             KeyCode::Esc => self.handoff.close(),
             KeyCode::PageDown | KeyCode::Down => {
                 review.scroll = review.scroll.saturating_add(5).min(review.max)

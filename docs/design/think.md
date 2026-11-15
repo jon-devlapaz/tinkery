@@ -155,10 +155,11 @@ offer an F2 retry. Readiness text depends only on goal
 content, including sent-but-unapplied words and unanswered skips, never recording
 or unsent text. Review lists all open intent.
 
-Choosing “Review the goal” from F1 deliberately reviews. Typed `confirm` plus Enter freezes the displayed goal and,
+Choosing “Review the goal” from F1 deliberately reviews. Typed `confirm` plus plain Enter freezes the displayed goal and,
 after successful saving, shows the [receipt](shape-and-handoff.md). Missing parts
 and questions may travel to the seed. Readiness is not required to save; saving
 is neither seed nor implementation approval.
+Modified Enter, Ctrl+J and repeated Enter refuse confirmation and keep the typed words.
 Review reserves the confirmation input row and normal instruction height, so typing
 or correcting `confirm` does not move an already-read end. Unread content still prevents saving.
 Until the current review reaches its end, ordinary instructions, the key bar and review help

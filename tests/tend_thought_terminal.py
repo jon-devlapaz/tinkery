@@ -3,9 +3,10 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import time
 
 import test_launch as subprocess
-from terminal_process import TerminalProcess
+from terminal_process import TerminalProcess, wait_output
 import tend_connection_terminal as flow
 
 REPO = Path(__file__).resolve().parents[1]
@@ -281,7 +282,27 @@ def promotion(size):
             flow.send(term, term.screen.pick('Review the goal'), 'You are confirming')
             os.write(term.master, b'\x1b[6~'*30)
             flow.wait(term, 'confirm')
-            flow.send(term, b'confirm\r', 'Saved.')
+            flow.send(term, b'confirm', 'confirm')
+            before = {p: p.read_bytes() for folder in ['sessions', 'records']
+                      for p in (root/folder).rglob('*') if p.is_file()}
+            calls = (repo/'provider-calls').read_bytes()
+            for chord in [b'\x1b[13;2u', b'\x1b[13;3u', b'\x1b\r', b'\x1b[13;5u',
+                          b'\x1b[106;5u', b'\n', b'\x1b[13;1:2u']:
+                screen = flow.send(term, chord, 'Press plain Enter to confirm.')
+                assert 'Saved.' not in screen, screen
+                assert {p: p.read_bytes() for folder in ['sessions', 'records']
+                        for p in (root/folder).rglob('*') if p.is_file()} == before
+                assert (repo/'provider-calls').read_bytes() == calls
+                # Clear the refusal before the next key, so an old frame cannot pass it.
+                os.write(term.master, b'\x7fm')
+                for code in wait_output(term.master, term.process, term.screen.feed, time.monotonic()+15):
+                    if not term.screen.synchronized and 'Press plain Enter' not in term.screen.text():
+                        break
+                    if code is not None:
+                        raise AssertionError(term.screen.text())
+                else:
+                    raise AssertionError('Confirmation refusal did not clear')
+            flow.send(term, b'\r', 'Saved.')
             records = [json.loads(p.read_bytes()) for p in (root/'records').glob('*.json')]
             record = next(r for r in records if r['origin'] == 'live')
             assert record['turns'][0]['text'].encode() == WORDS.encode()
