@@ -189,7 +189,11 @@ impl GoalConfirmation {
             } => {
                 if !["declared: human", "declared: agent", "not declared"]
                     .contains(&declaration.as_str())
-                    || action != "typed confirm at this terminal"
+                    || ![
+                        "typed confirm at this terminal",
+                        "pressed F2 to save the displayed Tend goal",
+                    ]
+                    .contains(&action.as_str())
                     || identity != "declaration is not verified identity"
                 {
                     return Err("Invalid terminal confirmation declaration or action.".into());

@@ -25,8 +25,8 @@ claims readiness; other ended sessions are named as ended.
 
 ## Tend: garden and detail
 
-Inside a repository, Tend starts with only active goals whose attributed Think
-record names that exact repository root. A muted `this repo · a all` line offers
+Inside a repository, Tend starts with only active goals whose verified creation
+origin names that exact repository root. A muted `this repo · a all` line offers
 `a` to show every active goal; `all · a this repo` toggles back. Outside a repo,
 all goals show without a toggle. Unknown, missing, older or conflicting records
 never guess a repo; those goals remain under all. An empty repo view still offers
@@ -41,7 +41,7 @@ starts with this repo again; explicit receipt or Shape returns still open the
 exact saved goal, switching to all if necessary.
 
 Filtering reads existing records on discovery's worker, never during painting,
-and writes nothing. Each discovery enumerates the Think record root once and
+and writes nothing. Legacy discovery enumerates the Think record root once and
 reads each JSON record at most once, rebuilding an in-memory attribution index;
 refreshes never reuse an earlier index. It shares history's strict validation and
 rechecks session identity and goal across the scan. Malformed or unsupported files
@@ -57,7 +57,7 @@ Equal hollow Braille rings mean size is unknown; no sizes or merges are known.
 Needs lines join only active, uniquely identified endpoints. Missing, ambiguous or
 ended endpoints draw no line; the selected-line summary still names them. Straight
 lines leave gaps around unrelated rings, never implied junctions or routed paths.
-Saved sessions stay read-only; linking writes only Tend's store.
+Existing sessions stay read-only; linking writes only Tend's store.
 
 Ended sessions are omitted. `N ended not shown` and
 `Links couldn't be read. F1 then h for details.` share the muted incomplete-read
@@ -230,10 +230,52 @@ failure with technical reason `another Tinkery is saving links`. Queued Esc or F
 cannot cancel an in-flight save that obtains the lock before deadline; navigation
 follows it. Timeout refuses outright; later lock release never retries.
 
+## Find connections
+
+In this repository's garden, `f` opens a read-only source review. `F2` explicitly
+sends all eligible active goals to the configured drafting provider in one tool-free
+request. The shared launch allowance still defaults to zero. Discovery refuses
+fewer than two goals, more than 20 goals, or serialized input above 32 KiB.
+Unreadable sessions and any active unknown or invalid origin block discovery before
+repository filtering. Verified other-repository and explicit no-repository goals are excluded.
+
+One structured reply contains a proposal or no useful connection. Every cited goal
+must be in the input, with an exact nonempty quote. At least two distinct goals must
+support a proposal. The review shows originals, the guessed relationship, proposed
+goal, inspectable result, judgment question and assumptions. `p` opens an editable
+goal. Only `F2 save exact words and open Shape` confirms it. Opening Shape starts no
+request and grants no seed or implementation permission.
+
+The latest exploration and dismissal are saved per repository under `--link-root`.
+Reopening unchanged input reuses them without a request. One input identity includes
+goal IDs, complete text, repository, active membership, prompt, model, thinking and
+harness. Unrelated ledger versions and Shape answers do not change it. Changes to
+source inputs block a stale new save. A completed handoff can be opened again with
+`o`; changed inputs permit an explicit fresh pass. Esc cancels a request. After an
+explicit save begins, Esc returns while that save finishes.
+
+Before staging a goal, Tend persists a pending receipt with frozen words, source
+evidence, outcome, actor, destination root and one random session identity. The
+shared saver writes a private sibling staging directory, verifies it, and publishes
+with an atomic no-replace directory rename on macOS and Linux. Resume first checks
+the fixed destination, so the newly saved goal cannot invalidate its own recovery.
+Owned partial staging can be rebuilt or cancelled. Conflicting paths, symlinks and
+uncertain publication refuse replacement or a second destination. A per-repository
+lock and a per-handoff lock refuse concurrent writers.
+
+The existing goal node stores versioned Tend origin evidence. History names a Tend
+creation and invents no conversation. Shape and Approve use the same origin reader.
+Malformed or conflicting Tend evidence is an explicit invalid origin, never legacy
+unknown attribution. It blocks Shape drafting and Approve launch commands. Existing
+Think records and legacy unknown-origin behavior retain their earlier rules.
+
+The goal garden and wiki remain future work. This slice adds no background reflection,
+wiki, stored graph interpretation, seed confirmation, or execution permission.
+
 ## Needs store
 
 `--link-root PATH` selects `needs.json` (default `~/.local/share/tinkery/tend`,
-requiring absolute HOME). Tend never writes session files. Navigation and copying
+requiring absolute HOME). Needs linking never writes session files. Navigation and copying
 create no links; landed session reads and starting a pick refresh cached links.
 Painting reads only the cache.
 

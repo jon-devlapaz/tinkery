@@ -172,6 +172,27 @@ impl Config {
         a: Affirmed,
         context: &crate::think_record::GoalConfirmation,
     ) -> Result<Receipt, String> {
+        self.confirm_with_origin(a, context, None)
+    }
+
+    /// Bind an already owned staging session; never choose a replacement destination.
+    pub(super) fn at(root: PathBuf, session: PathBuf) -> Self {
+        Self {
+            root: Ok(root),
+            session: Arc::new(Mutex::new(Some(session))),
+        }
+    }
+
+    /// Save confirmation and optional checked creation evidence in the same ledger publication.
+    pub(super) fn confirm_with_origin(
+        &self,
+        a: Affirmed,
+        context: &crate::think_record::GoalConfirmation,
+        creation: Option<&super::connection::Origin>,
+    ) -> Result<Receipt, String> {
+        if let Some(origin) = creation {
+            origin.validate(&a.goal)?;
+        }
         let actor = crate::think_record::Actor::authorize(Some(context))?;
         let delegation = actor.delegation();
         let root = self.root.as_ref().map_err(Clone::clone)?;
@@ -198,8 +219,13 @@ impl Config {
             return Err("A seed file already exists; reopen this session in Shape.".into());
         }
         if current["origin"] == super::ledger::Value::Null {
-            let evidence = a.originals.iter().map(|s| json!({"checked":s.label(),"at":stamp,"observed":s.text}))
+            let mut evidence = a.originals.iter().map(|s| json!({"checked":s.label(),"at":stamp,"observed":s.text}))
                 .chain(std::iter::once(json!({"checked":"Tinkery answer/question context; questions remain provisional, not settled decisions","at":stamp,"observed":a.context}))).collect::<Vec<_>>();
+            if let Some(creation) = creation {
+                evidence.push(json!({"artifact":super::connection::ARTIFACT,
+                    "checked":"Created from a Tend connection; interpretation remains provisional",
+                    "at":stamp,"observed":serde_json::to_string(creation).map_err(|e| e.to_string())?}));
+            }
             let mut state = json!({"status":"active", "draft":{"goal":a.goal,"outcome":a.outcome,
                 "options":a.options.iter().map(|o|format!("{} — benefit: {}; cost: {}; undo cost: {}",o.label,o.benefit,o.cost,o.undo_cost)).collect::<Vec<_>>()},
                 "goal":a.goal,"origin":"goal","current_question":null,"nodes":[{"id":"goal","kind":"decision","status":"settled",
@@ -248,6 +274,11 @@ impl Config {
                     "Saved originals differ from this confirmation; no goal was replaced.".into(),
                 );
             }
+        }
+        if let Some(expected) = creation
+            && super::connection::read(session, &a.goal)?.as_ref() != Some(expected)
+        {
+            return Err("The saved Tend origin differs from the confirmed evidence.".into());
         }
         Ok(Receipt {
             session: session.clone(),

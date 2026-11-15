@@ -70,6 +70,7 @@ pub struct Home {
     worker_authorization: Result<Option<crate::worker::Relay>, String>,
     worker_panel: Option<worker::Panel>,
     quit_after_worker: bool,
+    connection: Option<tend::connection::Panel>,
 }
 
 enum View {
@@ -132,6 +133,7 @@ impl Home {
             worker_authorization: Ok(None),
             worker_panel: None,
             quit_after_worker: false,
+            connection: None,
         }
     }
 
@@ -237,6 +239,19 @@ impl Home {
         }
         if let View::Taste(taste) = &mut self.view {
             taste.poll();
+        }
+        if let Some(receipt) = self.connection.as_mut().and_then(|panel| panel.poll()) {
+            self.connection = None;
+            let shape = Shape::session(&receipt.session)
+                .with_agent(self.shape_agent.clone())
+                .held(self.shape_held);
+            if let View::Tend(tend) = std::mem::replace(&mut self.view, View::Menu) {
+                self.view = View::Shape(Box::new(shape), Some(tend));
+            }
+            self.receipts.push(seed_me::ExitReceipt::Saved {
+                receipt,
+                record: None,
+            });
         }
         self.poll_retry();
         if !self.discovery.requested() {
@@ -587,6 +602,69 @@ impl Home {
                 self.worker_panel = Some(worker::Panel::existing(run, self.worker_gate()));
             }
             self.view = View::Worker;
+            return;
+        }
+        if let Some(panel) = &mut self.connection {
+            if panel.key(key) {
+                self.connection = None;
+            }
+            return;
+        }
+        if key.kind == KeyEventKind::Press
+            && key.modifiers == KeyModifiers::NONE
+            && key.code == KeyCode::Char('f')
+            && let View::Tend(tend) = &mut self.view
+            && !tend.detail
+            && !self.help
+        {
+            if !tend.connection_scope() {
+                tend.notice =
+                    "Find connections is available only in this repository's garden.".into();
+                return;
+            }
+            let context = (|| {
+                let sessions = self
+                    .sessions_root
+                    .clone()
+                    .ok_or("The sessions folder is unavailable.")?;
+                let records = self.record_root.clone()?;
+                let store = self.link_root.clone()?;
+                let repo = self
+                    .repo
+                    .as_ref()
+                    .ok_or("Open Tinkery inside a repository first.")?
+                    .root()
+                    .to_path_buf();
+                let drafting = self.shape_agent.as_ref().map(|agent| agent.drafting());
+                let mut actor = drafting
+                    .as_ref()
+                    .and_then(|(_, _, actor)| actor.clone())
+                    .unwrap_or_else(|| crate::think_record::GoalConfirmation::Terminal {
+                        declaration: if self.agent {
+                            "declared: agent"
+                        } else {
+                            "not declared"
+                        }
+                        .into(),
+                        action: "pressed F2 to save the displayed Tend goal".into(),
+                        identity: "declaration is not verified identity".into(),
+                    });
+                if let crate::think_record::GoalConfirmation::Terminal { action, .. } = &mut actor {
+                    *action = "pressed F2 to save the displayed Tend goal".into();
+                }
+                Ok::<_, String>(tend::connection::Context {
+                    sessions,
+                    records,
+                    store,
+                    repo,
+                    call: drafting.map(|(call, budget, _)| (call, budget)),
+                    actor,
+                })
+            })();
+            match context {
+                Ok(context) => self.connection = Some(tend::connection::Panel::open(context)),
+                Err(reason) => tend.notice = reason,
+            }
             return;
         }
         if let View::Think(dump) = &mut self.view {
@@ -965,6 +1043,9 @@ impl Home {
 
     /// [`Home::handle_mouse`] with the clock as an input, so double-click tests never sleep.
     fn handle_mouse_at(&mut self, event: MouseEvent, area: Rect, now: Instant) {
+        if self.connection.is_some() {
+            return;
+        }
         if let View::Think(dump) = &mut self.view {
             dump.handle_mouse(event, area);
             return;
@@ -1065,6 +1146,10 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         );
     }
     let body = body(area);
+    if let Some(panel) = &mut home.connection {
+        panel.render(frame, body, palette);
+        return;
+    }
     if let View::Tend(tend) = &mut home.view
         && let Some(history) = &mut tend.history
     {
@@ -1975,7 +2060,7 @@ mod tests {
             }
             assert_eq!(
                 screen.lines().last().unwrap().trim(),
-                "↑↓←→ move   enter open   l link   esc back"
+                "↑↓←→ move   enter open   f connections   l link   esc back"
             );
         }
     }

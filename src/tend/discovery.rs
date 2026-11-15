@@ -247,8 +247,11 @@ impl Discovery {
                         .iter()
                         .zip(origins)
                         .filter_map(|(session, made_in)| {
-                            if made_in == crate::think_record::MadeIn::Unknown
-                                && !session.stage.ended()
+                            if matches!(
+                                made_in,
+                                crate::think_record::MadeIn::Unknown
+                                    | crate::think_record::MadeIn::Invalid(_)
+                            ) && !session.stage.ended()
                             {
                                 repo_unknown += 1;
                             }

@@ -55,6 +55,10 @@ unconfirmed sessions or complete factory telemetry. The read-only
 | `measure/read.rs` | Bounded, cancellable `gh` reads scoped to the launch repo; no shell or retries. |
 | `measure/runs.rs`, `measure/runs/records.rs` | Closed-run postmortems: one explicit, cancellable read of tink-sdlc status, the run's labels, its steps' Pi launch logs and Git, then list and details. Unknown is never zero; no writes or providers. |
 | `tend/mod.rs` | The saved-goal garden's discovery states, selection and detail, with navigation to Shape and saved Think history. |
+| `tend/connection.rs` | One bounded explicit request, latest exploration, source freshness and receipt coordination. |
+| `tend/connection/panel.rs` | Source review and explicit discover, edit, dismiss, save and resume actions. |
+| `seed_me/connection.rs` | Validated Tend creation evidence shared by history, attribution and saving. |
+| `seed_me/connection_save.rs` | Frozen confirmation, owned staging and exclusive publication to one destination. |
 | `tend/history.rs` | One owned history read at a time and a read-only conversation view with separate technical help. |
 | `tend/linking.rs` | The source and target selection state, link refusals and derived needs wording, independent of garden drawing. |
 | `tend/garden.rs` | The graph's framing: selected-line needs, read notes and explicit refusals. |

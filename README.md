@@ -40,13 +40,15 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   Questions offer a suggested answer when available: F1 can copy it for editing; F2 sends.
   When started in Git, the menu names the repository and the record keeps its origin.
 - **Tend:** active goals form a needs graph. Link or unlink goals, open detail, or copy
-  Shape without changing saved sessions.
+  Shape without changing saved sessions. In this repository, press `f` to review an
+  automatic connection between goals. An explicit `F2` uses one drafting request.
+  Review the sources, press `p` to edit the proposed goal, then `F2` to save and open Shape.
   Press `r` in detail for [Think history](docs/design/shape-and-handoff.md#think-history)
   when its saved record verifies.
 - **Shape:** press `s` in goal detail or choose menu place 3 to see the current question,
   waiting draft or verified ready seed. With real drafting set up
   ([terminal setup](docs/terminal-setup.md#launch)), the saved calls or `--shape-budget CALLS` (default zero)
-  set the launch allowance shared by Think and Shape. `F2` saves an answer and lets an agent investigate the next with
+  set the launch allowance shared by Think, Tend connections and Shape. `F2` saves an answer and lets an agent investigate the next with
   read-only tools, and confirms the seed when you type `confirm` after reading it to the end; F1 Revise the draft
   sends a correction back for a new draft.
   Agents operate Think and Shape with `--operator agent`; their saves are

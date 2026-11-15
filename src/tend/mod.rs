@@ -4,6 +4,7 @@
 //! and offers explicit needs links and saved Think history; it never edits a session,
 //! starts an agent or guesses a stage. Everything about session files comes from `seed_me`.
 
+pub(crate) mod connection;
 pub mod discovery;
 mod garden;
 mod graph;
@@ -78,6 +79,11 @@ pub(super) struct Tend {
     link_error: Option<String>,
 }
 impl Tend {
+    /// Whether automatic discovery is requested from this repository's garden.
+    pub(super) fn connection_scope(&self) -> bool {
+        self.repo_paths.is_some() && !self.show_all
+    }
+
     /// A pending view with a captured links destination or refusal; reads no links and writes nothing.
     pub(super) fn new(link_root: Result<PathBuf, String>) -> Self {
         Self {
@@ -412,12 +418,12 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
     } else if !tend.garden_showing() {
         // An empty repo view still offers the way back to all goals.
         if tend.can_toggle_scope() {
-            "a toggle goals   esc back"
+            "f connections   a toggle goals   esc back"
         } else {
             "esc back"
         }
     } else {
-        "↑↓←→ move   enter open   l link   esc back"
+        "↑↓←→ move   enter open   f connections   l link   esc back"
     };
     frame.render_widget(
         Paragraph::new(keys).style(palette.muted),

@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "items": [
+    {
+      "id": "done-1",
+      "description": "One explicit request selects its own source goals and returns one reviewable connection or no useful connection.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-2",
+      "description": "Empty or oversized scope, incomplete reads, ambiguous identities, and zero allowance refuse without provider calls.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-3",
+      "description": "Any active unknown, invalid, or conflicting repository origin blocks discovery, even when session reads are complete. Verified other-repository and explicit no-repository goals do not block it.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-4",
+      "description": "Navigation, refresh, and unchanged-input reopening make no requests. Each started pass uses at most one request.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-5",
+      "description": "Invalid references, malformed replies, cancellation, and failures preserve originals and existing Tend use.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-6",
+      "description": "The latest result and dismissal survive reopening. Changed source inputs prevent a stale new handoff. No older dismissal history is required.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-7",
+      "description": "Reuse and save checks use the same source-input definition. Unrelated Shape answers preserve reuse and handoff. Goal text, identity, repository, status, or membership changes invalidate them.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-8",
+      "description": "Confirmed words and source evidence reach Shape unchanged. Opening Shape starts no drafting or delivery.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-9",
+      "description": "The new goal remains in the same repository garden after restart; Shape uses that repository and Approve retains its mismatch protection.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-10",
+      "description": "Old Think-origin attribution and legacy unknown-origin behavior remain unchanged. Tend-origin history invents no conversation.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-11",
+      "description": "Invalid or conflicting Tend origins block discovery, refuse Shape drafting without fallback, and disable Approve launch commands.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-12",
+      "description": "At each specified interruption point, restart and explicit resume produce at most one destination with the exact frozen goal and provenance.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-13",
+      "description": "Concurrent attempts and conflicting paths cannot overwrite another session. Uncertain publication blocks another destination and unsafe cancellation.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-14",
+      "description": "Public-interface tests use fake providers and TEST roots. Reversion probes cover consent, originals, attribution, and duplicate handoff.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-15",
+      "description": "Full required checks and terminal journeys pass at 80\u00d724 and 100\u00d730, including color disabled.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-16",
+      "description": "Report mechanical results separately from human discovery: what was newly revealed, whether it changed desired work, review effort, and cost.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    }
+  ]
+}
