@@ -1,0 +1,7 @@
+{
+  "item": "done-8",
+  "result": "passed",
+  "evidence": "Checked code eb3efb6. Three required mutations are rejected at their intended assertions by scripts/probe-thoughts.py. Sources and binary are restored. Full check: 03-build/output/full-check-fix-2-retry.log. Probes: 03-build/output/thought-probes-2.log.",
+  "candidate": "f957df5aa3386fcdeccdf16b1ed7840f7f57dea2e3d1c161d37c6f5b5e8ddc2c",
+  "time_ns": 1794757884835739000
+}
