@@ -78,4 +78,4 @@ Two new reversion logs remove only the source-parent retry sync or only the dest
 
 For each new probe, temporarily remove the relevant sync in the already-published branch and run `cargo +stable test --lib published_resume_retries_both_parent_syncs_before_reporting_success -- --nocapture` through `test_launch.run(..., env=test_launch.environment())`. Restore the source before the other probe. The logs are `reversion-resume-sync-source.log` and `reversion-resume-sync-destination.log`.
 
-The previous candidate passed full checks. The repaired candidate's final verification will be recorded after its committed full run. No push, PR change or merge is performed by the worker.
+Repair commit: `4e675a5`. Full SDLC verification passed on this committed candidate: 1121 Rust tests passed (one ignored), 39 Node tests passed, all 84 Python files passed, formatting passed and Clippy passed. Marks 12–14 were refreshed from the repair evidence before verification. The receipt is current in `04-test/output/verification.json`. No push, PR change or merge was performed by the worker.
