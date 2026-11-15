@@ -1,129 +1,103 @@
-Round: 1
-Reviewer session: 01a1de7c-36c7-7638-a5ef-fdffd6391de1
+Previous review: f35efc9
+Round: 2
+Reviewer session: 01a1dfec-5756-73f2-a6b2-e0950409f4c9
 
-# Review findings: issue-864-tend-thought, round 1
+# Review findings: issue-864-tend-thought, second review
 
-Candidate: `279077f` (code at `d3e0e84`), diff `git diff 04c2bc4 HEAD -- . ':!runs'`.
-Reviewer model vendor: Anthropic (`claude-opus-5-5`). The author used a different vendor.
+Candidate: `868bdca` (code at `eb3efb6`). Repair diff: `git diff 279077f HEAD -- . ':!runs'`.
+Reviewer model vendor: Anthropic. The author used a different vendor.
+Binary under test: `cargo +stable build --locked` at `868bdca`. All TEST roots were in the system temporary directory.
 
 ## Verdict
 
-**changes required**
+**pass with notes**
 
-One Important finding blocks: mouse picking in link mode is now offset by three rows in the repository garden.
-A click on a visible goal does nothing. A click on empty space three rows below a goal writes a needs link.
-The other Done-when lines hold on the evidence I checked. No other blocker was found.
+I-1 is repaired. I reproduced the repair with the real binary at 80×24 and 100×30.
+The repair added no render and pointer mismatch that I could find. N-1 and N-3 are repaired.
+Three Nits remain. None of them blocks.
 
 ## Findings, by severity
 
-### I-1 (Important, blocks): link-mode mouse picks are offset by three rows in the repository garden
+### Important
 
-- Location: `src/tend/mod.rs:301-310` (pointer) against `src/tend/mod.rs:467-483` (render).
-- Observed in code: `render` draws the thought summary and moves the graph down three rows only when
-  `!tend.detail && !tend.is_linking() && tend.connection_scope()`.
-  `pointer` moves the hit-test rectangle down three rows when `connection_scope()` is true. It does not check `is_linking()`.
-  In link mode, the graph is drawn at one place and hit-tested at another.
-  `Garden::summary()` is never empty, so every repository garden with a repository is affected, also with no saved thoughts.
-- Checked, 100×30, temporary TEST root, binary built from `279077f`, fixture from `tests/tend_connection_terminal.py`:
-  - All-goals scope (`a`, then `l`), click on the visible ring of the second goal at (73,14): `needs.json` = `{"needs":[{"goal":"goal-0","needs":"goal-1"}]}`.
-  - Repository scope (`l`), the same visible ring at (73,14): `needs.json` absent. The click did nothing.
-  - Repository scope (`l`), the label at (64,11) and (64,8): `needs.json` absent.
-  - Repository scope (`l`), empty space at (73,17), three rows below the ring: `needs.json` = the link above.
-- Effect: a functional regression outside the issue's scope. A click on empty space writes a needs link that the operator did not aim at.
-  Linking is a needs write, so this touches saved data, not only selection.
-- Why CI did not catch it: `tests/tend_terminal.py` exercises `link-mouse` outside a repository, where `thoughts` is `None`.
-  `tests/tend_repo_terminal.py` clicks in the repository garden only outside link mode, where render and pointer agree.
-- Repair direction (proposal): use one condition for both paths, for example one helper that both `render` and `pointer` call.
-  Add a repository-scope `link-mouse` regression and prove that it fails with the guard reverted.
-- Probe scripts (outside the repository): `/tmp/review864/link_click.py`, `/tmp/review864/link_ctrl.py`.
+None.
 
-### N-1 (Nit, does not block): a failed directory sync reports "not saved" after the thought file is in place
+### N-4 (Nit, does not block): the help text keeps a second copy of the visibility condition
 
-- Location: `src/tend/thought.rs:146-151`.
-- Observed in code: `persist_noclobber` succeeds, then `fs::File::open(root).and_then(sync_all)` can fail.
-  The screen then shows `Thought not saved: …` while the file exists. A second F2 shows `Thought already saved`.
-- Not reproduced. A directory fsync failure is rare. The words are not lost, but the screen claim is false in that case.
+- Location: `src/tend/mod.rs:388`. The helper is `src/tend/mod.rs:252-260`.
+- Observed in code: `help_text` tests `!self.detail && !self.is_linking() && self.connection_scope()`.
+  This is the helper's condition without the summary check. The key guard at `src/menu.rs:633-636` holds a third copy. That copy is from round 1.
+- Render (`src/tend/mod.rs:480`) and pointer (`src/tend/mod.rs:312`) both call `thought_summary()`. No geometry path holds a copy.
+- Effect: none observed. The help copy controls text only, not a rectangle. If the helper changes, the help text can drift from the screen.
 
-### N-2 (Nit, does not block): Ctrl+C does nothing while the thought editor or reader is open
+### N-5 (Nit, does not block): the uncertain-persistence notice drops "No goal confirmed"
 
-- Location: `src/menu.rs:621-631`.
-- Observed in code: the thought block returns before the generic `Ctrl+C` quit. In the editor, `Words` treats Ctrl+C as copy.
-  In the read-only reader, Ctrl+C is swallowed. Esc or F10 closes the view first.
-- This matches other text editors. In the read-only reader it is a small surprise. Operator preference.
+- Location: `src/tend/thought.rs:149-151`.
+- Observed: the normal notice says `Thought saved. No goal confirmed.` (`:153`). The uncertain notice does not repeat the goal disclosure.
+  At 80 columns, the OS error text is cut after `Reopen before another save:`.
+- The editor states "No goal confirmation" before the save. Thus the operator sees the disclosure once.
 
-### N-3 (Nit, does not block): Tend help does not name `t`, `v` or `g`
+### N-6 (Nit, does not block): the new regression waits for text that is already on screen
 
-- The garden key bar is unchanged by design (`docs/design/shape-and-handoff.md`). The summary line names `t` and `v`.
-  `grep -rn thought` finds no Tend help text. The keys are discoverable only from the summary line.
+- Location: `tests/tend_thought_terminal.py:230`.
+- Observed in code: after the empty-space click, `flow.wait(term, 'esc')` returns on the next output that contains `esc`.
+  The key bar already contains `esc`. The needs-file check can run before a wrong write lands.
+- Checked: the bypass probe still failed at both sizes (item 5). The race did not hide the fault in my runs.
 
-## Checked facts, by brief risk
+## Checked facts, in brief order
 
-1. Input routing. Checked in code (`src/menu.rs:621-650`, `:437-444`, `:1090-1092`, `:1195-1201`):
-   - `t` and `v` act only when no connection panel is open, not in detail, not linking, not in help, in repository scope,
-     with Press and no modifiers. History requires detail (`r` acts only in detail). Tend `how` acts only under help.
-   - While the thought view is active, it receives all keys, paste and render. Mouse input is ignored. `g` acts only inside the reader.
-   - No other Tend mode that owns text was found. The connection-panel correction leak is repaired and covered.
-   - The pointer path is the leak that remains (I-1). It is a mouse path, not a key path.
-2. Authority. Checked:
-   - Only F2 in the editor calls `save`. The editor names the repository and says "No model call. No goal confirmation."
-   - Saved JSON is `{schema, repo, words}` with `words` written unchanged. The journey checks bytes with CR, CRLF, tab, ZWJ emoji and edge spaces.
-   - `thought.rs` imports no session, record, Shape or provider module. `g` builds a fresh `make_dump()` and pastes. `BrainDump::paste` → `Note::insert` keeps bytes.
-   - The promotion journey shows no provider call before the operator presses F2 in Think.
-3. "Listed in the garden". Count plus one summary line, full list behind `v`. See the operator questions below.
-4. Storage. Checked in code:
-   - The file name is `thought-<sha256(repo path)>-<sha256(words)>.json`. Read checks schema, repo, non-empty, size and the name. Duplicates are exact bytes.
-   - `O_NOFOLLOW | O_NONBLOCK`, a regular-file check and a read cap of `LIMIT*6+4096` bytes. A temp file plus `persist_noclobber`, with file and directory fsync.
-   - An existing different file at the same name is refused, not replaced.
-   - A malformed or foreign file is counted as unreadable. The store error stays visible. An unwritable store refuses and keeps the editor words.
-   - No collision: the same directory holds `needs.json`, `needs.lock` and `connection-<sha256(repo)>.json`. The `thought-` prefix is distinct.
-   - The repository key is the raw `Repo::root()` path, the same as `connection-*.json`. It is not canonicalized.
-   - Terminal control bytes in a saved thought do not reach the terminal.
-     I wrote `ESC[2J`, `ESC[H` and an OSC title into a thought file. The summary showed the visible text only. The raw PTY output held no `ESC[2J`.
-5. Promotion. Checked in the journey and code. `g` opens Think unsent, the confirmation record's first turn equals the thought bytes,
-   and the thought file bytes are unchanged afterwards. The goal needs the existing typed `confirm`.
-6. Tests. `tests/tend_thought_terminal.py` drives the real binary through a PTY. It reads files only as a user can see them. It adds no test-only accessor.
-   I ran it at `279077f`: "Thought journeys passed at 80x24 and 100x30 without colour. Local stubs only."
-   I read the three probe mutations in `scripts/probe-thoughts.py`. Each one targets the named protection.
-   The expected assertion text is distinct per probe. `probes-fix.log` records all three rejections. I did not run the probes again.
-7. Subtraction. `src/shape/words.rs` moved to `src/words.rs` without logic change: 4 lines changed, and `pub(super)` at crate root equals crate visibility.
-   `tests/architecture.rs` lists it as `shared`. Two features use it, so the move is justified. No code outside the issue's need was found, apart from I-1's side effect.
+1. I-1 repaired. Real binary, fixture from `tests/tend_connection_terminal.py`, probe `/tmp/review864r2/probe2.py`.
+   - Repository scope, link mode, 80×24 and 100×30, with zero thoughts and with one saved thought:
+     a click three rows below the visible ring of the second goal left `needs.json` absent.
+     A click on the ring wrote `{"goal":"goal-0","needs":"goal-1"}`. A click on the label row (three rows above the ring) wrote the same link.
+   - All-goals scope gave the same results at the same rows. In link mode the summary is hidden, and the ring rows match in both scopes.
+   - Code: `render` and `pointer` both call the private `thought_summary()`. No other place moves the garden body by three rows.
+2. No new mismatch. Checked with the real binary in repository and all-goals scope, in and out of link mode, with zero thoughts and with thoughts, at both sizes:
+   - Out of link mode in repository scope, the summary shows and the rings are drawn two rows lower than in all-goals scope at 100×30. This is expected.
+   - Hover (`Moved`) over a ring changed no screen cell and wrote nothing.
+   - A drag from empty space, released on a ring, wrote nothing in link mode.
+   - Scroll events wrote nothing and did not move the rings.
+   - Pointer paths in code: down, drag, up and scroll all enter `Tend::pointer`, then one `sync_graph(body)`. `release_pointer` calculates no rectangle.
+     `garden::render` calls `sync_graph` with the rectangle that `render` computed with the same helper.
+   - Each behaviour above was the same in repository scope and all-goals scope. A scope-dependent offset would show as a difference.
+3. N-1 repaired. I built a copy of `868bdca` outside the repository with the directory sync replaced by an error.
+   At both sizes the screen showed `Thought saved, but persistence is uncertain.` and not `Thought not saved`.
+   One thought file existed, its words equalled the typed bytes, and the reader showed the words. No provider request was made.
+   A second save of the same words showed `Thought already saved. One entry. No goal confirmed.`. The file count stayed at one.
+   The claim on screen is true: `persist_noclobber` succeeded before the sync, so the file is in the directory.
+4. N-3 repaired. F1 help in the repository garden shows `t new thought · v read thoughts` and `g in the thought reader opens Think, unsent.` at both sizes.
+   Help does not name them in link mode or in all-goals scope, where the keys do not act.
+   The garden key bars are `↑↓←→ move   enter open   f connections   l link   esc back` (repository) and
+   `↑↓←→ move   enter open   l link   esc back` (all goals). The repair diff does not touch them.
+   `docs/design/shape-and-handoff.md` gains one line that states the help keys.
+5. Regression proof. In a copy outside the repository, I replaced the helper call in `pointer` with the old condition and rebuilt.
+   `repository_link` failed at 80×24 and 100×30 with `AssertionError: Empty-space click wrote a needs link`.
+   With the helper restored, it passed at both sizes. I did not run `scripts/probe-thought-repair.py`, because it rewrites the checkout.
+6. Scope. The repair diff changes `src/tend/mod.rs`, `src/tend/thought.rs`, `tests/tend_thought_terminal.py`,
+   `scripts/probe-thought-repair.py` and one line in `docs/design/shape-and-handoff.md`. All five map to repair brief 2 items 1 to 3.
+   - Authority: unchanged. Only F2 in the editor calls `save`. `save` now returns the notice text instead of a flag. No session, record, Shape or provider import was added.
+   - Storage: unchanged apart from the notice. File name, read checks, `persist_noclobber` and the refusal of a different existing file are as in round 1.
+   - Promotion: the `g` path in `src/menu.rs` is not in the repair diff.
+   - `verification.json` names candidate head `19eca99`. `eb3efb6..HEAD` changes only `runs/`. The eight new marks follow the repair.
+   - `tests/tend_repo_terminal.py` passed in my run.
 
-## Done-when lines
+## Hypotheses and observations not attributed to this repair
 
-| Item | Reviewer reading |
-|---|---|
-| done-1 save, one disclosed action, exact bytes | Holds (journey, code). |
-| done-2 listed after restart, labelled thought | Holds as count plus summary line. See question Q1. |
-| done-3 no confirmation record, no Shape, not in request | Holds (journey `no_goal`, `s` check, request sources = 2). |
-| done-4 Find connections runs with thoughts | Holds (journey with provider stub). |
-| done-5 duplicate gives one entry and says so | Holds after restart. A duplicate in one visit was not tested, but it uses the same code path. |
-| done-6 promotion through existing confirmation, thought stays | Holds (promotion journey). |
-| done-7 journeys at 80×24 and 100×30, colour off | Holds for save, restart, duplicate, cancel and unwritable store. |
-| done-8 three reversion probes | Holds on recorded evidence. I did not run it again. |
-
-The release still fails on I-1. It is a regression outside the Done-when lines.
-
-## Hypotheses (not checked)
-
-- If two Tinkery processes save different words at the same moment, `create_dir_all` and `persist_noclobber` are safe. I did not run concurrent writers.
-- A launch from a symlinked path can give a different `Repo::root()` string from a launch by the real path. Then thoughts split by path. Goals and connections share this rule.
+- After the reader closes, the test terminal shows stray ZWJ-emoji cells (`‍💻`) above the graph in both scopes.
+  I think the cause is a width difference between ratatui and the test emulator for `👩‍💻`. I did not test a real terminal. The repair diff does not touch this.
+- In link mode, after a drag that starts on empty space, the next ring click wrote nothing. Both scopes behave the same. I did not check if this is intended or older than this run.
+- Out of link mode, my single and double clicks on rings and labels did not change selection or open detail, in either scope.
+  `tests/tend_repo_terminal.py`, which double-clicks a label in repository scope, passed. I think my probe timing is the cause. This result is inconclusive.
 
 ## Not checked
 
-- `python3 scripts/full-check.py`, Clippy, fmt and the full Python suite. I relied on `full-check-fix.log` for those.
-- `scripts/probe-thoughts.py`. I did not run it again, because it rewrites source files in the checkout.
-- Behaviour at 80×24 for I-1. I reproduced it at 100×30 only. The code path does not depend on size.
-- Very many thought files: `read` lists the whole directory on each Tend open and each `v`. There is no count bound.
-- Non-UTF-8 repository paths.
-- macOS behaviour of `persist_noclobber` under a full disk.
-
-## Questions for the operator (product shape)
-
-- Q1: The issue says the thought "is listed in that repository's garden". The garden shows `Thoughts: N`, one first-line summary, and the full list behind `v`.
-  Is a count plus one line enough, or must each thought show in the garden itself?
-- Q2: Thought keys appear only in the summary line, not in the key bar or F1 help. Is that discoverable enough?
+- `python3 scripts/full-check.py`, Clippy, fmt and the full Python suite. I relied on `full-check-fix-2-retry.log`.
+- `scripts/probe-thoughts.py` and `scripts/probe-thought-repair.py` in the checkout. Both rewrite source files.
+- A real directory fsync failure. I injected the error in a copy of the source.
+- Keyboard selection, pan and zoom after the repair. They do not use the body rectangle in code.
+- Concurrent writers, symlinked launch paths and very many thought files. These remain as in round 1.
 
 ## Skills
 
-`principle-prove-it-works` changed one decision. I ran the real binary in PTYs, and did not rely on code reading for I-1.
-That run confirmed the regression and ruled out the terminal-escape hypothesis.
+`principle-prove-it-works` changed one decision: I built a mutated copy outside the repository and ran the regression against it,
+instead of trusting `repair-probes-2.log`.
