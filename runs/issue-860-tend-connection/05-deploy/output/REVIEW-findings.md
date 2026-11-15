@@ -1,40 +1,55 @@
-Round: 1
-Reviewer session: /root/review_860_code
+Round: 2
+Reviewer session: /root/review_860_round2
+Previous review: 5b550ec
 
 ## Verdict
 
-Changes required. One Important finding blocks review completion.
+The round 1 Important finding is resolved. No new Important finding was established in the repair.
 
-Reviewed detached candidate `ea6242bec05cfb80b1bdd1bdae13eb58f7388467`, with product code at `6765119`, against `origin/main` (`2c0c8f1`). The later PR receipt commit is outside this review and does not change the product code.
+Reviewed candidate `35f63ade580b6c42e094f00ff41f00e534fb85b2`, with product code at `4e675a58ae5587bb8d5aea917a169ef6130491ec`.
+This review covers changes since `ea6242bec05cfb80b1bdd1bdae13eb58f7388467` and resolution of the previous finding.
+It does not repeat the full feature review.
 
-## Important
+## Resolution
 
-### 1. Complete publication syncs when resuming an existing destination
+`Pending::resume` verifies the published destination, then syncs both publication parent directories before returning success.
+Each failure returns through the existing error path.
+`Context::save` therefore cannot record `saved` after a failed sync, and the persisted pending receipt remains available.
+`inspect` remains read-only.
+The existing-destination path still bypasses source-membership checks, so the newly published goal cannot invalidate its own recovery.
+The repair stays within the shared saver and updates its existing design contract.
 
-Location: `src/seed_me/connection_save.rs:151–152`.
+The new test denies directory-open permission for each parent separately while retaining traversal to the published destination.
+It verifies that inspection succeeds, resume fails, and restored permissions permit recovery to the same destination and exact goal.
+The supplied closure panics if recovery incorrectly checks changed membership.
+The test also checks that only one destination exists.
+Separate reversion logs show the test failing when either retry sync is removed.
+These probes isolate both syncs without removing the published-destination path.
 
-`Pending::resume` returns immediately when `inspect` finds the published destination. The first attempt performs the directory syncs only after `publish`, at lines 214–216. If the process stops after rename, or either sync returns an error, the next explicit resume takes the early return. It never retries the outstanding directory syncs. `Context::save` can then persist `saved` and open Shape although publication durability remains unconfirmed.
+## Checked evidence and limits
 
-This breaks the brief's requirement to persist parent-directory updates before reporting success. File content checks establish that the destination is readable now. They do not establish that its renamed directory entry is durable. A later machine failure can lose an entry that the application has reported as saved.
+The SDLC status command reports current verification and 16/16 passed checklist attestations.
+The verification receipt identifies product commit `4e675a5`.
+I inspected the current receipt, full test log, focused saver log, both new reversion logs, test code, and updated handoff.
+Recorded full verification reports 1121 Rust passes and one ignored test, 39 Node passes, and 84 passing Python files.
+Formatting and Clippy passed.
+The focused saver log records all ten saver tests passing, including the new recovery test.
+I did not rerun the full checks or change verification marks.
 
-Minimal fix: after verifying an existing destination, explicitly sync both publication parent directories before returning the receipt. Propagate sync failures and retain the pending receipt. Keep `inspect` read-only. Continue to bypass source-membership checks for an already-published goal.
+The permission test runs under an ordinary user.
+It returns without exercising the permission refusal under root, which bypasses that restriction.
+The recorded macOS reversion failures demonstrate that the refusal was exercised in this run.
+This evidence checks error handling and retry behavior, not actual machine power loss.
+Earlier terminal evidence uses fake providers and TEST roots, including 80×24 and 100×30 journeys.
+No human discovery trial or usefulness acceptance is established.
+Current forge checks remain the owner's release check.
 
-Add focused failure coverage for publication followed by a failed or interrupted directory sync. Explicit resume must complete both syncs before success. A remaining sync failure must keep the operation pending. No power-loss claim is required.
+## Method and handoff
 
-## Checked scope and evidence
+`principle-prove-it-works` directed inspection of actual source, tests, receipts, and failure output instead of the worker summary.
+`writing-for-agents` kept this report limited to the repair, evidence, and remaining limits.
+No source, test, evidence, or provider state was changed during review.
+Only this review report was written.
 
-The implementation remains within one explicit connection pass and one shared goal-save path. It does not add a wiki, background discovery, phase imports, or automatic drafting.
-
-I inspected automatic source selection, shared freshness checks, request and consent handling, proposal review, editor retention, private file modes, fixed-destination recovery, typed origin validation, Shape and Approve refusals, and existing retry evidence copying. No further Important finding was established.
-
-The SDLC status command reported current verification for this candidate. The receipt records passed verification after all 16 checklist attestations. Its source inputs remain unchanged in the review checkout. The recorded full check reports 1120 Rust passes and one ignored test, 39 Node passes, 84 Python files, formatting, and Clippy. I inspected the receipt, test log, tests, and handoff. I did not rerun the full checks or mutate their marks.
-
-The terminal evidence uses fake providers and TEST roots. It includes real process restarts and reconstructed interruption states. It does not prove real power-loss behavior or human discovery usefulness. Linux execution and current forge checks remain the owner's responsibility. No real provider call occurred during this review.
-
-The duplicate-handoff reversion removes the published-destination fast path. Its observed failure proves recovery despite changed membership. Exclusive publication and fixed identity provide separate protection against duplicate destinations. Keep those evidence claims distinct.
-
-## Review method
-
-`principle-prove-it-works` directed inspection of the actual candidate, verification receipt, test code, and saved output rather than relying on the worker's summary. `writing-for-agents` kept the repair instruction in this report without changing project rules.
-
-The user has not authorized a merge. This review does not grant human acceptance or merge permission.
+The user prohibits merging.
+This review supplies technical evidence and does not grant merge permission or human acceptance.
