@@ -1,0 +1,36 @@
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_terminal.py", line 316, in <module>
+    for size in [(80,24), (100,30), (160,40), (320,40)]: journey(*size)
+                                                         ~~~~~~~^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_terminal.py", line 115, in journey
+    send(b'2', GARDEN_KEYS)
+    ~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_terminal.py", line 82, in send
+    wait(lambda: text in screen.text())
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_terminal.py", line 78, in wait
+    raise AssertionError(screen.text())
+AssertionError:                                                                                 
+  tinkery › tend                                         0 runs left   dark  ?  
+                                                                                
+  this repo · a all                                                             
+  t new thought                                                                 
+                                                                                
+                                                                                
+  7 goals have no readable repo record. Press a for all goals.                  
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  f connections   a toggle goals   esc back                                     

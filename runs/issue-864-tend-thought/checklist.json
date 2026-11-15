@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "items": [
+    {
+      "id": "done-1",
+      "description": "From the repository garden, the operator saves a thought with one disclosed action, and the saved words equal the typed words byte for byte.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-2",
+      "description": "After restart, the thought is listed in that repository's garden, labelled as a thought and not as a goal.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-3",
+      "description": "A saved thought has no goal confirmation record, cannot open Shape, and is absent from the Find connections request.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-4",
+      "description": "Find connections still runs in a repository that holds thoughts. A thought never causes incomplete discovery.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-5",
+      "description": "Saving the same exact words twice in one repository results in one entry, and the screen says so.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-6",
+      "description": "Turning a thought into a goal uses the existing goal confirmation, keeps the thought's words as the original, and leaves the thought on record.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-7",
+      "description": "Terminal journeys at 80\u00d724 and 100\u00d730 with colour off cover save, restart, duplicate save, cancel and an unwritable store, with temporary TEST roots and no provider.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-8",
+      "description": "Reversion probes fail when a thought is recorded as a confirmed goal, when saved words differ from typed words, and when a thought reaches a provider request.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    }
+  ]
+}

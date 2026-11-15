@@ -1,0 +1,38 @@
+confirmed-goal: protection did not fail for the expected reason
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_thought_terminal.py", line 175, in <module>
+    journey(size)
+    ~~~~~~~^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_thought_terminal.py", line 59, in journey
+    flow.send(term, flow.F2, 'Thought saved. No goal confirmed.')
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_connection_terminal.py", line 27, in send
+    return wait(term, text)
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_connection_terminal.py", line 22, in wait
+    raise AssertionError(f'Missing {text!r}:\n{term.screen.text()}')
+AssertionError: Missing 'Thought saved. No goal confirmed.':
+                                                                                
+  tinkery › tend                                            practice         ?  
+                                                                                
+  New thought                                                                   
+  Repository:                                                                   
+  /Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/target/tmp/tinker  
+  y-TEST-build/tinkery-TEST-thought-248ybdn9/repo                               
+  F2 saves exact words here. No model call. No goal confirmation.               
+                                                                                
+    TEST raw thought café 👩‍💻                                                   
+  Keep    these words.                                                          
+  Last line.                                                                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  Thought not saved: The goal save could not be verified. Inspect the recovery  
+  session before retrying.                                                      
+  F2 save thought only   esc cancel                                             
+                                                                                
+

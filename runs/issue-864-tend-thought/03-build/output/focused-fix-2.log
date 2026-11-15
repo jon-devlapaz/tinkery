@@ -1,0 +1,168 @@
+CHECK tend_thought_terminal.py
+Thought journeys passed at 80x24 and 100x30 without colour. Local stubs only.
+CHECK tend_terminal.py
+{"width": 80, "height": 24, "journey": "garden/arrows/jk/mouse/status/detail/repeat copy/help/back/menu", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+TEST Tend 100×30 screen:
+                                                                                                    
+  tinkery › tend                                                             0 runs left   dark  ?  
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+       Clear next step          Quiet garden          Readable goals           Local records        
+             ⢀⣀                      ⣀⣀                      ⣀⣀                      ⣀⣀             
+            ⡸⠁ ⢱                    ⡎  ⢱                    ⡎  ⢱                    ⡎  ⢇            
+            ⠘⠢⠤⠊                    ⠑⠤⠤⠊                    ⠑⠤⠤⠊                    ⠑⠤⠤⠃            
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+       Garden goal 08          Manual control          › Calm theme                                 
+                                                                                                    
+                                                                                                    
+            ⢠⠔⠒⢄                    ⡠⠒⠒⢄                    ⡰⠚⠓⢆                                    
+            ⢣⡀ ⡸                    ⢇  ⡸                   ⠘⢇  ⡸                                    
+             ⠈⠉                      ⠉⠉                      ⠉⠉                                     
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+  1 ended not shown                                                                                 
+  Calm theme                                                                 goal saved · just now  
+                                                                                                    
+  ↑↓←→ move   enter open   l link   esc back                                                        
+{"width": 100, "height": 30, "journey": "garden/arrows/jk/mouse/status/detail/repeat copy/help/back/menu", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+{"width": 160, "height": 40, "journey": "garden/arrows/jk/mouse/status/detail/repeat copy/help/back/menu", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+{"width": 320, "height": 40, "journey": "garden/arrows/jk/mouse/status/detail/repeat copy/help/back/menu", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+{"width": 80, "height": 24, "journey": "garden/whole-graph", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+{"width": 80, "height": 24, "journey": "garden/drag-scroll", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+{"width": 100, "height": 30, "journey": "garden/drag-scroll", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+{"width": 160, "height": 40, "journey": "garden/drag-scroll", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+{"width": 320, "height": 40, "journey": "garden/drag-scroll", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+{"width": 80, "height": 24, "journey": "garden/unreadable", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+{"width": 100, "height": 30, "journey": "garden/held-lock", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+{"width": 80, "height": 24, "journey": "garden/link-keyboard", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+{"width": 80, "height": 24, "journey": "garden/link-mouse", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+{"width": 80, "height": 24, "journey": "garden/linked-rings", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+{"width": 100, "height": 30, "journey": "garden/link-keyboard", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+{"width": 100, "height": 30, "journey": "garden/link-mouse", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+TEST linked rings 100×30 screen:
+                                                                                                    
+  tinkery › tend                                                             0 runs left   dark  ?  
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                Clear next step                    › Calm theme                     
+                                                                                                    
+                                                                        ⣀⠴⠦⡀                        
+                                     ⡔⠉⠉⢢⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡠⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠠⡇⠤ ⢸                        
+                                     ⠣⣀⣀⠜                               ⠉⠲⠖⠁                        
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+  1 ended not shown                                                                                 
+  Calm theme                             goal saved · just now · needs Clear next step · not ready  
+                                                                                                    
+  ↑↓←→ move   enter open   l link   esc back                                                        
+{"width": 100, "height": 30, "journey": "garden/linked-rings", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+{"width": 160, "height": 40, "journey": "garden/link-keyboard", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+{"width": 160, "height": 40, "journey": "garden/link-mouse", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+{"width": 160, "height": 40, "journey": "garden/linked-rings", "provider_calls": 0, "sessions": "synthetic fixtures in temporary root", "operator_confirmation": false}
+CHECK tend_repo_terminal.py
+{"width": 80, "height": 24, "no_color": false, "journey": "repo-scope/incomplete-outside", "unreadable": 1, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 80, "height": 24, "no_color": false, "journey": "repo-scope/incomplete-outside", "unreadable": 2, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 80, "height": 24, "no_color": false, "journey": "repo-scope/incomplete-all", "unreadable": 1, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 80, "height": 24, "no_color": false, "journey": "repo-scope/incomplete-all", "unreadable": 2, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 80, "height": 24, "no_color": false, "journey": "repo-scope/incomplete", "unreadable": 1, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 80, "height": 24, "no_color": false, "journey": "repo-scope/inside", "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 80, "height": 24, "no_color": false, "journey": "repo-scope/outside", "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 80, "height": 24, "no_color": false, "journey": "repo-scope/empty", "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 80, "height": 24, "no_color": false, "journey": "repo-scope/broken", "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 80, "height": 24, "no_color": true, "journey": "repo-scope/incomplete-outside", "unreadable": 1, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 80, "height": 24, "no_color": true, "journey": "repo-scope/incomplete-outside", "unreadable": 2, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 80, "height": 24, "no_color": true, "journey": "repo-scope/incomplete-all", "unreadable": 1, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 80, "height": 24, "no_color": true, "journey": "repo-scope/incomplete-all", "unreadable": 2, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 80, "height": 24, "no_color": true, "journey": "repo-scope/incomplete", "unreadable": 1, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 80, "height": 24, "no_color": true, "journey": "repo-scope/inside", "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 80, "height": 24, "no_color": true, "journey": "repo-scope/outside", "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 80, "height": 24, "no_color": true, "journey": "repo-scope/empty", "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 80, "height": 24, "no_color": true, "journey": "repo-scope/broken", "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": false, "journey": "repo-scope/incomplete-outside", "unreadable": 1, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": false, "journey": "repo-scope/incomplete-outside", "unreadable": 2, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": false, "journey": "repo-scope/incomplete-all", "unreadable": 1, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": false, "journey": "repo-scope/incomplete-all", "unreadable": 2, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": false, "journey": "repo-scope/incomplete", "unreadable": 1, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": false, "journey": "repo-scope/inside", "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": false, "journey": "repo-scope/outside", "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": false, "journey": "repo-scope/empty", "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": false, "journey": "repo-scope/broken", "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": true, "journey": "repo-scope/incomplete-outside", "unreadable": 1, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": true, "journey": "repo-scope/incomplete-outside", "unreadable": 2, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": true, "journey": "repo-scope/incomplete-all", "unreadable": 1, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": true, "journey": "repo-scope/incomplete-all", "unreadable": 2, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": true, "journey": "repo-scope/incomplete", "unreadable": 1, "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": true, "journey": "repo-scope/inside", "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": true, "journey": "repo-scope/outside", "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": true, "journey": "repo-scope/empty", "provider_calls": 0, "fixtures": "temporary TEST roots"}
+{"width": 100, "height": 30, "no_color": true, "journey": "repo-scope/broken", "provider_calls": 0, "fixtures": "temporary TEST roots"}
+CHECK tend_connection_terminal.py
+Tend connection: 2 restart/handoff journeys, 4 refusal/no-result cases, 5 input refusals, cancellation/dismissal, 6 freshness cases; no real provider calls.
+CHECK tend_correction_terminal.py
+80x24: save/restart, exact disclosure, different-goal no-result, v2 handoff, clear/reopen; four fake calls
+80x24: capture shows repo/proposal; context scrolling retains draft; two final newlines survive untouched replacement/restart
+100x30: save/restart, exact disclosure, different-goal no-result, v2 handoff, clear/reopen; four fake calls
+100x30: capture shows repo/proposal; context scrolling retains draft; two final newlines survive untouched replacement/restart
+one final newline survives untouched replacement without a call
+long repository remains scrollable during capture; navigation retains draft and makes no call
+cancel, oversized edit recovery, stale Replace/Clear and active writer refusal: one fake call
+legacy prompt pending recovery, malformed correction saved-goal opening/Clear and symlink refusal: one fake call
+stale disclosure refuses a call; reopening shows the exact correction sent
+failed filesystem write preserves prior correction and exact editor words; retry makes no request
+correction freshness rejects stale edited goal and pending publication; no extra calls
+complete input limit and four strict exploration/receipt format refusals passed
+Correction journeys passed. Fake responses prove transfer mechanics, not usefulness or relevance.
+CHECK goal_confirmation_terminal.py
+   Compiling tinkery v0.1.0 (/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.25s
+{"width": 80, "height": 24, "provider": "stub", "ledger": "Rust", "think_record": "one, verified", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "receipt_keys": ["s", "Esc"], "entry": "standalone", "navigation": "s", "viewer_started": false, "session_root": "isolated temporary directory", "home_case": "absolute", "session_case": "default", "in_repo": false}
+{"width": 80, "height": 24, "provider": "stub", "ledger": "Rust", "think_record": "one, verified", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "receipt_keys": ["s", "Esc"], "entry": "home", "navigation": "s", "viewer_started": false, "session_root": "isolated temporary directory", "home_case": "absolute", "session_case": "default", "in_repo": false}
+{"width": 80, "height": 24, "provider": "stub", "ledger": "Rust", "think_record": "one, verified", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "receipt_keys": ["s", "Esc"], "entry": "standalone", "navigation": "s", "viewer_started": false, "session_root": "isolated temporary directory", "home_case": "absolute", "session_case": "explicit", "in_repo": false}
+{"width": 100, "height": 30, "provider": "stub", "ledger": "Rust", "think_record": "one, verified", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "receipt_keys": ["s", "Esc"], "entry": "standalone", "navigation": "s", "viewer_started": false, "session_root": "isolated temporary directory", "home_case": "absolute", "session_case": "explicit", "in_repo": false}
+{"width": 160, "height": 40, "provider": "stub", "ledger": "Rust", "think_record": "one, verified", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "receipt_keys": ["s", "Esc"], "entry": "standalone", "navigation": "s", "viewer_started": false, "session_root": "isolated temporary directory", "home_case": "absolute", "session_case": "explicit", "in_repo": false}
+{"width": 320, "height": 40, "provider": "stub", "ledger": "Rust", "think_record": "one, verified", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "receipt_keys": ["s", "Esc"], "entry": "standalone", "navigation": "s", "viewer_started": false, "session_root": "isolated temporary directory", "home_case": "absolute", "session_case": "explicit", "in_repo": false}
+{"width": 80, "height": 24, "provider": "stub", "ledger": "Rust", "think_record": "one, verified", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "receipt_keys": ["s", "Esc"], "entry": "standalone", "navigation": "Esc", "viewer_started": false, "session_root": "isolated temporary directory", "home_case": "absolute", "session_case": "explicit", "in_repo": false}
+{"width": 80, "height": 24, "provider": "stub", "ledger": "Rust", "think_record": "one, verified", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "receipt_keys": ["s", "Esc"], "entry": "standalone", "navigation": "s", "viewer_started": false, "session_root": "isolated temporary directory", "home_case": "absolute", "session_case": "explicit", "in_repo": true}
+{"width": 100, "height": 30, "provider": "stub", "ledger": "Rust", "think_record": "one, verified", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "receipt_keys": ["s", "Esc"], "entry": "standalone", "navigation": "s", "viewer_started": false, "session_root": "isolated temporary directory", "home_case": "absolute", "session_case": "explicit", "in_repo": true}
+{"width": 80, "height": 24, "provider": "stub", "ledger": "Rust", "think_record": "one, verified", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "receipt_keys": ["s", "Esc"], "entry": "home", "navigation": "s", "viewer_started": false, "session_root": "isolated temporary directory", "home_case": "absolute", "session_case": "explicit", "in_repo": false}
+{"width": 100, "height": 30, "provider": "stub", "ledger": "Rust", "think_record": "one, verified", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "receipt_keys": ["s", "Esc"], "entry": "home", "navigation": "s", "viewer_started": false, "session_root": "isolated temporary directory", "home_case": "absolute", "session_case": "explicit", "in_repo": false}
+{"width": 160, "height": 40, "provider": "stub", "ledger": "Rust", "think_record": "one, verified", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "receipt_keys": ["s", "Esc"], "entry": "home", "navigation": "s", "viewer_started": false, "session_root": "isolated temporary directory", "home_case": "absolute", "session_case": "explicit", "in_repo": false}
+{"width": 320, "height": 40, "provider": "stub", "ledger": "Rust", "think_record": "one, verified", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "receipt_keys": ["s", "Esc"], "entry": "home", "navigation": "s", "viewer_started": false, "session_root": "isolated temporary directory", "home_case": "absolute", "session_case": "explicit", "in_repo": false}
+{"width": 80, "height": 24, "provider": "stub", "ledger": "Rust", "think_record": "one, verified", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "receipt_keys": ["s", "Esc"], "entry": "home", "navigation": "Esc", "viewer_started": false, "session_root": "isolated temporary directory", "home_case": "absolute", "session_case": "explicit", "in_repo": false}
+{"width": 80, "height": 24, "provider": "stub", "ledger": "Rust", "think_record": "one, verified", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "receipt_keys": ["s", "Esc"], "entry": "home", "navigation": "s", "viewer_started": false, "session_root": "isolated temporary directory", "home_case": "absolute", "session_case": "explicit", "in_repo": true}
+{"width": 100, "height": 30, "provider": "stub", "ledger": "Rust", "think_record": "one, verified", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "receipt_keys": ["s", "Esc"], "entry": "home", "navigation": "s", "viewer_started": false, "session_root": "isolated temporary directory", "home_case": "absolute", "session_case": "explicit", "in_repo": true}
+{"width": 100, "height": 30, "provider": "stub", "ledger": "Rust", "think_record": "one, verified", "test_confirmation": "AUTOMATED TEST, NOT OPERATOR", "goal_only": true, "receipt_keys": ["s", "Esc"], "entry": "standalone", "navigation": "s", "viewer_started": false, "session_root": "isolated temporary directory", "home_case": "absolute", "session_case": "explicit", "in_repo": false}
+CHECK test_documentation.py
+............
+----------------------------------------------------------------------
+Ran 12 tests in 0.286s
+
+OK
+CHECK ['cargo', '+stable', 'fmt', '--all', '--', '--check']
+CHECK ['cargo', '+stable', 'clippy', '--workspace', '--all-targets', '--locked', '--', '-D', 'warnings']
+    Checking tinkery v0.1.0 (/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.82s

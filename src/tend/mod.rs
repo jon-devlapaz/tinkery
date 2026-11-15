@@ -11,6 +11,7 @@ mod graph;
 pub(crate) mod history;
 mod linking;
 pub mod needs;
+pub(crate) mod thought;
 pub use discovery::{Discovery, Found, Outcome, Source, scan};
 
 use crate::clipped;
@@ -64,6 +65,7 @@ pub(super) struct Tend {
     pub help_scroll: u16,
     pub notice: String,
     pub history: Option<history::View>,
+    pub(super) thoughts: Option<thought::Garden>,
     graph: graph::GraphView,
     last_press: Option<(PathBuf, Instant)>,
     pub(super) needs: needs::Store,
@@ -104,6 +106,7 @@ impl Tend {
             help_scroll: 0,
             notice: String::new(),
             history: None,
+            thoughts: None,
             graph: graph::GraphView::default(),
             last_press: None,
             needs: needs::Store::new(link_root),
@@ -246,6 +249,16 @@ impl Tend {
         }
     }
 
+    fn thought_summary(&self) -> Option<String> {
+        if self.detail || self.is_linking() || !self.connection_scope() {
+            return None;
+        }
+        self.thoughts
+            .as_ref()
+            .map(thought::Garden::summary)
+            .filter(|summary| !summary.is_empty())
+    }
+
     fn can_toggle_scope(&self) -> bool {
         self.repo_paths.is_some()
             && !self.pending
@@ -295,7 +308,11 @@ impl Tend {
             self.graph.release();
             return;
         }
-        let body = self.scope_body(body);
+        let mut body = self.scope_body(body);
+        if self.thought_summary().is_some() {
+            body.y = body.y.saturating_add(3);
+            body.height = body.height.saturating_sub(3);
+        }
         self.sync_graph(body);
         if matches!(event.kind, crossterm::event::MouseEventKind::Drag(_)) {
             self.last_press = None;
@@ -368,8 +385,15 @@ impl Tend {
         } else {
             ""
         };
+        let thoughts = if !self.detail && !self.is_linking() && self.connection_scope() {
+            "\nt new thought · v read thoughts\ng in the thought reader opens Think, unsent."
+        } else {
+            ""
+        };
         format!(
-            "Right now\n{}{}{scope}\nEsc back · F10 menu\n\nF1 close · h how it works · PgUp/PgDn scroll{needs}\n\nNothing runs by itself. A saved goal is not seed or implementation approval.",
+            "Right now\n{}{}{scope}{thoughts}\nEsc back · F10 menu\n\n\
+             F1 close · h how it works · PgUp/PgDn scroll{needs}\n\n\
+             Nothing runs by itself. A saved goal is not seed or implementation approval.",
             if self.detail {
                 "Read the saved goal. ↑↓ / j k or PgUp/PgDn scroll.\nr opens its Think history."
             } else if self.linking.is_some() {
@@ -452,7 +476,18 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
             },
         );
     }
-    let area = tend.scope_body(area);
+    let mut area = tend.scope_body(area);
+    if let Some(summary) = tend.thought_summary() {
+        frame.render_widget(
+            Paragraph::new(summary).style(palette.ink),
+            Rect {
+                height: 2.min(area.height),
+                ..area
+            },
+        );
+        area.y = area.y.saturating_add(3);
+        area.height = area.height.saturating_sub(3);
+    }
     let stale_empty =
         tend.sessions.is_empty() && tend.unreadable == 0 && tend.error.is_none() && !tend.current;
     if tend.pending || tend.want.is_some() || stale_empty {

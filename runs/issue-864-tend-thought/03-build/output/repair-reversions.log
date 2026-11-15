@@ -1,0 +1,80 @@
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import sys;sys.path.insert(0,'tests');import tend_correction_terminal as t; t.edits_and_conflicts()
+                                                                                ~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_correction_terminal.py", line 146, in edits_and_conflicts
+    os.write(term.master,b'\x01\x0bTEST corrected');flow.send(term,flow.F2,'F2 find one connection')
+                                                    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_connection_terminal.py", line 27, in send
+    return wait(term, text)
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_connection_terminal.py", line 22, in wait
+    raise AssertionError(f'Missing {text!r}:\n{term.screen.text()}')
+AssertionError: Missing 'F2 find one connection':
+                                                                                                    
+  tinkery › tend                                                             9 runs left         ?  
+                                                                                                    
+  Saved thoughts                                                                                    
+  Repository:                                                                                       
+  /Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/target/tmp/tinkery-TEST-fix/tinkery-T  
+  EST-correction-edit-hzw7894d/repo                                                                 
+  g opens these words in Think, unsent. Confirm a goal there. No Shape.                             
+                                                                                                    
+  Thought 1 of 1                                                                                    
+  ed                                                                                                
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+  Thought saved. No goal confirmed.                                                                 
+                                                                                                    
+  ↑↓ thoughts   PgUp/PgDn scroll   g think   esc garden                                             
+                                                                                                    
+
+input-routing: rejected for expected reason
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import sys;sys.path.insert(0,'tests');import tend_thought_terminal as t; t.unreadable((80,24))
+                                                                             ~~~~~~~~~~~~^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_thought_terminal.py", line 153, in unreadable
+    flow.wait(term, 'Thoughts: 1')
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_connection_terminal.py", line 22, in wait
+    raise AssertionError(f'Missing {text!r}:\n{term.screen.text()}')
+AssertionError: Missing 'Thoughts: 1':
+                                                                                
+  tinkery › tend                                            practice         ?  
+                                                                                
+  this repo · a all                                                             
+  Thoughts could not be read. Press v for details. t new thought                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+        › TEST find repeated supp…            TEST make documentation…          
+                                                                                
+                   ⢀⠤⠤⣄                                  ⢀⠤⠤⡀                   
+                   ⡇  ⢸⠄                                 ⡇  ⢸                   
+                   ⠈⠒⠒⠋                                  ⠈⠒⠒⠁                   
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  TEST find repeated support requests                   goal saved · yesterday  
+                                                                                
+  ↑↓←→ move   enter open   f connections   l link   esc back                    
+
+partial-read: rejected for expected reason

@@ -1,6 +1,6 @@
 # Tend and handoff
 
-Tend holds saved goals; [Shape](#shape) asks its questions with an explicit
+Tend holds saved goals and raw repository thoughts; [Shape](#shape) asks its questions with an explicit
 model and budget.
 
 ## Receipt
@@ -24,6 +24,27 @@ shaping. An unverifiable or unreadable session points to checking in Shape, neve
 claims readiness; other ended sessions are named as ended.
 
 ## Tend: garden and detail
+
+In this repository's garden, `t` opens an exact-word thought editor. The screen names
+the repository before `F2` saves. Esc cancels without saving. Saving makes no model
+call and confirms no goal. Thoughts appear above the goal graph, labelled `Thought`.
+The summary shows `t new thought`, even before any thought is saved, and `v read`
+when thoughts exist. These keys leave the goal garden's key bar unchanged.
+Garden F1 help names `t`, `v` and the reader's `g` action.
+`v` reads the saved thoughts; arrows select one and PgUp/PgDn scroll its words.
+`g` copies the selected thought into a fresh, unsent Think visit. The existing
+Think goal confirmation is still required. The thought stays unchanged on record.
+Thoughts cannot open Shape and never enter Find connections in this slice.
+
+Thoughts use private atomic files under the captured Tend link root, separate from
+sessions and goal confirmation records. Filenames bind the exact repository path
+and exact UTF-8 words with SHA-256. Each record carries its repository explicitly.
+Identical bytes in one repository keep one entry and report `Thought already saved`.
+Whitespace and case differences remain distinct. Thoughts accept 1 to 131072 bytes;
+empty or oversized input refuses without changing the editor. Existing records are
+never edited or replaced. A malformed or unsupported thought does not hide readable thoughts.
+The garden and reader show how many thoughts could not be read. Store failures remain visible
+instead of becoming an empty list.
 
 Inside a repository, Tend starts with only active goals whose verified creation
 origin names that exact repository root. A muted `this repo · a all` line offers

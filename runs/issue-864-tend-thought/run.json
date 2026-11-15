@@ -1,0 +1,11 @@
+{
+  "profile": "light",
+  "kind": "feature",
+  "schema": 1,
+  "run_id": "d50e7a87-1232-43e5-a29a-0cbf2512c1ab",
+  "issue": {
+    "url": "https://github.com/jon-devlapaz/tinkery/issues/864",
+    "title": "Tend: Keep a raw project thought before any goal is confirmed",
+    "sha256": "29f447833355967617805c1fc76789f53c35598279aa8b5a4f7ba921cf6aa3b1"
+  }
+}

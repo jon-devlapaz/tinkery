@@ -1,0 +1,35 @@
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_thought_terminal.py", line 237, in <module>
+    repository_link(size)
+    ~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_thought_terminal.py", line 225, in repository_link
+    screen = flow.send(term, click(y+3), 'enter link')
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_connection_terminal.py", line 27, in send
+    return wait(term, text)
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_connection_terminal.py", line 22, in wait
+    raise AssertionError(f'Missing {text!r}:\n{term.screen.text()}')
+AssertionError: Missing 'enter link':
+                                                                                
+  tinkery › tend                                            practice         ?  
+                                                                                
+  this repo · a all                                                             
+  t new thought                                                                 
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+               › TEST goal 0                         TEST goal 1                
+                                                                                
+                   ⢀⠤⠤⣄                                  ⢀⠤⠤⡀                   
+                   ⡇ ⠤⢸⠄⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⡇⠤ ⢸                   
+                   ⠈⠒⠒⠋                                  ⠈⠒⠒⠁                   
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  TEST goal 0           goal saved · yesterday · needs TEST goal 1 · not ready  
+                                                                                
+  ↑↓←→ move   enter open   f connections   l link   esc back                    

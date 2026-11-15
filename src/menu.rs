@@ -435,6 +435,13 @@ impl Home {
 
     /// Paste literal words into the active editor. Pasting never submits, saves or launches.
     pub fn paste(&mut self, text: &str) {
+        if let View::Tend(tend) = &mut self.view
+            && let Some(thoughts) = &mut tend.thoughts
+            && thoughts.active()
+        {
+            thoughts.paste(text);
+            return;
+        }
         if let Some(panel) = &mut self.connection {
             panel.paste(text);
             return;
@@ -494,7 +501,11 @@ impl Home {
             Place::Tend => {
                 // Deliberate reopening reads again; the last result shows meanwhile.
                 self.request_sessions();
-                View::Tend(Box::new(Tend::new(self.link_root.clone())))
+                let mut tend = Tend::new(self.link_root.clone());
+                tend.thoughts = self.repo.as_ref().map(|repo| {
+                    tend::thought::Garden::open(self.link_root.clone(), repo.root().to_path_buf())
+                });
+                View::Tend(Box::new(tend))
             }
             Place::Shape => {
                 self.request_sessions();
@@ -606,6 +617,36 @@ impl Home {
             }
             self.view = View::Worker;
             return;
+        }
+        if let View::Tend(tend) = &mut self.view
+            && let Some(thoughts) = &mut tend.thoughts
+        {
+            if thoughts.active() {
+                if let Some(words) = thoughts.key(key) {
+                    let mut dump = (self.make_dump)().with_key_bar(self.key_bar);
+                    dump.paste(&words);
+                    self.help = false;
+                    self.view = View::Think(Box::new(dump));
+                }
+                return;
+            }
+            if self.connection.is_none()
+                && !tend.detail
+                && !tend.is_linking()
+                && tend.connection_scope()
+                && !self.help
+                && key.kind == KeyEventKind::Press
+                && key.modifiers == KeyModifiers::NONE
+            {
+                if key.code == KeyCode::Char('t') {
+                    tend.thoughts.as_mut().unwrap().edit();
+                    return;
+                }
+                if key.code == KeyCode::Char('v') {
+                    tend.thoughts.as_mut().unwrap().view();
+                    return;
+                }
+            }
         }
         if let Some(panel) = &mut self.connection {
             if panel.key(key) {
@@ -1046,7 +1087,9 @@ impl Home {
 
     /// [`Home::handle_mouse`] with the clock as an input, so double-click tests never sleep.
     fn handle_mouse_at(&mut self, event: MouseEvent, area: Rect, now: Instant) {
-        if self.connection.is_some() {
+        if self.connection.is_some()
+            || matches!(&self.view, View::Tend(tend) if tend.thoughts.as_ref().is_some_and(|t| t.active()))
+        {
             return;
         }
         if let View::Think(dump) = &mut self.view {
@@ -1149,6 +1192,13 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         );
     }
     let body = body(area);
+    if let View::Tend(tend) = &mut home.view
+        && let Some(thoughts) = &mut tend.thoughts
+        && thoughts.active()
+    {
+        thoughts.render(frame, body, palette);
+        return;
+    }
     if let Some(panel) = &mut home.connection {
         panel.render(frame, body, palette);
         return;

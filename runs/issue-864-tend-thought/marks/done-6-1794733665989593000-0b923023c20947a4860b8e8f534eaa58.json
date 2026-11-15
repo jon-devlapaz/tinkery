@@ -1,0 +1,7 @@
+{
+  "item": "done-6",
+  "result": "passed",
+  "evidence": "Checked on d3e0e84: g opens an unsent Think draft, no save occurs before existing review and typed confirm; the first original equals the thought bytes and the thought file remains unchanged. runs/issue-864-tend-thought/03-build/output/full-check-fix.log and thought-fix.log.",
+  "candidate": "3914de57c200f1f60bb43978349c424ae6d5d27402cb6e33a58cf32375264eb6",
+  "time_ns": 1794733665989593000
+}
