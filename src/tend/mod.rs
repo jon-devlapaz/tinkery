@@ -430,14 +430,14 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
     } else if !tend.garden_showing() {
         // An empty repo view still offers the way back to all goals.
         if tend.connection_scope() {
-            "t thought   v thoughts   f connections   a toggle goals   esc back"
+            "f connections   a toggle goals   esc back"
         } else if tend.can_toggle_scope() {
             "a toggle goals   esc back"
         } else {
             "esc back"
         }
     } else if tend.connection_scope() {
-        "arrows move   enter open   t thought   v read   f connect   l link   esc back"
+        "↑↓←→ move   enter open   f connections   l link   esc back"
     } else {
         "↑↓←→ move   enter open   l link   esc back"
     };

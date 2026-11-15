@@ -10,11 +10,10 @@ import test_launch
 THOUGHT = ROOT/'src/tend/thought.rs'
 CONNECTION = ROOT/'src/tend/connection.rs'
 FAULTS = [
-    ('confirmed-goal', THOUGHT, '        let path = self.file(words)?;', '''        crate::seed_me::Config::new(Some(root.parent().unwrap().join("sessions"))).confirm_as(
-            crate::seed_me::Affirmed {
-                goal: words.lines().next().unwrap().trim().into(), outcome: String::new(), options: vec![], originals: vec![],
-                context: String::new(), source: "TEST faulty thought confirmation".into(),
-            },
+    ('confirmed-goal', THOUGHT, '        let path = self.file(words)?;', '''        crate::shape::command::new_goal(
+            root.parent().unwrap().join("sessions"),
+            words,
+            "TEST faulty thought confirmation",
             &crate::think_record::GoalConfirmation::terminal(Some("agent"))?,
         )?;
         let path = self.file(words)?;''', 'A thought changed goal sessions'),

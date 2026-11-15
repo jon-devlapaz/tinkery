@@ -630,7 +630,8 @@ impl Home {
                 }
                 return;
             }
-            if !tend.detail
+            if self.connection.is_none()
+                && !tend.detail
                 && !tend.is_linking()
                 && tend.connection_scope()
                 && !self.help

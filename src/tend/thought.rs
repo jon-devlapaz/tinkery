@@ -32,6 +32,7 @@ pub(crate) struct Garden {
     root: Result<PathBuf, String>,
     repo: PathBuf,
     entries: Result<Vec<String>, String>,
+    unreadable: usize,
     selected: usize,
     editor: Option<Words>,
     viewing: bool,
@@ -46,6 +47,7 @@ impl Garden {
             root,
             repo,
             entries: Ok(vec![]),
+            unreadable: 0,
             selected: 0,
             editor: None,
             viewing: false,
@@ -99,7 +101,8 @@ impl Garden {
         Ok(thought.words)
     }
 
-    fn read(&self) -> Result<Vec<String>, String> {
+    fn read(&mut self) -> Result<Vec<String>, String> {
+        self.unreadable = 0;
         let root = self.root.as_ref().map_err(Clone::clone)?;
         let files = match fs::read_dir(root) {
             Ok(files) => files,
@@ -114,7 +117,10 @@ impl Garden {
                 .is_some_and(|n| n.to_string_lossy().starts_with(&self.prefix()))
                 && path.extension().is_some_and(|e| e == "json")
             {
-                entries.push(self.read_one(&path)?);
+                match self.read_one(&path) {
+                    Ok(words) => entries.push(words),
+                    Err(_) => self.unreadable += 1,
+                }
             }
         }
         entries.sort();
@@ -247,7 +253,12 @@ impl Garden {
     /// A labelled garden summary. Full words remain in the local read view.
     pub(crate) fn summary(&self) -> String {
         match &self.entries {
-            Ok(entries) if entries.is_empty() => String::new(),
+            Ok(entries) if self.unreadable > 0 => format!(
+                "Thoughts: {} · v read · t new thought\n{} thoughts could not be read.",
+                entries.len(),
+                self.unreadable
+            ),
+            Ok(entries) if entries.is_empty() => "t new thought".into(),
             Ok(entries) => format!(
                 "Thoughts: {} · v read · t new thought\nThought: {}",
                 entries.len(),
@@ -267,7 +278,7 @@ impl Garden {
     pub(crate) fn render(&mut self, frame: &mut Frame, area: Rect, palette: Palette) {
         let editing = self.editor.is_some();
         let heading = format!(
-            "{}\nRepository: {}\n{}",
+            "{}\nRepository: {}\n{}{}",
             if editing {
                 "New thought"
             } else {
@@ -278,6 +289,11 @@ impl Garden {
                 "F2 saves exact words here. No model call. No goal confirmation."
             } else {
                 "g opens these words in Think, unsent. Confirm a goal there. No Shape."
+            },
+            if self.unreadable > 0 {
+                format!("\n{} thoughts could not be read.", self.unreadable)
+            } else {
+                String::new()
             }
         );
         let heading = Paragraph::new(heading)

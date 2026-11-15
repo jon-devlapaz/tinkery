@@ -51,6 +51,9 @@ def journey(size):
         original = {p: p.read_bytes() for p in (root/'sessions').rglob('*') if p.is_file()}
         term = launch(root, repo, size)
         try:
+            screen = term.screen.text()
+            assert 't new thought' in screen, screen
+            assert '↑↓←→ move   enter open   f connections   l link   esc back' in screen, screen
             flow.send(term, b't', 'F2 save thought only')
             screen = term.screen.text()
             assert str(repo) in ''.join(screen.split()) and 'No model call.' in screen, screen
@@ -128,6 +131,35 @@ def unwritable(size):
             term.close()
 
 
+def unreadable(size):
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-thought-malformed-') as directory:
+        root = Path(directory).resolve()
+        repo = flow.fixture(root)
+        term = launch(root, repo, size)
+        try:
+            flow.send(term, b't', 'F2 save thought only')
+            paste(term, 'TEST readable thought')
+            flow.send(term, flow.F2, 'Thought saved. No goal confirmed.')
+        finally:
+            term.close()
+        path = saved(root)[0]
+        prefix = path.name.rsplit('-', 1)[0]
+        (path.parent/f'{prefix}-malformed.json').write_text('{')
+        foreign = json.loads(path.read_bytes())
+        foreign['schema'] = 99
+        (path.parent/f'{prefix}-foreign.json').write_text(json.dumps(foreign))
+        term = launch(root, repo, size)
+        try:
+            flow.wait(term, 'Thoughts: 1')
+            flow.wait(term, '2 thoughts could not be read.')
+            flow.send(term, b'v', 'TEST readable thought')
+            assert 'Thought 1 of 1' in term.screen.text()
+            assert '2 thoughts could not be read.' in term.screen.text()
+            assert not flow.requests(root)
+        finally:
+            term.close()
+
+
 THINK_HOST = '''#!/usr/bin/env python3
 import json,sys
 from pathlib import Path
@@ -175,4 +207,5 @@ if __name__ == '__main__':
         journey(size)
         unwritable(size)
         promotion(size)
+        unreadable(size)
     print('Thought journeys passed at 80x24 and 100x30 without colour. Local stubs only.')
