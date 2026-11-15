@@ -132,7 +132,7 @@ impl Garden {
                 crate::clipped(words.lines().next().unwrap_or(""), 60)
             ));
         }
-        if self.unreadable > 0 {
+        if self.entries.is_ok() && self.unreadable > 0 {
             summary.push_str(&format!(
                 "\n{} thoughts could not be read.",
                 self.unreadable

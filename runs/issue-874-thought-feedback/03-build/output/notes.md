@@ -24,3 +24,7 @@ Architecture diagnostics 2 and 6 improve: the small handoff passes facts, while 
 These checks use synthetic records, temporary TEST roots, and local stubs. They do not establish operator acceptance or real-thought usefulness. No real model or provider request is authorized or made.
 
 The preliminary `04-test/output/full-check.txt` passed before the departure repair. Final verification runs the full check again on the committed candidate and records its binding in `04-test/output/verification.json`. The departure regression is additional coverage accepted by the independent reviewer; it does not replace the original locked baseline.
+
+Independent review also found that a failed refresh could append an old unreadable-record count to the current read error. The reviewer accepted `failed_refresh` on 2026-11-15 after independently observing the failure. `04-test/output/refresh-failure.txt` retains the reproduction. A single condition now restricts the garden count to successful reads. Reader error behavior is unchanged. Both focused terminal files pass after this repair.
+
+The first SDLC verification passed candidate `b4c412aab21fa2d2627b3a7c3042857ad831fa04` with 1127 Rust tests passed, one ignored, 39 Node tests passed, and 87 Python files passed. That pass predates the failed-refresh repair. Final verification supersedes it for the final candidate.
