@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "items": [
+    {
+      "id": "done-1",
+      "description": "After F3 with new words, Tend shows a saved message and the saved thought, at 80\u00d724 and 100\u00d730 with colour off.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-2",
+      "description": "After F3 with words that are already saved, Tend shows a duplicate message and the total thought-record count remains unchanged, including when other thoughts already exist.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-3",
+      "description": "With two or more thoughts already saved, the thought shown is the one just saved, not the first in alphabetical order.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-4",
+      "description": "The save message and saved-thought summary preserve existing unreadable-record warnings and fit at 80\u00d724 and 100\u00d730 with colour off. Check both new and duplicate saves with unreadable records present.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-5",
+      "description": "The message clears when you leave Tend or open the reader. It never claims a goal was confirmed.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-6",
+      "description": "No provider request, goal record or confirmation record is created. The existing zero-request assertions still pass.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-7",
+      "description": "Reversion probe: with the outcome dropped, the new terminal assertion fails. Restore the code, then run `python3 scripts/full-check.py` with temporary TEST roots.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    }
+  ]
+}

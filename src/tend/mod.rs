@@ -309,9 +309,10 @@ impl Tend {
             return;
         }
         let mut body = self.scope_body(body);
-        if self.thought_summary().is_some() {
-            body.y = body.y.saturating_add(3);
-            body.height = body.height.saturating_sub(3);
+        if let Some(summary) = self.thought_summary() {
+            let rows = summary.lines().count() as u16 + 1;
+            body.y = body.y.saturating_add(rows);
+            body.height = body.height.saturating_sub(rows);
         }
         self.sync_graph(body);
         if matches!(event.kind, crossterm::event::MouseEventKind::Drag(_)) {
@@ -478,15 +479,16 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
     }
     let mut area = tend.scope_body(area);
     if let Some(summary) = tend.thought_summary() {
+        let rows = summary.lines().count() as u16;
         frame.render_widget(
             Paragraph::new(summary).style(palette.ink),
             Rect {
-                height: 2.min(area.height),
+                height: rows.min(area.height),
                 ..area
             },
         );
-        area.y = area.y.saturating_add(3);
-        area.height = area.height.saturating_sub(3);
+        area.y = area.y.saturating_add(rows + 1);
+        area.height = area.height.saturating_sub(rows + 1);
     }
     let stale_empty =
         tend.sessions.is_empty() && tend.unreadable == 0 && tend.error.is_none() && !tend.current;

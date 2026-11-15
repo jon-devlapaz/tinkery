@@ -30,6 +30,10 @@ the repository and offers `F3 Save thought and open Tend`. It saves exact input 
 without a model call or goal confirmation. `F2` still sends. Submitted visits, voice,
 help, leave prompts, model work and goal review cannot save a thought.
 A failed or uncertain save keeps the input. A durable save or verified duplicate opens Tend.
+The garden names the save result and selects the saved thought, including after a duplicate.
+The message clears when Tend closes or the reader opens. The reader keeps that selection.
+Save feedback, the selected thought and unreadable-record warnings each retain their space
+above the goal graph. The graph uses the same remaining area for drawing and pointer input.
 Standalone Think explains that saving thoughts requires `--home`; it never writes a thought.
 Thoughts appear above the goal graph, labelled `Thought`.
 The summary shows `t think`, even before any thought is saved, and `v read`

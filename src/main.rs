@@ -541,7 +541,7 @@ impl Intake {
         }
         if let Self::Brain(dump) = self {
             let session = match dump.exit() {
-                Exit::Stay | Exit::Garden => None,
+                Exit::Stay | Exit::Garden { .. } => None,
                 Exit::Menu => dump.saved().map(|r| (r.session.clone(), false)),
                 Exit::Tend(path) => Some((path.clone(), true)),
             };

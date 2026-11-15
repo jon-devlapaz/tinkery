@@ -245,9 +245,7 @@ impl Home {
             let shape = Shape::session(&receipt.session)
                 .with_agent(self.shape_agent.clone())
                 .held(self.shape_held);
-            if let View::Tend(tend) = std::mem::replace(&mut self.view, View::Menu) {
-                self.view = View::Shape(Box::new(shape), Some(tend));
-            }
+            self.shape_from_tend(shape);
             self.receipts.push(seed_me::ExitReceipt::Saved {
                 receipt,
                 record: None,
@@ -275,10 +273,12 @@ impl Home {
             history.finish(result);
         }
         let mut tend_request = None;
-        let mut garden_request = false;
+        let mut garden_request = None;
         if let View::Think(dump) = &mut self.view {
             dump.tick();
-            garden_request = *dump.exit() == Exit::Garden;
+            if let Exit::Garden { words, duplicate } = dump.exit() {
+                garden_request = Some((words.clone(), *duplicate));
+            }
             if let Exit::Tend(path) = dump.exit() {
                 tend_request = Some(path.clone());
             }
@@ -292,8 +292,13 @@ impl Home {
                 self.request_sessions();
             }
         }
-        if garden_request {
+        if let Some((words, duplicate)) = garden_request {
             self.open(Place::Tend);
+            if let View::Tend(tend) = &mut self.view
+                && let Some(thoughts) = &mut tend.thoughts
+            {
+                thoughts.saved(&words, duplicate);
+            }
         }
         if let Some(path) = tend_request {
             self.open_tend_session(&path);
@@ -409,6 +414,15 @@ impl Home {
         );
         if let Some(root) = &self.sessions_root {
             self.discovery.request(root);
+        }
+    }
+
+    fn shape_from_tend(&mut self, shape: Shape) {
+        if let View::Tend(mut tend) = std::mem::replace(&mut self.view, View::Menu) {
+            if let Some(thoughts) = &mut tend.thoughts {
+                thoughts.clear_save_notice();
+            }
+            self.view = View::Shape(Box::new(shape), Some(tend));
         }
     }
 
@@ -946,10 +960,7 @@ impl Home {
                     let shape = Shape::session(&tend.current().unwrap().path)
                         .with_agent(self.shape_agent.clone())
                         .held(self.shape_held);
-                    let View::Tend(tend) = std::mem::replace(&mut self.view, View::Menu) else {
-                        unreachable!()
-                    };
-                    self.view = View::Shape(Box::new(shape), Some(tend));
+                    self.shape_from_tend(shape);
                 }
                 KeyCode::Down | KeyCode::Char('j') if tend.detail => {
                     tend.scroll = tend.scroll.saturating_add(1)
