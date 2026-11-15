@@ -43,6 +43,8 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   Shape without changing saved sessions. In this repository, press `f` to review an
   automatic connection between goals. An explicit `F2` uses one drafting request.
   Review the sources, press `p` to edit the proposed goal, then `F2` to save and open Shape.
+  In connection review, `f` saves or replaces one correction for later requests. `x` clears it.
+  These actions make no model calls. The next explicit request includes the exact guidance.
   Press `r` in detail for [Think history](docs/design/shape-and-handoff.md#think-history)
   when its saved record verifies.
 - **Shape:** press `s` in goal detail or choose menu place 3 to see the current question,

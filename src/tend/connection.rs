@@ -1,12 +1,13 @@
 //! One explicit connection discovery and its latest durable result. Source selection is automatic,
 //! requests have no tools, and only the shared saver creates a confirmed goal.
 
+mod correction;
 mod panel;
 use crate::{
     pi::{Call, CallBudget, Request},
     seed_me::{
         self,
-        connection::{Origin, Source, Support},
+        connection::{Correction, Origin, Source, Support},
         connection_save::Pending,
     },
     think_record::{self, GoalConfirmation, MadeIn},
@@ -45,6 +46,8 @@ struct Input {
     thinking: String,
     harness: String,
     prompt: String,
+    #[serde(default)]
+    correction: Option<Correction>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -61,7 +64,8 @@ struct Proposal {
 impl Proposal {
     fn origin(&self, input: &Input, goal: &str) -> Origin {
         Origin {
-            schema: 1,
+            schema: if input.correction.is_some() { 2 } else { 1 },
+            correction: input.correction.clone(),
             entry: "tend".into(),
             repo: input.repo.clone(),
             goal: goal.into(),
@@ -91,8 +95,7 @@ impl Proposal {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct Record {
     schema: u8,
     input: Input,
@@ -100,6 +103,71 @@ struct Record {
     dismissed: bool,
     pending: Option<Pending>,
     saved: Option<PathBuf>,
+}
+
+#[derive(Deserialize)]
+#[serde(remote = "Record", deny_unknown_fields)]
+struct RecordFields {
+    schema: u8,
+    input: Input,
+    proposal: Option<Proposal>,
+    dismissed: bool,
+    pending: Option<Pending>,
+    saved: Option<PathBuf>,
+}
+
+struct LegacyInput<'a>(&'a Input);
+
+impl Serialize for LegacyInput<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let mut fields = serializer.serialize_struct("Input", 6)?;
+        fields.serialize_field("repo", &self.0.repo)?;
+        fields.serialize_field("sources", &self.0.sources)?;
+        fields.serialize_field("model", &self.0.model)?;
+        fields.serialize_field("thinking", &self.0.thinking)?;
+        fields.serialize_field("harness", &self.0.harness)?;
+        fields.serialize_field("prompt", &self.0.prompt)?;
+        fields.end()
+    }
+}
+
+impl Serialize for Record {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let mut fields = serializer.serialize_struct("Record", 6)?;
+        fields.serialize_field("schema", &self.schema)?;
+        if self.schema == 1 {
+            fields.serialize_field("input", &LegacyInput(&self.input))?;
+        } else {
+            fields.serialize_field("input", &self.input)?;
+        }
+        fields.serialize_field("proposal", &self.proposal)?;
+        fields.serialize_field("dismissed", &self.dismissed)?;
+        fields.serialize_field("pending", &self.pending)?;
+        fields.serialize_field("saved", &self.saved)?;
+        fields.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Record {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(d)?;
+        let present = value["input"].get("correction").is_some();
+        if !matches!(
+            (value["schema"].as_u64(), present),
+            (Some(1), false) | (Some(2), true)
+        ) {
+            return Err(serde::de::Error::custom(
+                "Unsupported exploration or correction field",
+            ));
+        }
+        let record = RecordFields::deserialize(value).map_err(serde::de::Error::custom)?;
+        if let Some(c) = &record.input.correction {
+            c.validate().map_err(serde::de::Error::custom)?;
+        }
+        Ok(record)
+    }
 }
 
 impl Context {
@@ -171,6 +239,7 @@ impl Context {
                 .as_ref()
                 .map_or(String::new(), |(c, _)| c.harness.label().into()),
             prompt: format!("{:x}", Sha256::digest(PROMPT)),
+            correction: self.correction()?.value()?,
         };
         if serde_json::to_vec(&input).map_err(|e| e.to_string())?.len() > LIMIT {
             return Err("The complete goals exceed 32 KiB. Nothing was truncated or sent.".into());
@@ -200,7 +269,7 @@ impl Context {
         }
         let record: Record = serde_json::from_slice(&bytes)
             .map_err(|_| "The latest exploration is malformed. Preserve it for inspection.")?;
-        if record.schema != 1 || record.input.repo != self.repo {
+        if record.input.repo != self.repo {
             return Err("The exploration belongs to another repository or format.".into());
         }
         if let Some(proposal) = &record.proposal {
@@ -316,7 +385,7 @@ impl Context {
             );
         }
         let record = Record {
-            schema: 1,
+            schema: 2,
             input: input.clone(),
             proposal: reply.connection,
             dismissed: false,
@@ -363,7 +432,12 @@ impl Context {
         }
         let pending = record.pending.as_ref().expect("prepared above");
         let receipt = pending.resume(|| {
-            if self.snapshot()? == record.input {
+            let mut current = self.snapshot()?;
+            // A legacy pending handoff keeps its original prompt across this format upgrade.
+            if record.schema == 1 {
+                current.prompt.clone_from(&record.input.prompt);
+            }
+            if current == record.input {
                 Ok(())
             } else {
                 Err("The source inputs changed before publication.".into())

@@ -145,7 +145,10 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
             made_in,
             details: serde_json::to_string_pretty(&origin)
                 .map_err(|e| Unavailable::new("Tend origin unavailable.", e.to_string()))?,
-            sequence: "Created from a Tend connection".into(),
+            sequence: origin.correction.as_ref().map_or_else(
+                || "Created from a Tend connection".into(),
+                |c| format!("Created from a Tend connection\n\nOperator guidance supplied during discovery:\n{}", c.text),
+            ),
             readings: vec![],
         });
     }

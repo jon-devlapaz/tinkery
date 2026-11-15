@@ -336,6 +336,7 @@ mod tests {
                 .collect(),
             sources,
             interpretation: "TEST connection, not a fact.".into(),
+            correction: None,
         };
         let pending = Pending::prepare(
             &root,
@@ -345,6 +346,130 @@ mod tests {
         )
         .unwrap();
         (temp, pending)
+    }
+
+    #[test]
+    fn correction_origin_survives_staging_restart_and_history() {
+        let (temp, mut pending) = setup();
+        pending.origin.schema = 2;
+        pending.origin.correction = Some(super::super::connection::Correction {
+            revision: "a".repeat(48),
+            text: "Keep exact operator words.\nIncluding café.".into(),
+        });
+        let frozen = serde_json::to_vec(&pending).unwrap();
+        let stage = pending
+            .root
+            .parent()
+            .unwrap()
+            .join(".tinkery-tend-staging")
+            .join(&pending.id);
+        fs::create_dir_all(&stage).unwrap();
+        fs::write(stage.join("tend-handoff.json"), &frozen).unwrap();
+        fs::write(stage.join("ledger.json"), "interrupted").unwrap();
+        let restarted: Pending = serde_json::from_slice(&frozen).unwrap();
+        let receipt = restarted.resume(|| Ok(())).unwrap();
+        assert_eq!(
+            fs::read(receipt.session.join("tend-handoff.json")).unwrap(),
+            frozen
+        );
+        assert_eq!(
+            super::super::connection::read(&receipt.session, &receipt.goal).unwrap(),
+            Some(pending.origin.clone())
+        );
+        let records = temp.path().join("records");
+        fs::create_dir(&records).unwrap();
+        let history = crate::think_record::read(&records, &receipt.session, &receipt.goal).unwrap();
+        assert!(
+            history
+                .sequence
+                .contains("Operator guidance supplied during discovery:")
+        );
+        assert!(
+            history
+                .sequence
+                .contains(&pending.origin.correction.as_ref().unwrap().text)
+        );
+        assert_eq!(
+            restarted
+                .resume(|| Err("Changed current correction".into()))
+                .unwrap()
+                .session,
+            receipt.session
+        );
+        let mut conflicting = restarted.clone();
+        conflicting.origin.correction.as_mut().unwrap().text = "Different words".into();
+        assert!(conflicting.inspect().is_err());
+        assert!(conflicting.resume(|| Ok(())).is_err());
+        assert_eq!(fs::read_dir(&pending.root).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn versioned_origin_refuses_missing_null_unknown_and_conflicting_evidence() {
+        for case in [
+            "missing",
+            "null",
+            "extra",
+            "wrong-schema",
+            "wrong-tag",
+            "duplicate",
+            "invalid-correction",
+        ] {
+            let (_temp, mut pending) = setup();
+            pending.origin.schema = 2;
+            pending.origin.correction = Some(super::super::connection::Correction {
+                revision: "b".repeat(48),
+                text: "Exact correction".into(),
+            });
+            let receipt = pending.resume(|| Ok(())).unwrap();
+            let path = receipt.session.join("ledger.json");
+            let mut value: serde_json::Value =
+                serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+            let entries = value["nodes"][0]["evidence"].as_array_mut().unwrap();
+            let index = entries
+                .iter()
+                .position(|e| e["artifact"] == "tinkery:origin/tend-v2")
+                .unwrap();
+            let mut origin: serde_json::Value =
+                serde_json::from_str(entries[index]["observed"].as_str().unwrap()).unwrap();
+            match case {
+                "missing" => {
+                    origin.as_object_mut().unwrap().remove("correction");
+                }
+                "null" => origin["correction"] = serde_json::Value::Null,
+                "extra" => origin["other"] = true.into(),
+                "wrong-schema" => origin["schema"] = 1.into(),
+                "wrong-tag" => {
+                    entries[index]["artifact"] = super::super::connection::ARTIFACT.into()
+                }
+                "duplicate" => entries.push(entries[index].clone()),
+                "invalid-correction" => origin["correction"]["revision"] = "bad".into(),
+                _ => unreachable!(),
+            }
+            entries[index]["observed"] = serde_json::to_string(&origin).unwrap().into();
+            fs::write(path, serde_json::to_vec(&value).unwrap()).unwrap();
+            assert!(
+                super::super::connection::read(&receipt.session, &receipt.goal).is_err(),
+                "{case}"
+            );
+            assert!(pending.inspect().is_err(), "{case}");
+        }
+    }
+
+    #[test]
+    fn legacy_receipt_keeps_its_wire_fields_and_refuses_added_correction() {
+        let (_temp, pending) = setup();
+        let bytes = serde_json::to_vec(&pending).unwrap();
+        let restarted: Pending = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(serde_json::to_vec(&restarted).unwrap(), bytes);
+        let mut wire = serde_json::to_value(&pending).unwrap();
+        assert!(wire["origin"].get("correction").is_none());
+        wire["origin"]["correction"] = serde_json::Value::Null;
+        assert!(serde_json::from_value::<Pending>(wire).is_err());
+        let receipt = restarted.resume(|| Ok(())).unwrap();
+        assert_eq!(
+            fs::read(receipt.session.join("tend-handoff.json")).unwrap(),
+            bytes
+        );
     }
 
     #[test]

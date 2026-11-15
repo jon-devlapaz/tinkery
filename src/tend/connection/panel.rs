@@ -13,7 +13,17 @@ use ratatui::{
 use ratatui_textarea::TextArea;
 use std::sync::{atomic::Ordering, mpsc};
 
+#[derive(Clone)]
+enum EditKind {
+    Goal,
+    Correction {
+        shown: correction::Snapshot,
+        clear: bool,
+    },
+}
+
 struct Done {
+    correction: Result<correction::Snapshot, String>,
     input: Result<Input, String>,
     record: Result<Option<Record>, String>,
     receipt: Option<seed_me::Receipt>,
@@ -26,8 +36,9 @@ pub(crate) struct Panel {
     input: Result<Input, String>,
     record: Option<Record>,
     notice: Option<String>,
-    editor: Option<TextArea<'static>>,
-    saving_editor: Option<TextArea<'static>>,
+    editor: Option<(TextArea<'static>, EditKind)>,
+    saving_editor: Option<(TextArea<'static>, EditKind)>,
+    correction: Result<correction::Snapshot, String>,
     offset: u16,
     running: Option<mpsc::Receiver<Done>>,
     stop: Arc<AtomicBool>,
@@ -50,6 +61,7 @@ impl Panel {
             record: None,
             notice: None,
             editor: None,
+            correction: Err("Reading correction…".into()),
             saving_editor: None,
             offset: 0,
             running: None,
@@ -75,6 +87,7 @@ impl Panel {
         std::thread::spawn(move || {
             let result = action(&context);
             let _ = tx.send(Done {
+                correction: context.correction(),
                 input: context.snapshot(),
                 record: context.read(),
                 receipt: result.as_ref().ok().cloned().flatten(),
@@ -90,6 +103,7 @@ impl Panel {
                 Ok(done) => {
                     self.running = None;
                     self.input = done.input;
+                    self.correction = done.correction;
                     self.notice = done.notice;
                     match done.record {
                         Ok(record) => self.record = record,
@@ -100,7 +114,11 @@ impl Panel {
                         }
                     }
                     if self.notice.is_some()
-                        && self.record.as_ref().is_none_or(|r| r.pending.is_none())
+                        && (self
+                            .saving_editor
+                            .as_ref()
+                            .is_some_and(|(_, kind)| matches!(kind, EditKind::Correction { .. }))
+                            || self.record.as_ref().is_none_or(|r| r.pending.is_none()))
                     {
                         self.editor = self.saving_editor.take();
                     } else {
@@ -123,7 +141,9 @@ impl Panel {
 
     /// Insert literal pasted text only into the active goal editor. Pasting never saves or requests.
     pub(crate) fn paste(&mut self, text: &str) {
-        if let Some(editor) = &mut self.editor {
+        if let Some((editor, kind)) = &mut self.editor
+            && !matches!(kind, EditKind::Correction { clear: true, .. })
+        {
             editor.insert_str(text);
         }
     }
@@ -143,20 +163,22 @@ impl Panel {
         if self.running.is_some() {
             return false;
         }
-        if let Some(editor) = &mut self.editor {
+        if let Some((editor, kind)) = &mut self.editor {
             if key.code == KeyCode::F(2) {
                 let words = editor.lines().join("\n");
-                let Some(record) = self.record.clone() else {
-                    return false;
-                };
+                let kind = kind.clone();
+                let record = self.record.clone();
                 self.saving_editor = self.editor.take();
                 self.saving = true;
-                self.start(move |context| {
-                    context
-                        .save(&record, &words)
-                        .map(|(_, receipt)| Some(receipt))
+                self.start(move |context| match kind {
+                    EditKind::Goal => context
+                        .save(&record.ok_or("There is no proposal.")?, &words)
+                        .map(|(_, receipt)| Some(receipt)),
+                    EditKind::Correction { shown, clear } => context
+                        .correct(&shown, record.as_ref(), (!clear).then_some(words.as_str()))
+                        .map(|()| None),
                 });
-            } else {
+            } else if !matches!(kind, EditKind::Correction { clear: true, .. }) {
                 editor.input(key);
             }
             return false;
@@ -167,6 +189,30 @@ impl Panel {
         match key.code {
             KeyCode::Down | KeyCode::PageDown => self.offset = self.offset.saturating_add(5),
             KeyCode::Up | KeyCode::PageUp => self.offset = self.offset.saturating_sub(5),
+            KeyCode::Char('f') | KeyCode::Char('x') => {
+                if let Ok(shown) = &self.correction {
+                    let clear = key.code == KeyCode::Char('x');
+                    let current = shown.value();
+                    let can_edit = current.as_ref().is_ok_and(|c| c.is_some())
+                        || (current.is_ok()
+                            && self.record.as_ref().is_some_and(|r| r.proposal.is_some()));
+                    if (clear || can_edit)
+                        && !self
+                            .record
+                            .as_ref()
+                            .is_some_and(|r| r.pending.is_some() && r.saved.is_none())
+                    {
+                        let words = current.ok().flatten().map_or(String::new(), |c| c.text);
+                        self.editor = Some((
+                            TextArea::from(words.lines()),
+                            EditKind::Correction {
+                                shown: shown.clone(),
+                                clear,
+                            },
+                        ));
+                    }
+                }
+            }
             KeyCode::Char('p') => {
                 if let Some(record) = &self.record
                     && !record.dismissed
@@ -174,7 +220,7 @@ impl Panel {
                     && self.input.as_ref().ok() == Some(&record.input)
                     && let Some(proposal) = &record.proposal
                 {
-                    self.editor = Some(TextArea::from(proposal.goal.lines()));
+                    self.editor = Some((TextArea::from(proposal.goal.lines()), EditKind::Goal));
                 }
             }
             KeyCode::Char('d') => {
@@ -227,21 +273,32 @@ impl Panel {
             height: area.height.saturating_sub(2),
             ..area
         };
-        if let Some(editor) = &self.editor {
+        if let Some((editor, kind)) = &self.editor {
             frame.render_widget(
                 Paragraph::new(format!(
-                    "Confirm this goal in {}",
+                    "{} in {}",
+                    match kind {
+                        EditKind::Goal => "Confirm this goal",
+                        EditKind::Correction { clear: false, .. } => "Save correction",
+                        EditKind::Correction { clear: true, .. } => "Clear correction",
+                    },
                     self.context.repo.display()
                 ))
                 .style(palette.jade),
                 Rect { height: 1, ..body },
             );
+            if matches!(kind, EditKind::Correction { clear: false, .. }) {
+                frame.render_widget(
+                    Paragraph::new("What must change, and when does it matter?"),
+                    Rect::new(body.x, body.y + 1, body.width, 1),
+                );
+            }
             let top = if let Some(notice) = &self.notice {
                 frame.render_widget(
                     Paragraph::new(crate::tend::history::display(notice))
                         .wrap(Wrap { trim: false })
                         .style(palette.muted),
-                    Rect::new(body.x, body.y + 1, body.width, 3),
+                    Rect::new(body.x, body.y + 2, body.width, 3),
                 );
                 5
             } else {
@@ -257,8 +314,16 @@ impl Panel {
                 ),
             );
             frame.render_widget(
-                Paragraph::new("F2 save exact words and open Shape   esc keep proposal")
-                    .style(palette.muted),
+                Paragraph::new(match kind {
+                    EditKind::Goal => "F2 save exact words and open Shape   esc keep proposal",
+                    EditKind::Correction { clear: false, .. } => {
+                        "F2 save correction only   esc keep stored correction"
+                    }
+                    EditKind::Correction { clear: true, .. } => {
+                        "F2 clear correction only   esc keep stored correction"
+                    }
+                })
+                .style(palette.muted),
                 footer,
             );
             return;
@@ -273,17 +338,55 @@ impl Panel {
         if let Some(notice) = &self.notice {
             lines.push(Line::from(Span::raw(format!("! {notice}"))));
         }
-        let pending = self.record.as_ref().is_some_and(|r| r.pending.is_some());
-        let mut keys = "esc back";
-        match &self.input {
+        if let Err(reason) = &self.input {
+            lines.push(Line::from(reason.clone()));
+        }
+        match &self.correction {
             Err(reason) => lines.push(Line::from(reason.clone())),
+            Ok(shown) => {
+                if !self
+                    .record
+                    .as_ref()
+                    .is_some_and(|r| r.pending.is_some() && r.saved.is_none())
+                {
+                    if shown.value().is_ok_and(|c| c.is_some())
+                        || (shown.value().is_ok()
+                            && self.record.as_ref().is_some_and(|r| r.proposal.is_some()))
+                    {
+                        lines.push(Line::from("f save/replace correction   x clear correction"));
+                    } else if shown.value().is_err() {
+                        lines.push(Line::from("x clear invalid correction"));
+                    }
+                }
+                match shown.value() {
+                    Ok(Some(c)) => {
+                        let label = if self
+                            .record
+                            .as_ref()
+                            .is_some_and(|r| r.input.correction.as_ref() == Some(&c))
+                        {
+                            "Correction supplied and kept for next request (operator guidance)"
+                        } else {
+                            "Correction for next request (operator guidance)"
+                        };
+                        lines.push(Line::from(Span::raw(format!("{label}:\n{}", c.text))));
+                    }
+                    Ok(None) => {}
+                    Err(reason) => lines.push(Line::from(reason)),
+                }
+            }
+        }
+        let pending = self.record.as_ref().is_some_and(|r| r.pending.is_some());
+        let mut keys = "↑↓ scroll   esc back";
+        match &self.input {
+            Err(_) => {}
             Ok(input) => {
                 lines.push(Line::from(Span::raw(format!(
                     "{} complete goals · model {} · one request",
                     input.sources.len(),
                     input.model
                 ))));
-                lines.push(Line::from("Starting sends these goals to the configured provider. No tools or external search."));
+                lines.push(Line::from("Starting sends these goals and the shown correction to the provider. No tools or external search."));
                 if let Some((_, budget)) = &self.context.call {
                     lines.push(Line::from(budget.left()));
                 }
@@ -293,6 +396,21 @@ impl Panel {
             }
         }
         if let Some(record) = &self.record {
+            if let Some(correction) = &record.input.correction
+                && self
+                    .correction
+                    .as_ref()
+                    .ok()
+                    .and_then(|s| s.value().ok())
+                    .flatten()
+                    .as_ref()
+                    != Some(correction)
+            {
+                lines.push(Line::from(Span::raw(format!(
+                    "Correction supplied for this result (operator guidance):\n{}",
+                    correction.text
+                ))));
+            }
             if let Some(pending) = &record.pending {
                 lines.push(Line::from(Span::raw(format!(
                     "Confirmed goal:\n{}",

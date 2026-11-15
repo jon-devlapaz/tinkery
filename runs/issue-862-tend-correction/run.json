@@ -1,0 +1,11 @@
+{
+  "profile": "light",
+  "kind": "feature",
+  "schema": 1,
+  "run_id": "e9065256-ca5f-4d11-ba8d-a74b1c30f153",
+  "issue": {
+    "url": "https://github.com/jon-devlapaz/tinkery/issues/862",
+    "title": "Tend: save one correction and reuse it in the next relevant connection",
+    "sha256": "441b6b0ca6f6bd0c1ad3e7424f0984720e7a83d15090e041765837b34991d8b9"
+  }
+}

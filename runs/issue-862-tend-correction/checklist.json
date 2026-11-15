@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "items": [
+    {
+      "id": "done-1",
+      "description": "The operator explicitly saves one exact correction from a reviewed proposal. Restart preserves it without a call.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-2",
+      "description": "Find connections discloses and sends the correction in one request without requiring a selected pair.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-3",
+      "description": "The result shows the exact correction supplied. Its supporting goal quotations remain verifiable. The model response contract is unchanged.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-4",
+      "description": "Replace and Clear change future request identity. Unchanged input reopens the same result without another call.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-5",
+      "description": "Relevant feedback survives an unrelated result and can apply to different source goals in the same repository.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-6",
+      "description": "Cancelled edits, oversized input, malformed records, conflicting writers, and interrupted saves preserve valid existing data.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-7",
+      "description": "Correction changes cannot silently alter a pending or published goal. The confirmed goal retains the correction actually used.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-8",
+      "description": "Older #861 explorations, pending receipts, ownership markers, and origin evidence remain readable and resumable. No-correction discovery and Shape handoff still work.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-9",
+      "description": "Unknown versions, mismatched tags, missing correction data, and conflicting frozen copies refuse explicitly. Opening old data does not rewrite it.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-10",
+      "description": "Public-interface tests cover these protections. Reverting the correction-input and freshness protections makes focused tests fail.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-11",
+      "description": "Applicable full checks pass in TEST roots. Fake providers establish mechanics only.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    }
+  ]
+}
