@@ -28,3 +28,11 @@ The preliminary `04-test/output/full-check.txt` passed before the departure repa
 Independent review also found that a failed refresh could append an old unreadable-record count to the current read error. The reviewer accepted `failed_refresh` on 2026-11-15 after independently observing the failure. `04-test/output/refresh-failure.txt` retains the reproduction. A single condition now restricts the garden count to successful reads. Reader error behavior is unchanged. Both focused terminal files pass after this repair.
 
 The first SDLC verification passed candidate `b4c412aab21fa2d2627b3a7c3042857ad831fa04` with 1127 Rust tests passed, one ignored, 39 Node tests passed, and 87 Python files passed. That pass predates the failed-refresh repair. Final verification supersedes it for the final candidate.
+
+## Final verification
+
+SDLC verification passed candidate `02d9a6c8152901d79400ff96c1bbce8f6e3da610`. It ran the full zero-call check with temporary TEST roots: 1127 Rust tests passed, one ignored, 39 Node tests passed, and all 87 Python files passed. Build, guarded snapshots, formatting and Clippy passed. `04-test/output/verification.json` and `test-log.md` bind that result. The final full suite includes the original feedback checks, Shape departure checks, failed-refresh checks, and the existing refusal and uncertain-save protections.
+
+The intake metadata says `feature` because the launcher omitted `--kind bug`. Issue #874 is a bug. Generated metadata remains unchanged. The independently accepted test baseline and `test-lock.json` remain present and verification enforces that lock. The lock command used retained reproduction evidence rather than its optional `--reproduce` command; the worker and independent reviewer both ran the unfixed regression separately.
+
+The worker made no PR or merge. Independent final review and publication belong to the supervisor. No real-thought trial or operator acceptance is claimed.

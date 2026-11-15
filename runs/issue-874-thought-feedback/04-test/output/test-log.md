@@ -4,8 +4,8 @@ Exact AGENTS full-check; temporary TEST HOME
 rustc 1.98.0 (88d9e12ae 2026-08-18)
 v26.8.1
 Python 3.14.7
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.10s
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
      Running `target/debug/tinkery --operator agent --home --snapshot`
 
   tinkery  in 874-thought-save-feedback                                         practice         ?
@@ -37,7 +37,7 @@ Python 3.14.7
 
   ↑↓ move   enter open   ? help   q quit
 
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.10s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
      Running `target/debug/tinkery --operator agent --snapshot --no-color`
                                                                                                     
   tinkery  declared: agent (not verified)                                       practice         ?  
@@ -70,46 +70,47 @@ Python 3.14.7
                                                                                                     
   F2 send   esc menu                                                                                
    Compiling tinkery v0.1.0 (/Users/jondev/dev/worktrees/tinkery/codex/874-thought-save-feedback)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.74s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.63s
      Running unittests src/lib.rs (target/debug/deps/graf-63feef6df486e378)
 
 running 52 tests
-test graph::tests::test_marquee_on_down ... ok
-test graph::tests::test_marquee_clear ... ok
 test graph::tests::test_marquee_on_drag ... ok
-test graph::tests::test_marquee_commit_rect ... ok
 test graph::tests::test_marquee_new ... ok
 test graph::tests::test_menu_item_from_label ... ok
-test graph::tests::test_menu_specs ... ok
+test graph::tests::test_marquee_on_down ... ok
+test graph::tests::test_marquee_clear ... ok
+test graph::tests::test_marquee_commit_rect ... ok
 test graph::tests::test_selection_select_only ... ok
+test graph::tests::test_menu_specs ... ok
 test graph::tests::test_selection_new ... ok
-test graph::tests::test_selection_all ... ok
-test graph::tests::test_selection_clear ... ok
-test graph::tests::test_selection_clear_set_keeps_primary ... ok
 test graph::tests::test_selection_replace_set ... ok
+test graph::tests::test_selection_clear_set_keeps_primary ... ok
 test graph::tests::test_selection_add ... ok
+test graph::tests::test_selection_clear ... ok
+test graph::tests::test_selection_all ... ok
 test physics::tests::test_physics_stop_condition ... ok
 test input::tests::test_middle_mouse_outside_area_ignored ... ok
-test physics::tests::test_continuous_simulation_step ... ok
-test physics::tests::test_dragged_nan_node_is_reset ... ok
 test physics::tests::test_non_finite_node_is_healed ... ok
+test physics::tests::test_dragged_nan_node_is_reset ... ok
 test physics::tests::test_nan_does_not_cascade_while_dragging ... ok
+test input::tests::test_middle_mouse_pan_over_minimap ... ok
 test physics::tests::test_simulation_step_caps_displacement ... ok
-test physics::tests::test_simulation_step_clamps_runaway_node ... ok
-test physics::tests::test_nan_reset_scatters_coincident_nodes ... ok
 test physics::tests::test_simulation_step_displacement_clamp_skips_dragged_node ... ok
 test input::tests::test_middle_mouse_pan_over_node_does_not_drag_node ... ok
-test input::tests::test_keymap_injection_overrides_bindings ... ok
 test input::tests::test_middle_mouse_pan_lifecycle ... ok
-test input::tests::test_middle_mouse_pan_over_minimap ... ok
 test input::tests::test_context_menu_click_dispatches_item ... ok
+test physics::tests::test_continuous_simulation_step ... ok
+test physics::tests::test_nan_reset_scatters_coincident_nodes ... ok
+test input::tests::test_keymap_injection_overrides_bindings ... ok
+test physics::tests::test_simulation_step_clamps_runaway_node ... ok
 test physics::tests::test_simulation_step_enforces_drag_target ... ok
 test physics::tests::test_static_node_drag_regression ... ok
 test render::fill_tests::fill_step_is_quarter_of_smaller_cell_dimension ... ok
 test render::node_scale_tests::automatic_fades_from_large_to_small_with_vault_size ... ok
 test render::dim_tests::edge_between_two_lit_neighbors_stays_colored ... ok
-test render::node_scale_tests::fixed_scale_spans_small_to_large_linearly ... ok
 test render::dim_tests::dim_grays_everything_outside_selection_neighborhood ... ok
+test physics::tests::test_simulation_step_converges ... ok
+test render::node_scale_tests::fixed_scale_spans_small_to_large_linearly ... ok
 test viewport::tests::clamp_world_bounds ... ok
 test render::tests::test_fill_labels ... ok
 test viewport::tests::nearest_in_dir_picks_forward ... ok
@@ -117,7 +118,6 @@ test viewport::tests::nearest_to_point_closest_wins ... ok
 test viewport::tests::pan_centered_rejects_nan ... ok
 test viewport::tests::test_hit_test_containment_prefers_body_over_neighbor ... ok
 test viewport::tests::test_hit_test_parity_with_brute_force ... ok
-test physics::tests::test_simulation_step_converges ... ok
 test viewport::tests::test_hit_test_zoom_extremes ... ok
 test viewport::tests::test_viewport_baseline_scale ... ok
 test viewport::tests::test_viewport_center_and_pan_guards ... ok
@@ -132,48 +132,48 @@ test result: ok. 52 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fin
      Running unittests src/lib.rs (target/debug/deps/pinstar-fcf7bd0d2801b1f3)
 
 running 40 tests
-test camera::tests::zoom_in_out_bounds ... ok
 test camera::tests::clamp_world_nonfinite ... ok
+test camera::tests::zoom_in_out_bounds ... ok
 test camera::tests::nearest_in_cone_prefers_straightest ... ok
 test menu::tests::color_picker_specs_carry_colors ... ok
-test data::tests::parses_canvas_json_without_orientation ... ok
 test menu::tests::image_node_item_only_when_enabled ... ok
 test menu::tests::canvas_menu_specs_gate_by_format ... ok
 test menu::tests::find_shortcut_case_insensitive ... ok
 test overlay::tests::clear_nukes_both ... ok
-test overlay::tests::commit_rect_normalizes_both_directions ... ok
 test overlay::tests::is_dragging_screen_manhattan ... ok
+test overlay::tests::commit_rect_normalizes_both_directions ... ok
 test overlay::tests::on_down_sets_start_end ... ok
 test overlay::tests::on_drag_updates_end ... ok
-test grid::tests::degenerate_projection_is_noop ... ok
 test grid::tests::hidden_grid_draws_nothing ... ok
-test grid::tests::grid_dots_appear_on_empty_cells_only ... ok
+test grid::tests::degenerate_projection_is_noop ... ok
+test data::tests::parses_canvas_json_without_orientation ... ok
 test menu::tests::rect_clamps_to_area ... ok
 test data::tests::parses_nodes_with_and_without_title ... ok
-test selection::tests::clear_nukes_both ... ok
+test grid::tests::grid_dots_appear_on_empty_cells_only ... ok
 test selection::tests::is_selected_primary_and_extra ... ok
 test selection::tests::clear_set_keeps_primary ... ok
+test selection::tests::clear_nukes_both ... ok
 test selection::tests::select_only_clears_extra ... ok
 test selection::tests::all_unions ... ok
 test input::tests::image_node_menu_item_sets_picker_trigger ... ok
 test state::tests::canvas_context_menu_remains_available ... ok
+test render::tests::marquee_and_menu_render_without_panic ... ok
 test textsel::tests::click_without_drag_cancels_selection ... ok
 test state::tests::screen_to_canvas_center_offset_and_clamp ... ok
-test formats::mermaid::tests::test_basic_parse_and_serialize ... ok
 test formats::plantuml::tests::test_plantuml_basic ... ok
 test formats::mermaid::tests::test_dt_parse_and_serialize ... ok
-test formats::mermaid::tests::test_dt_markdown_parse_and_serialize ... ok
+test formats::mermaid::tests::test_basic_parse_and_serialize ... ok
 test formats::dot::tests::test_dot_dt_orientation ... ok
 test formats::dot::tests::test_dot_parse_and_serialize ... ok
-test render::tests::marquee_and_menu_render_without_panic ... ok
+test formats::mermaid::tests::test_dt_markdown_parse_and_serialize ... ok
 test state::tests::edge_overlay_lists_and_selects_connected_edges ... ok
-test render::tests::test_draw_flowchart_view ... ok
 test render::tests::test_draw_pinstar_view_with_editor ... ok
+test render::tests::test_draw_flowchart_view ... ok
 test state::tests::connection_flow_and_delete_both_ways ... ok
-test state::tests::rename_title_and_id_modes ... ok
 test state::tests::undo_restores_and_prunes_selection ... ok
+test state::tests::rename_title_and_id_modes ... ok
 
-test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
      Running unittests src/lib.rs (target/debug/deps/tinkery-a11a44e61da811a9)
 
@@ -183,247 +183,247 @@ test actions::tests::rows_are_numbered_from_one ... ok
 test actions::tests::every_row_is_reachable_with_its_displayed_digit_and_pages_stop_at_the_ends ... ok
 test approve::tests::abandoned_read_cannot_publish_or_spawn_a_second_worker ... ok
 test approve::tests::unknown_and_incomplete_are_never_a_complete_empty_list ... ok
-test measure::tests::empty_results_are_distinct_from_unread_results ... ok
-test approve::tests::acceptance_checks_read_as_written_without_markdown_escapes ... ok
 test measure::tests::capped_results_are_never_complete ... ok
-test measure::tests::malformed_unknown_duplicate_and_inconsistent_records_refuse ... ok
+test approve::tests::acceptance_checks_read_as_written_without_markdown_escapes ... ok
 test approve::tests::agent_confirmation_notice_keeps_copy_and_missing_checkout_guidance ... ok
 test approve::tests::one_seed_at_a_time_and_copy_never_runs_a_command ... ok
+test measure::tests::empty_results_are_distinct_from_unread_results ... ok
+test measure::tests::malformed_unknown_duplicate_and_inconsistent_records_refuse ... ok
 test measure::tests::details_keep_checks_unknown_and_escape_returns_to_selection ... ok
 test measure::tests::states_remain_source_states_not_acceptance ... ok
 test measure::tests::titles_cannot_inject_terminal_controls ... ok
 test measure::tests::unselected_clipping_is_explicit_and_keeps_graphemes_whole ... ok
-test approve::tests::long_readings_reach_the_tail_and_keep_exit_visible ... ok
 test measure::tests::long_details_scroll_to_the_last_reported_check ... ok
 test measure::tests::read_provenance_moves_to_help_and_details_not_the_list ... ok
-test approve::tests::a_clipped_reading_says_where_the_hidden_command_lies ... ok
 test menu::measure_tests::help_away_from_the_menu_says_q_goes_back ... ok
+test approve::tests::long_readings_reach_the_tail_and_keep_exit_visible ... ok
+test approve::tests::a_clipped_reading_says_where_the_hidden_command_lies ... ok
 test measure::tests::opening_painting_and_navigation_never_start_a_read ... ok
+test measure::tests::list_stays_short_with_aligned_muted_metadata_and_reachable_last_row ... ok
+test menu::measure_tests::measure_keeps_f10_and_ctrl_c_quit_routes_with_or_without_help ... ok
 test menu::measure_tests::measure_help_closes_and_q_returns_to_a_closed_help_menu ... ok
 test menu::measure_tests::measure_help_ignores_menu_shortcuts_and_releases ... ok
-test menu::measure_tests::measure_keeps_f10_and_ctrl_c_quit_routes_with_or_without_help ... ok
-test measure::tests::list_stays_short_with_aligned_muted_metadata_and_reachable_last_row ... ok
 test menu::menu_tests::a_late_receipt_target_does_not_resurrect_an_exited_visit ... ok
-test menu::menu_tests::a_slow_read_behind_a_saved_session_says_so_too ... ok
-test menu::menu_tests::a_slow_read_changes_one_quiet_line_and_starts_nothing ... ok
-test menu::menu_tests::a_slow_reread_behind_an_empty_list_never_says_no_sessions ... ok
 test menu::measure_tests::measure_names_the_repo_once_in_its_heading ... ok
-test menu::history_tests::absent_record_still_leaves_the_saved_goal_and_a_way_back ... ok
+test menu::history_tests::history_is_deliberate_and_help_copy_and_exit_keep_the_same_goal ... ok
+test menu::menu_tests::a_slow_read_behind_a_saved_session_says_so_too ... ok
 test menu::menu_tests::a_slow_reread_leaves_a_list_already_on_screen_alone ... ok
+test menu::menu_tests::a_slow_reread_behind_an_empty_list_never_says_no_sessions ... ok
+test menu::menu_tests::a_slow_read_changes_one_quiet_line_and_starts_nothing ... ok
+test menu::history_tests::absent_record_still_leaves_the_saved_goal_and_a_way_back ... ok
+test measure::tests::selected_title_wraps_and_pages_without_losing_selection_or_original ... ok
 test menu::menu_tests::equal_timestamps_have_path_order_independent_of_creation_order ... ok
 test menu::menu_tests::ended_goals_never_enter_garden_selection_keys_mouse_or_detail ... ok
-test menu::menu_tests::counts_are_exact_only_after_complete_current_reads ... ok
 test menu::menu_tests::garden_keys_step_one_goal_in_newest_order_and_clamp_after_resize ... ok
-test measure::tests::selected_title_wraps_and_pages_without_losing_selection_or_original ... ok
 test menu::menu_tests::garden_test_session_plain_text_renders ... ok
-test menu::menu_tests::garden_presses_ignore_blank_rows_help_detail_and_discovery_states ... ok
-test menu::menu_tests::garden_press_selects_and_only_a_timely_same_session_press_opens ... ok
 test menu::menu_tests::graph_selection_keys_reveal_the_goal_after_panning_it_offscreen ... ok
-test menu::history_tests::history_is_deliberate_and_help_copy_and_exit_keep_the_same_goal ... ok
+test menu::menu_tests::counts_are_exact_only_after_complete_current_reads ... ok
+test menu::menu_tests::garden_presses_ignore_blank_rows_help_detail_and_discovery_states ... ok
 test menu::menu_tests::link_key_is_ignored_outside_garden_and_repeated_presses_do_not_start_linking ... ok
-test menu::measure_tests::measure_opens_unknown_at_supported_sizes_without_creating_records ... ok
 test menu::menu_tests::landed_discovery_does_not_cancel_or_redirect_link_picking ... ok
 test menu::menu_tests::late_results_keep_the_selected_session_by_identity_and_do_not_replace_detail ... ok
+test menu::measure_tests::measure_opens_unknown_at_supported_sizes_without_creating_records ... ok
+test menu::menu_tests::garden_press_selects_and_only_a_timely_same_session_press_opens ... ok
+test menu::menu_tests::late_read_cannot_redirect_a_double_press_to_a_different_session ... ok
 test menu::menu_tests::only_unreadable_records_never_read_as_no_sessions ... ok
 test menu::menu_tests::page_keys_move_a_screen_of_goal_detail_less_one_row ... ok
 test menu::menu_tests::many_requests_while_blocked_stay_bounded_to_one_worker ... ok
-test menu::menu_tests::late_read_cannot_redirect_a_double_press_to_a_different_session ... ok
 test menu::menu_tests::receipt_detail_for_a_session_a_complete_read_lacks_is_explicit ... ok
 test menu::menu_tests::links_destination_survives_menu_reopening_and_standalone_receipt_handoff ... ok
 test menu::menu_tests::receipt_detail_waits_for_a_read_that_can_contain_the_session ... ok
-test menu::menu_tests::blocked_discovery_still_paints_six_places_and_handles_queued_input ... ok
-test menu::menu_tests::all_ended_is_not_empty_and_incomplete_evidence_stays_visible ... ok
 test menu::menu_tests::returning_from_think_and_reopening_tend_read_again_and_hide_a_stale_count ... ok
+test menu::menu_tests::all_ended_is_not_empty_and_incomplete_evidence_stays_visible ... ok
 test menu::menu_tests::shape_return_waits_for_fresh_discovery_and_cannot_reopen_exited_detail ... ok
-test menu::menu_tests::unavailable_linking_does_not_stop_tend_reading_sessions ... ok
 test menu::menu_tests::tend_opened_during_discovery_is_responsive_and_never_says_no_sessions ... ok
+test menu::menu_tests::unavailable_linking_does_not_stop_tend_reading_sessions ... ok
+test menu::menu_tests::blocked_discovery_still_paints_six_places_and_handles_queued_input ... ok
 test menu::menu_tests::wanted_session_is_matched_before_filtering_and_selected_by_path_after_it ... ok
 test menu::menu_tests::watch_f10_returns_home_from_help_without_quitting ... ok
-test menu::menu_tests::the_menu_names_the_repository_once_and_says_nothing_outside_one ... ok
-test menu::menu_tests::scan_completeness_semantics ... ok
 test menu::menu_tests::unavailable_session_root_never_scans_or_claims_an_empty_list ... ok
-test menu::tests::digits_open_places_and_esc_returns_home ... ok
+test menu::menu_tests::scan_completeness_semantics ... ok
+test menu::menu_tests::the_menu_names_the_repository_once_and_says_nothing_outside_one ... ok
 test menu::menu_tests::linking_routes_keys_and_single_click_and_help_guards_hidden_actions ... ok
-test menu::tests::key_bar_preference_lasts_across_visits_to_think ... ok
-test menu::tests::leaving_think_returns_home_not_out_of_the_app ... ok
-test menu::tests::a_toggles_only_tend_garden_and_never_repeats_or_conflicts_with_shape ... ok
+test menu::tests::digits_open_places_and_esc_returns_home ... ok
 test menu::tests::home_shows_seven_places_and_only_counts_what_exists ... ok
+test menu::tests::leaving_think_returns_home_not_out_of_the_app ... ok
+test menu::tests::key_bar_preference_lasts_across_visits_to_think ... ok
+test menu::tests::a_toggles_only_tend_garden_and_never_repeats_or_conflicts_with_shape ... ok
 test menu::tests::menu_help_blocks_underlying_keys_paste_and_clicks_but_keeps_close_and_quit ... ok
-test menu::tests::menu_help_uses_jade_for_place_bold_keys_and_quiet_labels_and_border ... ok
+test measure::runs::tests::only_a_plain_p_reads_and_failures_stay_unknown ... ok
 test menu::tests::q_quits_from_home ... ok
-test approve::tests::no_checkout_is_unchanged_and_unresolved_checkout_does_not_claim_a_mismatch ... ok
 test approve::tests::different_origin_stays_readable_without_command_or_copy ... ok
+test menu::tests::menu_help_uses_jade_for_place_bold_keys_and_quiet_labels_and_border ... ok
 test menu::menu_tests::places_keep_digit_arrow_alias_and_row_navigation ... ok
 test menu::tests::s_in_tend_detail_opens_shape_and_esc_restores_the_same_detail ... ok
 test menu::tests::receipt_tend_request_selects_exact_session_and_missing_is_explicit ... ok
-test menu::tests::menu_help_is_a_bounded_overlay_with_the_menu_still_visible ... ok
-test menu::tests::home_menu_uses_one_grid_and_keeps_the_count_near_its_place ... ok
-test model_setup::tests::a_harness_flag_keeps_the_saved_calls_but_never_another_harness_s_model_or_thinking ... ok
+test approve::tests::no_checkout_is_unchanged_and_unresolved_checkout_does_not_claim_a_mismatch ... ok
 test menu::tests::returning_from_shape_rereads_the_same_detail_and_garden_stage ... ok
-test measure::runs::tests::only_a_plain_p_reads_and_failures_stay_unknown ... ok
+test menu::tests::home_menu_uses_one_grid_and_keeps_the_count_near_its_place ... ok
+test menu::tests::menu_help_is_a_bounded_overlay_with_the_menu_still_visible ... ok
+test model_setup::tests::a_harness_flag_keeps_the_saved_calls_but_never_another_harness_s_model_or_thinking ... ok
 test model_setup::tests::adding_calls_raises_this_launch_only_and_a_launch_never_exceeds_its_cap ... ok
 test model_setup::tests::an_agent_sees_the_setup_but_cannot_save_it_or_add_calls ... ok
 test menu::tests::tend_reads_stage_from_seed_me_files_newest_first ... ok
 test model_setup::tests::an_invalid_file_is_explained_in_the_panel_and_saving_replaces_it ... ok
-test menu::tests::home_key_bar_keeps_inline_descriptions_and_receipt_space ... ok
-test menu::tests::tend_next_action_follows_status_and_ended_sessions_cannot_copy ... ok
+test menu::tests::tend_detail_preserves_receipt_block_and_copy_is_exact_repeatable_and_manual ... ok
 test model_setup::tests::explicit_zero_overrides_saved_calls_without_changing_the_saved_setup ... ok
 test model_setup::tests::launch_drafts_only_with_saved_calls_or_shape_pi_and_flags_win_for_one_launch ... ok
+test menu::menu_tests::shifted_graph_view_keys_work_but_modified_actions_stay_blocked ... ok
 test model_setup::tests::one_parser_refuses_what_neither_flags_nor_file_may_hold ... ok
-test menu::tests::tend_detail_preserves_receipt_block_and_copy_is_exact_repeatable_and_manual ... ok
-test model_setup::tests::long_active_model_keeps_controls_visible_at_minimum_size ... ok
+test menu::tests::home_key_bar_keeps_inline_descriptions_and_receipt_space ... ok
 test model_setup::tests::practice_disclosure_never_names_the_saved_model_as_the_recipient ... ok
-test model_setup::tests::practice_has_no_now_row_and_clicking_the_label_opens_the_panel ... ok
-test model_setup::tests::saved_file_errors_name_the_path_without_claiming_a_launch_mode ... ok
+test model_setup::tests::long_active_model_keeps_controls_visible_at_minimum_size ... ok
+test menu::tests::tend_next_action_follows_status_and_ended_sessions_cannot_copy ... ok
+test model_setup::tests::claude_code_models_are_picked_not_typed_and_saving_keeps_the_harness ... ok
 test palette_tests::both_themes_keep_four_distinct_readable_roles_on_their_own_paper ... ok
 test palette_tests::no_color_keeps_meaning_without_any_colour ... ok
-test model_setup::tests::saving_refuses_calls_without_a_model_and_typing_refuses_a_loose_model ... ok
+test model_setup::tests::saved_file_errors_name_the_path_without_claiming_a_launch_mode ... ok
+test model_setup::tests::practice_has_no_now_row_and_clicking_the_label_opens_the_panel ... ok
 test model_setup::tests::only_s_writes_the_file_and_esc_leaves_it_alone ... ok
-test model_setup::tests::claude_code_models_are_picked_not_typed_and_saving_keeps_the_harness ... ok
 test pi::tests::each_harness_refuses_models_and_thinking_it_cannot_run_as_named ... ok
-test model_setup::tests::active_recipient_survives_editing_and_saving_later_settings ... ok
+test model_setup::tests::saving_refuses_calls_without_a_model_and_typing_refuses_a_loose_model ... ok
 test pi::tests::oversized_input_keeps_words_and_offers_a_next_step_before_spending_budget ... ok
-test menu::menu_tests::shifted_graph_view_keys_work_but_modified_actions_stay_blocked ... ok
+test model_setup::tests::active_recipient_survives_editing_and_saving_later_settings ... ok
 test menu::tests::tend_garden_derives_each_state_and_only_shows_goal_lines_newest_first ... ok
 test menu::tests::menu_descriptions_distinguish_outputs_without_granting_permission ... ok
 test repo::tests::a_git_file_counts_as_a_worktree_root ... ok
 test repo::tests::finds_the_nearest_root_from_a_nested_folder ... ok
-test approve::tests::matching_origin_and_a_dot_dot_checkout_offer_copy ... ok
 test repo::tests::outside_a_repository_there_is_none ... ok
 test sdlc::tests::a_failed_reader_start_says_what_to_check_without_os_internals ... ok
+test approve::tests::matching_origin_and_a_dot_dot_checkout_offer_copy ... ok
 test sdlc::tests::awaiting_receipts_keep_pending_ids_out_of_untyped_metadata ... ok
 test model_setup::tests::a_pi_that_cannot_list_falls_back_to_typing_and_says_why ... ok
 test sdlc::tests::checklist_obligations_fail_closed_only_for_manual_operator_items ... ok
-test model_setup::tests::enter_picks_pi_s_listed_models_and_t_still_types_one ... ok
 test sdlc::tests::another_file_beside_a_verified_seed_cannot_lend_its_goal ... ok
 test sdlc::tests::completion_before_parking_retains_the_wakeup ... ok
+test sdlc::tests::canonical_source_and_verified_current_bytes_join_the_exact_goal ... ok
+test model_setup::tests::enter_picks_pi_s_listed_models_and_t_still_types_one ... ok
 test pi::tests::claude_code_without_tools_starts_empty_handed_in_an_empty_folder_and_a_clean_env ... ok
 test pi::tests::claude_code_with_tools_reads_only_where_it_starts_and_asks_nobody ... ok
-test sdlc::tests::canonical_source_and_verified_current_bytes_join_the_exact_goal ... ok
 test sdlc::tests::generated_rules_are_dropped_only_from_well_formed_blocks ... ok
-test sdlc::tests::edited_seed_is_unknown_not_started_and_never_lends_its_goal ... ok
-test approve::tests::invalid_tend_origin_disables_approve_commands ... ok
-test sdlc::tests::every_command_prefers_json_then_sdlc_error_then_last_stderr_line ... ok
-test pi::tests::failed_requests_stop_descendants_and_preserve_results_and_budget ... ok
-test sdlc::tests::missing_or_changed_confirmation_cannot_lend_a_goal ... ok
-test sdlc::tests::other_commands_name_themselves_when_they_fail_never_python_or_status ... ok
-test sdlc::tests::missing_or_malformed_seed_records_cannot_establish_a_start ... ok
-test sdlc::tests::completed_reads_wake_their_owner_with_success_or_failure ... ok
-test sdlc::tests::moved_and_missing_originals_never_join_even_with_identical_names_and_bytes ... ok
-test sdlc::tests::isolated_label_failure_names_label_not_the_script ... ok
 test pi::tests::successful_requests_stop_descendants_and_preserve_results_and_budget ... ok
-test sdlc::tests::recorded_but_unreadable_originals_stay_unknown_not_unseeded ... ok
+test sdlc::tests::edited_seed_is_unknown_not_started_and_never_lends_its_goal ... ok
+test pi::tests::failed_requests_stop_descendants_and_preserve_results_and_budget ... ok
+test sdlc::tests::other_commands_name_themselves_when_they_fail_never_python_or_status ... ok
+test sdlc::tests::every_command_prefers_json_then_sdlc_error_then_last_stderr_line ... ok
+test approve::tests::invalid_tend_origin_disables_approve_commands ... ok
+test sdlc::tests::completed_reads_wake_their_owner_with_success_or_failure ... ok
+test sdlc::tests::missing_or_malformed_seed_records_cannot_establish_a_start ... ok
+test sdlc::tests::isolated_label_failure_names_label_not_the_script ... ok
+test sdlc::tests::moved_and_missing_originals_never_join_even_with_identical_names_and_bytes ... ok
+test sdlc::tests::missing_or_changed_confirmation_cannot_lend_a_goal ... ok
 test seed_me::answering::answer_actions_tests::answer_action_read_and_lock_failures_use_plain_recovery_words ... ok
-test sdlc::tests::failed_commands_stop_descendants_and_preserve_results ... ok
-test seed_me::answering::answer_actions_tests::deferral_without_revisit_is_refused_without_writing ... ok
+test sdlc::tests::recorded_but_unreadable_originals_stay_unknown_not_unseeded ... ok
 test sdlc::tests::unchanged_seed_bytes_cannot_lend_a_changed_ledger_goal ... ok
+test seed_me::answering::answer_actions_tests::deferral_without_revisit_is_refused_without_writing ... ok
+test sdlc::tests::failed_commands_stop_descendants_and_preserve_results ... ok
 test seed_me::answering::answer_actions_tests::deferral_records_both_fields_and_never_confirms ... ok
-test seed_me::answering::answer_actions_tests::delegation_records_the_suggestion_facts_and_operator_key ... ok
 test sdlc::tests::unreadable_runs_refuse_all_start_classification ... ok
-test pi::tests::pi_lists_its_models_as_provider_slash_id_without_a_model_request ... ok
+test seed_me::answering::answer_actions_tests::delegation_records_the_suggestion_facts_and_operator_key ... ok
 test sdlc::tests::successful_commands_stop_descendants_and_preserve_results ... ok
 test seed_me::answering::answer_actions_tests::revision_refuses_findings_goal_blank_words_and_stale_display ... ok
 test seed_me::answering::answer_actions_tests::delegation_and_revision_refuse_words_that_leave_the_decision_open ... ok
-test seed_me::answering::answer_actions_tests::delegation_without_facts_or_suggestion_is_refused_without_writing ... ok
-test seed_me::answering::answer_actions_tests::revision_reopens_all_settled_dependents_with_the_changed_answer_named ... ok
 test approve::tests::unknown_missing_unreadable_and_outside_origins_keep_copy_with_a_note ... ok
+test pi::tests::pi_lists_its_models_as_provider_slash_id_without_a_model_request ... ok
+test seed_me::answering::answer_actions_tests::delegation_without_facts_or_suggestion_is_refused_without_writing ... ok
 test seed_me::answering::answer_actions_tests::named_agent_answer_actions_and_kept_reasons_never_claim_operator_authorship ... ok
+test seed_me::answering::answer_actions_tests::revision_reopens_all_settled_dependents_with_the_changed_answer_named ... ok
 test seed_me::answering::prerequisite_tests::an_answer_that_leaves_the_decision_open_is_refused_and_defer_still_parks_it ... ok
-test seed_me::answering::prerequisite_tests::an_answer_that_only_mentions_undecided_is_saved ... ok
 test seed_me::answering::prerequisite_tests::current_question_is_not_replaced_and_multiple_prerequisites_keep_their_order ... ok
 test seed_me::answering::answer_actions_tests::revision_resolves_its_own_flag_without_revalidating_findings ... ok
+test seed_me::answering::prerequisite_tests::an_answer_that_only_mentions_undecided_is_saved ... ok
 test seed_me::answering::prerequisite_tests::prerequisite_refusals_save_no_question_findings_or_assumptions ... ok
-test seed_me::answering::prerequisite_tests::deferred_prerequisite_refuses_the_whole_reply_and_allows_a_new_question ... ok
 test seed_me::answering::prerequisite_tests::question_prerequisites_are_preserved_and_settled_parents_allow_current ... ok
+test seed_me::answering::prerequisite_tests::deferred_prerequisite_refuses_the_whole_reply_and_allows_a_new_question ... ok
 test seed_me::answering::prerequisite_tests::held_question_waits_for_ready_decisions_in_ledger_order_then_promotes ... ok
 test seed_me::answering::publication_tests::a_session_without_a_ledger_is_refused_in_plain_words ... ok
 test seed_me::answering::publication_tests::a_success_line_in_the_clause_form_the_goal_block_joined_keeps_its_words ... ok
 test seed_me::answering::publication_tests::an_unknown_save_asks_the_operator_to_look ... ok
-test seed_me::answering::prerequisite_tests::ready_selection_skips_inactive_decisions_and_held_questions ... ok
 test measure::runs::tests::counts_come_from_records_and_unknown_is_never_zero ... ok
 test seed_me::answering::publication_tests::completion_through_publish_is_refused ... ok
+test seed_me::answering::prerequisite_tests::ready_selection_skips_inactive_decisions_and_held_questions ... ok
 test seed_me::answering::publication_tests::invalid_node_fields_report_the_validation_error_even_when_they_name_a_conflict ... ok
 test seed_me::answering::prerequisite_tests::revising_an_answer_reopens_its_model_proposed_dependent ... ok
-test seed_me::answering::publication_tests::issue_298_split_checks_cannot_replace_the_complete_success_scenario ... ok
 test seed_me::answering::citation_tests::abbreviated_citation_ranges_check_every_later_bound ... ok
+test seed_me::answering::publication_tests::issue_298_split_checks_cannot_replace_the_complete_success_scenario ... ok
 test seed_me::answering::publication_tests::every_shape_ledger_action_works_without_launching_the_helper ... ok
 test seed_me::answering::prerequisite_tests::one_word_choices_that_can_be_real_answers_are_saved ... ok
 test seed_me::answering::publication_tests::literal_goal_comment_opener_in_must ... ok
-test seed_me::answering::publication_tests::literal_goal_comment_opener_in_headline ... ok
-test seed_me::answering::publication_tests::success_lines_preserve_unicode_and_bullets_without_inventing_missing_requirements ... ok
 test seed_me::answering::publication_tests::publication_clock_matches_python_including_zero_microseconds ... ok
+test seed_me::answering::publication_tests::success_lines_preserve_unicode_and_bullets_without_inventing_missing_requirements ... ok
+test seed_me::answering::publication_tests::literal_goal_comment_opener_in_headline ... ok
 test seed_me::answering::publication_tests::stale_shape_publication_refuses_without_changing_bytes ... ok
+test seed_me::answering::recovery_tests::a_deferred_prerequisite_is_not_answered_with_words_that_leave_it_open ... ok
+test pi::tests::claude_code_failures_read_plainly_and_never_pass_as_replies ... ok
+test seed_me::answering::recovery_tests::deferred_recovery_keeps_existing_agent_authorization_and_writer_lock ... ok
 test seed_me::answering::publication_tests::literal_goal_comments_in_headline ... ok
 test seed_me::answering::publication_tests::literal_goal_comments_in_must ... ok
-test seed_me::answering::recovery_tests::a_deferred_prerequisite_is_not_answered_with_words_that_leave_it_open ... ok
-test seed_me::answering::recovery_tests::deferred_recovery_keeps_existing_agent_authorization_and_writer_lock ... ok
-test seed_me::answering::publication_tests::seed_drafting_confirmation_status_and_ending_need_no_installed_helper ... ok
-test pi::tests::claude_code_failures_read_plainly_and_never_pass_as_replies ... ok
 test seed_me::answering::resolution_tests::resolved_unknown_receipts_are_omitted_even_when_copied_into_decision_evidence ... ok
 test seed_me::answering::seed_reply::tests::attached_instructions_have_one_field_layout_and_no_markdown_writing_directions ... ok
+test seed_me::answering::publication_tests::seed_drafting_confirmation_status_and_ending_need_no_installed_helper ... ok
 test seed_me::answering::seed_reply::tests::fields_are_complete_strings_and_summary_has_five_lines ... ok
+test seed_me::answering::recovery_tests::deferred_recovery_preserves_originals_and_asks_the_unanswered_dependent ... ok
 test seed_me::answering::resolution_tests::refused_resolution_links_keep_facts_open_and_save_no_question_or_findings ... ok
 test seed_me::answering::publication_tests::unasked_probe_answers_cannot_be_smuggled_into_seed_prose ... ok
 test seed_me::answering::recovery_tests::deferred_recovery_refuses_wrong_goal_stale_empty_seed_and_ended_targets ... ok
-test seed_me::answering::recovery_tests::deferred_recovery_preserves_originals_and_asks_the_unanswered_dependent ... ok
-test seed_me::answering::seed_reply::tests::seed_refusals_name_the_rule_field_and_offending_line_before_writing ... ok
 test seed_me::answering::seed_reply::tests::contract_following_markdown_names_the_field_instead_of_a_generic_refusal ... ok
+test seed_me::answering::seed_reply::tests::seed_refusals_name_the_rule_field_and_offending_line_before_writing ... ok
 test seed_me::answering::tests::evidence_lists_only_attributable_reported_read_paths_once ... ok
 test seed_me::answering::tests::evidence_names_unknown_grounding_instead_of_inventing_paths ... ok
 test seed_me::answering::tests::ids_are_ledger_safe_and_never_reuse_an_existing_one ... ok
 test seed_me::answering::tests::option_lines_keep_single_punctuation_whatever_the_model_ends_with ... ok
-test seed_me::answering::tests::a_cited_line_that_is_not_in_the_folder_is_flagged ... ok
-test seed_me::answering::tests::whats_true_today_copies_every_saved_finding_on_one_line_each ... ok
 test seed_me::answering::tests::the_seed_is_dated_where_the_operator_is_and_receipts_stay_utc ... ok
+test seed_me::answering::tests::whats_true_today_copies_every_saved_finding_on_one_line_each ... ok
+test seed_me::answering::tests::a_cited_line_that_is_not_in_the_folder_is_flagged ... ok
 test seed_me::answering::sequence_tests::s3_stale_retries_and_repeats_never_write ... ok
-test seed_me::answering::citation_tests::citation_ranges_reach_questions_and_seeds_without_losing_their_endpoints ... ok
-test seed_me::answering::typed_tests::contradicting_a_fact_flags_it_and_its_settled_support_dependents ... ok
 test seed_me::answering::typed_tests::ledger_refuses_bad_facts_and_support_without_saving_any_part_of_a_reply ... ok
-test seed_me::answering::recovery_tests::deferred_recovery_uses_existing_order_and_never_bypasses_own_readiness ... ok
-test seed_me::answering::citation_tests::unavailable_citation_files_stay_visible_as_evidence_gaps ... ok
+test seed_me::answering::typed_tests::contradicting_a_fact_flags_it_and_its_settled_support_dependents ... ok
 test seed_me::answering::typed_tests::a_contradicted_session_cannot_confirm_until_the_operator_keeps_it_with_a_reason ... ok
-test seed_me::connection_save::tests::conflicting_destination_is_never_replaced_or_cancelled ... ok
-test seed_me::answering::typed_tests::typed_facts_ground_questions_and_inferences_without_settling_a_decision ... ok
 test seed_me::answering::sequence_tests::s1_ordinary_path_then_reopen_is_read_only_and_identical ... ok
-test seed_me::answering::sequence_tests::s4_decision_changed_after_confirmation_cannot_complete_and_keeps_the_goal ... ok
+test seed_me::answering::typed_tests::typed_facts_ground_questions_and_inferences_without_settling_a_decision ... ok
+test seed_me::answering::recovery_tests::deferred_recovery_uses_existing_order_and_never_bypasses_own_readiness ... ok
 test seed_me::connection_save::tests::changed_source_before_publication_keeps_receipt_and_can_cancel_owned_staging ... ok
+test seed_me::connection_save::tests::conflicting_destination_is_never_replaced_or_cancelled ... ok
+test seed_me::answering::sequence_tests::s4_decision_changed_after_confirmation_cannot_complete_and_keeps_the_goal ... ok
+test seed_me::answering::citation_tests::unavailable_citation_files_stay_visible_as_evidence_gaps ... ok
+test seed_me::answering::citation_tests::citation_ranges_reach_questions_and_seeds_without_losing_their_endpoints ... ok
 test seed_me::connection_save::tests::concurrent_resume_refuses_without_creating_another_goal ... ok
-test seed_me::answering::sequence_tests::s2_decision_changed_after_draft_refuses_the_old_confirmation ... ok
 test seed_me::connection_save::tests::symlinked_staging_parent_refuses_resume_inspection_and_cancel ... ok
+test seed_me::answering::sequence_tests::s2_decision_changed_after_draft_refuses_the_old_confirmation ... ok
 test seed_me::connection_save::tests::legacy_receipt_keeps_its_wire_fields_and_refuses_added_correction ... ok
 test seed_me::connection_save::tests::published_goal_and_receipt_remain_private ... ok
+test seed_me::connection_save::tests::correction_origin_survives_staging_restart_and_history ... ok
 test seed_me::ledger::closing::tests::completion_review_requires_every_failure_case_and_refuses_blockers ... ok
 test seed_me::ledger::closing::tests::confirmation_summary_names_risks_once_and_counts_exact_acceptance ... ok
-test seed_me::connection_save::tests::correction_origin_survives_staging_restart_and_history ... ok
 test seed_me::ledger::closing::tests::repeated_check_statements_cannot_hide_a_foreign_failure_case ... ok
 test seed_me::connection_save::tests::restart_rebuilds_owned_partial_staging_and_refuses_unowned_content ... ok
 test seed_me::connection_save::tests::restart_reuses_published_goal_before_rechecking_changed_membership ... ok
 test seed_me::connection_save::tests::tend_origin_has_honest_history_and_invalid_evidence_is_distinct ... ok
-test seed_me::connection_save::tests::published_receipt_refuses_changed_outcome_or_confirmation ... ok
-test seed_me::connection_save::tests::published_resume_retries_both_parent_syncs_before_reporting_success ... ok
-test seed_me::ledger::closing::tests::teach_back_preserves_words_and_mismatches_without_holding_confirmation ... ok
-test seed_me::ledger::closing::tests::completion_review_is_verbatim_byte_bound_append_only_and_not_goal_evidence ... ok
 test seed_me::ledger::closing::tests::teach_back_refuses_stale_drafts_secrets_and_erasure ... ok
-test seed_me::ledger::closing::tests::teach_back_does_not_reopen_goal_dependents_or_hide_real_evidence_changes ... ok
+test seed_me::ledger::closing::tests::completion_review_is_verbatim_byte_bound_append_only_and_not_goal_evidence ... ok
+test seed_me::connection_save::tests::published_resume_retries_both_parent_syncs_before_reporting_success ... ok
+test seed_me::connection_save::tests::published_receipt_refuses_changed_outcome_or_confirmation ... ok
 test seed_me::ledger::closing::tests::teach_back_skip_is_recorded_verbatim_only_after_a_valid_confirmation ... ok
+test seed_me::ledger::closing::tests::teach_back_preserves_words_and_mismatches_without_holding_confirmation ... ok
+test seed_me::answering::citation_tests::a_spaced_path_credits_only_the_whole_file_it_names ... ok
+test seed_me::ledger::closing::tests::teach_back_does_not_reopen_goal_dependents_or_hide_real_evidence_changes ... ok
 test seed_me::ledger::seed::tests::changed_decisions_cannot_verify_or_complete ... ok
 test seed_me::ledger::seed::tests::changed_seed_bytes_cannot_verify_or_complete ... ok
-test seed_me::answering::citation_tests::a_spaced_path_credits_only_the_whole_file_it_names ... ok
 test seed_me::ledger::seed::tests::agent_sessions_require_verified_confirmation_to_complete ... ok
-test seed_me::ledger::seed::tests::confirming_preserves_seed_mode_and_refuses_a_busy_writer ... ok
-test seed_me::ledger::seed::tests::confirming_stale_decisions_refuses_without_writes ... ok
-test seed_me::ledger::storage::tests::atomic_replace_is_private_and_leaves_no_temporary_file_and_noop_keeps_bytes ... ok
 test seed_me::ledger::seed::tests::ending_requires_confirmation_record ... ok
+test seed_me::ledger::seed::tests::confirming_stale_decisions_refuses_without_writes ... ok
 test seed_me::ledger::storage::tests::failed_writes_report_not_saved_or_unknown_from_read_back ... ok
-test seed_me::ledger::storage::tests::load_and_transition_refusals_release_the_writer ... ok
+test seed_me::ledger::seed::tests::confirming_preserves_seed_mode_and_refuses_a_busy_writer ... ok
+test seed_me::ledger::storage::tests::atomic_replace_is_private_and_leaves_no_temporary_file_and_noop_keeps_bytes ... ok
 test seed_me::ledger::seed::tests::status_ignores_viewer_records_and_corrupt_snapshots_without_mutation ... ok
 test seed_me::ledger::storage::tests::draft_saves_share_the_lock_and_refuse_stale_or_replaced_inputs_before_writes ... ok
-test seed_me::ledger::storage::tests::one_writer_blocks_another_and_releases_after_drop ... ok
-test seed_me::ledger::unknowns::tests::unknown_resolution_refuses_unsettled_answers_and_non_open_unknowns_atomically ... ok
+test seed_me::ledger::storage::tests::load_and_transition_refusals_release_the_writer ... ok
 test seed_me::ledger::storage::tests::serialization_refusal_precedes_io_without_a_save_failure_prefix ... ok
+test seed_me::ledger::unknowns::tests::unknown_resolution_refuses_unsettled_answers_and_non_open_unknowns_atomically ... ok
 test seed_me::ledger::storage::tests::reviews_check_the_displayed_version_under_the_writer_lock ... ok
-test seed_me::ready::tests::acceptance_bytes_are_never_trimmed_or_rewritten ... ok
 test seed_me::ledger::storage::tests::successful_write_with_unreadable_read_back_never_claims_saved ... ok
+test seed_me::ready::tests::acceptance_bytes_are_never_trimmed_or_rewritten ... ok
+test seed_me::ledger::storage::tests::one_writer_blocks_another_and_releases_after_drop ... ok
 test seed_me::ready::tests::copy_paths_are_canonical_and_shell_quoted ... ok
 test seed_me::ledger::unknowns::tests::resolutions_preserve_history_and_reopen_when_the_covering_answer_changes ... ok
 test seed_me::ledger::seed::tests::historical_trimmed_confirmation_notes_and_receipts_still_verify_unchanged ... ok
@@ -432,36 +432,36 @@ test seed_me::save::tests::fresh_dump_keeps_the_selected_root ... ok
 test seed_me::save::tests::unavailable_root_survives_fresh_dumps_and_refuses_before_writing ... ok
 test seed_me::ready::tests::agent_receipts_name_the_actual_actor_and_offer_manual_external_intake ... ok
 test seed_me::session::identity_tests::completed_and_stopped_are_both_over_but_say_which ... ok
-test seed_me::ready::tests::a_changed_source_is_refused_instead_of_displaying_unverified_bytes ... ok
 test seed_me::save::tests::unreadable_recovery_sessions_use_plain_errors_and_remain_available ... ok
+test seed_me::session::identity_tests::file_only_seed_status_never_claims_verified_readiness ... ok
 test seed_me::shaping::tests::a_seed_is_ready_only_when_status_verifies_it ... ok
 test seed_me::shaping::tests::every_other_stage_is_said_plainly_and_nothing_is_guessed ... ok
 test seed_me::shaping::tests::missing_success_is_known_absence_not_a_guess_about_older_records ... ok
-test seed_me::ready::tests::a_seed_or_ledger_replaced_during_verification_is_refused_without_waiting ... ok
 test seed_me::shaping::tests::settled_decisions_after_the_goal_are_read_exactly_with_who_settled_them ... ok
-test seed_me::tests::an_empty_explicit_root_never_means_the_current_folder ... ok
 test seed_me::shaping::tests::the_current_question_shows_what_the_ledger_records_and_nothing_else ... ok
+test seed_me::tests::an_empty_explicit_root_never_means_the_current_folder ... ok
+test seed_me::ready::tests::a_seed_or_ledger_replaced_during_verification_is_refused_without_waiting ... ok
 test seed_me::tests::default_root_is_under_the_given_home ... ok
 test seed_me::tests::evidence_labels_are_plain_and_leave_original_bytes_untouched ... ok
-test seed_me::session::identity_tests::file_only_seed_status_never_claims_verified_readiness ... ok
+test seed_me::ready::tests::a_changed_source_is_refused_instead_of_displaying_unverified_bytes ... ok
 test seed_me::ready::tests::unsafe_copy_paths_keep_the_seed_readable_but_offer_no_command ... ok
 test seed_me::session::identity_tests::identity_comes_from_the_same_saved_goal_and_never_from_the_folder_name ... ok
-test seed_me::tests::reading_a_session_never_guesses ... ok
+test shape::discovery_help::tests::capped_help_can_scroll_to_omission_notice_with_fixed_exit_keys ... ok
 test shape::discovery_help::tests::fresh_and_failed_reads_clear_old_diagnostics ... ok
 test shape::discovery_help::tests::help_caps_samples_and_discloses_the_full_remaining_count ... ok
-test shape::discovery_help::tests::capped_help_can_scroll_to_omission_notice_with_fixed_exit_keys ... ok
-test seed_me::tests::confirmed_goal_and_originals_are_read_back_without_a_skill_or_viewer ... ok
 test shape::discovery_help::tests::paths_and_reasons_escape_controls_only_in_the_display_copy ... ok
+test seed_me::ready::tests::only_verified_seeds_supply_exact_words_and_shared_intake_commands ... ok
+test seed_me::tests::reading_a_session_never_guesses ... ok
+test seed_me::tests::confirmed_goal_and_originals_are_read_back_without_a_skill_or_viewer ... ok
 test seed_me::ledger::seed::tests::confirmation_keeps_source_whitespace_for_people_and_agents ... ok
 test seed_me::tests::session_identity_comes_only_from_a_nonempty_control_free_ledger_string ... ok
-test seed_me::ready::tests::only_verified_seeds_supply_exact_words_and_shared_intake_commands ... ok
 test seed_me::ledger::seed::tests::confirmation_still_refuses_blank_and_multiline_sources_without_writes ... ok
 test seed_me::connection_save::tests::versioned_origin_refuses_missing_null_unknown_and_conflicting_evidence ... ok
-test shape::step::reply_contract_tests::a_reply_breaking_done_when_and_case_count_hears_both_in_one_refusal ... ok
 test seed_me::tests::session_operator_and_answers_share_the_authorized_actor ... ok
+test shape::step::reply_contract_tests::a_reply_breaking_done_when_and_case_count_hears_both_in_one_refusal ... ok
 test shape::step::reply_contract_tests::a_ledger_rule_the_reply_broke_becomes_retry_feedback_and_storage_never_does ... ok
-test shape::step::reply_contract_tests::a_claude_code_step_reads_only_the_shown_folder_and_drafts_from_its_json_result ... ok
 test shape::step::reply_contract_tests::a_done_when_line_changed_only_in_letter_case_is_saved_in_the_operator_words ... ok
+test shape::step::reply_contract_tests::a_claude_code_step_reads_only_the_shown_folder_and_drafts_from_its_json_result ... ok
 test shape::step::reply_contract_tests::one_case_per_failure_mode_hears_that_one_check_takes_one_string ... ok
 test shape::step::reply_contract_tests::captured_checks_with_valid_prose_refuse_missing_source_without_inventing_it ... ok
 test shape::step::reply_contract_tests::ordered_transport_preserves_bytes_and_refuses_mixed_or_incomplete_cases ... ok
@@ -472,111 +472,111 @@ test shape::step::reply_contract_tests::reply_framing_repairs_only_complete_obje
 test shape::step::typed_tests::a_seed_reply_requires_a_typed_completion_review_without_parser_diagnostics ... ok
 test shape::step::reply_contract_tests::a_provisional_proposing_another_checks_command_is_refused_with_a_plain_reason ... ok
 test shape::step::typed_tests::decodes_each_claim_and_keeps_support_and_contradiction_references ... ok
-test seed_me::ledger::seed::tests::confirmation_keeps_fenced_heading_and_closing_rules ... ok
-test shape::step::typed_tests::question_prerequisites_pass_unchanged_to_the_ledger_boundary ... ok
 test shape::step::reply_contract_tests::captured_missing_source_preserves_the_answer_and_recovers_on_next_look ... ok
+test shape::step::typed_tests::question_prerequisites_pass_unchanged_to_the_ledger_boundary ... ok
+test shape::step::typed_tests::session_sized_step_sends_findings_once_without_changing_saved_context ... ok
 test shape::step::typed_tests::teach_back_zero_budget_refuses_before_capture_or_any_read ... ok
 test shape::step::typed_tests::untyped_or_partial_findings_are_refused_never_dropped_or_guessed ... ok
-test shape::step::typed_tests::session_sized_step_sends_findings_once_without_changing_saved_context ... ok
-test shape::step::reply_contract_tests::each_check_keeps_its_case_when_statements_repeat_without_changing_saved_formats ... ok
-test shape::step::unknown_tests::resolution_reply_field_is_optional_but_never_silently_coerced ... ok
-test shape::step::typed_tests::zero_budget_refuses_revision_before_reading_or_publishing ... ok
-test seed_me::answering::answer_actions_tests::delegation_copies_the_suggestion_without_appending_reply_confidence ... ok
+test seed_me::ledger::seed::tests::confirmation_keeps_fenced_heading_and_closing_rules ... ok
 test shape::step::reply_contract_tests::recoverable_361_extra_closing_brace_drafts_in_one_call_without_rewriting_content ... ok
-test shape::tests::a_correction_typed_where_confirm_goes_carries_into_revise_the_draft ... ok
+test shape::step::unknown_tests::resolution_reply_field_is_optional_but_never_silently_coerced ... ok
+test shape::step::reply_contract_tests::each_check_keeps_its_case_when_statements_repeat_without_changing_saved_formats ... ok
+test shape::step::typed_tests::zero_budget_refuses_revision_before_reading_or_publishing ... ok
+test shape::tests::a_draft_shows_acceptance_checks_as_written_and_other_lines_unchanged ... ok
 test shape::tests::a_draft_shows_the_seed_and_f2_needs_the_operators_own_words ... ok
 test shape::tests::a_flagged_answer_has_a_read_only_route_and_an_explicit_budget_free_keep_key ... ok
-test shape::tests::a_draft_shows_acceptance_checks_as_written_and_other_lines_unchanged ... ok
+test shape::tests::a_correction_typed_where_confirm_goes_carries_into_revise_the_draft ... ok
 test shape::tests::a_long_answer_never_hides_the_question_or_what_a_running_step_is_doing ... ok
+test shape::tests::a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion ... ok
 test shape::tests::a_pasted_cr_breaks_the_row_on_screen_and_the_words_stay_as_pasted ... ok
 test shape::tests::a_pasted_folder_with_a_trailing_line_break_is_used ... ok
-test shape::tests::a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion ... ok
-test shape::tests::a_step_gives_exactly_two_options_with_a_known_undo_cost_or_none ... ok
 test shape::tests::a_question_or_seed_with_nothing_found_is_flagged ... ok
+test shape::tests::a_step_gives_exactly_two_options_with_a_known_undo_cost_or_none ... ok
 test shape::tests::a_step_may_assume_at_most_five_complete_defaults ... ok
+test seed_me::answering::answer_actions_tests::delegation_copies_the_suggestion_without_appending_reply_confidence ... ok
 test shape::tests::a_tall_question_scrolls_while_the_answer_and_every_key_stay_in_view ... ok
 test shape::tests::an_agent_declaration_holds_every_shape_write_and_says_why ... ok
-test shape::step::typed_tests::verified_think_origin_selects_the_same_folder_or_existing_fallback ... ok
 test shape::step::reply_contract_tests::ordered_cases_pair_exact_statements_without_rewriting_and_keep_coverage_strict ... ok
 test shape::tests::asking_to_end_or_object_takes_no_words_so_a_paste_changes_nothing ... ok
-test shape::tests::changing_the_words_clears_a_refusal_about_them_and_only_then ... ok
-test shape::tests::a_long_editor_follows_its_cursor_and_leaves_half_the_body_for_reading ... ok
-test shape::tests::deferral_form_keeps_fields_and_original_answer_without_writes ... ok
 test shape::tests::assumptions_show_with_their_question_and_object_then_a_number_objects_to_one ... ok
+test shape::step::typed_tests::verified_think_origin_selects_the_same_folder_or_existing_fallback ... ok
+test shape::tests::changing_the_words_clears_a_refusal_about_them_and_only_then ... ok
+test shape::tests::deferral_form_keeps_fields_and_original_answer_without_writes ... ok
+test shape::tests::a_long_editor_follows_its_cursor_and_leaves_half_the_body_for_reading ... ok
 test shape::tests::crowded_question_bars_keep_more_and_back_visible_and_f1_lists_every_action ... ok
-test shape::step::typed_tests::delegated_pre_mortem_choices_reach_the_seed_as_settled ... ok
+test shape::tests::each_stage_shows_the_goal_as_confirmed_then_one_next_step ... ok
 test shape::tests::ending_asks_once_more_and_esc_or_a_held_key_ends_nothing ... ok
 test shape::tests::enter_at_seed_confirmation_guides_without_editing_or_starting_a_step ... ok
 test shape::step::reply_contract_tests::recorded_361_refusals_name_unsafe_coverage_and_preserve_saved_answers ... ok
 test shape::tests::failures_and_missing_setup_are_said_plainly_with_the_reason_in_help ... ok
-test shape::tests::each_stage_shows_the_goal_as_confirmed_then_one_next_step ... ok
 test shape::tests::an_objection_becomes_an_open_decision_asked_before_any_new_one ... ok
 test shape::tests::forms_do_not_retarget_after_a_stale_read_and_held_keys_do_nothing ... ok
 test shape::tests::folder_edits_keep_multiline_paths_including_trailing_whitespace ... ok
 test shape::tests::incomplete_lists_keep_the_count_and_f1_route ... ok
+test shape::step::typed_tests::delegated_pre_mortem_choices_reach_the_seed_as_settled ... ok
 test shape::tests::new_answer_actions_cannot_escape_an_ending_or_objection ... ok
 test shape::tests::no_folder_is_offered_without_an_agent_or_a_step_and_no_step_starts_before_it_is_known ... ok
-test shape::tests::no_next_line_repeats_the_one_action_the_key_bar_names ... ok
 test shape::tests::issue_314_captured_goal_names_missing_success_before_any_call ... ok
+test shape::tests::no_next_line_repeats_the_one_action_the_key_bar_names ... ok
+test shape::step::reply_contract_tests::captured_rechecks_refuse_without_changing_saved_answers_then_recover ... ok
 test shape::tests::only_flagged_operator_decisions_offer_a_revision_form ... ok
-test shape::tests::only_the_word_confirm_confirms_and_other_words_are_kept_unconfirmed ... ok
-test shape::tests::page_keys_move_about_one_screen_of_reading ... ok
-test shape::tests::prompt_recovery_does_not_turn_existing_behavior_into_a_new_goal_choice ... ok
 test shape::tests::down_reads_a_draft_to_its_end_while_the_confirm_box_has_the_words ... ok
+test shape::tests::page_keys_move_about_one_screen_of_reading ... ok
+test shape::tests::only_the_word_confirm_confirms_and_other_words_are_kept_unconfirmed ... ok
+test shape::tests::prompt_recovery_does_not_turn_existing_behavior_into_a_new_goal_choice ... ok
 test shape::tests::prompt_recovery_separates_existing_checks_from_missing_assertions ... ok
 test shape::tests::f2_waits_until_the_whole_seed_draft_has_been_on_screen ... ok
-test shape::tests::read_to_end_survives_same_revision_rereads_but_not_a_new_revision ... ok
 test shape::tests::retired_function_keys_do_nothing_and_f1_reaches_every_action ... ok
-test shape::step::reply_contract_tests::captured_rechecks_refuse_without_changing_saved_answers_then_recover ... ok
+test shape::tests::read_to_end_survives_same_revision_rereads_but_not_a_new_revision ... ok
 test shape::tests::seed_ready_points_to_approve_and_copies_nothing ... ok
-test shape::tests::a_change_to_the_draft_is_the_operators_decision_and_the_redraft_carries_it ... ok
 test shape::tests::seed_confirmation_hints_follow_the_current_drafts_reading_gate ... ok
+test shape::tests::a_change_to_the_draft_is_the_operators_decision_and_the_redraft_carries_it ... ok
 test shape::tests::settled_intake_drafts_without_reopening_settled_or_deferred_decisions ... ok
-test shape::tests::options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for ... ok
 test shape::tests::so_far_names_open_questions_and_the_answers_they_wait_for ... ok
-test shape::tests::ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only ... ok
 test shape::tests::so_far_scrolls_on_a_short_screen_and_always_says_how_to_close ... ok
+test shape::tests::options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for ... ok
+test shape::tests::ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only ... ok
 test shape::tests::prompt_recovery_existing_goal_drafts_without_reconfirmation ... ok
 test shape::tests::teach_back_prefills_exact_confirmation_words_without_sharing_edits ... ok
-test shape::step::reply_contract_tests::attached_cases_refuse_missing_malformed_or_mixed_coverage_without_writes ... ok
-test shape::tests::settled_intake_answer_drafts_without_reopening ... ok
-test shape::tests::the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level ... ok
 test shape::tests::repository_checks_are_proposed_with_sources_but_never_executed ... ok
-test shape::tests::the_prompt_names_exactly_the_fields_the_decoder_reads ... ok
-test shape::tests::the_reply_is_a_question_or_a_seed_and_never_a_confirmation ... ok
 test shape::tests::the_folder_a_step_reads_shows_before_f2_and_f1_picks_another ... ok
-test shape::tests::the_step_answers_the_other_probes_from_evidence_and_records_every_probe ... ok
-test shape::tests::uncertain_endings_and_other_ledger_saves_never_claim_nothing_changed ... ok
+test shape::tests::the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level ... ok
+test shape::tests::the_prompt_names_exactly_the_fields_the_decoder_reads ... ok
 test shape::tests::the_question_is_jade_and_the_suggestion_reads_as_a_guess_without_colour_too ... ok
+test shape::tests::the_reply_is_a_question_or_a_seed_and_never_a_confirmation ... ok
+test shape::tests::the_step_answers_the_other_probes_from_evidence_and_records_every_probe ... ok
 test shape::tests::typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_starting ... ok
-test taste::evidence::tests::api1_log_pointer_method_and_digest_survive_without_reading_or_dumping_the_log ... ok
+test shape::tests::uncertain_endings_and_other_ledger_saves_never_claim_nothing_changed ... ok
+test shape::tests::settled_intake_answer_drafts_without_reopening ... ok
 test shape::tests::without_an_agent_shape_only_reads_and_letters_scroll ... ok
+test shape::tests::while_a_step_runs_the_question_and_the_answer_stay_in_view ... ok
+test taste::evidence::tests::api1_log_pointer_method_and_digest_survive_without_reading_or_dumping_the_log ... ok
 test taste::evidence::tests::checking_cwd_normalizes_harmless_source_spellings_but_logs_remain_strict ... ok
 test taste::evidence::tests::digest_is_optional_but_never_a_path_and_api_default_cwd_is_explicit ... ok
+test taste::evidence::tests::missing_unsafe_cross_run_paths_or_methods_never_supply_evidence ... ok
 test taste::label::tests::digits_choose_pass_or_fail_then_every_character_is_the_operators_words ... ok
 test taste::label::tests::empty_words_are_never_saved_and_backspace_on_empty_returns_to_the_choice ... ok
 test taste::label::tests::only_a_pressed_f2_saves_and_esc_discards ... ok
-test shape::tests::while_a_step_runs_the_question_and_the_answer_stay_in_view ... ok
-test taste::evidence::tests::missing_unsafe_cross_run_paths_or_methods_never_supply_evidence ... ok
+test seed_me::answering::citation_tests::malformed_citation_tokens_never_establish_a_valid_prefix ... ok
 test taste::links::tests::malformed_recorded_urls_stay_unknown ... ok
 test taste::links::tests::only_the_runs_own_record_supplies_its_pr ... ok
-test taste::links::tests::run_ids_must_be_canonical_uuid_v4 ... ok
-test taste::preview::tests::contract_refuses_receipt_result ... ok
-test taste::preview::tests::declarations_refuse_public_or_ambiguous_urls_and_empty_commands ... ok
-test taste::label::tests::unbound_and_other_head_labels_never_replace_a_current_verdict ... ok
-test shape::tests::the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model ... ok
 test shape::tests::settled_intake_deferral_drafts_without_choosing_or_confirming ... ok
+test taste::preview::tests::contract_refuses_receipt_result ... ok
+test taste::links::tests::run_ids_must_be_canonical_uuid_v4 ... ok
+test taste::preview::tests::declarations_refuse_public_or_ambiguous_urls_and_empty_commands ... ok
+test shape::tests::supplied_tally_name_reaches_drafting_and_survives_the_stub_seed ... ok
 test seed_me::answering::citation_tests::valid_citations_keep_grouped_receipts_and_deduplicated_reported_paths ... ok
+test taste::label::tests::unbound_and_other_head_labels_never_replace_a_current_verdict ... ok
 test taste::preview::tests::readiness_requires_a_complete_valid_success_status ... ok
-test seed_me::answering::citation_tests::malformed_citation_tokens_never_establish_a_valid_prefix ... ok
 test taste::read::tests::a_new_result_commit_stales_earlier_pass_claims_even_if_source_says_current ... ok
 test taste::read::tests::absent_identity_is_unknown_not_stale_and_source_staleness_removes_green ... ok
 test taste::read::tests::api1_passing_condition_carries_usable_evidence_into_tail_and_both_handoffs ... ok
-test shape::tests::supplied_tally_name_reaches_drafting_and_survives_the_stub_seed ... ok
-test shape::step::typed_tests::answered_pre_mortem_is_sent_once_and_not_reasked ... ok
+test shape::tests::the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model ... ok
 test taste::label::tests::only_exact_head_verdicts_count_and_legacy_words_stay_readable ... ok
-test taste::read::tests::contract_refuses_gate ... ok
 test taste::read::tests::contract_refuses_check_status ... ok
+test shape::tests::stacker_r1_draft_stores_records_instead_of_model_markdown ... ok
+test shape::step::reply_contract_tests::attached_cases_refuse_missing_malformed_or_mixed_coverage_without_writes ... ok
+test taste::read::tests::contract_refuses_gate ... ok
 test taste::read::tests::current_matching_pass_without_safe_actionable_evidence_stays_pending ... ok
 test taste::read::tests::every_check_keeps_its_exact_shown_and_copied_words ... ok
 test taste::read::tests::existing_receipts_keep_source_gate_and_check_derivation ... ok
@@ -588,79 +588,79 @@ test taste::read::tests::pending_seed_check_shows_its_prerequisite_without_askin
 test taste::read::tests::remote_checks_are_separate_and_neutral_is_not_pass ... ok
 test taste::read::tests::source_cwd_spellings_keep_matching_passes_and_survive_both_copied_handoffs ... ok
 test taste::tests::absent_ci_is_unknown_and_never_stop_when_source_checks_pass_and_nothing_is_owed ... ok
-test taste::read::tests::contract_refuses_proof ... ok
+test taste::preview::tests::readiness_cancels_an_inflight_silent_response_without_waiting_for_the_attempt_budget ... ok
 test taste::tests::exact_goal_survives_display_and_both_handoffs_without_a_verdict ... ok
 test taste::tests::both_sizes_scroll_to_full_evidence_and_keep_navigation ... ok
 test taste::tests::list_distinguishes_results_with_the_same_goal_prefix_and_keeps_the_untitled_goal ... ok
-test taste::preview::tests::readiness_cancels_an_inflight_silent_response_without_waiting_for_the_attempt_budget ... ok
-test taste::read::tests::contract_refuses_verification ... ok
+test taste::read::tests::contract_refuses_proof ... ok
+test taste::tests::list_uses_counts_and_detail_keeps_every_source_word_with_evidence_behind_e ... ok
 test taste::tests::next_dump_requires_explicit_external_acceptance_not_copy_or_green ... ok
 test taste::tests::merged_result_is_labelled_but_needs_explicit_acceptance_before_the_note ... ok
 test taste::tests::next_suggestion_preserves_source_punctuation_without_adding_another_stop ... ok
 test taste::tests::pause_and_draft_do_not_survive_selection_or_refresh ... ok
 test taste::tests::pause_prefers_failed_or_stale_checks_and_invents_no_next_feature ... ok
-test taste::tests::list_uses_counts_and_detail_keeps_every_source_word_with_evidence_behind_e ... ok
-test taste::tests::repeated_or_modified_keys_never_copy_open_or_read ... ok
 test taste::tests::preview_disclosure_says_each_fact_once_without_running_on_navigation ... ok
+test taste::tests::repeated_or_modified_keys_never_copy_open_or_read ... ok
+test taste::read::tests::contract_refuses_verification ... ok
 test taste::tests::unknown_goal_or_result_refuses_copy_and_navigation_starts_nothing ... ok
 test taste::tests::unsafe_terminal_controls_are_only_escaped_for_display ... ok
 test taste::view::tests::check_words_are_never_shortened_and_hanging_rows_rejoin_exactly ... ok
 test taste::tests::next_line_stays_single_and_italic_in_both_palettes ... ok
-test taste::view::tests::headings_palette_and_exact_owed_deduplication_do_not_change_sources ... ok
 test taste::view::tests::label_form_explains_pass_and_fail_and_names_the_signer ... ok
+test taste::view::tests::long_preview_disclosure_and_failure_are_complete_wrapped_rows ... ok
 test taste::view::tests::long_titles_and_goals_share_one_line_and_keep_whole_graphemes ... ok
 test taste::view::tests::review_shows_what_was_built_the_goal_line_and_one_question_in_order ... ok
 test taste::view::tests::untitled_list_result_uses_the_goal_and_counts ... ok
-test taste::view::tests::long_preview_disclosure_and_failure_are_complete_wrapped_rows ... ok
-test shape::tests::stacker_r1_draft_stores_records_instead_of_model_markdown ... ok
+test taste::view::tests::headings_palette_and_exact_owed_deduplication_do_not_change_sources ... ok
 test taste::tests::selection_is_retained_by_run_and_pr_not_index_and_missing_selection_returns_to_list ... ok
 test tend::garden::tests::empty_goal_view_discloses_unreadable_links ... ok
+test shape::step::typed_tests::answered_pre_mortem_is_sent_once_and_not_reasked ... ok
 test tend::garden::tests::needs_suffix_truncates_headline_and_refusals_stay_muted ... ok
-test taste::read::tests::contract_refuses_pending ... ok
 test tend::garden::tests::unreadable_link_refusal_and_note_say_it_once ... ok
 test tend::garden::tests::read_notes_share_the_muted_row_above_selection_without_changing_it ... ok
 test tend::graph::tests::a_label_identifies_its_goal_even_when_rings_overlap ... ok
 test tend::garden::tests::long_needs_keep_source_and_readiness_visible_with_full_help ... ok
+test taste::read::tests::contract_refuses_pending ... ok
 test tend::graph::tests::a_three_goal_edge_does_not_paint_through_the_unrelated_middle_ring ... ok
-test tend::graph::tests::a_quiet_line_is_painted_only_for_visible_active_ends ... ok
 test tend::graph::tests::all_goals_are_kept_beyond_grafs_default_cap ... ok
-test taste::preview::tests::readiness_accepts_a_loaded_servers_delayed_status ... ok
-test tend::graph::tests::dragging_moves_ring_empty_drag_pans_scroll_zooms_and_unchanged_refresh_preserves_them ... ok
+test tend::graph::tests::a_quiet_line_is_painted_only_for_visible_active_ends ... ok
 test taste::read::tests::contract_refuses_needs_recheck ... ok
+test tend::graph::tests::dragging_moves_ring_empty_drag_pans_scroll_zooms_and_unchanged_refresh_preserves_them ... ok
 test tend::graph::tests::clicks_use_identity_and_inclusive_double_click_clock_and_linking_stays_in_tend ... ok
+test taste::preview::tests::readiness_accepts_a_loaded_servers_delayed_status ... ok
+test shape::tests::issue_299_review_keeps_failure_cases_separate_from_success_criteria ... ok
 test taste::preview::tests::readiness_never_accepts_a_success_after_the_overall_deadline ... ok
-test tend::graph::tests::identical_inputs_draw_identical_buffers_and_selection_has_colour_independent_weight ... ok
 test tend::graph::tests::dense_graphs_keep_rings_and_needs_lines_above_grafs_lod_threshold ... ok
-test tend::graph::tests::duplicate_titles_resolve_edges_by_exact_identity_and_ended_missing_ambiguous_needs_draw_none ... ok
+test tend::graph::tests::reciprocal_needs_keep_one_edge_per_record ... ok
 test tend::garden::tests::unreadable_links_have_a_persistent_muted_note_with_other_notes ... ok
-test tend::graph::tests::view_keys_pan_and_zoom_without_selecting_linking_or_writing ... ok
-test tend::history::tests::cancelling_a_read_does_not_publish_it_or_start_another ... ok
-test tend::history::tests::history_keeps_words_and_only_details_disclose_technical_records ... ok
+test tend::graph::tests::identical_inputs_draw_identical_buffers_and_selection_has_colour_independent_weight ... ok
 test tend::graph::tests::selection_follows_offscreen_goal_without_resetting_zoom_and_link_relayout_keeps_viewport ... ok
+test tend::history::tests::history_keeps_words_and_only_details_disclose_technical_records ... ok
+test tend::history::tests::cancelling_a_read_does_not_publish_it_or_start_another ... ok
+test tend::graph::tests::view_keys_pan_and_zoom_without_selecting_linking_or_writing ... ok
 test tend::history::tests::no_known_repository_adds_nothing_to_history ... ok
 test tend::history::tests::one_worker_coalesces_requests_and_ignores_cancelled_results ... ok
-test tend::graph::tests::reciprocal_needs_keep_one_edge_per_record ... ok
 test tend::history::tests::page_keys_move_a_screen_of_history_less_one_row ... ok
-test shape::tests::stopping_after_a_reply_arrives_discards_its_retry_feedback ... ok
+test tend::graph::tests::duplicate_titles_resolve_edges_by_exact_identity_and_ended_missing_ambiguous_needs_draw_none ... ok
 test tend::history::tests::unsafe_controls_are_visible_text_and_do_not_change_saved_words ... ok
 test tend::history::tests::wrapping_keeps_every_grapheme_and_newline_without_changing_sources ... ok
-test tend::history::tests::reading_guesses_are_italic_and_preserve_partial_groups_without_changing_original_styles ... ok
 test tend::graph::tests::static_graph_never_starts_a_physics_worker ... ok
+test tend::history::tests::reading_guesses_are_italic_and_preserve_partial_groups_without_changing_original_styles ... ok
 test tend::linking::tests::ambiguous_source_never_inherits_needs_or_readiness ... ok
-test shape::tests::issue_299_review_keeps_failure_cases_separate_from_success_criteria ... ok
-test taste::preview::tests::readiness_accepts_a_status_line_fragmented_across_read_timeouts ... ok
+test tend::linking::tests::deleted_loaded_links_refuse_before_or_during_picking ... ok
 test tend::linking::tests::all_readable_sessions_supply_readiness_missing_needs_stay_unknown ... ok
 test tend::graph::tests::overlapping_rings_paint_in_a_stable_order ... ok
-test tend::linking::tests::deleted_loaded_links_refuse_before_or_during_picking ... ok
 test tend::linking::tests::missing_or_ambiguous_ids_refuse_without_writing_or_guessing ... ok
+test taste::preview::tests::readiness_accepts_a_status_line_fragmented_across_read_timeouts ... ok
 test tend::linking::tests::refreshed_sessions_cancel_picking_instead_of_redirecting_the_source ... ok
-test tend::linking::tests::unavailable_root_and_non_directory_are_plain_refusals ... ok
 test tend::linking::tests::matching_intent_keeps_read_only_file_bytes_permissions_and_timestamp ... ok
+test tend::linking::tests::unavailable_root_and_non_directory_are_plain_refusals ... ok
+test shape::tests::stopping_after_a_reply_arrives_discards_its_retry_feedback ... ok
 test tend::linking::tests::start_self_pick_cancel_commit_and_toggle_return_to_source ... ok
 test tend::linking::tests::unreadable_at_start_or_commit_preserves_bytes_and_discloses_only_in_help ... ok
 test tend::linking::tests::read_only_links_refuse_save_and_keep_bytes_and_permissions ... ok
-test tend::needs::tests::add_remove_add_round_trip_is_repeatable_and_leaves_no_temp_files ... ok
 test tend::needs::tests::changes_since_a_previous_read_survive_a_toggle ... ok
+test tend::needs::tests::add_remove_add_round_trip_is_repeatable_and_leaves_no_temp_files ... ok
 test tend::needs::tests::duplicate_session_ids_are_not_guessed_and_titles_stay_verbatim ... ok
 test tend::needs::tests::duplicate_source_ids_cannot_supply_a_summary ... ok
 test tend::needs::tests::missing_is_empty_without_creating_anything ... ok
@@ -677,20 +677,20 @@ test tend::tests::row_only_uses_first_line_and_preserves_status_with_unicode_tru
 test think::brain_dump::board_tests::a_decision_review_is_asked_first_once_required_parts_are_present ... ok
 test think::brain_dump::board_tests::a_decision_without_two_answers_or_a_known_part_is_ignored ... ok
 test think::brain_dump::board_tests::a_missing_success_field_without_a_selected_question_stays_unknown ... ok
-test think::brain_dump::board_tests::a_typed_decision_keeps_its_part_open_and_can_be_asked_after_required_parts ... ok
 test tend::needs::tests::unreadable_files_refuse_toggle_and_keep_exact_bytes ... ok
+test think::brain_dump::board_tests::a_typed_decision_keeps_its_part_open_and_can_be_asked_after_required_parts ... ok
 test think::brain_dump::board_tests::an_open_success_decision_does_not_replace_the_selected_boundary_question ... ok
 test think::brain_dump::board_tests::an_unknown_beneficiary_does_not_manufacture_a_success_followup ... ok
 test think::brain_dump::board_tests::approaches_keyed_option_are_kept_through_review_and_saving ... ok
 test think::brain_dump::board_tests::claimed_citations_remain_exact_and_grapheme_safe_even_without_parts ... ok
 test think::brain_dump::board_tests::coverage_never_removes_a_choice_on_invalid_indices_parts_or_replies ... ok
-test think::brain_dump::board_tests::decimal_string_citations_validate_in_every_anchor_location ... ok
-test think::brain_dump::board_tests::done_when_list_keeps_order_duplicates_and_wording ... ok
 test think::brain_dump::board_tests::criteria_length_never_manufactures_a_followup ... ok
-test think::brain_dump::board_tests::freeform_readings_are_ignored_and_notes_survive_without_becoming_a_goal ... ok
-test think::brain_dump::board_tests::lengths_and_optional_types_are_not_boundary_rules_and_one_question_is_presented ... ok
-test think::brain_dump::board_tests::local_history_and_scope_identity_cannot_be_replaced_by_model_output ... ok
+test think::brain_dump::board_tests::done_when_list_keeps_order_duplicates_and_wording ... ok
+test think::brain_dump::board_tests::decimal_string_citations_validate_in_every_anchor_location ... ok
 test tend::linking::tests::stale_same_edge_intents_survive_both_orders_and_concurrent_instances ... ok
+test think::brain_dump::board_tests::freeform_readings_are_ignored_and_notes_survive_without_becoming_a_goal ... ok
+test think::brain_dump::board_tests::local_history_and_scope_identity_cannot_be_replaced_by_model_output ... ok
+test think::brain_dump::board_tests::lengths_and_optional_types_are_not_boundary_rules_and_one_question_is_presented ... ok
 test think::brain_dump::board_tests::normalization_escapes_controls_and_logs_fences_without_changing_originals ... ok
 test think::brain_dump::board_tests::omissions_extras_and_narrative_notes_never_fabricate_citations_or_authority ... ok
 test think::brain_dump::board_tests::opening_a_success_question_cannot_repeat_an_answered_generic_question ... ok
@@ -701,122 +701,122 @@ test think::brain_dump::board_tests::malformed_json_fails_but_empty_partial_part
 test think::brain_dump::board_tests::success_alternatives_do_not_bound_missing_criteria_but_remain_context ... ok
 test think::brain_dump::board_tests::success_elicitation_respects_skip_two_asks_and_settled_history ... ok
 test think::brain_dump::board_tests::the_review_change_note_counts_only_the_decisions_it_added ... ok
-test think::brain_dump::board_tests::the_review_joins_as_typed_decisions_without_knowing_the_readings_keys ... ok
-test think::brain_dump::board_tests::unasked_decisions_and_unlinked_notes_remain_visible_in_review_and_handoff ... ok
-test think::brain_dump::board_tests::unreadable_done_when_is_refused_instead_of_losing_checks ... ok
 test think::brain_dump::board_tests::review_shows_a_linked_decision_once_and_keeps_other_choices_on_the_same_part ... ok
+test think::brain_dump::board_tests::unasked_decisions_and_unlinked_notes_remain_visible_in_review_and_handoff ... ok
+test think::brain_dump::board_tests::the_review_joins_as_typed_decisions_without_knowing_the_readings_keys ... ok
+test think::brain_dump::board_tests::unreadable_done_when_is_refused_instead_of_losing_checks ... ok
 test think::brain_dump::confirmation_tests::attribution_is_not_added_to_the_shaping_request ... ok
-test tend::scope_tests::attributed_repo_scope_keeps_unknowns_global_and_readiness_unchanged ... ok
-test think::brain_dump::confirmation_tests::declared_agent_source_never_claims_an_operator_keypress_or_implementation_permission ... ok
 test think::brain_dump::board_tests::historical_raw_captures_display_without_inferred_parts_or_provider_helpers ... ok
-test think::brain_dump::confirmation_tests::a_receipt_records_the_frozen_agent_context_not_a_later_identity ... ok
+test think::brain_dump::confirmation_tests::declared_agent_source_never_claims_an_operator_keypress_or_implementation_permission ... ok
+test tend::history::tests::room_to_choose_sequence_is_first_and_numbered_originals_remain_whole ... ok
 test think::brain_dump::confirmation_tests::hidden_review_finishes_an_already_started_save_and_requested_exit ... ok
+test tend::scope_tests::attributed_repo_scope_keeps_unknowns_global_and_readiness_unchanged ... ok
 test think::brain_dump::confirmation_tests::invalid_declared_agent_class_is_refused_by_the_think_api ... ok
+test think::brain_dump::confirmation_tests::a_receipt_records_the_frozen_agent_context_not_a_later_identity ... ok
 test think::brain_dump::confirmation_tests::malformed_terminal_provenance_cannot_claim_verified_identity_or_an_operator ... ok
 test think::brain_dump::confirmation_tests::new_visits_do_not_inherit_goal_authorization_and_review_cannot_be_relabelled ... ok
-test think::brain_dump::confirmation_tests::bare_agent_declaration_saves_as_the_agent ... ok
 test think::brain_dump::confirmation_tests::terminal_declaration_is_session_frozen_but_never_sent_to_the_model ... ok
-test think::brain_dump::confirmation_tests::hidden_review_keeps_input_and_read_progress_without_starting_a_save ... ok
+test think::brain_dump::confirmation_tests::bare_agent_declaration_saves_as_the_agent ... ok
 test think::brain_dump::confirmation_tests::unspecified_confirmer_is_not_claimed_as_the_operator ... ok
 test think::brain_dump::conversation::tests::a_failed_reply_keeps_the_previous_reading ... ok
-test think::brain_dump::conversation::tests::a_skipped_question_stays_skipped_when_the_model_asks_it_again ... ok
+test think::brain_dump::confirmation_tests::hidden_review_keeps_input_and_read_progress_without_starting_a_save ... ok
 test think::brain_dump::conversation::tests::added_words_stay_out_of_the_reading_until_their_scope_is_answered ... ok
+test think::brain_dump::conversation::tests::a_skipped_question_stays_skipped_when_the_model_asks_it_again ... ok
 test think::brain_dump::conversation::tests::extracts_are_exact_unique_and_bounded ... ok
-test think::brain_dump::conversation::tests::observations_and_refusal_remain_intact_without_a_manufactured_goal_question ... ok
 test think::brain_dump::conversation::tests::refusing_a_previously_asked_goal_question_does_not_break_history ... ok
+test think::brain_dump::conversation::tests::observations_and_refusal_remain_intact_without_a_manufactured_goal_question ... ok
 test think::brain_dump::conversation::tests::review_context_keeps_scope_restored_and_skipped_questions_in_order ... ok
-test tend::history::tests::room_to_choose_sequence_is_first_and_numbered_originals_remain_whole ... ok
 test think::brain_dump::conversation::tests::turns_keep_every_question_answer_and_scope_in_the_order_they_happened ... ok
 test think::brain_dump::conversation::tests::review_context_preserves_note_wording_order_and_distinct_decisions ... ok
-test think::brain_dump::conversation::tests::words_after_a_composed_goal_refine_it ... ok
 test think::brain_dump::conversation::tests::undoing_a_skip_restores_it_unless_it_was_answered_since ... ok
+test think::brain_dump::conversation::tests::words_after_a_composed_goal_refine_it ... ok
 test think::brain_dump::goal_lines_tests::consequential_question_survives_an_unrelated_missing_beneficiary ... ok
+test shape::tests::a_stub_step_preserves_a_check_or_operator_judgment_for_every_done_when ... ok
 test think::brain_dump::goal_lines_tests::fact_and_owned_history_guards_run_before_question_priority_filtering ... ok
 test think::brain_dump::goal_lines_tests::known_intent_leads_without_inventing_a_beneficiary ... ok
 test think::brain_dump::goal_lines_tests::missing_beneficiary_does_not_reopen_a_settled_outcome ... ok
 test think::brain_dump::goal_lines_tests::changed_lines_ink_unchanged_muted_until_any_keystroke_paste_or_send ... ok
 test think::brain_dump::goal_lines_tests::outcome_is_a_behaviour_without_forced_can ... ok
 test think::brain_dump::goal_lines_tests::open_notes_cannot_contradict_ready_and_self_labels_never_render ... ok
-test think::brain_dump::confirmation_tests::first_review_frame_names_the_current_read_requirement ... ok
+test think::brain_dump::goal_lines_tests::recorded_169_exclusions_and_affirmative_deferrals_keep_their_scripted_categories ... ok
 test think::brain_dump::goal_lines_tests::quiet_asides_survive_paper_review_and_are_not_constraints ... ok
 test think::brain_dump::goal_lines_tests::repeated_checks_stay_missing_without_displacing_open_intent ... ok
-test think::brain_dump::goal_lines_tests::recorded_169_exclusions_and_affirmative_deferrals_keep_their_scripted_categories ... ok
+test think::brain_dump::goal_lines_tests::repeated_subjects_and_uncited_supports_are_not_fabricated_citations ... ok
 test think::brain_dump::goal_lines_tests::possessive_subject_in_stub_outcome_is_composed_once ... ok
 test think::brain_dump::goal_lines_tests::subject_prefix_without_a_boundary_is_not_removed ... ok
-test think::brain_dump::goal_lines_tests::repeated_subjects_and_uncited_supports_are_not_fabricated_citations ... ok
 test think::brain_dump::goal_lines_tests::timing_and_capacity_are_not_duplicated_and_constraints_each_get_a_line ... ok
 test think::brain_dump::goal_lines_tests::unchanged_answer_never_mutes_the_whole_block ... ok
 test think::brain_dump::goal_tests::answered_scope_accepts_reading_lengths_and_counts_without_manufactured_options ... ok
 test think::brain_dump::goal_tests::confirmation_is_unavailable_for_practice_pending_sources_or_unsent_text ... ok
+test think::brain_dump::confirmation_tests::first_review_frame_names_the_current_read_requirement ... ok
 test think::brain_dump::goal_tests::empty_questions_show_review_route_but_never_confirm_and_missing_helper_preserves_source ... ok
-test think::brain_dump::confirmation_tests::stacker_terminal_confirmation_keeps_declared_human_agent_and_unknown_distinct ... ok
 test think::brain_dump::goal_tests::lexical_coverage_never_vetoes_the_review ... ok
-test shape::tests::a_stub_step_preserves_a_check_or_operator_judgment_for_every_done_when ... ok
-test think::brain_dump::goal_lines_tests::standalone_outcomes_keep_spelling_through_display_copy_and_confirmation ... ok
 test think::brain_dump::goal_tests::literal_scope_and_checkpoint_terms_are_supported_without_promoting_candidates ... ok
+test think::brain_dump::goal_lines_tests::standalone_outcomes_keep_spelling_through_display_copy_and_confirmation ... ok
 test think::brain_dump::goal_tests::receipt_copy_is_exact_and_tend_is_an_explicit_request ... ok
+test think::brain_dump::goal_tests::unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible ... ok
+test think::brain_dump::goal_tests::goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affirmation ... ok
 test think::brain_dump::help_exit_tests::ctrl_c_cancels_a_shaping_call_and_keeps_words ... ok
 test think::brain_dump::help_exit_tests::ctrl_c_copies_a_selection_and_never_leaves ... ok
-test think::brain_dump::goal_tests::unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible ... ok
-test think::brain_dump::help_exit_tests::escape_leaves_empty_think_and_guards_unsaved_words ... ok
 test think::brain_dump::help_exit_tests::empty_and_confirmed_exit_immediately_but_pending_durable_handoff_waits ... ok
-test think::brain_dump::goal_tests::goal_review_lists_unresolved_questions_and_requires_distinct_full_review_affirmation ... ok
+test think::brain_dump::help_exit_tests::escape_leaves_empty_think_and_guards_unsaved_words ... ok
 test think::brain_dump::help_exit_tests::help_before_the_first_send_keeps_the_draft_in_view ... ok
-test think::brain_dump::help_exit_tests::help_leads_with_numbered_actions_then_context ... ok
 test think::brain_dump::help_exit_tests::exit_guard_keeps_unsent_original_and_reply_until_explicit_leave ... ok
+test think::brain_dump::help_exit_tests::help_leads_with_numbered_actions_then_context ... ok
 test think::brain_dump::goal_tests::receipt_preserves_frozen_review_goal_in_ink_and_only_offers_manual_actions ... ok
-test think::brain_dump::help_overlay_tests::empty_technical_sections_leave_one_blank_row_before_last_result ... ok
 test think::brain_dump::help_exit_tests::rust_marks_only_consequence_and_never_alone ... ok
+test think::brain_dump::help_overlay_tests::empty_technical_sections_leave_one_blank_row_before_last_result ... ok
 test think::brain_dump::help_overlay_tests::escape_closes_help_before_cancelling_a_reading_and_keeps_words ... ok
 test think::brain_dump::help_overlay_tests::help_blocks_hidden_actions_and_typing_without_confirming_or_sending ... ok
-test think::brain_dump::help_overlay_tests::how_it_works_says_what_leaves_the_machine_in_plain_words ... ok
 test think::brain_dump::help_overlay_tests::help_palette_and_spacing_match_the_quiet_menu_hierarchy ... ok
-test think::brain_dump::help_overlay_tests::review_and_receipt_help_cannot_confirm_copy_or_open_tend ... ok
+test think::brain_dump::help_overlay_tests::how_it_works_says_what_leaves_the_machine_in_plain_words ... ok
 test think::brain_dump::goal_tests::a_failed_save_says_so_whole_above_back_and_retries ... ok
+test think::brain_dump::help_overlay_tests::contextual_help_is_inset_and_keeps_the_original_and_draft ... ok
+test think::brain_dump::help_overlay_tests::review_and_receipt_help_cannot_confirm_copy_or_open_tend ... ok
 test think::brain_dump::help_overlay_tests::long_help_keeps_its_title_and_navigation_visible_while_scrolling_and_resizing ... ok
 test think::brain_dump::help_view::tests::technical_help_never_reformats_operator_words_as_action_rows ... ok
+test think::brain_dump::confirmation_tests::stacker_terminal_confirmation_keeps_declared_human_agent_and_unknown_distinct ... ok
 test think::brain_dump::intent_tests::a_cancelled_first_reading_offers_f2_retry_not_more_typing ... ok
 test think::brain_dump::intent_tests::a_compound_item_is_noted_for_why_but_shown_whole ... ok
-test think::brain_dump::help_overlay_tests::contextual_help_is_inset_and_keeps_the_original_and_draft ... ok
-test think::brain_dump::confirmation_tests::typing_confirmation_keeps_a_fully_read_goal_at_the_end ... ok
 test think::brain_dump::intent_tests::a_submitted_refinement_that_failed_to_apply_is_not_called_ready ... ok
 test think::brain_dump::intent_tests::ambiguous_or_quoted_negation_is_left_unchanged ... ok
+test think::brain_dump::confirmation_tests::typing_confirmation_keeps_a_fully_read_goal_at_the_end ... ok
 test think::brain_dump::intent_tests::clause_splitting_stays_linear_on_many_initials ... ok
-test think::brain_dump::intent_tests::clause_splitting_stays_linear_on_one_long_word ... ok
 test think::brain_dump::intent_tests::combined_clauses_keep_names_acronyms_decimals_and_quotes ... ok
+test think::brain_dump::intent_tests::clause_splitting_stays_linear_on_one_long_word ... ok
+test think::brain_dump::intent_tests::a_skipped_question_without_a_target_keeps_the_goal_open ... ok
 test think::brain_dump::help_overlay_tests::scroll_hint_is_present_exactly_when_the_help_body_overflows ... ok
 test think::brain_dump::intent_tests::explicit_leading_prefixes_normalize_before_composition_and_handoff ... ok
-test think::brain_dump::intent_tests::a_skipped_question_without_a_target_keeps_the_goal_open ... ok
 test think::brain_dump::intent_tests::many_distinct_prefixed_constraints_normalize_in_linear_time ... ok
 test think::brain_dump::intent_tests::ctrl_c_during_a_save_claims_no_cancel ... ok
 test think::brain_dump::intent_tests::observations_without_a_goal_offer_no_missing_field_interview_or_review ... ok
 test think::brain_dump::intent_tests::ready_invites_review_without_claiming_complete_intent ... ok
 test think::brain_dump::intent_tests::timing_is_emitted_once_beside_normalized_constraints ... ok
 test think::brain_dump::layout::presentation_viewport_tests::blank_scrolled_viewport_does_not_qualify_offscreen_reading_text ... ok
+test think::brain_dump::help_exit_tests::source_wrap_positions_header_and_scroll_survive_review_and_resize ... ok
 test think::brain_dump::layout_tests::a_practice_send_says_it_simulates_never_thinking ... ok
 test think::brain_dump::help_overlay_tests::ten_actions_keep_model_and_calls_reachable_without_spending_calls ... ok
-test think::brain_dump::help_exit_tests::source_wrap_positions_header_and_scroll_survive_review_and_resize ... ok
 test think::brain_dump::intent_tests::present_but_open_and_deferred_context_is_not_called_missing ... ok
 test think::brain_dump::intent_tests::skipped_why_names_only_the_missing_part ... ok
 test think::brain_dump::layout_tests::full_failure_reason_is_accessible_and_never_promotes_a_rejected_reading ... ok
+test think::brain_dump::intent_tests::done_when_after_skip_or_two_asks_is_named_missing_and_reviewable ... ok
 test think::brain_dump::layout_tests::how_it_works_names_the_existing_reading_scroll_route ... ok
 test think::brain_dump::layout_tests::literal_question_mark_and_corner_help_preserve_local_typing_and_review ... ok
-test think::brain_dump::intent_tests::done_when_after_skip_or_two_asks_is_named_missing_and_reviewable ... ok
 test think::brain_dump::layout_tests::long_receipt_goal_is_scrollable_and_path_is_only_in_how_it_works ... ok
 test think::brain_dump::layout_tests::one_help_control_and_stable_original_across_review_help_and_receipt ... ok
-test think::brain_dump::layout_tests::reading_scroll_hint_only_appears_on_overflow_and_clears_after_resize ... ok
 test think::brain_dump::layout_tests::empty_send_is_visible_without_a_request_and_typing_clears_it ... ok
-test think::brain_dump::presentation_tests::hidden_and_unacknowledged_frames_do_not_establish_presentation ... ok
+test think::brain_dump::layout_tests::reading_scroll_hint_only_appears_on_overflow_and_clears_after_resize ... ok
 test think::brain_dump::layout_tests::wheel_over_question_uses_the_same_overflow_route ... ok
-test think::brain_dump::layout_tests::each_send_shows_the_current_call_without_claiming_practice_calls ... ok
+test think::brain_dump::presentation_tests::hidden_and_unacknowledged_frames_do_not_establish_presentation ... ok
+test tend::graph::tests::crowded_views_preserve_selected_identity_and_never_overlap_labels ... ok
 test think::brain_dump::presentation_tests::partial_readings_distinguish_deferred_content_from_a_heading_and_long_question ... ok
-test think::brain_dump::presentation_tests::scrolled_review_counts_the_visible_spelling_of_direction_controls ... ok
+test think::brain_dump::layout_tests::each_send_shows_the_current_call_without_claiming_practice_calls ... ok
 test think::brain_dump::prompt_tests::notes_never_reach_the_model ... ok
+test think::brain_dump::presentation_tests::scrolled_review_counts_the_visible_spelling_of_direction_controls ... ok
 test think::brain_dump::presentation_tests::presentation_context_connects_words_to_successful_output_not_applied_replies ... ok
 test think::brain_dump::presentation_tests::rejected_reply_retains_context_and_identical_new_boards_each_get_one_presentation ... ok
-test tend::graph::tests::crowded_views_preserve_selected_identity_and_never_overlap_labels ... ok
 test think::brain_dump::prompt_tests::the_reading_prompt_names_the_fields_its_decoder_reads ... ok
-test think::brain_dump::prompt_tests::prompts_reach_pi_byte_for_byte_as_recorded ... ok
+test tend::history::tests::long_unicode_history_and_help_reach_the_end_and_resize_back ... ok
 test think::brain_dump::prompt_tests::the_review_prompt_names_the_fields_its_merge_reads ... ok
 test think::brain_dump::readiness_tests::at_most_two_asks_then_the_part_stays_open_for_seed ... ok
 test think::brain_dump::readiness_tests::beneficiary_and_labelled_lines_preserve_criteria_and_constraints ... ok
@@ -826,14 +826,14 @@ test think::brain_dump::readiness_tests::constraint_items_are_one_line_and_quote
 test think::brain_dump::readiness_tests::delayed_results_use_current_counts_and_skipped_targets ... ok
 test think::brain_dump::readiness_tests::every_combination_omits_missing_lines_without_inventing_a_beneficiary ... ok
 test think::brain_dump::readiness_tests::model_cannot_impersonate_owned_goal_refinement_history ... ok
+test think::brain_dump::prompt_tests::the_recorded_reply_is_the_models_and_the_review_still_joins ... ok
 test think::brain_dump::readiness_tests::open_without_question_refines_but_explicit_add_more_keeps_scope_question ... ok
-test think::brain_dump::prompt_tests::slice_exclusion_rule_reaches_pi_with_the_recorded_169_dump ... ok
-test think::brain_dump::readiness_tests::readiness_requires_four_parts_optional_constraints_only_block_when_open ... ok
+test think::brain_dump::prompt_tests::prompts_reach_pi_byte_for_byte_as_recorded ... ok
 test think::brain_dump::readiness_tests::rejected_summary_labels_raw_success_criteria_without_changing_evidence ... ok
 test think::brain_dump::readiness_tests::review_and_saved_context_keep_conversations_unresolved_intent ... ok
+test think::brain_dump::prompt_tests::slice_exclusion_rule_reaches_pi_with_the_recorded_169_dump ... ok
 test think::brain_dump::readiness_tests::review_freezes_the_displayed_block_not_a_recomposition ... ok
-test think::brain_dump::prompt_tests::the_recorded_reply_is_the_models_and_the_review_still_joins ... ok
-test think::brain_dump::prompt_tests::recorded_done_when_list_survives_stub_replay ... ok
+test think::brain_dump::readiness_tests::readiness_requires_four_parts_optional_constraints_only_block_when_open ... ok
 test think::brain_dump::readiness_tests::skipped_target_blocks_renamed_questions_and_undo_is_not_another_ask ... ok
 test think::brain_dump::readiness_tests::supplied_can_is_not_duplicated_in_the_goal_line ... ok
 test think::brain_dump::readiness_tests::trailing_commas_normalize_only_outside_strings_and_span_guards_remain ... ok
@@ -841,138 +841,138 @@ test think::brain_dump::readiness_tests::unsent_words_and_unknown_fields_never_g
 test think::brain_dump::readiness_tests::typing_after_ready_refines_goal_with_verbatim_reply_and_explicit_f2 ... ok
 test think::brain_dump::readiness_tests::why_and_copy_label_success_criteria_without_claiming_experience_is_missing ... ok
 test think::brain_dump::record_tests::a_confirmed_session_leaves_exactly_one_record_with_its_words_turns_and_goal ... ok
+test think::brain_dump::prompt_tests::recorded_done_when_list_survives_stub_replay ... ok
 test think::brain_dump::readiness_tests::quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines ... ok
-test tend::graph::tests::forty_short_goal_labels_keep_spacing_without_overlap ... ok
-test think::brain_dump::record_tests::an_unresolved_saved_session_leaves_the_goal_standing_without_an_unbound_record ... ok
 test think::brain_dump::record_tests::a_record_that_cannot_be_written_leaves_the_saved_goal_standing_and_says_so ... ok
 test think::brain_dump::record_tests::a_session_that_never_confirms_or_fails_to_save_leaves_no_record ... ok
+test think::brain_dump::record_tests::an_unresolved_saved_session_leaves_the_goal_standing_without_an_unbound_record ... ok
 test think::brain_dump::record_tests::frozen_stacker_226_done_question_is_open_not_either_or ... ok
 test think::brain_dump::record_tests::frozen_stacker_226_explicit_criteria_can_settle ... ok
 test think::brain_dump::record_tests::newline_prose_items_use_clause_separators_without_splitting_quotes ... ok
 test think::brain_dump::record_tests::frozen_stacker_226_short_answer_does_not_invent_criteria_or_a_followup ... ok
-test tend::history::tests::long_unicode_history_and_help_reach_the_end_and_resize_back ... ok
 test think::brain_dump::readiness_tests::review_row_tracks_public_edit_reading_held_reply_and_retry_transitions ... ok
-test think::brain_dump::record_tests::a_claude_code_reading_is_recorded_with_its_harness_and_exact_model ... ok
 test think::brain_dump::record_tests::review_says_confirm_also_saves_the_record_only_when_one_will_be_written ... ok
+test think::brain_dump::record_tests::a_claude_code_reading_is_recorded_with_its_harness_and_exact_model ... ok
+test think::brain_dump::record_tests::the_repository_is_shown_before_confirm_kept_in_the_record_and_never_sent_to_the_model ... ok
 test think::brain_dump::record_tests::without_a_repository_review_says_nothing_about_one ... ok
 test think::brain_dump::refusal_tests::a_misspelled_confirm_says_what_to_type ... ok
-test think::brain_dump::record_tests::the_repository_is_shown_before_confirm_kept_in_the_record_and_never_sent_to_the_model ... ok
-test think::brain_dump::refusal_tests::every_fixed_refusal_fits_the_status_rows_of_the_narrowest_pane ... ok
 test think::brain_dump::refusal_tests::card_and_selection_refusals_show_instead_of_hiding_in_last_result ... ok
+test think::brain_dump::refusal_tests::every_fixed_refusal_fits_the_status_rows_of_the_narrowest_pane ... ok
 test think::brain_dump::refusal_tests::other_review_refusals_name_their_own_reason ... ok
-test think::brain_dump::layout_tests::a_send_costs_a_shaping_call_and_a_review_and_nothing_runs_after_display ... ok
+test think::brain_dump::refusal_tests::review_blocked_by_unsent_words_says_so_on_the_normal_screen_and_keeps_them ... ok
 test think::brain_dump::scope_and_keys_tests::added_words_are_visible_unresolved_and_not_sent_until_scope_answer ... ok
 test think::brain_dump::scope_and_keys_tests::answering_keeps_the_dump_in_view ... ok
-test think::brain_dump::refusal_tests::review_blocked_by_unsent_words_says_so_on_the_normal_screen_and_keeps_them ... ok
-test think::brain_dump::scope_and_keys_tests::encoded_cap_counts_metadata_keeps_unsent_words_and_near_cap_is_visible ... ok
-test think::brain_dump::layout_tests::one_shape_then_one_review_never_auto_repairs_or_withholds ... ok
 test think::brain_dump::scope_and_keys_tests::context_only_overflow_offers_copy_out_without_pruning_or_false_resend ... ok
-test think::brain_dump::scope_and_keys_tests::draft_overflow_copies_completely_then_one_explicit_fitting_resend ... ok
 test think::brain_dump::record_tests::records_keep_the_model_reply_only_for_rejected_checks ... ok
+test think::brain_dump::scope_and_keys_tests::encoded_cap_counts_metadata_keeps_unsent_words_and_near_cap_is_visible ... ok
+test think::brain_dump::scope_and_keys_tests::draft_overflow_copies_completely_then_one_explicit_fitting_resend ... ok
+test tend::graph::tests::forty_short_goal_labels_keep_spacing_without_overlap ... ok
+test think::brain_dump::layout_tests::a_send_costs_a_shaping_call_and_a_review_and_nothing_runs_after_display ... ok
 test think::brain_dump::scope_and_keys_tests::failure_help_names_only_real_actions_and_exposes_reason_without_confirmation ... ok
+test think::brain_dump::scope_and_keys_tests::failed_waiting_reply_has_unknown_size_and_the_same_failure_as_submit ... ok
 test think::brain_dump::scope_and_keys_tests::measure_large_paste_frames ... ignored, rerunnable zero-call frame measurement: cargo test --release measure_large_paste_frames -- --ignored --nocapture
 test think::brain_dump::scope_and_keys_tests::model_prefix_is_removed_without_touching_originals_and_modified_keys_do_not_discard ... ok
-test think::brain_dump::scope_and_keys_tests::left_label_names_what_you_wrote_and_hides_while_only_the_dump ... ok
-test think::brain_dump::scope_and_keys_tests::overflow_help_uses_semantic_kind_after_notice_rewording_and_f1 ... ok
-test think::brain_dump::scope_and_keys_tests::one_key_map_reaches_every_action_through_f1_and_retired_keys_do_nothing ... ok
-test think::brain_dump::scope_and_keys_tests::practice_never_offers_review_it_would_refuse ... ok
-test think::brain_dump::scope_and_keys_tests::rejected_schema_attempt_is_readable_lossless_and_never_promoted ... ok
-test think::brain_dump::scope_and_keys_tests::right_side_speaks_in_one_voice_with_one_reading ... ok
-test think::brain_dump::scope_and_keys_tests::failed_waiting_reply_has_unknown_size_and_the_same_failure_as_submit ... ok
-test think::brain_dump::scope_and_keys_tests::undone_skip_survives_a_later_model_result_without_mutating_model_questions ... ok
-test think::brain_dump::scope_and_keys_tests::skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm_them ... ok
-test think::brain_dump::scope_and_keys_tests::key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout ... ok
-test think::brain_dump::scope_and_keys_tests::whole_board_coverage_records_candidate_location_and_never_requires_goal_overlap ... ok
-test think::brain_dump::scope_and_keys_tests::size_cache_tracks_edits_waiting_reply_scope_and_cards ... ok
 test think::brain_dump::scope_and_keys_tests::encoded_under_at_over_boundary_counts_json_and_preserves_refused_selection ... ok
-test think::brain_dump::selection_tests::a_stale_original_selection_is_never_copied_after_any_focus_change ... ok
+test think::brain_dump::scope_and_keys_tests::overflow_help_uses_semantic_kind_after_notice_rewording_and_f1 ... ok
+test think::brain_dump::scope_and_keys_tests::left_label_names_what_you_wrote_and_hides_while_only_the_dump ... ok
+test think::brain_dump::scope_and_keys_tests::rejected_schema_attempt_is_readable_lossless_and_never_promoted ... ok
+test think::brain_dump::scope_and_keys_tests::practice_never_offers_review_it_would_refuse ... ok
+test think::brain_dump::scope_and_keys_tests::one_key_map_reaches_every_action_through_f1_and_retired_keys_do_nothing ... ok
+test think::brain_dump::scope_and_keys_tests::right_side_speaks_in_one_voice_with_one_reading ... ok
+test think::brain_dump::scope_and_keys_tests::undone_skip_survives_a_later_model_result_without_mutating_model_questions ... ok
+test think::brain_dump::record_tests::new_goals_keep_their_own_checks_and_the_standalone_record_setting ... ok
+test think::brain_dump::scope_and_keys_tests::key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout ... ok
+test think::brain_dump::refusal_tests::an_unread_review_says_to_scroll_on_enter_and_confirms_only_from_the_end ... ok
+test think::brain_dump::scope_and_keys_tests::whole_board_coverage_records_candidate_location_and_never_requires_goal_overlap ... ok
 test think::brain_dump::selection_tests::a_selection_does_not_change_what_f10_guards ... ok
+test think::brain_dump::scope_and_keys_tests::skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm_them ... ok
+test think::brain_dump::selection_tests::a_stale_original_selection_is_never_copied_after_any_focus_change ... ok
+test think::brain_dump::selection_tests::backspace_or_delete_without_a_selection_ends_a_held_drag ... ok
 test think::brain_dump::selection_tests::an_edit_during_a_drag_ends_it_so_release_cannot_resurrect_a_stale_selection ... ok
 test think::brain_dump::selection_tests::a_large_edit_during_a_drag_ends_the_old_selection ... ok
-test think::brain_dump::selection_tests::backspace_or_delete_without_a_selection_ends_a_held_drag ... ok
 test think::brain_dump::selection_tests::cards_covering_the_original_hide_its_selection_but_not_the_writing_box ... ok
 test think::brain_dump::selection_tests::ctrl_a_in_the_original_never_spans_sources ... ok
-test think::brain_dump::selection_tests::ctrl_c_without_a_selection_keeps_cancel_and_never_leaves ... ok
-test think::brain_dump::selection_tests::copy_skip_and_cards_work_from_either_focus ... ok
-test think::brain_dump::selection_tests::ctrl_a_selects_only_the_active_surface ... ok
 test think::brain_dump::scope_and_keys_tests::waiting_reply_overflow_is_transactional_before_committing_local_words ... ok
-test think::brain_dump::scope_and_keys_tests::waiting_reply_contraction_sends_the_fitting_preview_once ... ok
+test think::brain_dump::selection_tests::copy_skip_and_cards_work_from_either_focus ... ok
+test think::brain_dump::selection_tests::ctrl_c_without_a_selection_keeps_cancel_and_never_leaves ... ok
+test think::brain_dump::selection_tests::ctrl_a_selects_only_the_active_surface ... ok
 test think::brain_dump::selection_tests::f6_is_not_a_focus_key ... ok
 test think::brain_dump::selection_tests::keyboard_only_selection_copies_exact_bytes_and_returns_to_writing ... ok
+test think::brain_dump::scope_and_keys_tests::size_cache_tracks_edits_waiting_reply_scope_and_cards ... ok
 test think::brain_dump::selection_tests::mouse_drag_in_writing_selects_the_same_logical_bytes ... ok
-test think::brain_dump::refusal_tests::an_unread_review_says_to_scroll_on_enter_and_confirms_only_from_the_end ... ok
 test think::brain_dump::selection_tests::large_paste_over_a_selection_retains_surrounding_bytes ... ok
+test think::brain_dump::scope_and_keys_tests::waiting_reply_contraction_sends_the_fitting_preview_once ... ok
 test think::brain_dump::selection_tests::ordinary_letters_in_original_focus_return_to_writing_and_do_nothing_else ... ok
 test think::brain_dump::selection_tests::paste_delete_and_buffer_replacement_during_a_drag_end_it_too ... ok
 test think::brain_dump::selection_tests::raw_controls_are_safe_in_sources_titles_cards_and_selections ... ok
-test think::brain_dump::selection_tests::shift_arrows_select_in_writing_and_ctrl_c_copies_exact_bytes ... ok
 test think::brain_dump::selection_tests::selection_highlight_is_drawn_reversed_for_wide_and_combined_text ... ok
+test think::brain_dump::selection_tests::shift_arrows_select_in_writing_and_ctrl_c_copies_exact_bytes ... ok
 test think::brain_dump::selection_tests::tab_does_nothing_without_an_original_or_inside_modal_views ... ok
 test think::brain_dump::selection_tests::typing_paste_enter_and_delete_replace_the_selection_atomically ... ok
+test think::brain_dump::layout_tests::one_shape_then_one_review_never_auto_repairs_or_withholds ... ok
 test think::brain_dump::suggestion::tests::changed_question_discards_suggestion_and_scope_has_honest_fallback ... ok
 test think::brain_dump::selection_tests::tab_and_shift_tab_move_between_writing_and_the_original_and_back ... ok
-test think::brain_dump::suggestion::tests::malformed_suggestions_preserve_questions_and_review_decisions ... ok
 test think::brain_dump::suggestion::tests::review_input_excludes_unaccepted_suggestions_but_keeps_choices ... ok
-test think::brain_dump::suggestion::tests::next_dump_draft_is_unsent_and_edited_words_have_separate_provenance ... ok
+test think::brain_dump::suggestion::tests::malformed_suggestions_preserve_questions_and_review_decisions ... ok
 test think::brain_dump::suggestion::tests::review_question_keeps_its_own_suggestion_and_rewording_clears_it ... ok
+test think::brain_dump::suggestion::tests::next_dump_draft_is_unsent_and_edited_words_have_separate_provenance ... ok
 test think::brain_dump::selection_tests::safe_control_cells_highlight_their_raw_selection_on_both_surfaces ... ok
 test think::brain_dump::suggestion::tests::suggestion_copies_without_submitting_or_overwriting ... ok
 test think::brain_dump::suggestion::tests::unaccepted_suggestions_are_recorded_but_never_become_model_context ... ok
 test think::brain_dump::suggestion::tests::unavailable_and_stale_suggestions_never_change_the_draft ... ok
-test think::brain_dump::tests::a_failed_held_reply_with_cleared_input_still_retries ... ok
 test think::brain_dump::tests::annotations_match_exact_occurrences_and_do_not_cut_unicode_graphemes ... ok
+test think::brain_dump::tests::a_failed_held_reply_with_cleared_input_still_retries ... ok
 test think::brain_dump::tests::actual_drag_keeps_exact_words_and_layout_on_the_next_submit ... ok
-test think::brain_dump::tests::answered_ids_and_equivalent_text_with_new_ids_never_regain_focus ... ok
-test think::brain_dump::tests::applying_a_held_reply_with_cleared_input_does_not_send_again ... ok
 test think::brain_dump::tests::bad_span_keeps_the_previous_reading_and_originals_without_fallback ... ok
-test think::brain_dump::record_tests::new_goals_keep_their_own_checks_and_the_standalone_record_setting ... ok
+test think::brain_dump::tests::applying_a_held_reply_with_cleared_input_does_not_send_again ... ok
+test think::brain_dump::tests::answered_ids_and_equivalent_text_with_new_ids_never_regain_focus ... ok
 test think::brain_dump::tests::boundary_keeps_fact_and_history_guards_but_accepts_uncited_and_extra_readings ... ok
 test think::brain_dump::tests::clipping_is_visible_and_original_is_one_action_away ... ok
 test think::brain_dump::tests::deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effect ... ok
-test think::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question ... ok
 test think::brain_dump::tests::details_are_accessible_without_stealing_literal_answer_text_or_focus ... ok
-test think::brain_dump::tests::hiding_cards_mid_drag_releases_the_drag_so_later_moves_change_nothing ... ok
 test think::brain_dump::tests::failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap ... ok
+test think::brain_dump::tests::hiding_cards_mid_drag_releases_the_drag_so_later_moves_change_nothing ... ok
+test think::brain_dump::tests::both_is_an_answer_with_a_visible_update_and_full_settled_question ... ok
 test think::brain_dump::tests::originals_label_exists_once_only_after_source_submit_and_unmarked_words_are_neutral ... ok
-test think::brain_dump::suggestion::tests::suggestion_and_reason_are_reachable_at_all_sizes_without_calls ... ok
 test think::brain_dump::tests::reply_label_is_stable_and_empty_chrome_is_hidden ... ok
+test think::brain_dump::suggestion::tests::suggestion_and_reason_are_reachable_at_all_sizes_without_calls ... ok
 test think::brain_dump::tests::original_stays_plain_ink_even_with_cited_and_unplaced_words ... ok
 test think::brain_dump::tests::simulated_is_explicit_and_never_an_automatic_real_failure_fallback ... ok
 test think::brain_dump::tests::typing_during_request_is_never_replaced_by_the_result ... ok
 test think::brain_dump::tests::unchanged_reading_records_the_answer_without_claiming_a_wording_change ... ok
 test think::brain_dump::tests::unresolved_roles_can_overlap_and_long_readings_do_not_veto_a_board ... ok
 test think::brain_dump::tests::selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_words ... ok
-test think::brain_dump::tests::board_process_uses_only_shaping_guidance_and_disabled_resources ... ok
-test think::brain_dump::voice_tests::a_voice_result_during_a_drag_ends_the_drag_and_release_cannot_replace_text ... ok
 test think::brain_dump::tests::silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_layout ... ok
+test think::brain_dump::voice_tests::a_voice_result_during_a_drag_ends_the_drag_and_release_cannot_replace_text ... ok
 test think::brain_dump::voice_tests::active_voice_blocks_readiness_and_review_even_without_typed_text ... ok
+test think::brain_dump::tests::board_process_uses_only_shaping_guidance_and_disabled_resources ... ok
 test think::brain_dump::voice_tests::aliases_never_undo_skip_or_insert_omega_and_repeats_do_not_toggle ... ok
 test think::brain_dump::voice_tests::conditional_help_and_key_bar_and_no_voice_in_library_snapshots ... ok
 test think::brain_dump::voice_tests::decline_is_consumed_without_typing_or_repeated_prompt_and_plain_messages_are_muted ... ok
 test think::brain_dump::voice_tests::dictation_never_deletes_a_selection_and_inserts_at_the_caret ... ok
 test think::brain_dump::voice_tests::direct_submit_uses_the_same_wait_for_final_contract ... ok
-test think::brain_dump::voice_tests::edit_delete_paste_and_replaced_partial_preserve_ordinary_text ... ok
 test think::brain_dump::voice_tests::actual_partial_cells_are_muted_and_final_cells_are_ink_in_color_and_no_color ... ok
-test think::brain_dump::voice_tests::empty_fillers_never_send_or_overwrite ... ok
+test think::brain_dump::voice_tests::edit_delete_paste_and_replaced_partial_preserve_ordinary_text ... ok
 test think::brain_dump::voice_tests::esc_cancels_voice_before_shaping_and_drops_all_late_callbacks ... ok
+test think::brain_dump::voice_tests::empty_fillers_never_send_or_overwrite ... ok
 test think::brain_dump::voice_tests::f2_waits_for_final_then_submits_exactly_once_with_intact_source ... ok
 test think::brain_dump::voice_tests::final_preserves_raw_words_and_does_not_grant_confirmation ... ok
 test think::brain_dump::voice_tests::first_use_key_bar_and_muted_prompt_preserve_input_and_require_explicit_yes ... ok
 test think::brain_dump::voice_tests::large_fake_voice_final_uses_editor_storage_not_request_policy ... ok
-test think::brain_dump::voice_tests::leaving_closes_helper_preserves_unsaved_guard_and_can_reload_after_n ... ok
 test think::brain_dump::voice_tests::every_failure_is_one_muted_actionable_line_and_does_not_send_typed_words ... ok
+test think::brain_dump::voice_tests::leaving_closes_helper_preserves_unsaved_guard_and_can_reload_after_n ... ok
 test think::brain_dump::voice_tests::partial_and_final_follow_current_cursor_not_a_captured_anchor ... ok
+test think::brain_dump::selection_tests::large_paste_is_local_and_encoded_refusal_shows_before_the_first_send ... ok
 test think::brain_dump::voice_tests::raw_display_mapping_styles_fake_voice_without_searching_transformed_rows ... ok
 test think::brain_dump::voice_tests::recording_does_not_change_what_the_goal_line_says_is_open ... ok
 test think::brain_dump::voice_tests::review_and_receipt_disable_voice_and_cannot_receive_final_or_confirm ... ok
 test think::brain_dump::voice_tests::shaping_results_defer_while_voice_is_active_even_with_empty_input ... ok
-test think::brain_dump::voice_tests::typing_and_reading_show_the_missing_node_remedy_only_after_the_voice_key ... ok
 test think::brain_dump::voice_tests::unicode_combining_partial_and_wrapping_do_not_modify_or_split_input ... ok
-test think::brain_dump::selection_tests::large_paste_is_local_and_encoded_refusal_shows_before_the_first_send ... ok
 test think::brain_dump::voice_tests::voice_capture_cannot_save_a_thought ... ok
+test think::brain_dump::voice_tests::typing_and_reading_show_the_missing_node_remedy_only_after_the_voice_key ... ok
 test think::brain_dump::voice_tests::voice_help_keeps_the_alias_and_local_label_visible_and_escape_cancellation ... ok
 test think::brain_dump::thought_tests::thought_capture_refuses_invalid_boundaries_and_keeps_the_original ... ok
-test think::brain_dump::thought_tests::submitting_a_visit_removes_thought_capture_authority ... ok
+test think::brain_dump::record_tests::recorded_stacker_done_when_items_survive_reading_review_and_save ... ok
 test think::note_tests::a_stale_caret_inside_a_character_edits_at_the_boundary_instead_of_panicking ... ok
 test think::note_tests::deleting_between_a_base_and_its_mark_realigns_the_caret ... ok
 test think::note_tests::editing_crosses_the_historical_cap_including_selection_replacement ... ok
@@ -989,65 +989,65 @@ test think_record::confirmation_tests::agent_confirmation_round_trips_without_be
 test think_record::confirmation_tests::agent_declaration_alone_writes_as_the_agent_never_the_operator ... ok
 test think_record::confirmation_tests::declared_attribution_display_escapes_controls_without_changing_the_source ... ok
 test think_record::confirmation_tests::ineligible_or_incomplete_agent_context_refuses_before_any_record_filesystem_access ... ok
-test think::drafting::tests::a_new_session_shares_its_budget_and_cancellation_is_counted_only_once_started ... ok
-test think_record::confirmation_tests::malformed_present_attribution_refuses_history_and_batch_instead_of_falling_back_to_operator ... ok
-test think_record::confirmation_tests::only_explicit_operator_context_records_operator_identity ... ok
+test think::brain_dump::thought_tests::submitting_a_visit_removes_thought_capture_authority ... ok
+test think::brain_dump::selection_tests::encoded_send_refusal_is_visible_at_every_size_and_next_input_clears_it ... ok
+test think_record::confirmation_tests::old_records_keep_their_existing_readability_and_never_gain_an_operator_identity ... ok
 test think_record::context::tests::build_stamp_requires_full_commit_and_explicit_modified_state ... ok
 test think_record::context::tests::context_order_survives_equal_or_backward_wall_clocks_and_preserves_frozen_text ... ok
 test think_record::context::tests::malformed_context_never_supplies_a_relationship ... ok
 test think_record::context::tests::reading_text_preserves_lists_whitespace_and_partial_presentations_without_recomposition ... ok
 test think_record::context::tests::sequence_converts_offsets_to_utc_and_retains_exact_times_in_details ... ok
 test think_record::context::tests::source_labels_follow_event_kinds_and_only_presentations_add_relations ... ok
-test think_record::confirmation_tests::old_records_keep_their_existing_readability_and_never_gain_an_operator_identity ... ok
-test think::brain_dump::record_tests::recorded_stacker_done_when_items_survive_reading_review_and_save ... ok
+test think_record::confirmation_tests::only_explicit_operator_context_records_operator_identity ... ok
+test think::drafting::tests::a_new_session_shares_its_budget_and_cancellation_is_counted_only_once_started ... ok
+test think_record::confirmation_tests::malformed_present_attribution_refuses_history_and_batch_instead_of_falling_back_to_operator ... ok
 test think_record::read::tests::batch_and_history_refuse_noncanonical_sessions_and_symlink_records ... ok
 test think_record::read::tests::a_current_record_without_a_usable_repository_field_is_unreadable ... ok
-test think::brain_dump::selection_tests::encoded_send_refusal_is_visible_at_every_size_and_next_input_clears_it ... ok
 test think_record::read::tests::duplicate_records_refuse_even_with_identical_contents ... ok
 test think_record::read::tests::extreme_presentation_timestamp_keeps_originals_and_goal ... ok
 test think_record::read::tests::extreme_submitted_timestamp_keeps_originals_and_goal ... ok
-test think::drafting::tests::a_budget_refuses_before_pi_starts_and_counts_failures_and_retries ... ok
-test think_record::read::tests::invalid_context_still_saves_confirmed_goal_and_exact_originals ... ok
 test think_record::read::tests::default_root_move_preserves_history_bytes_and_matches_ledger_identity ... ok
-test think_record::read::tests::invalid_session_reference_and_oversized_record_are_unreadable ... ok
 test think_record::read::tests::history_uses_ledger_ids_in_one_root_and_refuses_ambiguous_live_sessions ... ok
+test think_record::read::tests::invalid_context_still_saves_confirmed_goal_and_exact_originals ... ok
+test think_record::read::tests::invalid_session_reference_and_oversized_record_are_unreadable ... ok
+test think::drafting::tests::a_budget_refuses_before_pi_starts_and_counts_failures_and_retries ... ok
 test think_record::read::tests::missing_history_does_not_create_a_root ... ok
-test think::drafting::tests::failures_timeout_overflow_and_cancellation_never_return_output ... ok
-test think_record::read::tests::malformed_or_unsupported_files_cannot_hide_another_match ... ok
 test think_record::read::tests::malformed_context_error_keeps_independent_history ... ok
-test think_record::read::tests::missing_path_fallback_compares_ledger_id_not_the_live_folder_name ... ok
+test think_record::read::tests::malformed_or_unsupported_files_cannot_hide_another_match ... ok
 test think_record::read::tests::missing_session_identity_is_never_inferred_when_reading_or_writing ... ok
+test think_record::read::tests::missing_path_fallback_compares_ledger_id_not_the_live_folder_name ... ok
 test think_record::read::tests::old_matching_records_remain_unverifiable_without_migration ... ok
 test think_record::read::tests::reads_all_turns_verbatim_and_changes_no_saved_bytes ... ok
 test think_record::read::tests::optional_reading_metadata_cannot_invalidate_independent_originals_or_attribution ... ok
 test think_record::read::tests::same_path_and_same_goal_with_a_replaced_session_identity_refuses_old_history ... ok
 test think_record::read::tests::shape_context_keeps_only_exact_submissions_in_one_verified_scan ... ok
 test think_record::read::tests::unavailable_session_refuses_record_write_without_creating_record_root ... ok
+test think_record::read::tests::rejects_wrong_goal_and_incomplete_or_unknown_turns ... ok
 test think_record::tests::default_root_is_under_an_absolute_home_and_refuses_any_other ... ok
 test think_record::tests::hash_is_stable ... ok
-test think_record::tests::records_the_repository_it_was_made_in_and_refuses_a_relative_one ... ok
-test think_record::tests::utc_matches_known_dates ... ok
 test think_record::read::tests::stale_goal_or_removed_session_never_returns_history ... ok
+test think_record::tests::utc_matches_known_dates ... ok
+test think::drafting::tests::failures_timeout_overflow_and_cancellation_never_return_output ... ok
+test think_record::tests::records_the_repository_it_was_made_in_and_refuses_a_relative_one ... ok
 test voice::process::tests::absent_explicit_executable_is_no_node ... ok
 test voice::process::tests::cancelled_discovery_kills_and_reaps_without_waiting_for_shell ... ok
-test think_record::read::tests::where_a_goal_was_made_reads_back_and_older_records_say_unknown ... ok
 test voice::setup_tests::changed_node_major_requires_fresh_reinstall_consent ... ok
 test voice::setup_tests::declined_install_is_not_asked_again_even_after_a_new_think_visit ... ok
 test voice::setup_tests::failure_requires_an_explicit_retry_key_but_not_repeating_unchanged_consent ... ok
-test think_record::read::tests::rejects_wrong_goal_and_incomplete_or_unknown_turns ... ok
 test voice::setup_tests::install_deadline_closes_work_and_stale_ready_cannot_restart_it ... ok
-test voice::setup_tests::model_download_consent_is_separate_and_declined_model_does_not_download ... ok
 test voice::setup_tests::key_label_matches_platform_and_setup_protocol_stays_typed ... ok
+test voice::setup_tests::model_download_consent_is_separate_and_declined_model_does_not_download ... ok
 test voice::setup_tests::setup_never_installs_until_key_then_explicit_yes_and_success_never_records ... ok
-test voice::process::tests::discovery_releases_stdout_inherited_by_shell_children ... ok
-test voice::tests::a_closed_voice_keeps_its_error_past_the_old_loading_deadline ... ok
+test think_record::tests::writes_one_whole_file_with_originals_verbatim_and_never_overwrites ... ok
+test think_record::read::tests::where_a_goal_was_made_reads_back_and_older_records_say_unknown ... ok
 test voice::tests::an_invalid_setup_reply_closes_voice_so_the_key_retries ... ok
+test voice::tests::a_closed_voice_keeps_its_error_past_the_old_loading_deadline ... ok
 test voice::tests::cancel_discards_and_stale_events_cannot_touch_new_take ... ok
-test voice::tests::finalization_deadline_does_not_extend_and_late_final_cannot_send ... ok
 test voice::tests::every_failure_preserves_specific_kind_and_cancels_pending_send ... ok
+test voice::tests::finalization_deadline_does_not_extend_and_late_final_cannot_send ... ok
+test voice::process::tests::discovery_releases_stdout_inherited_by_shell_children ... ok
 test voice::tests::incompatible_version_disables_and_closes_helper ... ok
 test voice::tests::loading_and_starting_are_bounded_but_listening_waits_for_explicit_stop ... ok
-test think_record::tests::writes_one_whole_file_with_originals_verbatim_and_never_overwrites ... ok
 test voice::tests::oversized_partial_cancels_without_silent_truncation ... ok
 test voice::tests::partial_replaces_and_final_is_never_an_implicit_send ... ok
 test voice::tests::send_during_start_or_listening_waits_and_sends_exactly_once ... ok
@@ -1055,29 +1055,29 @@ test voice::tests::shutdown_drop_and_restart_do_not_record ... ok
 test voice::tests::silence_fillers_are_exact_not_a_semantic_rewrite ... ok
 test voice::tests::transport_failure_and_global_error_disable_voice ... ok
 test voice::tests::typed_protocol_tolerates_extra_and_future_fields_not_broken_required_fields ... ok
-test watch::codex::tests::chat_ids_keep_the_general_uuid_contract ... ok
-test watch::codex::tests::run_ids_preserve_canonical_uuid_v4_contract ... ok
 test watch::tests::a_missing_script_is_said_plainly_and_nothing_runs ... ok
+test watch::codex::tests::run_ids_preserve_canonical_uuid_v4_contract ... ok
+test watch::codex::tests::chat_ids_keep_the_general_uuid_contract ... ok
 test watch::tests::a_failing_status_shows_its_own_message ... ok
 test watch::tests::an_invalid_run_needs_you_and_shows_its_reason ... ok
 test watch::tests::another_interface_or_an_unknown_state_is_refused_not_shown ... ok
 test watch::tests::all_three_goal_states_are_distinct_in_list_and_detail ... ok
+test think::brain_dump::layout_tests::active_question_is_readable_without_review_and_survives_resize ... ok
 test watch::tests::checkout_publishes_readiness_only_after_the_pid_is_written ... ok
 test watch::tests::contract_refuses_check_status ... ok
 test watch::tests::contract_refuses_gate ... ok
-test tend::needs::tests::concurrent_writers_preserve_every_successful_link ... ok
-test watch::tests::a_run_says_whether_a_worker_is_building_it_and_an_ended_turn_needs_you ... ok
-test think_record::read::tests::oversized_confirmed_record_is_refused_before_creating_an_unreadable_file ... ok
 test watch::tests::contract_refuses_proof ... ok
-test watch::tests::contract_refuses_pending ... ok
+test think_record::read::tests::oversized_confirmed_record_is_refused_before_creating_an_unreadable_file ... ok
+test watch::tests::a_run_says_whether_a_worker_is_building_it_and_an_ended_turn_needs_you ... ok
 test watch::tests::contract_refuses_step_state ... ok
-test watch::tests::detail_counts_proven_and_attested_items_and_refuses_unknown_gates ... ok
-test watch::tests::detail_scrolling_reaches_wrapped_evidence_and_last_error_at_small_sizes ... ok
-test watch::tests::goal_display_keeps_exact_words_and_escapes_unsafe_controls_only ... ok
-test watch::tests::contract_refuses_needs_recheck ... ok
 test watch::tests::contract_refuses_step_stop ... ok
-test watch::tests::contract_refuses_verification ... ok
+test watch::tests::detail_counts_proven_and_attested_items_and_refuses_unknown_gates ... ok
+test think::note_tests::logical_and_wrapped_rows_reach_beyond_u16_without_aliasing ... ok
+test watch::tests::goal_display_keeps_exact_words_and_escapes_unsafe_controls_only ... ok
+test watch::tests::contract_refuses_pending ... ok
 test watch::tests::contract_refuses_step_turn ... ok
+test watch::tests::contract_refuses_verification ... ok
+test watch::tests::detail_scrolling_reaches_wrapped_evidence_and_last_error_at_small_sizes ... ok
 test watch::tests::owed_attestations_and_possible_rechecks_lead_even_after_verification ... ok
 test watch::tests::pending_attestation_kinds_do_not_claim_completed_attestations ... ok
 test watch::tests::leaving_mid_read_stops_the_process_and_delivers_nothing ... ok
@@ -1087,70 +1087,70 @@ test words::tests::copying_cutting_and_yanking_preserve_raw_line_endings ... ok
 test words::tests::editing_a_word_and_replacing_a_selection_preserves_original_breaks ... ok
 test words::tests::edits_that_form_a_crlf_reproject_without_losing_bytes ... ok
 test words::tests::identical_newlines_keep_their_own_provenance_through_edits_and_undo ... ok
-test watch::tests::quiet_rows_clip_to_one_line_and_selected_run_stays_visible ... ok
+test watch::tests::contract_refuses_needs_recheck ... ok
 test words::tests::typing_after_copy_does_not_clear_the_raw_yank_buffer ... ok
-test think::note_tests::logical_and_wrapped_rows_reach_beyond_u16_without_aliasing ... ok
-test tend::linking::tests::held_lock_refuses_within_deadline_and_never_saves_after_release_or_cancel ... ok
-test watch::tests::older_runs_without_canonical_ids_are_read_only_not_unreadable ... ok
-test words::tests::mixed_motions_selection_edits_and_history_keep_raw_and_editor_in_sync ... ok
+test watch::tests::quiet_rows_clip_to_one_line_and_selected_run_stays_visible ... ok
 test watch::tests::opening_reads_attention_before_offering_any_quiet_run ... ok
+test words::tests::mixed_motions_selection_edits_and_history_keep_raw_and_editor_in_sync ... ok
+test watch::tests::older_runs_without_canonical_ids_are_read_only_not_unreadable ... ok
 test watch::tests::opening_and_reading_again_change_nothing_in_the_checkout ... ok
-test think::brain_dump::layout_tests::active_question_is_readable_without_review_and_survives_resize ... ok
 test worker::tests::changed_selected_seed_refuses_before_any_command ... ok
 test worker::tests::agent_retry_with_matching_relay_refuses_before_creation ... ok
-test worker::tests::authored_source_changes_refuse_before_run_creation_or_admission ... ok
-test think_record::read::tests::batch_origins_match_individual_strict_history_attribution ... ok
-test watch::tests::a_slow_read_is_stopped_at_its_deadline ... ok
 test think::brain_dump::selection_tests::editor_and_original_viewports_do_not_alias_beyond_u16_rows ... ok
-test worker::tests::drop_waits_for_admission_receipt_without_killing_or_retrying_it ... ok
+test tend::needs::tests::concurrent_writers_preserve_every_successful_link ... ok
+test worker::tests::authored_source_changes_refuse_before_run_creation_or_admission ... ok
+test tend::linking::tests::held_lock_refuses_within_deadline_and_never_saves_after_release_or_cancel ... ok
+test think_record::read::tests::batch_origins_match_individual_strict_history_attribution ... ok
 test worker::tests::contract_refuses_worker_stop ... ok
-test worker::tests::contract_refuses_worker_turn ... ok
-test worker::tests::contract_refuses_worker_verification ... ok
 test worker::tests::contract_refuses_worker_state ... ok
-test worker::tests::current_run_identity_is_required_before_resume_or_verify ... ok
+test worker::tests::contract_refuses_worker_turn ... ok
 test worker::tests::known_different_repository_refuses_before_any_command ... ok
-test worker::tests::explicit_refresh_follows_only_the_same_run_to_its_reported_build_checkout ... ok
-test worker::tests::no_allowance_or_invalid_pin_runs_no_commands ... ok
-test tend::discovery::tests::repo_discovery_reads_each_of_400_records_once_per_refresh ... ok
-test worker::tests::ignored_cache_run_records_and_runtime_generated_rules_do_not_block_start ... ok
 test menu::menu_tests::scan_reads_thousands_once_each_newest_first_with_exact_active_count ... ok
+test watch::tests::a_slow_read_is_stopped_at_its_deadline ... ok
+test worker::tests::contract_refuses_worker_verification ... ok
+test worker::tests::current_run_identity_is_required_before_resume_or_verify ... ok
+test worker::tests::no_allowance_or_invalid_pin_runs_no_commands ... ok
+test worker::tests::drop_waits_for_admission_receipt_without_killing_or_retrying_it ... ok
+test worker::tests::explicit_refresh_follows_only_the_same_run_to_its_reported_build_checkout ... ok
 test worker::tests::retry_handoff_requires_the_reviewed_detached_commit_for_both_entry_points ... ok
+test worker::tests::ignored_cache_run_records_and_runtime_generated_rules_do_not_block_start ... ok
+test tend::discovery::tests::repo_discovery_reads_each_of_400_records_once_per_refresh ... ok
 test worker::tests::stale_selected_version_refuses_even_when_seed_bytes_are_unchanged ... ok
 test worker::tests::source_change_after_intake_stops_before_stage_three_or_provider ... ok
-test worker::tests::source_commit_changed_during_intake_refuses_before_worktree_or_admission ... ok
 test worker::tests::finish_requires_current_passing_checks_and_a_finished_report ... ok
-test worker::tests::failed_verification_keeps_ended_worker_available_for_same_session_repair ... ok
+test worker::tests::source_commit_changed_during_intake_refuses_before_worktree_or_admission ... ok
 test worker::tests::run_ids_preserve_canonical_uuid_v4_contract ... ok
-test pi::tests::stopped_requests_kill_descendants_without_extending_the_deadline ... ok
-test worker::tests::explicit_launch_recovers_prepared_step_but_never_uncertain_or_changed_contract ... ok
-test worker::tests::starts_once_through_exact_argv_and_source_owned_isolated_checkout ... ok
+test worker::tests::failed_verification_keeps_ended_worker_available_for_same_session_repair ... ok
 test worker::tests::resume_uses_recorded_contract_and_preserves_cumulative_cap ... ok
+test worker::tests::starts_once_through_exact_argv_and_source_owned_isolated_checkout ... ok
 test worker::tests::refused_admission_keeps_known_run_and_never_retries ... ok
+test worker::tests::explicit_launch_recovers_prepared_step_but_never_uncertain_or_changed_contract ... ok
 test worker::tests::stopped_turn_is_never_completed_and_changed_seed_does_not_block_stop ... ok
-test worker::tests::retry_worker_accepts_only_the_candidate_plus_its_new_sdlc_evidence ... ok
 test worker::tests::running_turn_and_changed_disclosed_contract_cannot_resume ... ok
+test worker::tests::retry_worker_accepts_only_the_candidate_plus_its_new_sdlc_evidence ... ok
+test taste::tests::hanging_check_words_and_final_metadata_remain_reachable_past_u16_rows ... ok
 test worker::tests::retry_worker_refuses_project_edits_after_checkout_and_at_prepared_launch ... ok
 test worker::tests::stop_records_cap_only_for_a_bound_log_with_the_marker_after_the_cap ... ok
-test taste::tests::hanging_check_words_and_final_metadata_remain_reachable_past_u16_rows ... ok
+test pi::tests::stopped_requests_kill_descendants_without_extending_the_deadline ... ok
 
-test result: ok. 953 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 17.98s
+test result: ok. 953 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 14.37s
 
      Running unittests src/main.rs (target/debug/deps/tinkery-bd3883832108a4e2)
 
 running 15 tests
-test tests::resize_marks_queued_mouse_coordinates_stale ... ok
 test tests::automatic_draw_resize_marks_mouse_stale_without_a_resize_event ... ok
-test tests::presentation_receipt_requires_successful_draw_and_synchronized_output ... ok
 test tests::cmd_enter_and_ctrl_alt_s_are_f2_and_nothing_else_is ... ok
+test tests::presentation_receipt_requires_successful_draw_and_synchronized_output ... ok
+test tests::resize_marks_queued_mouse_coordinates_stale ... ok
 test tests::resize_requests_a_paint_without_creating_input ... ok
 test tests::resized_input_waits_for_paint_and_is_delivered_once_unchanged ... ok
 test tests::relative_pi_paths_keep_meaning_when_shape_starts_pi_elsewhere ... ok
 test input::tests::input_errors_reach_the_owner ... ok
 test input::tests::only_a_source_observation_after_the_latest_resize_can_release_mouse ... ok
 test input::tests::resize_keeps_mouse_held_across_transfer_gaps_until_the_source_drains ... ok
-test input::tests::input_wakes_the_owner_and_preserves_event_order ... ok
 test input::tests::dropping_a_full_input_queue_stops_and_joins_the_reader ... ok
 test input::tests::hangup_wakes_the_owner_and_drop_detaches_a_stuck_reader ... ok
+test input::tests::input_wakes_the_owner_and_preserves_event_order ... ok
 test input::tests::hangup_during_drop_does_not_wait_for_the_reader ... ok
 test input::tests::watchdog_ignores_readability_and_normal_drop_joins_the_reader ... ok
 
@@ -1166,28 +1166,28 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
      Running tests/architecture.rs (target/debug/deps/architecture-c21fb7a39737160a)
 
 running 7 tests
-test every_top_level_module_has_an_area ... ok
 test every_public_item_has_an_interface_comment ... ok
+test every_top_level_module_has_an_area ... ok
 test brain_dump_does_not_grow ... ok
 test tests_reach_into_conversation_state_less_over_time ... ok
-test every_module_says_what_it_hides ... ok
 test phases_never_reach_each_other ... ok
+test every_module_says_what_it_hides ... ok
 test long_lines_do_not_grow ... ok
 
-test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.65s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.14s
 
      Running tests/discovery_diagnostics.rs (target/debug/deps/discovery_diagnostics-0c9aa7f82b09c474)
 
 running 7 tests
 test read_failure_reasons_preserve_session_classification_and_seed_unknowns ... ok
-test attribution_refuses_a_fifo_ledger_without_waiting ... ok
-test discovery_refuses_a_fifo_ledger_without_waiting ... ok
-test discovery_marks_a_fifo_seed_unknown_without_waiting ... ok
 test scan_counts_every_failure_but_retains_only_eight_path_reason_samples ... ok
 test notice_names_only_the_help_route_that_has_diagnostics ... ok
+test discovery_marks_a_fifo_seed_unknown_without_waiting ... ok
+test attribution_refuses_a_fifo_ledger_without_waiting ... ok
+test discovery_refuses_a_fifo_ledger_without_waiting ... ok
 test shape_f1_shows_the_actual_failed_ledger_and_parse_reason ... ok
 
-test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
      Running tests/history_word_wrap.rs (target/debug/deps/history_word_wrap-5d3f2a8c0a536668)
 
@@ -1196,22 +1196,22 @@ test unicode_clusters_remain_whole_in_public_history_cells ... ok
 test ordinary_words_stay_whole_while_explicit_breaks_spaces_and_long_tokens_survive ... ok
 test public_navigation_reaches_history_after_65535_rows_and_survives_resize_and_help ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.45s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
 
      Running tests/ledger_rules.rs (target/debug/deps/ledger_rules-793445d132c25b3a)
 
 running 9 tests
 test typed_json_adaptation_preserves_supported_values_and_refuses_nonfinite_numbers ... ok
 test bundled_guidance_keeps_the_pinned_source_bytes ... ok
-test stale_versions_goal_drift_deletion_and_kind_changes_refuse ... ok
 test a_nonregular_ledger_is_refused_without_waiting_for_a_writer ... ok
-test prerequisites_must_exist_be_acyclic_and_settle_first ... ok
 test invalid_utf8_records_keep_their_read_refusal ... ok
+test prerequisites_must_exist_be_acyclic_and_settle_first ... ok
+test stale_versions_goal_drift_deletion_and_kind_changes_refuse ... ok
 test receipt_times_are_strict_and_secrets_are_refused ... ok
 test secret_receipts_keep_normalization_whitespace_and_overlapping_token_boundaries ... ok
 test long_ordinary_and_rejected_candidate_receipts_finish_promptly ... ok
 
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
 
      Running tests/required_budget.rs (target/debug/deps/required_budget-9db00ced5d8c1cc9)
 
@@ -1225,7 +1225,7 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 running 1 test
 test seed_cli_refusals_are_explicit_and_never_create_a_session ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.51s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
 
      Running tests/shape_incomplete_read.rs (target/debug/deps/shape_incomplete_read-3da4fb36ad47c2f5)
 
@@ -1234,7 +1234,7 @@ test complete_empty_root_keeps_the_existing_message ... ok
 test unreadable_empty_list_reports_the_count ... ok
 test unreadable_populated_list_reports_the_count_without_changing_offers ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
      Running tests/shape_numeric_compatibility.rs (target/debug/deps/shape_numeric_compatibility-2924883a7fcfbc25)
 
@@ -1243,7 +1243,7 @@ test editable_read_retains_legacy_float_projection_without_writing ... ok
 test unsupported_numbers_keep_exact_read_and_action_refusals_without_saving ... ok
 test publication_preserves_supported_numbers_order_and_stale_refusal ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
 
      Running tests/shape_reading.rs (target/debug/deps/shape_reading-1d621d52573b7c6f)
 
@@ -1252,28 +1252,28 @@ test a_zero_height_reading_never_authorizes_confirmation ... ok
 test public_shape_status_preserves_seed_and_confirmation_states ... ok
 test oversized_readings_are_refused_and_f2_changes_nothing ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
 
      Running tests/tend_graph_appearance.rs (target/debug/deps/tend_graph_appearance-79d14551c540abc8)
 
 running 1 test
 test warmed_garden_matches_fresh_colors_after_theme_source_and_graph_changes ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
 
      Running tests/tend_graph_refresh.rs (target/debug/deps/tend_graph_refresh-d27c95bce9891d25)
 
 running 1 test
 test public_refresh_updates_labels_and_links_but_keeps_an_unchanged_view ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
      Running tests/tend_timestamps.rs (target/debug/deps/tend_timestamps-3f7c91006508cb30)
 
 running 1 test
 test public_order_and_age_preserve_offsets_calendar_boundaries_and_existing_syntax ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
 
      Running tests/theme.rs (target/debug/deps/theme-a9877b4cbe695b7b)
 
@@ -1284,36 +1284,36 @@ test dark_keeps_jade_for_where_you_are_and_rust_for_consequence ... ok
 test without_colour_every_screen_stays_monochrome_and_the_switch_changes_nothing ... ok
 test every_screen_names_the_other_theme_beside_help_and_paints_only_that_theme ... ok
 
-test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
      Running tests/think_escape.rs (target/debug/deps/think_escape-8f039ba7343d8772)
 
 running 1 test
 test escape_from_original_preserves_words_and_guards_discard_without_calls_or_saves ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
 
      Running unittests examples/think_eval.rs (target/debug/examples/think_eval-76b423bcb37df805)
 
 running 16 tests
-test tests::output_requires_a_fresh_temporary_directory_and_valid_provenance ... ok
 test tests::explicit_input_is_required_and_pi_options_need_live ... ok
+test tests::output_requires_a_fresh_temporary_directory_and_valid_provenance ... ok
 test tests::live_runs_refuse_before_pi_without_operator_data_permission_or_a_positive_limit ... ok
 test tests::readable_invalid_shaping_still_counts_a_review_before_rejection ... ok
-test tests::report_keeps_exact_words_and_human_judgments_unknown_without_confirming ... ok
 test tests::review_input_preserves_all_shaping_decisions_and_their_coverage_indices ... ok
 test tests::cap_refuses_review_before_consuming_its_fake_reply ... ok
+test tests::report_keeps_exact_words_and_human_judgments_unknown_without_confirming ... ok
 test tests::key_terms_name_known_fields_and_distinct_nonblank_items_or_are_unknown ... ok
-test tests::failures_and_explicit_retries_consume_the_same_cap ... ok
 test tests::a_failed_last_send_cannot_pass_against_a_retained_old_reading ... ok
-test tests::zero_cap_and_decode_failure_do_not_invoke_a_review ... ok
+test tests::failures_and_explicit_retries_consume_the_same_cap ... ok
 test tests::decision_review_is_merged_and_review_failures_are_counted ... ok
+test tests::zero_cap_and_decode_failure_do_not_invoke_a_review ... ok
 test tests::key_terms_pass_a_reworded_reading_per_field_and_fail_a_dropped_must_not ... ok
 test tests::a_rerun_against_a_baseline_reports_only_what_the_replies_changed ... ok
 test tests::a_live_limit_counts_both_calls_of_a_send_and_records_the_run ... ok
 test tests::a_local_request_size_refusal_cannot_pass_against_the_old_reading ... ok
 
-test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.47s
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.05s
 
    Doc-tests graf
 
@@ -1335,47 +1335,47 @@ test src/think/drafting.rs - think::drafting::ModelHost::new (line 58) - compile
 test src/think/brain_dump/board.rs - think::brain_dump::board::NonEmpty (line 7) - compile fail ... ok
 test src/pi.rs - pi::Call::complete (line 375) - compile fail ... ok
 
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
 
-✔ reads inside the folder pass, by relative or absolute path (2.808458ms)
-✔ anything that would leave the folder is blocked (1.596541ms)
-✔ tools other than the read-only four are blocked (0.863333ms)
-✔ eval ESM loads fake engine once and reuses it across takes (444.581459ms)
-✔ stop during asynchronous start never begins recording (150.523375ms)
-✔ cancel during start and finalization discards callbacks, newer take survives (760.305584ms)
-✔ stdin EOF exits immediately during load, listen and finalization (515.421292ms)
-✔ recorder starts only on command, then stops and releases once (278.175584ms)
-✔ a rejected read during stop preserves the final, unexpected read rejection fails (314.134541ms)
-✔ cancel during permission query never starts the recorder (200.759583ms)
-✔ device selection and sample-rate validation use the real recorder glue (158.388375ms)
-✔ plain native microphone messages distinguish missing, busy and permission guidance (157.928459ms)
-✔ signals terminate capture without a final (229.4505ms)
-✔ a quiet take reports nothing heard and allows another take (435.85975ms)
-✔ batch-only models still produce final without partials (118.235167ms)
-✔ injected failure kinds are specific and never produce a final (671.538334ms)
-✔ PCM backlog is bounded and cancellation suppresses queued work (1616.709875ms)
-✔ malformed, oversized and stale commands fail explicitly (143.692167ms)
-✔ Node major mismatch offers reinstall before native imports (45.521042ms)
-✔ missing install and missing model wait for consent without native imports (134.20725ms)
-✔ eval resolves import-only engine exports from an isolated owned install (48.537083ms)
-✔ generated WAV fake capture writes neither audio nor transcript (286.0075ms)
-✔ asynchronous native feeds borrow immutable PCM buffers (988.710458ms)
-✔ empty fake env does not hide the explicitly supplied smoke WAV (53.882167ms)
-✔ empty and filler finals remain data for the Rust insertion guard (983.9745ms)
-✔ fake install and model download require commands, complete without restarting (261.941459ms)
-✔ install failure is short and actionable, EOF stops a pending install (102.601583ms)
-✔ missing install is discovery-only: exact muted prompt and no files (3.500625ms)
-✔ install success pins both packages and records this Node major, failure is not installed (6.062708ms)
-✔ native verification failure invalidates prior completion and permits explicit reinstall (5.609833ms)
-✔ installer invokes npm with the selected Node and explicit pins/ignore-scripts, never a shell (41.770541ms)
-✔ Node major mismatch offers a one-line reinstall and wrong package pins also reinstall (3.580583ms)
-✔ newest shared-cache snapshot wins, missing lookup does not download or create files (3.124958ms)
-✔ model override precedes config/cache and invalid explicit override never falls back (1.076042ms)
-✔ optional config defaults to system microphone/English; invalid values are explicit errors (1.743791ms)
-✔ model missing reports download size; owned downloaded model is discovered (3.260875ms)
-✔ explicit model download is bounded/atomic, failure retains no partial and does not replace a model (24.637ms)
-✔ voice helper and voice-owned Rust have no former dependency strings or file reads (1.175084ms)
-✔ technical install reasons are one line and bounded (0.139792ms)
+✔ reads inside the folder pass, by relative or absolute path (2.086625ms)
+✔ anything that would leave the folder is blocked (1.125041ms)
+✔ tools other than the read-only four are blocked (0.537208ms)
+✔ eval ESM loads fake engine once and reuses it across takes (423.636375ms)
+✔ stop during asynchronous start never begins recording (138.703458ms)
+✔ cancel during start and finalization discards callbacks, newer take survives (740.615375ms)
+✔ stdin EOF exits immediately during load, listen and finalization (467.122334ms)
+✔ recorder starts only on command, then stops and releases once (261.509083ms)
+✔ a rejected read during stop preserves the final, unexpected read rejection fails (279.866708ms)
+✔ cancel during permission query never starts the recorder (185.832833ms)
+✔ device selection and sample-rate validation use the real recorder glue (105.310833ms)
+✔ plain native microphone messages distinguish missing, busy and permission guidance (110.870583ms)
+✔ signals terminate capture without a final (215.336709ms)
+✔ a quiet take reports nothing heard and allows another take (416.442833ms)
+✔ batch-only models still produce final without partials (105.575ms)
+✔ injected failure kinds are specific and never produce a final (585.05275ms)
+✔ PCM backlog is bounded and cancellation suppresses queued work (1592.164125ms)
+✔ malformed, oversized and stale commands fail explicitly (105.65475ms)
+✔ Node major mismatch offers reinstall before native imports (31.308417ms)
+✔ missing install and missing model wait for consent without native imports (93.501792ms)
+✔ eval resolves import-only engine exports from an isolated owned install (33.147209ms)
+✔ generated WAV fake capture writes neither audio nor transcript (259.436042ms)
+✔ asynchronous native feeds borrow immutable PCM buffers (973.144375ms)
+✔ empty fake env does not hide the explicitly supplied smoke WAV (40.05775ms)
+✔ empty and filler finals remain data for the Rust insertion guard (921.943792ms)
+✔ fake install and model download require commands, complete without restarting (231.887709ms)
+✔ install failure is short and actionable, EOF stops a pending install (74.878875ms)
+✔ missing install is discovery-only: exact muted prompt and no files (2.610458ms)
+✔ install success pins both packages and records this Node major, failure is not installed (5.191042ms)
+✔ native verification failure invalidates prior completion and permits explicit reinstall (4.041375ms)
+✔ installer invokes npm with the selected Node and explicit pins/ignore-scripts, never a shell (29.641416ms)
+✔ Node major mismatch offers a one-line reinstall and wrong package pins also reinstall (2.359625ms)
+✔ newest shared-cache snapshot wins, missing lookup does not download or create files (1.0475ms)
+✔ model override precedes config/cache and invalid explicit override never falls back (2.103375ms)
+✔ optional config defaults to system microphone/English; invalid values are explicit errors (1.392708ms)
+✔ model missing reports download size; owned downloaded model is discovered (2.476709ms)
+✔ explicit model download is bounded/atomic, failure retains no partial and does not replace a model (18.210708ms)
+✔ voice helper and voice-owned Rust have no former dependency strings or file reads (0.804666ms)
+✔ technical install reasons are one line and bounded (0.092167ms)
 ℹ tests 39
 ℹ suites 0
 ℹ pass 39
@@ -1383,94 +1383,94 @@ test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 9164.044541
+ℹ duration_ms 8437.384959
 Python tests: tier full, 87 files, 8 workers
-== tests/agent_operation_terminal.py ok 11.2s
-== tests/think_history_terminal.py ok 11.5s
-== tests/hidden_review_terminal.py ok 24.4s
-== tests/selection_terminal.py ok 28.1s
-== tests/attestation_owed_terminal.py ok 4.4s
-== tests/taste_terminal.py ok 30.6s
-== tests/goal_confirmation_terminal.py ok 33.0s
-== tests/brain_dump_terminal.py ok 4.3s
-== tests/dogfood_terminal.py ok 3.4s
-== tests/hangup_terminal.py ok 0.2s
-== tests/help_exit_terminal.py ok 2.2s
-== tests/think_question_terminal.py ok 25.8s
-== tests/first_task_path.py ok 5.5s
-== tests/goal_history_terminal.py ok 7.6s
-== tests/hidden_send_terminal.py ok 8.0s
-== tests/watch_terminal.py ok 33.8s
-== tests/measure_lifecycle_terminal.py ok 7.9s
+== tests/agent_operation_terminal.py ok 9.5s
+== tests/think_history_terminal.py ok 11.2s
+== tests/hidden_review_terminal.py ok 22.7s
+== tests/taste_terminal.py ok 24.3s
+== tests/attestation_owed_terminal.py ok 3.5s
+== tests/selection_terminal.py ok 27.8s
+== tests/brain_dump_terminal.py ok 3.7s
+== tests/goal_confirmation_terminal.py ok 30.2s
+== tests/dogfood_terminal.py ok 3.3s
+== tests/hangup_terminal.py ok 0.1s
+== tests/help_exit_terminal.py ok 1.8s
+== tests/first_task_path.py ok 4.3s
+== tests/think_question_terminal.py ok 25.3s
+== tests/watch_terminal.py ok 23.7s
+== tests/goal_history_terminal.py ok 7.2s
+== tests/measure_runs_terminal.py ok 3.3s
+== tests/hidden_send_terminal.py ok 7.9s
+== tests/measure_lifecycle_terminal.py ok 7.5s
 == tests/measure_terminal.py ok 2.0s
-== tests/measure_runs_terminal.py ok 3.6s
-== tests/sdlc_root_terminal.py ok 1.5s
-== tests/hidden_voice_consent_terminal.py ok 13.4s
-== tests/model_setup_terminal.py ok 5.7s
-== tests/seed_command.py ok 3.2s
-== tests/approve_terminal.py ok 53.6s
-== tests/shape_deferred_recovery_terminal.py ok 2.1s
-== tests/awaiting_attestation_terminal.py ok 26.7s
-== tests/reading_scroll_terminal.py ok 8.3s
-== tests/shape_confirmation_terminal.py ok 3.9s
-== tests/shape_recovery_terminal.py ok 2.2s
-== tests/shape_refusals_terminal.py ok 3.9s
-== tests/shape_answer_terminal.py ok 63.0s
+== tests/sdlc_root_terminal.py ok 1.4s
+== tests/model_setup_terminal.py ok 5.3s
+== tests/seed_command.py ok 2.3s
+== tests/awaiting_attestation_terminal.py ok 22.4s
+== tests/hidden_voice_consent_terminal.py ok 13.1s
+== tests/shape_deferred_recovery_terminal.py ok 1.9s
+== tests/shape_confirmation_terminal.py ok 3.6s
+== tests/reading_scroll_terminal.py ok 7.9s
+== tests/approve_terminal.py ok 50.3s
+== tests/shape_recovery_terminal.py ok 2.1s
+== tests/shape_refusals_terminal.py ok 3.5s
+== tests/shape_answer_terminal.py ok 56.5s
+== tests/taste_label_terminal.py ok 4.4s
 == tests/shape_incomplete_read_terminal.py ok 12.4s
-== tests/taste_label_terminal.py ok 11.0s
-== tests/shape_commandless_terminal.py ok 20.2s
-== tests/taste_quiet_terminal.py ok 3.5s
-== tests/taste_stray_terminal.py ok 2.0s
-== tests/shape_terminal.py ok 21.7s
-== tests/taste_structure_terminal.py ok 4.1s
-== tests/taste_verdict_terminal.py ok 9.1s
-== tests/shape_retry_terminal.py ok 42.0s
-== tests/shape_sdlc_handoff.py ok 51.4s
-== tests/taste_preview_terminal.py ok 44.5s
-== tests/tend_connection_terminal.py ok 29.3s
-== tests/taste_verdict_head_terminal.py ok 39.5s
-== tests/measure_prs_terminal.py ok 77.7s
-== tests/terminal_smoke.py ok 0.8s
-== tests/test_cloud_setup.py ok 3.4s
-== tests/taste_local_preview_terminal.py ok 59.9s
-== tests/test_documentation.py ok 3.2s
-== tests/tend_repo_terminal.py ok 19.0s
-== tests/test_first_task_path.py ok 1.1s
-== tests/test_measure_prs_terminal.py ok 1.2s
-== tests/test_launch_guard.py ok 2.3s
-== tests/test_rust_test_homes.py ok 3.2s
-== tests/tend_thought_terminal.py ok 13.9s
-== tests/test_first_task_check.py ok 14.6s
-== tests/test_session_roots.py ok 6.6s
-== tests/test_python_tests.py ok 10.6s
-== tests/test_shape_confirmation_wait.py ok 1.0s
-== tests/test_tend_repo_terminal.py ok 0.3s
-== tests/test_shape_menu.py ok 0.4s
-== tests/test_vt_screen.py ok 0.1s
-== tests/test_verification_runner.py ok 0.3s
-== tests/tend_terminal.py ok 28.8s
-== tests/think_condition_terminal.py ok 0.8s
-== tests/test_terminal_process.py ok 1.9s
-== tests/think_criteria_terminal.py ok 4.5s
-== tests/tend_correction_terminal.py ok 49.2s
-== tests/test_ci_scope.py ok 29.3s
-== tests/think_operator_terminal.py ok 0.3s
-== tests/think_goal_filename_terminal.py ok 1.8s
-== tests/think_budget_terminal.py ok 11.1s
-== tests/taste_retry_terminal.py ok 79.9s
-== tests/thought_feedback_departure_terminal.py ok 0.7s
-== tests/think_delivery_terminal.py ok 11.9s
-== tests/think_source_ref_terminal.py ok 3.8s
-== tests/think_escape_terminal.py ok 8.6s
-== tests/think_quiet_who_terminal.py ok 12.9s
-== tests/worker_partial_start_terminal.py ok 9.0s
-== tests/theme_terminal.py ok 23.2s
-== tests/watch_codex_terminal.py ok 12.5s
-== tests/worker_stop_marker_terminal.py ok 13.3s
-== tests/voice_terminal.py ok 23.9s
-== tests/test_sdlc_run_contract.py ok 43.3s
-== tests/worker_verify_retention_terminal.py ok 20.1s
-== tests/worker_terminal.py ok 41.9s
-== tests/worker_relay_authorization_terminal.py ok 62.8s
+== tests/taste_quiet_terminal.py ok 1.7s
+== tests/shape_commandless_terminal.py ok 15.5s
+== tests/taste_stray_terminal.py ok 0.8s
+== tests/taste_structure_terminal.py ok 2.0s
+== tests/shape_sdlc_handoff.py ok 14.3s
+== tests/taste_verdict_terminal.py ok 2.9s
+== tests/shape_terminal.py ok 18.1s
+== tests/taste_verdict_head_terminal.py ok 6.9s
+== tests/shape_retry_terminal.py ok 22.7s
+== tests/taste_preview_terminal.py ok 15.9s
+== tests/taste_retry_terminal.py ok 14.7s
+== tests/terminal_smoke.py ok 0.1s
+== tests/taste_local_preview_terminal.py ok 22.2s
+== tests/tend_thought_terminal.py ok 5.2s
+== tests/test_documentation.py ok 0.3s
+== tests/test_cloud_setup.py ok 0.9s
+== tests/test_first_task_path.py ok 0.2s
+== tests/test_launch_guard.py ok 0.3s
+== tests/test_measure_prs_terminal.py ok 0.2s
+== tests/test_ci_scope.py ok 4.0s
+== tests/test_first_task_check.py ok 1.3s
+== tests/test_rust_test_homes.py ok 0.4s
+== tests/tend_connection_terminal.py ok 13.8s
+== tests/test_python_tests.py ok 1.3s
+== tests/test_shape_menu.py ok 0.1s
+== tests/test_tend_repo_terminal.py ok 0.1s
+== tests/test_shape_confirmation_wait.py ok 0.5s
+== tests/test_verification_runner.py ok 0.1s
+== tests/test_vt_screen.py ok 0.0s
+== tests/test_session_roots.py ok 1.3s
+== tests/test_terminal_process.py ok 0.7s
+== tests/think_condition_terminal.py ok 0.3s
+== tests/tend_repo_terminal.py ok 12.1s
+== tests/think_criteria_terminal.py ok 3.2s
+== tests/think_delivery_terminal.py ok 5.5s
+== tests/think_goal_filename_terminal.py ok 0.8s
+== tests/think_operator_terminal.py ok 0.1s
+== tests/think_budget_terminal.py ok 8.1s
+== tests/think_source_ref_terminal.py ok 1.5s
+== tests/thought_feedback_departure_terminal.py ok 0.6s
+== tests/tend_terminal.py ok 19.5s
+== tests/think_escape_terminal.py ok 7.9s
+== tests/tend_correction_terminal.py ok 28.1s
+== tests/test_sdlc_run_contract.py ok 16.6s
+== tests/think_quiet_who_terminal.py ok 7.7s
+== tests/worker_partial_start_terminal.py ok 6.2s
+== tests/watch_codex_terminal.py ok 7.6s
+== tests/theme_terminal.py ok 22.7s
+== tests/worker_stop_marker_terminal.py ok 7.7s
+== tests/measure_prs_terminal.py ok 72.2s
+== tests/worker_verify_retention_terminal.py ok 10.8s
+== tests/voice_terminal.py ok 20.7s
+== tests/worker_terminal.py ok 25.6s
+== tests/worker_relay_authorization_terminal.py ok 42.3s
     Checking tinkery v0.1.0 (/Users/jondev/dev/worktrees/tinkery/codex/874-thought-save-feedback)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.61s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.78s
