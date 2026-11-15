@@ -1,0 +1,1051 @@
+Python tests: tier full, 86 files, 8 workers
+== tests/goal_confirmation_terminal.py FAILED (1) 1.0s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/goal_confirmation_terminal.py", line 220, in <module>
+    for home in [False,True]:journey(80,24,home=home,session_case='default')
+                             ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/goal_confirmation_terminal.py", line 97, in journey
+    review();assert ('made in TEST-repo' in right())==in_repo and ('made in' in right())==in_repo,screen.text();assert "type confirm to save the goal and its record. You can't edit it after." in right() or "PgDn: read to the end first." in right(),screen.text();assert not root.exists() and not records.exists()
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError:                                                                                 
+  tinkery  not declared (not verified)                  62 runs left   dark  ?  
+                                                                                
+                                                                                
+    PR ready for human review.          You are confirming (not declared)       
+  restaurateur, not cook. Café 👩‍;      I judge a PR ready for human review as  
+  harness and codebase both             restaurateur while both the harness     
+  compound. Cost only when it's way     and codebase compound.                  
+  off; no dashboard.                    Why: I retain final judgment.           
+                                        Done when: a PR is ready for human      
+                                        review.                                 
+                                        Must: human taste.                      
+                                        Must not: cook.                         
+                                        Must not: show cost unless it is way    
+                                        off.                                    
+                                        Must not: build a dashboard.            
+                                                                                
+                                        made in issue-864-tend-thought          
+                                        PgDn: read to the end first.            
+                                                                                
+                                                                                
+                                        Back                                    
+                                                                                
+  PgDn read to end   esc back                                                   
+
+== tests/agent_operation_terminal.py ok 11.5s
+== tests/think_history_terminal.py FAILED (1) 20.6s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/think_history_terminal.py", line 332, in <module>
+    submission_labels(*size, no_color, context)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/think_history_terminal.py", line 296, in submission_labels
+    terminal.send(b'2', GARDEN)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/think_history_terminal.py", line 65, in send
+    return self.wait(lambda screen: text in screen)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/think_history_terminal.py", line 61, in wait
+    raise AssertionError(self.screen.text())
+AssertionError:                                                                                 
+  tinkery › tend                                            practice         ?  
+                                                                                
+  this repo · a all                                                             
+  No active goals are recorded for this repo. Press a for all goals.            
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  t thought   v thoughts   f connections   a toggle goals   esc back            
+
+== tests/shape_answer_terminal.py FAILED (1) 20.6s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 1718, in <module>
+    real_sample_last_run(*size)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 775, in real_sample_last_run
+    run.open_shape()
+    ~~~~~~~~~~~~~~^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 294, in open_shape
+    self.send(b'2', 'enter open')
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 221, in send
+    self.wait(text)
+    ~~~~~~~~~^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 217, in wait
+    raise AssertionError(f'{text!r} not shown:\n{self.screen.text()}')
+AssertionError: 'enter open' not shown:
+                                                                                                    
+  tinkery › tend                                                             2 runs left   dark  ?  
+                                                                                                    
+  this repo · a all                                                                                 
+  1 goal has no readable repo record. Press a for all goals.                                        
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+  t thought   v thoughts   f connections   a toggle goals   esc back                                
+
+== tests/approve_terminal.py FAILED (1) 22.4s
+{"width": 80, "height": 24, "no_color": false, "journey": "approve/ready", "provider_calls": 0, "session_writes": 0}
+{"width": 80, "height": 24, "no_color": false, "journey": "approve/empty", "provider_calls": 0, "session_writes": 0}
+{"width": 80, "height": 24, "no_color": false, "journey": "approve/incomplete", "provider_calls": 0, "session_writes": 0}
+{"width": 80, "height": 24, "no_color": false, "journey": "approve/unreadable", "provider_calls": 0, "session_writes": 0}
+{"width": 80, "height": 24, "no_color": false, "journey": "approve/started", "provider_calls": 0, "session_writes": 0}
+{"width": 80, "height": 24, "no_color": false, "journey": "approve/edited", "provider_calls": 0, "session_writes": 0}
+{"width": 80, "height": 24, "no_color": false, "journey": "approve/moved", "provider_calls": 0, "session_writes": 0}
+{"width": 80, "height": 24, "no_color": false, "journey": "approve/runs-unreadable", "provider_calls": 0, "session_writes": 0}
+{"width": 80, "height": 24, "no_color": false, "journey": "approve/no-checkout", "provider_calls": 0, "session_writes": 0}
+{"width": 80, "height": 24, "no_color": false, "journey": "approve/different-repo", "provider_calls": 0, "session_writes": 0}
+{"width": 80, "height": 24, "no_color": false, "journey": "approve/no-script", "provider_calls": 0, "session_writes": 0}
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/approve_terminal.py", line 368, in <module>
+    journey(*size,case,no_color)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/approve_terminal.py", line 160, in journey
+    send(b'2', '↑↓←→ move')
+    ~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/approve_terminal.py", line 150, in send
+    wait(lambda: text in flat())
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/approve_terminal.py", line 146, in wait
+    raise AssertionError(screen.text())
+AssertionError:                                                                                 
+  tinkery › tend                                            practice   dark  ?  
+                                                                                
+  this repo · a all                                                             
+  5 goals have no readable repo record. Press a for all goals.                  
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  t thought   v thoughts   f connections   a toggle goals   esc back            
+
+== tests/hidden_review_terminal.py ok 24.9s
+== tests/think_question_terminal.py ok 24.3s
+== tests/attestation_owed_terminal.py ok 4.9s
+== tests/brain_dump_terminal.py ok 4.3s
+== tests/hangup_terminal.py ok 0.1s
+== tests/dogfood_terminal.py ok 3.3s
+== tests/taste_terminal.py ok 28.5s
+== tests/help_exit_terminal.py ok 2.1s
+== tests/selection_terminal.py ok 29.1s
+== tests/first_task_path.py FAILED (1) 4.1s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/first_task_path.py", line 272, in <module>
+    main()
+    ~~~~^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/first_task_path.py", line 243, in main
+    out = shell(run_vars + start, env, root)
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/first_task_path.py", line 66, in shell
+    assert result.returncode == (1 if waiting else 0), (script, result.stdout, result.stderr)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('tinkery_src=/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought\nproject=~/dev/my-project\nnotes=~/dev/run-notes\nworker_model=test-provider/pinned-v1:low\nseed=/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/target/tmp/tinkery-TEST-build/tinkery-TEST-first-task-xpg8j68r/TEST-sessions/session-cxjWlW/seed-contract.md\nrun=my-run\nbuild="$project"\npython3 "$tinkery_src/scripts/first-task-check.py" --sdlc-root "$project" --worker-model "$worker_model"\nmkdir -p "$notes"\ncd "$build" && python3 _system/scripts/sdlc.py step "$run" build prepare \\\n  --report "$notes/$run-build.md" --model "$worker_model" \\\n  --launcher "$build/_system/scripts/pi-launcher"\npython3 _system/scripts/sdlc.py step "$run" build launch\n', 'ready: Tinkery runs. /Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/target/tmp/tinkery-TEST-build/tinkery-TEST-first-task-xpg8j68r/HOME/bin/tinkery\nready: The workflow is connected. /Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/target/tmp/tinkery-TEST-build/tinkery-TEST-first-task-xpg8j68r/HOME/dev/my-project\nready: Drafting is set up; the first real send proves it. Pi test-provider/pinned-v1, 4 calls each launch\nready: A worker can launch; the first launch proves it. test-provider/pinned-v1:low\nNext: start your first task (docs/first-task.md, step 4).\n', 'Error: Cannot operate a pinned build step from inside its agent session.\n')
+
+== tests/goal_history_terminal.py ok 7.9s
+== tests/measure_runs_terminal.py ok 4.0s
+== tests/measure_lifecycle_terminal.py FAILED (1) 5.1s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/measure_lifecycle_terminal.py", line 35, in <module>
+    journey(*dimensions, no_color, quit_key, help_open)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/measure_lifecycle_terminal.py", line 11, in journey
+    terminal.send(b'7', UNKNOWN)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/measure_terminal.py", line 65, in send
+    self.wait(lambda: expected in self.screen.text())
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/measure_terminal.py", line 61, in wait
+    raise AssertionError(self.screen.text())
+AssertionError:                                                                                 
+  measure · issue-864-tend-thought                          practice   dark  ?  
+                                                                                
+  Updated in the last 30 days · all states                                      
+                                                                                
+  Read GitHub using gh and your login. Nothing has been read yet.               
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  r read GitHub   p runs   esc back   ? help                                    
+                                                                                
+
+== tests/hidden_send_terminal.py ok 8.1s
+== tests/sdlc_root_terminal.py ok 1.5s
+== tests/measure_terminal.py FAILED (1) 5.1s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/measure_terminal.py", line 113, in <module>
+    journey(*dimensions, no_color)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/measure_terminal.py", line 89, in journey
+    terminal.send(b'7', UNKNOWN)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/measure_terminal.py", line 65, in send
+    self.wait(lambda: expected in self.screen.text())
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/measure_terminal.py", line 61, in wait
+    raise AssertionError(self.screen.text())
+AssertionError:                                                                                 
+  measure · issue-864-tend-thought                          practice   dark  ?  
+                                                                                
+  Updated in the last 30 days · all states                                      
+                                                                                
+  Read GitHub using gh and your login. Nothing has been read yet.               
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  r read GitHub   p runs   esc back   ? help                                    
+                                                                                
+
+== tests/model_setup_terminal.py ok 5.6s
+== tests/watch_terminal.py ok 28.7s
+== tests/seed_command.py ok 3.2s
+== tests/hidden_voice_consent_terminal.py ok 13.5s
+== tests/reading_scroll_terminal.py ok 8.0s
+== tests/awaiting_attestation_terminal.py ok 26.4s
+== tests/shape_incomplete_read_terminal.py ok 12.3s
+== tests/shape_commandless_terminal.py FAILED (1) 20.1s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_commandless_terminal.py", line 276, in <module>
+    draft_and_redraft()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_commandless_terminal.py", line 146, in draft_and_redraft
+    run.open_shape()
+    ~~~~~~~~~~~~~~^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 294, in open_shape
+    self.send(b'2', 'enter open')
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 221, in send
+    self.wait(text)
+    ~~~~~~~~~^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 217, in wait
+    raise AssertionError(f'{text!r} not shown:\n{self.screen.text()}')
+AssertionError: 'enter open' not shown:
+                                                                                                    
+  tinkery › tend                                                             2 runs left   dark  ?  
+                                                                                                    
+  this repo · a all                                                                                 
+  1 goal has no readable repo record. Press a for all goals.                                        
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+  t thought   v thoughts   f connections   a toggle goals   esc back                                
+
+== tests/shape_confirmation_terminal.py FAILED (1) 20.2s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_confirmation_terminal.py", line 59, in <module>
+    journey(*size, changed)
+    ~~~~~~~^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_confirmation_terminal.py", line 17, in journey
+    run.open_shape()
+    ~~~~~~~~~~~~~~^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 294, in open_shape
+    self.send(b'2', 'enter open')
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 221, in send
+    self.wait(text)
+    ~~~~~~~~~^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 217, in wait
+    raise AssertionError(f'{text!r} not shown:\n{self.screen.text()}')
+AssertionError: 'enter open' not shown:
+                                                                                
+  tinkery › tend                                         0 runs left   dark  ?  
+                                                                                
+  this repo · a all                                                             
+  1 goal has no readable repo record. Press a for all goals.                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  t thought   v thoughts   f connections   a toggle goals   esc back            
+
+== tests/shape_deferred_recovery_terminal.py FAILED (1) 20.1s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_deferred_recovery_terminal.py", line 76, in <module>
+    journey(*size)
+    ~~~~~~~^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_deferred_recovery_terminal.py", line 32, in journey
+    run.open_shape()
+    ~~~~~~~~~~~~~~^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 294, in open_shape
+    self.send(b'2', 'enter open')
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 221, in send
+    self.wait(text)
+    ~~~~~~~~~^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 217, in wait
+    raise AssertionError(f'{text!r} not shown:\n{self.screen.text()}')
+AssertionError: 'enter open' not shown:
+                                                                                
+  tinkery › tend                                         0 runs left   dark  ?  
+                                                                                
+  this repo · a all                                                             
+  1 goal has no readable repo record. Press a for all goals.                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  t thought   v thoughts   f connections   a toggle goals   esc back            
+
+== tests/shape_recovery_terminal.py FAILED (1) 20.1s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_recovery_terminal.py", line 57, in <module>
+    journey(*size, drafted)
+    ~~~~~~~^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_recovery_terminal.py", line 22, in journey
+    run.open_shape()
+    ~~~~~~~~~~~~~~^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 294, in open_shape
+    self.send(b'2', 'enter open')
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 221, in send
+    self.wait(text)
+    ~~~~~~~~~^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 217, in wait
+    raise AssertionError(f'{text!r} not shown:\n{self.screen.text()}')
+AssertionError: 'enter open' not shown:
+                                                                                
+  tinkery › tend                                            practice   dark  ?  
+                                                                                
+  this repo · a all                                                             
+  1 goal has no readable repo record. Press a for all goals.                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  t thought   v thoughts   f connections   a toggle goals   esc back            
+
+== tests/shape_refusals_terminal.py FAILED (1) 20.1s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_refusals_terminal.py", line 56, in <module>
+    journey(*size, case)
+    ~~~~~~~^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_refusals_terminal.py", line 21, in journey
+    run.open_shape()
+    ~~~~~~~~~~~~~~^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 294, in open_shape
+    self.send(b'2', 'enter open')
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 221, in send
+    self.wait(text)
+    ~~~~~~~~~^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 217, in wait
+    raise AssertionError(f'{text!r} not shown:\n{self.screen.text()}')
+AssertionError: 'enter open' not shown:
+                                                                                                    
+  tinkery › tend                                                              1 run left   dark  ?  
+                                                                                                    
+  this repo · a all                                                                                 
+  1 goal has no readable repo record. Press a for all goals.                                        
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+  t thought   v thoughts   f connections   a toggle goals   esc back                                
+
+== tests/taste_quiet_terminal.py ok 2.0s
+== tests/shape_retry_terminal.py FAILED (1) 20.1s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_retry_terminal.py", line 226, in <module>
+    inference_journey(*size)
+    ~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_retry_terminal.py", line 206, in inference_journey
+    run.open_shape()
+    ~~~~~~~~~~~~~~^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 294, in open_shape
+    self.send(b'2', 'enter open')
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 221, in send
+    self.wait(text)
+    ~~~~~~~~~^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 217, in wait
+    raise AssertionError(f'{text!r} not shown:\n{self.screen.text()}')
+AssertionError: 'enter open' not shown:
+                                                                                                    
+  tinkery › tend                                                             2 runs left   dark  ?  
+                                                                                                    
+  this repo · a all                                                                                 
+  1 goal has no readable repo record. Press a for all goals.                                        
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+  t thought   v thoughts   f connections   a toggle goals   esc back                                
+
+== tests/taste_stray_terminal.py ok 0.9s
+== tests/shape_terminal.py FAILED (1) 10.1s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_terminal.py", line 316, in <module>
+    journey(*size, case)
+    ~~~~~~~^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_terminal.py", line 183, in journey
+    send(b'2', 'enter open')
+    ~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_terminal.py", line 140, in send
+    wait(lambda: ' '.join(text.split()) in flat())
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_terminal.py", line 136, in wait
+    raise AssertionError(screen.text())
+AssertionError:                                                                                                     
+  tinkery › tend                                                             0 runs left   dark  ?  
+                                                                                                    
+  this repo · a all                                                                                 
+  1 goal has no readable repo record. Press a for all goals.                                        
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+  t thought   v thoughts   f connections   a toggle goals   esc back                                
+
+== tests/shape_sdlc_handoff.py ok 16.4s
+== tests/taste_label_terminal.py FAILED (1) 10.6s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/taste_label_terminal.py", line 241, in <module>
+    journey(100, 30, False, None)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/taste_label_terminal.py", line 211, in journey
+    send(F2, 'Saved your label.')
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/taste_label_terminal.py", line 116, in send
+    wait(text)
+    ~~~~^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/taste_label_terminal.py", line 112, in wait
+    raise AssertionError(f'{text!r} not shown ({width}x{height}):\n{screen.text()}')
+AssertionError: 'Saved your label.' not shown (100x30):
+                                                                                                    
+  tinkery › taste                                                               practice   dark  ?  
+                                                                                                    
+  Is this good?                                                                                     
+    TEST labels                                                                                     
+                                                                                                    
+    Not recorded. tink-sdlc said: Labels are the operator's; a build step session cannot record     
+    them.                                                                                           
+                                                                                                    
+    › 1 pass  It does what you asked, and you'd keep it.                                            
+      2 fail  Something is wrong or missing.                                                        
+                                                                                                    
+  Your words                                                                                        
+    What makes it good, or what is wrong with it?                                                   
+    Shape's check didn't run "as cloned" — 2 times? q Ω▏                                            
+                                                                                                    
+    Signed as TEST operator. Your label is your verdict on this result; it approves and merges      
+    nothing.                                                                                        
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+  1 pass  2 fail, then type your words                                                              
+  F2 save  Esc cancel                                                                               
+                                                                                                    
+
+== tests/taste_structure_terminal.py ok 2.1s
+== tests/taste_verdict_terminal.py ok 4.1s
+== tests/tend_repo_terminal.py FAILED (1) 0.2s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_repo_terminal.py", line 217, in <module>
+    journey(*size, no_color, place, unreadable)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_repo_terminal.py", line 118, in journey
+    assert_incomplete(screen, unreadable)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_repo_terminal.py", line 72, in assert_incomplete
+    assert text.count('1 ended not shown') == 1, screen
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError:                                                                                 
+  tinkery › tend                                         0 runs left   dark  ?  
+                                                                                
+  this repo · a all                                                             
+  1 saved record couldn't be read; this repo may have active goals. Press a     
+  for all goals.                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  t thought   v thoughts   f connections   a toggle goals   esc back            
+
+== tests/taste_retry_terminal.py FAILED (1) 13.6s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/taste_retry_terminal.py", line 270, in <module>
+    journey(100, 30, forwarded=True)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/taste_retry_terminal.py", line 124, in journey
+    send(F2, 'Saved your label.')
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/taste_retry_terminal.py", line 72, in send
+    self.wait(text)
+    ~~~~~~~~~^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/taste_retry_terminal.py", line 68, in wait
+    raise AssertionError(f'Missing {text!r}\n{self.screen.text()}')
+AssertionError: Missing 'Saved your label.'
+                                                                                                    
+  tinkery › taste                                                               practice   dark  ?  
+                                                                                                    
+  Is this good?                                                                                     
+    Local checked result                                                                            
+                                                                                                    
+    Not recorded. tink-sdlc said: Labels are the operator's; a build step session cannot record     
+    them.                                                                                           
+                                                                                                    
+      1 pass  It does what you asked, and you'd keep it.                                            
+    › 2 fail  Something is wrong or missing.                                                        
+                                                                                                    
+  Your words                                                                                        
+    What makes it good, or what is wrong with it?                                                   
+      Ignores my sample — keep the "raw" lines.  ▏                                                  
+                                                                                                    
+    Signed as TEST operator. Your label is your verdict on this result; it approves and merges      
+    nothing.                                                                                        
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+  1 pass  2 fail, then type your words                                                              
+  F2 save  Esc cancel                                                                               
+                                                                                                    
+
+== tests/tend_terminal.py FAILED (1) 5.1s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_terminal.py", line 316, in <module>
+    for size in [(80,24), (100,30), (160,40), (320,40)]: journey(*size)
+                                                         ~~~~~~~^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_terminal.py", line 115, in journey
+    send(b'2', GARDEN_KEYS)
+    ~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_terminal.py", line 82, in send
+    wait(lambda: text in screen.text())
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_terminal.py", line 78, in wait
+    raise AssertionError(screen.text())
+AssertionError:                                                                                 
+  tinkery › tend                                         0 runs left   dark  ?  
+                                                                                
+  this repo · a all                                                             
+  7 goals have no readable repo record. Press a for all goals.                  
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  t thought   v thoughts   f connections   a toggle goals   esc back            
+
+== tests/taste_verdict_head_terminal.py FAILED (1) 10.6s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/taste_verdict_head_terminal.py", line 141, in <module>
+    journey(100, 30, False, kind)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/taste_verdict_head_terminal.py", line 92, in journey
+    send(F2, 'Saved your label.')
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/taste_verdict_head_terminal.py", line 74, in send
+    wait(text)
+    ~~~~^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/taste_verdict_head_terminal.py", line 70, in wait
+    raise AssertionError(f'{text!r} not shown ({width}x{height}):\n{terminal.screen.text()}')
+AssertionError: 'Saved your label.' not shown (100x30):
+                                                                                                    
+  tinkery › taste                                                               practice   dark  ?  
+                                                                                                    
+  Is this good?                                                                                     
+    TEST moving result                                                                              
+                                                                                                    
+    Not recorded. tink-sdlc said: Labels are the operator's; a build step session cannot record     
+    them.                                                                                           
+                                                                                                    
+    › 1 pass  It does what you asked, and you'd keep it.                                            
+      2 fail  Something is wrong or missing.                                                        
+                                                                                                    
+  Your words                                                                                        
+    What makes it good, or what is wrong with it?                                                   
+      TEST only: keep "these words" — Ω  ▏                                                          
+                                                                                                    
+    Signed as TEST synthetic reviewer. Your label is your verdict on this result; it approves and   
+    merges nothing.                                                                                 
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+  1 pass  2 fail, then type your words                                                              
+  F2 save  Esc cancel                                                                               
+                                                                                                    
+
+== tests/terminal_smoke.py ok 0.2s
+== tests/taste_preview_terminal.py ok 17.6s
+== tests/test_documentation.py ok 0.4s
+== tests/test_cloud_setup.py ok 1.3s
+== tests/test_first_task_path.py ok 0.2s
+== tests/tend_thought_terminal.py ok 3.2s
+== tests/test_launch_guard.py FAILED (1) 0.4s
+F......
+======================================================================
+FAIL: test_alias_to_real_home_and_missing_relative_or_unmarked_homes_refuse (__main__.LaunchGuardTests.test_alias_to_real_home_and_missing_relative_or_unmarked_homes_refuse) (env={'HOME': '/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/target/tmp/tinkery-TEST-build'})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/test_launch_guard.py", line 115, in test_alias_to_real_home_and_missing_relative_or_unmarked_homes_refuse
+    with self.assertRaises(test_launch.UnsafeTestHome):
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: UnsafeTestHome not raised
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.331s
+
+FAILED (failures=1)
+
+== tests/test_measure_prs_terminal.py ok 0.2s
+== tests/test_rust_test_homes.py ok 0.5s
+== tests/test_first_task_check.py ok 1.9s
+== tests/test_python_tests.py ok 1.5s
+== tests/test_session_roots.py ok 1.6s
+== tests/test_shape_menu.py ok 0.2s
+== tests/test_tend_repo_terminal.py ok 0.1s
+== tests/tend_connection_terminal.py ok 14.4s
+== tests/test_verification_runner.py ok 0.1s
+== tests/test_vt_screen.py ok 0.0s
+== tests/test_terminal_process.py ok 0.9s
+== tests/taste_local_preview_terminal.py ok 26.3s
+== tests/test_ci_scope.py ok 7.9s
+== tests/think_condition_terminal.py ok 0.6s
+== tests/think_criteria_terminal.py ok 3.3s
+== tests/think_budget_terminal.py ok 9.3s
+== tests/think_escape_terminal.py ok 8.3s
+== tests/think_operator_terminal.py ok 0.1s
+== tests/tend_correction_terminal.py FAILED (1) 31.1s
+80x24: save/restart, exact disclosure, different-goal no-result, v2 handoff, clear/reopen; four fake calls
+80x24: capture shows repo/proposal; context scrolling retains draft; two final newlines survive untouched replacement/restart
+100x30: save/restart, exact disclosure, different-goal no-result, v2 handoff, clear/reopen; four fake calls
+100x30: capture shows repo/proposal; context scrolling retains draft; two final newlines survive untouched replacement/restart
+one final newline survives untouched replacement without a call
+long repository remains scrollable during capture; navigation retains draft and makes no call
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_correction_terminal.py", line 438, in <module>
+    edits_and_conflicts()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_correction_terminal.py", line 146, in edits_and_conflicts
+    os.write(term.master,b'\x01\x0bTEST corrected');flow.send(term,flow.F2,'F2 find one connection')
+                                                    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_connection_terminal.py", line 27, in send
+    return wait(term, text)
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/tend_connection_terminal.py", line 22, in wait
+    raise AssertionError(f'Missing {text!r}:\n{term.screen.text()}')
+AssertionError: Missing 'F2 find one connection':
+                                                                                                    
+  tinkery › tend                                                             9 runs left         ?  
+                                                                                                    
+  Saved thoughts                                                                                    
+  Repository:                                                                                       
+  /Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/target/tmp/tinkery-TEST-build/tinkery  
+  -TEST-correction-edit-jteghnsb/repo                                                               
+  g opens these words in Think, unsent. Confirm a goal there. No Shape.                             
+                                                                                                    
+  Thought 1 of 1                                                                                    
+  ed                                                                                                
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+  Thought saved. No goal confirmed.                                                                 
+                                                                                                    
+  ↑↓ thoughts   PgUp/PgDn scroll   g think   esc garden                                             
+                                                                                                    
+
+== tests/measure_prs_terminal.py ok 72.7s
+== tests/think_source_ref_terminal.py ok 1.6s
+== tests/test_shape_confirmation_wait.py FAILED (1) 20.2s
+F
+======================================================================
+FAIL: test_confirmation_hint_waits_for_typed_words_before_asserting (__main__.ConfirmationWaitTests.test_confirmation_hint_waits_for_typed_words_before_asserting)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/test_shape_confirmation_wait.py", line 45, in test_confirmation_hint_waits_for_typed_words_before_asserting
+    journey.case('confirmation hint', 80, 24)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 560, in case
+    run.open_shape()
+    ~~~~~~~~~~~~~~^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 294, in open_shape
+    self.send(b'2', 'enter open')
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 221, in send
+    self.wait(text)
+    ~~~~~~~~~^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/test_shape_confirmation_wait.py", line 33, in wait_for_echo
+    return original_wait(run, text, *args, **kwargs)
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 217, in wait
+    raise AssertionError(f'{text!r} not shown:\n{self.screen.text()}')
+AssertionError: 'enter open' not shown:
+                                                                                
+  tinkery › tend                                         2 runs left         ?  
+                                                                                
+  this repo · a all                                                             
+  1 goal has no readable repo record. Press a for all goals.                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  t thought   v thoughts   f connections   a toggle goals   esc back            
+
+----------------------------------------------------------------------
+Ran 1 test in 20.072s
+
+FAILED (failures=1)
+
+== tests/theme_terminal.py ok 23.1s
+== tests/think_delivery_terminal.py FAILED (1) 20.7s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/think_delivery_terminal.py", line 231, in <module>
+    journey(*size, mono)
+    ~~~~~~~^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/think_delivery_terminal.py", line 129, in journey
+    run.send(b'confirm\r', 'Saved.')
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 221, in send
+    self.wait(text)
+    ~~~~~~~~~^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/shape_answer_terminal.py", line 217, in wait
+    raise AssertionError(f'{text!r} not shown:\n{self.screen.text()}')
+AssertionError: 'Saved.' not shown:
+                                                                                
+  tinkery  declared: agent (not verified)                0 runs left   dark  ?  
+                                                                                
+  your dump                                                                     
+  Operator's original request,          first version.                          
+  quoted verbatim:                      Must not: Include scraping in the       
+  I want you to use tinkery to build    first version.                          
+   an amazing app that solves a         Must not: Include live collaboration    
+  problem. you can get insight from     in the first version.                   
+  social-media and websites. thats      Must not: Include maps in the first     
+  it. this will also serve as a         version.                                
+  dogfood oppurtunity to find issues    Must not: Include AI recommendations    
+   to determine and carve out the       in the first version.                   
+  happy path of tinkery.                Must not: Provide financial/legal       
+                                        advice.                                 
+  does that make sense to you?          Must not: Change operator sessions.     
+                                        Must not: Change tool configuration.    
+  Operator's authorization, quoted                                              
+  verbatim:                             Read to the end first: PgDn scrolls.    
+  yes, $20 is fine. go ahead and        Then type confirm and Enter.            
+  find a real problem, use tinkery      confirm                                 
+  ↓ more                                Back                                    
+                                                                                
+  PgDn read to end   esc back                                                   
+
+== tests/think_quiet_who_terminal.py ok 10.2s
+== tests/worker_partial_start_terminal.py ok 8.7s
+== tests/test_sdlc_run_contract.py ok 31.3s
+== tests/watch_codex_terminal.py ok 10.3s
+== tests/think_goal_filename_terminal.py FAILED (1) 20.4s
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/think_goal_filename_terminal.py", line 78, in <module>
+    journey('', '')
+    ~~~~~~~^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/think_goal_filename_terminal.py", line 63, in journey
+    terminal.send(b'2', GARDEN)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/think_history_terminal.py", line 65, in send
+    return self.wait(lambda screen: text in screen)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/tests/think_history_terminal.py", line 61, in wait
+    raise AssertionError(self.screen.text())
+AssertionError:                                                                                                                         
+  tinkery › tend                                                                                 0 runs left   dark  ?  
+                                                                                                                        
+  this repo · a all                                                                                                     
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                               › I archive reportcod.exe.                                               
+                                                            ⡀                                                           
+                                                          ⡔⠉⠉⢢                                                          
+                                                         ⠈⠣⣀⣀⠜⠁                                                         
+                                                            ⠁                                                           
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+  I archive reportcod.exe.                                                                       goal saved · just now  
+                                                                                                                        
+  arrows move   enter open   t thought   v read   f connect   l link   esc back                                         
+
+== tests/worker_stop_marker_terminal.py ok 10.6s
+== tests/voice_terminal.py ok 18.8s
+== tests/worker_verify_retention_terminal.py ok 13.2s
+== tests/worker_terminal.py ok 33.2s
+== tests/worker_relay_authorization_terminal.py ok 55.1s
+24 Python test file(s) failed: tests/goal_confirmation_terminal.py, tests/think_history_terminal.py, tests/shape_answer_terminal.py, tests/approve_terminal.py, tests/first_task_path.py, tests/measure_lifecycle_terminal.py, tests/measure_terminal.py, tests/shape_commandless_terminal.py, tests/shape_confirmation_terminal.py, tests/shape_deferred_recovery_terminal.py, tests/shape_recovery_terminal.py, tests/shape_refusals_terminal.py, tests/shape_retry_terminal.py, tests/shape_terminal.py, tests/taste_label_terminal.py, tests/tend_repo_terminal.py, tests/taste_retry_terminal.py, tests/tend_terminal.py, tests/taste_verdict_head_terminal.py, tests/test_launch_guard.py, tests/tend_correction_terminal.py, tests/test_shape_confirmation_wait.py, tests/think_delivery_terminal.py, tests/think_goal_filename_terminal.py

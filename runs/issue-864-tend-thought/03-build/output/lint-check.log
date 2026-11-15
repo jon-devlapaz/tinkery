@@ -1,0 +1,8 @@
+    Checking unicode-ident v1.0.26
+    Checking pinstar v1.0.0 (/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/vendor/pinstar)
+    Checking graf-rs v1.1.0 (/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought/vendor/graf)
+    Checking proc-macro2 v1.0.107
+    Checking quote v1.0.47
+    Checking syn v2.0.119
+    Checking tinkery v0.1.0 (/Users/jondev/dev/worktrees/tinkery/issue-864-tend-thought)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.07s
