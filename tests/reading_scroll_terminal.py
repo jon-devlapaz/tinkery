@@ -85,6 +85,8 @@ def journey(width, height, no_color):
             send(b'\x1b[200~' + DUMP.encode() + b'\x1b[201~')
             assert not (cwd / 'calls.jsonl').exists()
             send(b'\x1bOQ')
+            wait_for(lambda: '1  Clarify into a goal' in screen.text(), 'Choice missing')
+            send(b'1')
             wait_for(lambda: 'Which boundary matters most?' in screen.text(), 'Reading missing')
             initial = reading()
             assert 'reader 6.' not in joined(initial), 'Fixture no longer overflows'

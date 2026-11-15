@@ -70,6 +70,9 @@ def journey(width, height):
             wait(lambda s: "What's on your mind?" in s)
             for i, words in enumerate(sources):
                 os.write(master, b'\x1b[200~' + words.encode() + b'\x1b[201~\x1bOQ')
+                if i == 0:
+                    wait(lambda s: '1  Clarify into a goal' in s)
+                    os.write(master, b'1')
                 # Reading-side state proves application, not merely stub invocation.
                 expected = ['first playable scope', 'real data', 'aggregated data',
                             'Who should the player', 'What would tell you this worked?'][i]

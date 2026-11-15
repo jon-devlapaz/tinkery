@@ -35,6 +35,13 @@ fn review_row_tracks_public_edit_reading_held_reply_and_retry_transitions() {
     }
     fn key(app: &mut BrainDump, code: KeyCode) {
         app.handle_key(KeyEvent::new(code, KeyModifiers::NONE));
+        if code == KeyCode::F(2)
+            && snapshot(100, 30, app, true)
+                .unwrap()
+                .contains("1  Clarify into a goal")
+        {
+            app.handle_key(KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE));
+        }
     }
     fn finish(app: &mut BrainDump) {
         let deadline = Instant::now() + Duration::from_secs(5);

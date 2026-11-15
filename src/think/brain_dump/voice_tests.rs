@@ -36,6 +36,13 @@ fn attach(a: BrainDump) -> (BrainDump, Rc<RefCell<Fake>>) {
 }
 fn key(a: &mut BrainDump, code: KeyCode) {
     a.handle_key(KeyEvent::new(code, KeyModifiers::NONE));
+    if code == KeyCode::F(2)
+        && snapshot(100, 30, a, true)
+            .unwrap()
+            .contains("1  Clarify into a goal")
+    {
+        a.handle_key(KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE));
+    }
 }
 fn event(a: &mut BrainDump, fake: &Rc<RefCell<Fake>>, event: Event) {
     fake.borrow_mut().events.push_back(event);
@@ -325,7 +332,7 @@ fn esc_cancels_voice_before_shaping_and_drops_all_late_callbacks() {
     );
 }
 #[test]
-fn f2_waits_for_final_then_submits_exactly_once_with_intact_source() {
+fn f2_waits_for_final_then_requires_a_choice_before_submitting_exactly_once() {
     let (mut a, fake) = attach(BrainDump::default());
     a.paste("typed ");
     key(&mut a, KeyCode::F(6));
@@ -350,6 +357,12 @@ fn f2_waits_for_final_then_submits_exactly_once_with_intact_source() {
             text: "spoken".into(),
         },
     );
+    assert!(a.conversation().sources().is_empty());
+    let choice = snapshot(100, 30, &mut a, true).unwrap();
+    assert!(choice.contains("1  Clarify into a goal"), "{choice}");
+    key(&mut a, KeyCode::Enter);
+    assert!(!a.running());
+    key(&mut a, KeyCode::Char('1'));
     assert_eq!(a.conversation.sources().len(), 1);
     assert_eq!(a.conversation.sources()[0].id, 1);
     assert_eq!(a.conversation.sources()[0].text, "typed spoken");
@@ -385,6 +398,13 @@ fn direct_submit_uses_the_same_wait_for_final_contract() {
             text: "spoken".into(),
         },
     );
+    assert!(
+        snapshot(100, 30, &mut a, true)
+            .unwrap()
+            .contains("1  Clarify into a goal")
+    );
+    assert!(!a.running());
+    key(&mut a, KeyCode::Char('1'));
     assert_eq!(a.conversation.sources()[0].text, "spoken");
 }
 #[test]

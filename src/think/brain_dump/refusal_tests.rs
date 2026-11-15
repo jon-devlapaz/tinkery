@@ -7,6 +7,13 @@ const SIZES: [(u16, u16); 3] = [(80, 24), (100, 30), (160, 40)];
 
 fn key(a: &mut BrainDump, code: KeyCode) {
     a.handle_key(KeyEvent::new(code, KeyModifiers::NONE));
+    if code == KeyCode::F(2)
+        && snapshot(100, 30, a, true)
+            .unwrap()
+            .contains("1  Clarify into a goal")
+    {
+        a.handle_key(KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE));
+    }
 }
 fn ctrl(a: &mut BrainDump, c: char) {
     a.handle_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL));

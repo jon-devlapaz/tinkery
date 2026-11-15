@@ -38,6 +38,13 @@ pub(super) fn board() -> BrainDump {
 }
 fn key(a: &mut BrainDump, code: KeyCode) {
     a.handle_key(KeyEvent::new(code, KeyModifiers::NONE));
+    if code == KeyCode::F(2)
+        && snapshot(100, 30, a, true)
+            .unwrap()
+            .contains("1  Clarify into a goal")
+    {
+        a.handle_key(KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE));
+    }
 }
 #[test]
 fn receipt_preserves_frozen_review_goal_in_ink_and_only_offers_manual_actions() {

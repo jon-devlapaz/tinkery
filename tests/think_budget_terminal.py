@@ -48,7 +48,8 @@ def journey(limit, home, width, height):
                 terminal.wait(lambda screen: "What's on your mind?" in screen)
             assert calls() == []
             terminal.send(b'TEST budget words', 'TEST budget words')
-            terminal.send(b'\x1bOQ', "Reading failed: Drafting run limit" if not limit else 'Which TEST reason?')
+            terminal.send(b'\x1bOQ', '1  Clarify into a goal')
+            terminal.send(b'1', "Reading failed: Drafting run limit" if not limit else 'Which TEST reason?')
             assert len(calls()) == (limit or 0), calls()
             assert 'TEST budget words' in terminal.screen.text()
             # #435: the allowance is shown where a retry is decided, and in Right now help.
@@ -76,7 +77,8 @@ def journey(limit, home, width, height):
                 terminal.send(b'y', '1  think')
                 terminal.send(b'1', "What's on your mind?")
                 terminal.send(b'TEST new goal', 'TEST new goal')
-                terminal.send(b'\x1bOQ', "Reading failed: Drafting run limit")
+                terminal.send(b'\x1bOQ', '1  Clarify into a goal')
+                terminal.send(b'1', "Reading failed: Drafting run limit")
                 assert len(calls()) == (limit or 0), 'New goal reset the launch allowance'
                 terminal.send(b'\x1b', 'lose this draft?')
                 terminal.send(b'y', '1  think')

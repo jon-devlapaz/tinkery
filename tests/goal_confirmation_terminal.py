@@ -84,7 +84,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    dump='  PR ready for human review. restaurateur, not cook. Café 👩‍💻; harness and codebase both compound. Cost only when it\'s way off; no dashboard.  '
    if literals:dump += ' Accept "A  B" and "A B"; use IT and use it.'
    os.write(master,b'\x1b[200~'+dump.encode()+b'\x1b[201~');await_text('compound.')
-   send(b'\x1bOQ','Which UI');assert not root.exists() and not records.exists()
+   send(b'\x1bOQ','1  Clarify into a goal');send(b'1','Which UI');assert not root.exists() and not records.exists()
    # Unsent words hide Review. Help navigation neither sends nor changes that draft.
    before_calls=(run/'provider-calls').read_bytes()
    send(b'x\x1bOP','Right now');assert '1  Review the goal' not in screen.text(),screen.text()

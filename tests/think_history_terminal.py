@@ -106,7 +106,8 @@ def confirm_goals(root, width, height, no_color):
             answer = f'omit\n{marker}: gardez les mots exacts.'
             terminal.send(b'1', "What's on your mind?")
             terminal.send(b'\x1b[200~' + original.encode() + b'\x1b[201~', 'original 36:')
-            terminal.send(b'\x1bOQ', 'May refusals show private text?')
+            terminal.send(b'\x1bOQ', '1  Clarify into a goal')
+            terminal.send(b'1', 'May refusals show private text?')
             terminal.send(b'\x1b[200~' + answer.encode() + b'\x1b[201~', 'gardez les mots exacts.')
             terminal.send(b'\x1bOQ', "Ready for your review")
             terminal.send(b'\x1bOP', 'Review the goal')

@@ -2,6 +2,13 @@ use super::goal_tests::{board, right_text};
 use super::*;
 fn key(a: &mut BrainDump, code: KeyCode) {
     a.handle_key(KeyEvent::new(code, KeyModifiers::NONE));
+    if code == KeyCode::F(2)
+        && snapshot(100, 30, a, true)
+            .unwrap()
+            .contains("1  Clarify into a goal")
+    {
+        a.handle_key(KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE));
+    }
 }
 fn left(screen: &str, w: u16) -> Vec<String> {
     screen
@@ -189,13 +196,7 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
                 .skip(1)
                 .all(|line| !line.contains("Enter"))
         );
-        assert!(
-            screen
-                .lines()
-                .last()
-                .unwrap()
-                .contains("enter clarify goal")
-        );
+        assert!(screen.lines().last().unwrap().contains("enter choose"));
         let mut a = board();
         let before = snapshot(w, h, &mut a, false).unwrap();
         let source_area = a.screen.source_area;

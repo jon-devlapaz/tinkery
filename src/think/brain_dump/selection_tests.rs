@@ -5,6 +5,13 @@ fn press(a: &mut BrainDump, code: KeyCode, modifiers: KeyModifiers) {
 }
 fn key(a: &mut BrainDump, code: KeyCode) {
     press(a, code, KeyModifiers::NONE);
+    if code == KeyCode::F(2)
+        && snapshot(100, 30, a, true)
+            .unwrap()
+            .contains("1  Clarify into a goal")
+    {
+        a.handle_key(KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE));
+    }
 }
 fn ctrl_c(a: &mut BrainDump) {
     press(a, KeyCode::Char('c'), KeyModifiers::CONTROL);

@@ -95,15 +95,34 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         };
         frame.render_widget(
             Paragraph::new(if app.conversation.has_draft_suggestion() {
-                "Tinkery's guess · edit freely · Enter sends"
+                "Tinkery's guess · edit freely · Enter chooses"
             } else {
                 "What's on your mind?"
             })
             .style(palette.muted),
             Rect::new(4, 5, width, 1),
         );
-        app.screen.input_area = Rect::new(4, 8, width, area.height.saturating_sub(12));
+        app.screen.input_area = Rect::new(
+            4,
+            8,
+            width,
+            area.height
+                .saturating_sub(if app.screen.choice { 16 } else { 12 }),
+        );
         render_input(frame, app, palette);
+        if app.screen.choice {
+            let unavailable = match &app.handoff.thoughts {
+                Some(Ok(_)) => String::new(),
+                Some(Err(reason)) => format!("Unavailable: {reason}"),
+                None => "Unavailable: Open --home to save a thought in Tend.".into(),
+            };
+            frame.render_widget(
+                Paragraph::new(format!(
+                    "1  Clarify into a goal · a model reads your words\n2  Save as a thought · nothing reads them\n{unavailable}"
+                )).style(palette.ink).wrap(Wrap { trim: false }),
+                Rect::new(2, area.height - 6, area.width - 4, 4),
+            );
+        }
         if app.screen.refused.is_some() {
             // Show only a refusal, never the initial status as permanent clutter.
             frame.render_widget(
@@ -435,7 +454,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     } else if app.running() {
         "Reading your words. Keep writing if you like.\nEsc cancels."
     } else if app.conversation.sources().is_empty() {
-        "Type, then Enter sends it."
+        "Type, then Enter opens a choice."
     } else if app.shaping.ready.is_some() {
         "A new reading is ready.\nEnter when you want it."
     } else if app
@@ -496,9 +515,9 @@ pub(super) fn how_text(app: &BrainDump) -> String {
         );
     }
     let diagnostics = app.diagnostics().join("\n\n");
-    let saving = "Only typing confirm saves. It keeps your goal and a record of this conversation, and starts no work. Leave without confirming and nothing is kept.";
+    let saving = "Only typing confirm saves a goal and its conversation record. It starts no work. Before sending, 2 in the choice or Ctrl-S saves exact words as a thought instead.";
     format!(
-        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nSending\n{}\nNothing runs on its own and nothing retries. Ctrl-C cancels a send.\n\nSaving\n{saving}\n\nAfter saving\nOpen Shape from Tend.\n\nWords\nItalic is my guess at what you meant; upright is exactly what you typed.\n\nKeys\nEnter sends. F1 lists everything else you can do now; press its number. Esc goes back, or leaves and asks first if words would be lost. Ctrl-J or Shift-Enter starts a new line. Ctrl-S keeps a fresh input as a thought; nothing reads it. Tab switches between writing and your original. Shift-arrows or drag select, Ctrl-A selects all, Ctrl-C copies, Ctrl-E extracts a selection to a card. PgUp/PgDn scroll the reading; Ctrl-PgUp/PgDn switch originals. b in help hides the key bar. Ctrl-T switches dark or light. Ctrl-L repaints. Mac F-keys may need fn.{}\n\nLast result\n{}",
+        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nSending\n{}\nNothing runs on its own and nothing retries. Ctrl-C cancels a send.\n\nSaving\n{saving}\n\nAfter saving\nOpen Shape from Tend.\n\nWords\nItalic is my guess at what you meant; upright is exactly what you typed.\n\nKeys\nEnter opens a choice before the first send: 1 clarifies into a goal (a model reads your words), 2 saves as a thought (nothing reads them). Esc returns to writing. After the first send, Enter sends. F1 lists everything else you can do now; press its number. Esc goes back, or leaves and asks first if words would be lost. Ctrl-J or Shift-Enter starts a new line. Ctrl-S keeps a fresh input as a thought; nothing reads it. Tab switches between writing and your original. Shift-arrows or drag select, Ctrl-A selects all, Ctrl-C copies, Ctrl-E extracts a selection to a card. PgUp/PgDn scroll the reading; Ctrl-PgUp/PgDn switch originals. b in help hides the key bar. Ctrl-T switches dark or light. Ctrl-L repaints. Mac F-keys may need fn.{}\n\nLast result\n{}",
         if app.real {
             "Real: your words go to the model you chose and may cost money."
         } else {
@@ -528,6 +547,8 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
             "save"
         };
         vec![("type confirm", save), ("esc", "back")]
+    } else if app.screen.choice {
+        vec![("1/2", "choose"), ("esc", "back")]
     } else if app.voice_active() {
         vec![
             (crate::voice::key_label(std::env::consts::OS), "stop"),
@@ -537,15 +558,19 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
         let mut items = if app.running() {
             vec![("esc", "cancel")]
         } else if app.conversation.sources().is_empty() {
-            vec![("enter", "clarify goal")]
+            vec![("enter", "choose")]
         } else {
             vec![("enter", "send")]
         };
-        if app.thought_ready() && matches!(app.handoff.thoughts, Some(Ok(_))) {
-            items.push(("^S", "keep thought"));
-        }
         if !app.running() {
-            items.push(("^J", "newline"));
+            items.push((
+                if app.screen.shift_enter {
+                    "shift+enter"
+                } else {
+                    "^J"
+                },
+                "newline",
+            ));
         }
         if !app.rows().is_empty() {
             items.push(("F1", "more"));
@@ -562,7 +587,7 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
 pub(super) fn render_key_bar(frame: &mut Frame, app: &BrainDump, palette: Palette) {
     let area = frame.area();
     if app.screen.help
-        || (!app.screen.key_bar && app.handoff.receipt().is_none())
+        || (!app.screen.key_bar && app.handoff.receipt().is_none() && !app.screen.choice)
         || area.width < MIN_WIDTH
         || area.height < MIN_HEIGHT
     {
@@ -577,7 +602,7 @@ pub(super) fn render_key_bar(frame: &mut Frame, app: &BrainDump, palette: Palett
             .sum::<usize>()
     };
     if width(&items) > area.width.saturating_sub(4) as usize + 3 {
-        items.retain(|item| *item != ("^J", "newline"));
+        items.retain(|(_, label)| *label != "newline");
     }
     let mut spans = vec![];
     for (i, (key, label)) in items.into_iter().enumerate() {

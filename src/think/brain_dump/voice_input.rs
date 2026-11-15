@@ -95,7 +95,7 @@ impl BrainDump {
         self.focus_writing();
         self.conversation.forget_changes();
         if result.send {
-            self.submit();
+            self.writing_action();
         }
     }
 }

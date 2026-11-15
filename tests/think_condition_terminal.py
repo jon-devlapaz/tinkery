@@ -33,7 +33,8 @@ def journey(outcome, goal):
         try:
             terminal.wait(lambda screen: "What's on your mind?" in screen)
             terminal.send(b'TEST thermostat words', 'TEST thermostat words')
-            screen = terminal.send(b'\x1bOQ', 'Which TEST reason?')
+            terminal.send(b'\x1bOQ', '1  Clarify into a goal')
+            screen = terminal.send(b'1', 'Which TEST reason?')
             text = ' '.join(screen.replace('│', ' ').split())
             assert goal in text, text
             assert len(re.findall(r'\bat work\b', text)) == 1, text

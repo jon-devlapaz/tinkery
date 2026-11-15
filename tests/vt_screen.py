@@ -48,7 +48,7 @@ class Screen:
                     if command == "l":
                         self.frames += 1
                     continue
-                if arguments.startswith("?") or command == "m":
+                if arguments.startswith("?") or command == "m" or command == "c" and not arguments:
                     continue
                 values = [int(value or "0") for value in arguments.split(";")]
                 n = values[0] or 1

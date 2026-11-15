@@ -99,6 +99,7 @@ fn ten_actions_keep_model_and_calls_reachable_without_spending_calls() {
             snapshot(width, height, &mut app, mono).unwrap();
             app.paste(words);
             key(&mut app, KeyCode::F(2));
+            key(&mut app, KeyCode::Char('1'));
             let deadline = Instant::now() + Duration::from_secs(5);
             while app.running() && Instant::now() < deadline {
                 app.tick();
@@ -422,7 +423,7 @@ fn help_palette_and_spacing_match_the_quiet_menu_hierarchy() {
         assert!(buffer[every].modifier.contains(Modifier::BOLD));
         assert_eq!(
             layout::help_text(&empty).lines().nth(1),
-            Some("Type, then Enter sends it.")
+            Some("Type, then Enter opens a choice.")
         );
     }
 }

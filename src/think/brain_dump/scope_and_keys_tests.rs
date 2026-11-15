@@ -55,6 +55,13 @@ impl BoardHost for Counting {
 }
 fn key(a: &mut BrainDump, k: KeyCode) {
     a.handle_key(KeyEvent::new(k, KeyModifiers::NONE));
+    if k == KeyCode::F(2)
+        && snapshot(100, 30, a, true)
+            .unwrap()
+            .contains("1  Clarify into a goal")
+    {
+        a.handle_key(KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE));
+    }
 }
 fn wait(a: &mut BrainDump) {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
@@ -363,7 +370,7 @@ fn key_bar_is_on_by_default_shows_only_possible_actions_and_keeps_layout() {
     let bar = snapshot(100, 30, &mut empty, false).unwrap();
     assert_eq!(
         bar.lines().last().unwrap().trim(),
-        "enter clarify goal   ^J newline   esc menu"
+        "enter choose   ^J newline   esc menu"
     );
 }
 #[test]
