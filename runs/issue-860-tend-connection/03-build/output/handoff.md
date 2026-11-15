@@ -4,7 +4,7 @@
 
 Implemented the bounded Tend connection and explicit goal save. Independent review and PR delivery belong to the supervisor. Do not merge.
 
-Candidate commits are `0fe1caf` and `ac8343d`. The final review corrections and verification receipt will be recorded below.
+Candidate commits are `0fe1caf` and `ac8343d`. Review corrections are committed in `6765119`; passing verification is recorded below.
 
 ## Background
 
@@ -62,7 +62,7 @@ Review the bounded implementation and final verification below. Keep real-provid
 
 Code commits: `0fe1caf`, `ac8343d`, `6765119`.
 
-The configured full check on `6765119` passed 1120 Rust tests (one ignored), 39 Node tests, and all 84 Python test files. Formatting and Clippy passed. The factory receipt correctly remained awaiting-attestation until done-15 was marked. A final factory verification is running after that attestation; no code changed.
+The configured full check on `6765119` passed 1120 Rust tests (one ignored), 39 Node tests, and all 84 Python test files. Formatting and Clippy passed. The factory receipt correctly remained awaiting-attestation until done-15 was marked. Final factory verification passed on evidence commit `264a81a` after all 16 attestations. No code changed. The final receipt records 1120 Rust tests passed (one ignored), 39 Node tests passed, all 84 Python files passed, formatting passed and Clippy passed. The receipt is `04-test/output/verification.json`, and its complete command output is `04-test/output/test-log.md`.
 
 Changed product files: `README.md`, `docs/design/architecture.md`, `docs/design/shape-and-handoff.md`; `src/approve.rs`, `src/approve/tests.rs`, `src/menu.rs`, `src/menu/menu_tests.rs`, `src/pi.rs`; `src/seed_me/connection.rs`, `src/seed_me/connection_save.rs`, `src/seed_me/ledger.rs`, `src/seed_me/ledger/storage.rs`, `src/seed_me/mod.rs`, `src/seed_me/save.rs`; `src/shape.rs`, `src/shape/command.rs`, `src/shape/step.rs`, `src/shape/step/typed_tests.rs`; `src/tend/connection.rs`, `src/tend/connection/panel.rs`, `src/tend/connection-prompt.txt`, `src/tend/discovery.rs`, `src/tend/history.rs`, `src/tend/mod.rs`; `src/think_record/confirmation.rs`, `src/think_record/read.rs`, `src/think_record/read/origins.rs`; `tests/goal_confirmation_terminal.py`, `tests/tend_connection_terminal.py`.
 
