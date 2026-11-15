@@ -93,6 +93,11 @@ pub(crate) fn read(session: &Path, goal: &str) -> Result<Option<Origin>, String>
         }
         Err(_) => return Err("The Tend ledger is malformed.".into()),
     };
+    // A removed artifact must not turn a known Tend confirmation into legacy unknown.
+    let known_tend = std::fs::symlink_metadata(session.join("tend-handoff.json")).is_ok()
+        || raw["nodes"].as_array().into_iter().flatten().any(|node| {
+            node["authority_source"] == "Tend: explicit save of displayed connection goal"
+        });
     let marked = raw["nodes"].as_array().into_iter().flatten().any(|node| {
         node["evidence"]
             .as_array()
@@ -104,7 +109,7 @@ pub(crate) fn read(session: &Path, goal: &str) -> Result<Option<Origin>, String>
                     .is_some_and(|s| s.starts_with("tinkery:origin/tend"))
             })
     });
-    if !marked {
+    if !marked && !known_tend {
         return Ok(None);
     }
     let value = ledger::load(session)?;

@@ -1,0 +1,7 @@
+{
+  "item": "done-14",
+  "result": "passed",
+  "evidence": "Fake-provider TEST-root journeys and four guarded reversion probes passed as documented in handoff. Sources restored.",
+  "candidate": "0eae082814d58c13e4f2f06b2fa1614382b4e5d6529d1e2a39434630da989b62",
+  "time_ns": 1794709788010976000
+}

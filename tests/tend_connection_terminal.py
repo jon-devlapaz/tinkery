@@ -216,6 +216,35 @@ def freshness():
             finally: term.close()
 
 
+def leaving_an_authorized_save():
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-save-navigation-') as directory:
+        root=Path(directory).resolve();repo=fixture(root)
+        term=launch(root,repo,100,30)
+        try:
+            wait(term,'F2 find one connection');send(term,F2,'p prepare this goal')
+            send(term,b'p','F2 save exact words')
+            send(term,F2+b'\x1b','this repo')
+            deadline=time.monotonic()+5
+            while time.monotonic()<deadline:
+                paths=list((root/'links').glob('connection-*.json'))
+                if paths and json.loads(paths[0].read_text())['saved']: break
+                time.sleep(.01)
+            else: raise AssertionError('The explicitly authorized save did not finish after leaving.')
+            assert len(list((root/'sessions').glob('session-tend-*')))==1
+            assert len(requests(root))==1
+        finally: term.close()
+        record=json.loads(paths[0].read_text())
+        # A persisted receipt cannot redirect a later launch to another sessions root.
+        other=root/'other-sessions';other.mkdir();record['pending']['root']=str(other)
+        paths[0].write_text(json.dumps(record))
+        term=launch(root,repo,100,30)
+        try:
+            wait(term,'pending save differs from this launch')
+            assert not list(other.iterdir())
+            assert len(requests(root))==1
+        finally: term.close()
+
+
 if __name__=='__main__':
     subprocess.run(['cargo','+stable','build','--locked','--quiet'],cwd=REPO,env=subprocess.environment(),check=True)
     for size in [(80,24),(100,30)]: journey(*size)
@@ -226,4 +255,5 @@ if __name__=='__main__':
     input_refusals()
     cancellation_and_dismissal()
     freshness()
+    leaving_an_authorized_save()
     print('Tend connection: 2 restart/handoff journeys, 4 refusal/no-result cases, 5 input refusals, cancellation/dismissal, 6 freshness cases; no real provider calls.')

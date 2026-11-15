@@ -2060,7 +2060,7 @@ mod tests {
             }
             assert_eq!(
                 screen.lines().last().unwrap().trim(),
-                "↑↓←→ move   enter open   f connections   l link   esc back"
+                "↑↓←→ move   enter open   l link   esc back"
             );
         }
     }

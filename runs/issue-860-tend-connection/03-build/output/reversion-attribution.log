@@ -1,10 +1,10 @@
    Compiling tinkery v0.1.0 (/Users/jondev/dev/worktrees/tinkery/codex/issue-860-tend-connection)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.38s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.99s
      Running unittests src/lib.rs (target/debug/deps/tinkery-457973c1358b1e14)
 
 running 1 test
 
-thread 'seed_me::connection_save::tests::tend_origin_has_honest_history_and_invalid_evidence_is_distinct' (151586300) panicked at src/seed_me/connection_save.rs:532:9:
+thread 'seed_me::connection_save::tests::tend_origin_has_honest_history_and_invalid_evidence_is_distinct' (151682385) panicked at src/seed_me/connection_save.rs:532:9:
 assertion failed: result.is_err()
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 test seed_me::connection_save::tests::tend_origin_has_honest_history_and_invalid_evidence_is_distinct ... FAILED
@@ -14,6 +14,6 @@ failures:
 failures:
     seed_me::connection_save::tests::tend_origin_has_honest_history_and_invalid_evidence_is_distinct
 
-test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 945 filtered out; finished in 0.13s
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 945 filtered out; finished in 0.14s
 
 error: test failed, to rerun pass `--lib`

@@ -1,0 +1,7 @@
+{
+  "item": "done-7",
+  "result": "passed",
+  "evidence": "Terminal freshness matrix uses actual version/revision fields and goal/status/identity/repository/membership mutations. Context.snapshot is shared by request and saver checks.",
+  "candidate": "0eae082814d58c13e4f2f06b2fa1614382b4e5d6529d1e2a39434630da989b62",
+  "time_ns": 1794709786745812000
+}

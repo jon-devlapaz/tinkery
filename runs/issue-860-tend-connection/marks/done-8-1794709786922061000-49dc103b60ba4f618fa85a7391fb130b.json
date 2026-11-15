@@ -1,0 +1,7 @@
+{
+  "item": "done-8",
+  "result": "passed",
+  "evidence": "Terminal edited goal equals ledger and frozen receipt exactly; Shape opens with no extra fake request.",
+  "candidate": "0eae082814d58c13e4f2f06b2fa1614382b4e5d6529d1e2a39434630da989b62",
+  "time_ns": 1794709786922061000
+}

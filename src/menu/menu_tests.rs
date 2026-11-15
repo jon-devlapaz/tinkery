@@ -960,7 +960,7 @@ fn a_slow_reread_behind_an_empty_list_never_says_no_sessions() {
     let frame = screen(&mut h);
     assert!(frame.contains("goal a"), "{frame}");
     assert!(
-        frame.contains("↑↓←→ move   enter open   f connections   l link   esc back"),
+        frame.contains("↑↓←→ move   enter open   l link   esc back"),
         "{frame}"
     );
 }

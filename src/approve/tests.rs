@@ -257,7 +257,7 @@ fn origin_visit(case: &str, expected_note: Option<&str>, can_copy: bool) {
             fs::write(record, "TEST not JSON").unwrap();
         }
     }
-    if case == "invalid-tend" {
+    if matches!(case, "invalid-tend" | "missing-tend") {
         let path = session.join("ledger.json");
         let before = crate::seed_me::ledger::decisions_block(
             &crate::seed_me::ledger::load(&session).unwrap(),
@@ -267,6 +267,14 @@ fn origin_visit(case: &str, expected_note: Option<&str>, can_copy: bool) {
             serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
         value["nodes"][0]["evidence"].as_array_mut().unwrap().push(serde_json::json!({
             "artifact": crate::seed_me::connection::ARTIFACT, "checked":"TEST malformed origin", "at":"2026-11-14T00:00:00Z", "observed":"malformed"}));
+        if case == "missing-tend" {
+            value["nodes"][0]["authority_source"] =
+                "Tend: explicit save of displayed connection goal".into();
+            value["nodes"][0]["evidence"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|entry| entry["artifact"] != crate::seed_me::connection::ARTIFACT);
+        }
         fs::write(path, serde_json::to_vec(&value).unwrap()).unwrap();
         let after = crate::seed_me::ledger::decisions_block(
             &crate::seed_me::ledger::load(&session).unwrap(),
@@ -293,7 +301,7 @@ fn origin_visit(case: &str, expected_note: Option<&str>, can_copy: bool) {
         )
         .unwrap();
     }
-    if case == "invalid-tend" {
+    if matches!(case, "invalid-tend" | "missing-tend") {
         assert!(
             crate::seed_me::ready::read(&session, Some(&checkout))
                 .unwrap()
@@ -423,4 +431,5 @@ fn acceptance_checks_read_as_written_without_markdown_escapes() {
 #[test]
 fn invalid_tend_origin_disables_approve_commands() {
     origin_visit("invalid-tend", Some("Tend"), false);
+    origin_visit("missing-tend", Some("Tend"), false);
 }

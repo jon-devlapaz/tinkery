@@ -265,6 +265,7 @@ lock and a per-handoff lock refuse concurrent writers.
 
 The existing goal node stores versioned Tend origin evidence. History names a Tend
 creation and invents no conversation. Shape and Approve use the same origin reader.
+A Tend confirmation source or handoff receipt also marks missing evidence as invalid.
 Malformed or conflicting Tend evidence is an explicit invalid origin, never legacy
 unknown attribution. It blocks Shape drafting and Approve launch commands. Existing
 Think records and legacy unknown-origin behavior retain their earlier rules.

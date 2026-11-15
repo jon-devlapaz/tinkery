@@ -417,13 +417,17 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
         }
     } else if !tend.garden_showing() {
         // An empty repo view still offers the way back to all goals.
-        if tend.can_toggle_scope() {
+        if tend.connection_scope() {
             "f connections   a toggle goals   esc back"
+        } else if tend.can_toggle_scope() {
+            "a toggle goals   esc back"
         } else {
             "esc back"
         }
-    } else {
+    } else if tend.connection_scope() {
         "↑↓←→ move   enter open   f connections   l link   esc back"
+    } else {
+        "↑↓←→ move   enter open   l link   esc back"
     };
     frame.render_widget(
         Paragraph::new(keys).style(palette.muted),

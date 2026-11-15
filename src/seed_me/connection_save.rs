@@ -531,5 +531,25 @@ mod tests {
         );
         assert!(result.is_err());
         assert_eq!(budget.remaining(), 1);
+        value["nodes"][0]["evidence"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|entry| entry["artifact"] != super::super::connection::ARTIFACT);
+        fs::write(
+            receipt.session.join("ledger.json"),
+            serde_json::to_vec(&value).unwrap(),
+        )
+        .unwrap();
+        assert!(super::super::connection::read(&receipt.session, &receipt.goal).is_err());
+        assert!(
+            crate::shape::command::step(
+                &receipt.session,
+                Some(&agent),
+                &GoalConfirmation::default(),
+                crate::shape::command::Action::Look
+            )
+            .is_err()
+        );
+        assert_eq!(budget.remaining(), 1);
     }
 }
