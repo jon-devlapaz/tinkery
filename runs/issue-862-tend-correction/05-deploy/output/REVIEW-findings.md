@@ -1,81 +1,67 @@
-Round: 1
-Reviewer session: /root/review_862_code
+Round: 2
+Previous review: d3bf9ab
+Reviewer session: /root/review_862_round2
 
 ## Situation
 
-Changes are required. Two Important findings block review completion. No merge is authorized.
+The repair review passes. Both previous Important findings are resolved. No new Important findings were found.
+The operator authorized a PR and explicitly forbade merging.
 
-Reviewed candidate: `f17b4b95b156f1622be3926a5b54535b95534036`.
-Comparison base: `1d14afcd8c711285f5b909130a6bfcd870855e31`.
+Reviewed candidate: `0d9ad54`.
+Repair comparison: `d3bf9ab..0d9ad54`.
 Run: `e9065256-ca5f-4d11-ba8d-a74b1c30f153` (`issue-862-tend-correction`).
-Review checkout: `/Users/jondev/dev/worktrees/tinkery/codex/review-issue-862-round1`.
-The reviewer did not write the candidate. There is no bound seed in this issue-based run.
+Review checkout: `/Users/jondev/dev/worktrees/tinkery/codex/review-issue-862-round2`.
+This reviewer did not write the candidate. This issue-based run has no bound seed.
 
 ## Background
 
-The approved brief requires exact correction text and a capture screen that shows the reviewed proposal and repository.
-The review covered the implementation diff, brief, checklist, source, tests, saved screens, verification log, and reversion logs.
-The verification receipt names `d21409c3b0cfdd4445370ba463ce6f481a99d651`. Its source and test files match the reviewed candidate.
+This round covered the repair diff and the two previous findings, as required by `_shared/REVIEW.md`.
+The approved brief requires exact correction words and inspectable proposal and repository context during capture.
+The repair changes the existing connection panel, its public terminal tests, and its design contract.
+It adds no storage service, provider request, or publication path.
 
 ## Assessment
 
-### Important: P2 — Reopening a correction removes its final newline
+### Resolved: Untouched replacement removed final newlines
 
-Location: `src/tend/connection/panel.rs:213`.
+The correction editor now loads text with `split('\n')`, which preserves final empty lines.
+The reviewer ran the public terminal regression against the current implementation binary.
+One final newline survived an untouched replacement. Two final newlines survived replacement and restart at both terminal sizes.
+Each test checked the saved correction text directly and confirmed that correction actions added no request.
+The retained `reversion-exact-correction-end.log` shows this regression failing when `words.lines()` is restored.
 
-`TextArea::from(words.lines())` drops the final empty line from stored correction text.
-The save action joins those editor lines with newline characters. A replacement therefore changes stored text without an edit.
-This violates the exact operator text contract. This is a durable data change, not just a display difference.
+### Resolved: Capture hid the proposal and clipped the repository
 
-Observed reproduction through the real terminal:
+The editor now shows the repository and reviewed proposal in a wrapped context area.
+Tab switches to context scrolling while retaining the draft. Escape still cancels the editor before other key handling.
+The reviewer ran the capture checks at 80×24 and 100×30 and inspected the retained capture screens.
+The checks found the proposal and full ordinary repository path before saving.
+Scrolling exposed the remaining proposal context without changing the draft or starting a request.
+The long-path regression exposed every repository segment and the proposal at 80×24, then saved the unchanged draft.
+The retained `reversion-capture-context.log` shows the capture check failing with the previous panel.
 
-1. Discover a proposal with the existing synthetic fixture and fake provider.
-2. Press `f` and paste `Exact guidance.\n` with bracketed paste.
-3. Press F2. The correction file contains `"Exact guidance.\n"`.
-4. Press `f` again, then F2 without editing.
-5. The correction file now contains `"Exact guidance."`.
+### Checked: Legacy test works without Git history at runtime
 
-The request log contained one fake request throughout. The correction actions made no request.
-Preserve the complete stored text when loading the correction editor. Add a public test for this replacement path.
+The test now uses the recorded legacy prompt digest instead of requiring an old commit during execution.
+The reviewer independently hashed `1d14afc:src/tend/connection-prompt.txt`. It matches the committed digest.
+The focused legacy pending recovery test passed, including malformed-record Clear and unsafe-path refusal checks.
 
-### Important: P2 — The correction capture screen omits the required review context
+### Verification
 
-Location: `src/tend/connection/panel.rs:282-335`.
+The final receipt names `2d1afcacc62ec557c8627fc3d47ee41dc31f72da` and reports success.
+Its source and tests match the reviewed candidate. `sdlc.py status issue-862-tend-correction` reports current verification.
+The retained full log reports 1124 Rust tests passed, one ignored, 39 Node tests passed, and 85 Python files passed.
+Formatting and Clippy passed. The full log includes the repaired correction terminal test.
+The reviewer did not repeat the full suite or rerun mutation probes.
+The reviewer checked the retained mutation failures and independently reran the repaired public paths.
 
-The editor branch renders only a heading, hint, text field, notice, and footer. It returns before rendering the reviewed proposal.
-The brief explicitly states: “The capture screen shows the proposal being reviewed”.
-The operator cannot inspect that proposal while writing a correction. Escape discards the draft before returning to the proposal.
+## Limits and recommendation
 
-The same branch puts the full repository path in a single unwrapped line.
-In the observed 100×30 TEST screen, the heading ended with `tinkery-TEST-review-` and hid the repository name.
-The brief also requires showing the repository before explicit Save correction.
+The focused checks used the implementation checkout binary, synthetic fixtures, fake providers, isolated TEST roots, and the guarded TEST HOME launcher.
+They establish mechanics, not useful correction transfer, model relevance, or operator acceptance.
+No real provider call, operator goal, real audio, or operator application storage was used.
+No code, verification receipt, checklist mark, PR, or release state was changed by this review.
+The `principle-prove-it-works` skill required direct checks of saved text and terminal behavior before passing the repairs.
 
-Observed reproduction: discover a proposal, press `f`, and inspect the editor at 100×30.
-No proposal text appears. A normal macOS temporary TEST path does not fit the heading.
-Keep the reviewed proposal and full repository inspectable during capture. Test the capture screen at 80×24 and 100×30.
-The retained disclosure screenshots show the screen after saving, so they do not test this requirement.
-
-## Checked protections and limits
-
-The source retains one ordinary tool-free request. Correction storage uses the existing repository lock and atomic replacement.
-Input equality includes correction revision and text. The pending save checks current input before publication.
-The version readers reject forbidden or missing correction members. Legacy pending saves preserve their old prompt identity and origin format.
-Corrected origins freeze guidance separately from source quotations. Publication continues through the existing shared saver.
-These source checks produced no further Important finding.
-
-The retained full verification reports 1124 Rust tests passed, one ignored, 39 Node tests passed, and 85 Python files passed.
-Formatting and Clippy passed. The review did not rerun the full suite.
-The retained PTY evidence covers 80×24 and 100×30 with fake providers.
-Both retained reversion logs show the intended failures for correction input and pre-publication freshness.
-These checks establish mechanics, not correction relevance or operator acceptance.
-
-The reviewer ran the focused reproduction with synthetic TEST roots and the guarded TEST HOME launcher.
-It used the existing candidate binary from the implementation checkout. The review checkout has no built binary.
-No real provider, operator goal, real audio, or application storage was used.
-`principle-prove-it-works` required checking stored bytes and the actual editor screen, rather than relying on the passing suite.
-
-## Recommendation
-
-Return these two findings to the worker for small repairs and public regression tests.
-Refresh full verification after code changes, then review the repair diff.
-Open the requested PR after review. Do not merge it.
+Open the authorized PR and check its required CI results. Do not merge it.
+A separately authorized trial remains necessary to judge usefulness.
