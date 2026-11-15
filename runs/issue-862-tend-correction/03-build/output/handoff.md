@@ -32,7 +32,7 @@ Final focused logs and rendered terminal screens are under this output directory
 
 Both probes compiled, failed the intended public terminal assertion, and restored the source. Their commands ran through tests/test_launch.py with a TEST HOME.
 
-- `reversion-correction-input.log`: replace snapshot's `correction: self.correction()?.value()?` with `correction: None`, build, then run `tend_correction_terminal.journey((80,24))`. Saving feedback no longer permits a fresh request, and the expected F2 action is missing.
+- `reversion-correction-input.log`: replace snapshot input's `correction` with `correction: None`, build, then run `tend_correction_terminal.journey((80,24))`. Saving feedback no longer permits a fresh request, and the expected F2 action is missing.
 - `reversion-correction-freshness.log`: replace pending publication's `current == record.input` with `current.sources == record.input.sources`, build, then run `tend_correction_terminal.stale_goal_and_pending()`. Changed correction no longer blocks publication and Shape opens instead of showing the expected refusal.
 
 The temporary mutation driver was outside the repository. The committed terminal test is the repeatable proof tool. Sources were restored and rebuilt before final focused checks.
@@ -52,3 +52,11 @@ Fake responses establish transfer mechanics, not relevance or usefulness. A huma
 ## Reader limit
 
 Version dispatch parses JSON values before strict field validation. Unknown/required fields, version/tag mismatches, and duplicate origin entries refuse. Duplicate object keys follow JSON Value normalization rather than a new duplicate-key policy, consistent with the ledger parser. This is not tamper-proof storage.
+
+## Disclosure correction
+
+Inspection found that panel refresh read the edit snapshot separately from request input. A concurrent write between reads could disclose different guidance from the input sent. One correction read now supplies both states, and rendering uses Input.correction. The edit snapshot serves only stale mutation checks. This removes the divergent refresh state structurally.
+
+The public test shows A, externally writes B, and verifies that F2 refuses without a call. Reopening shows B, and the next captured request contains exactly B. It does not pause between internal reads or use test-only access. Both reversion probes were refreshed after this change.
+
+The second verification run on a01a524 was interrupted with SIGINT to make this correction. Its interrupted receipt is not passing evidence. The earlier complete check passed, and final verification must run again on the corrected commit.

@@ -3,7 +3,7 @@ Traceback (most recent call last):
   File "<string>", line 1, in <module>
     import sys;sys.path.insert(0,'tests');import tend_correction_terminal as c;c.stale_goal_and_pending()
                                                                                ~~~~~~~~~~~~~~~~~~~~~~~~^^
-  File "/Users/jondev/dev/worktrees/tinkery/codex/issue-862-tend-correction/tests/tend_correction_terminal.py", line 264, in stale_goal_and_pending
+  File "/Users/jondev/dev/worktrees/tinkery/codex/issue-862-tend-correction/tests/tend_correction_terminal.py", line 292, in stale_goal_and_pending
     flow.send(term,flow.F2,'source inputs changed before publication')
     ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "/Users/jondev/dev/worktrees/tinkery/codex/issue-862-tend-correction/tests/tend_connection_terminal.py", line 27, in send

@@ -86,9 +86,15 @@ impl Panel {
         self.notice = None;
         std::thread::spawn(move || {
             let result = action(&context);
+            let correction = context.correction();
+            let input = correction
+                .as_ref()
+                .map_err(Clone::clone)
+                .and_then(|shown| shown.value())
+                .and_then(|words| context.snapshot_with(words));
             let _ = tx.send(Done {
-                correction: context.correction(),
-                input: context.snapshot(),
+                correction,
+                input,
                 record: context.read(),
                 receipt: result.as_ref().ok().cloned().flatten(),
                 notice: result.err(),
@@ -358,7 +364,12 @@ impl Panel {
                         lines.push(Line::from("x clear invalid correction"));
                     }
                 }
-                match shown.value() {
+                // Disclose the exact request input. The edit snapshot only guards later mutation.
+                let guidance = match &self.input {
+                    Ok(input) => Ok(input.correction.clone()),
+                    Err(_) => shown.value(),
+                };
+                match guidance {
                     Ok(Some(c)) => {
                         let label = if self
                             .record
@@ -398,12 +409,10 @@ impl Panel {
         if let Some(record) = &self.record {
             if let Some(correction) = &record.input.correction
                 && self
-                    .correction
+                    .input
                     .as_ref()
                     .ok()
-                    .and_then(|s| s.value().ok())
-                    .flatten()
-                    .as_ref()
+                    .and_then(|input| input.correction.as_ref())
                     != Some(correction)
             {
                 lines.push(Line::from(Span::raw(format!(

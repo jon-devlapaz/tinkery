@@ -3,7 +3,7 @@
                                                                                                     
   Find connections                                                                                  
   Repository:                                                                                       
-  /private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-correction-15hdiguq/repo    
+  /private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-correction-uodw3kur/repo    
   f save/replace correction   x clear correction                                                    
   Correction for next request (operator guidance):                                                  
   For support work, preserve the failed lookup before suggesting documentation.                     

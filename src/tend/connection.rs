@@ -178,6 +178,9 @@ impl Context {
         ))
     }
     fn snapshot(&self) -> Result<Input, String> {
+        self.snapshot_with(self.correction()?.value()?)
+    }
+    fn snapshot_with(&self, correction: Option<Correction>) -> Result<Input, String> {
         let found = super::scan(&self.sessions)?;
         if !found.complete()
             || found
@@ -239,7 +242,7 @@ impl Context {
                 .as_ref()
                 .map_or(String::new(), |(c, _)| c.harness.label().into()),
             prompt: format!("{:x}", Sha256::digest(PROMPT)),
-            correction: self.correction()?.value()?,
+            correction,
         };
         if serde_json::to_vec(&input).map_err(|e| e.to_string())?.len() > LIMIT {
             return Err("The complete goals exceed 32 KiB. Nothing was truncated or sent.".into());

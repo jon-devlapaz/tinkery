@@ -1,0 +1,7 @@
+{
+  "item": "done-2",
+  "result": "passed",
+  "evidence": "runs/issue-862-tend-correction/03-build/output/: One-read panel refresh derives disclosure and request input from the same correction snapshot. focused-correction-terminal.log disclosure test refuses a stale A view after external B, then shows and sends B on reopen.",
+  "candidate": "f2bd606d7224b0e8550ca103335f1a984ca5f80da3ed06687ef63e8b7bb3db88",
+  "time_ns": 1794717787651582000
+}

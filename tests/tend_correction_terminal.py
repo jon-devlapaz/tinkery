@@ -206,6 +206,34 @@ def malformed_and_legacy():
         print('legacy prompt pending recovery, malformed correction saved-goal opening/Clear and symlink refusal: one fake call')
 
 
+def disclosure_matches_request():
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-correction-disclosure-') as directory:
+        root=Path(directory).resolve();repo=flow.fixture(root)
+        term=discover(root,repo)
+        try:
+            save_correction(term,'TEST A reviewed words')
+            flow.wait(term,'TEST A reviewed words')
+            value=json.loads(correction(root).read_text())
+            value['correction']['revision']='e'*48
+            value['correction']['text']='TEST B current words'
+            correction(root).write_text(json.dumps(value))
+            flow.send(term,flow.F2,'goal inputs changed')
+            assert len(flow.requests(root))==1
+            capture(term,'stale-disclosure-refusal')
+        finally: term.close()
+        term=flow.launch(root,repo,100,30,budget=10)
+        try:
+            flow.wait(term,'TEST B current words')
+            assert 'TEST A reviewed words' not in term.screen.text()
+            flow.send(term,flow.F2,'p prepare this goal')
+            assert flow.requests(root)[-1]['input']['correction']==value['correction']
+            assert 'TEST B current words' in term.screen.text()
+            capture(term,'disclosed-request-words')
+        finally: term.close()
+        assert len(flow.requests(root))==2
+        print('stale disclosure refuses a call; reopening shows the exact correction sent')
+
+
 def failed_write_keeps_words():
     if os.geteuid()==0:
         print('Permission refusal requires an ordinary user; skipped under root.')
@@ -307,6 +335,7 @@ if __name__=='__main__':
     for size in [(80,24),(100,30)]: journey(size)
     edits_and_conflicts()
     malformed_and_legacy()
+    disclosure_matches_request()
     failed_write_keeps_words()
     stale_goal_and_pending()
     input_limit_and_format_refusals()

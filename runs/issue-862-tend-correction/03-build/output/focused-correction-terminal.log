@@ -2,6 +2,7 @@
 100x30: save/restart, exact disclosure, different-goal no-result, v2 handoff, clear/reopen; four fake calls
 cancel, oversized edit recovery, stale Replace/Clear and active writer refusal: one fake call
 legacy prompt pending recovery, malformed correction saved-goal opening/Clear and symlink refusal: one fake call
+stale disclosure refuses a call; reopening shows the exact correction sent
 failed filesystem write preserves prior correction and exact editor words; retry makes no request
 correction freshness rejects stale edited goal and pending publication; no extra calls
 complete input limit and four strict exploration/receipt format refusals passed

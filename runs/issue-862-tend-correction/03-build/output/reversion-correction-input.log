@@ -1,4 +1,12 @@
-Mutation: correction: self.correction()?.value()?, -> correction: None,
+Mutation:             correction, ->             correction: None,
+warning: unused variable: `correction`
+   --> src/tend/connection.rs:183:29
+    |
+183 |     fn snapshot_with(&self, correction: Option<Correction>) -> Result<Input, String> {
+    |                             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_correction`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
 Traceback (most recent call last):
   File "<string>", line 1, in <module>
     import sys;sys.path.insert(0,'tests');import tend_correction_terminal as c;c.journey((80,24))
@@ -20,12 +28,8 @@ AssertionError: Missing 'F2 find one connection':
   Find connections                                                              
   Repository:                                                                   
   /private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-correc  
-  tion-4h2pmlxh/repo                                                            
+  tion-6hflgmfm/repo                                                            
   f save/replace correction   x clear correction                                
-  Correction for next request (operator guidance):                              
-  For support work, preserve the failed lookup before suggesting                
-  documentation.                                                                
-  Keep exact words: café.                                                       
   2 complete goals · model test/model · one request                             
   Starting sends these goals and the shown correction to the provider. No       
   tools or external search.                                                     
@@ -35,6 +39,10 @@ AssertionError: Missing 'F2 find one connection':
   Source goal-0: TEST find repeated support requests                            
   Keep their original words.                                                    
   Source goal-1: TEST make documentation easier to find                         
+  Measure missed answers.                                                       
+  Proposed goal: TEST connect support gaps to documentation.                    
+  Inspectable result: TEST one linked support example.                          
+  Judgment: TEST was an answer easier to find?                                  
                                                                                 
   p prepare this goal   d dismiss   ↑↓ scroll   esc back                        
                                                                                 
