@@ -102,7 +102,25 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             .style(palette.muted),
             Rect::new(4, 5, width, 1),
         );
-        app.screen.input_area = Rect::new(4, 8, width, area.height - 12);
+        let capture = if app.handoff.thoughts.is_none() {
+            "Open --home to save a thought in Tend.".to_string()
+        } else if !app.thought_ready() {
+            "Thought saving is available only in the fresh input view.".into()
+        } else if let Some(repo) = app.repo() {
+            format!(
+                "F3 Save thought and open Tend · no model call\nRepository: {}",
+                repo.root().display()
+            )
+        } else {
+            "Save thought unavailable: no repository.".into()
+        };
+        let capture = Paragraph::new(capture)
+            .style(palette.muted)
+            .wrap(Wrap { trim: false });
+        let rows = capture.line_count(width).min(4) as u16;
+        frame.render_widget(capture, Rect::new(4, 6, width, rows));
+        app.screen.input_area =
+            Rect::new(4, 7 + rows, width, area.height.saturating_sub(11 + rows));
         render_input(frame, app, palette);
         if app.screen.refused.is_some() {
             // Show only a refusal, never the initial status as permanent clutter.

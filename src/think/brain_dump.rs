@@ -4,7 +4,7 @@
 //! The rules live in the parts: [`Conversation`] decides what is asked and sent, `reading` and
 //! `review` own the model's contracts, [`board`] verifies a reply, and `seed_me` saves. This
 //! file routes input to them and paints the result. Nothing is sent without F2, and nothing is
-//! saved without a typed `confirm`.
+//! goals require typed `confirm`. Fresh thought capture requires the separate F3 action.
 
 use super::{
     Motion, Note,
@@ -78,6 +78,8 @@ pub enum Exit {
     Menu,
     /// Open this saved session in tend.
     Tend(std::path::PathBuf),
+    /// Open the garden after saving raw words, without a goal receipt.
+    Garden,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -180,10 +182,12 @@ struct Shaping {
     encoded_bytes: Option<Option<usize>>,
 }
 
-/// Saving a confirmed goal through the ledger: the review, the save in flight, and its receipt.
+/// Explicit local saves. Raw thought storage is separate from confirmed-goal review and receipts.
 #[derive(Default)]
 struct Handoff {
     config: Option<seed_me::Config>,
+    /// Raw-word storage is independent of goal confirmation and its save state.
+    thoughts: Option<Result<crate::thought::Store, String>>,
     /// Visit-scoped named attribution, or the terminal declaration frozen for this session.
     confirmation: crate::think_record::GoalConfirmation,
     save: Save,
@@ -917,6 +921,49 @@ impl BrainDump {
         }
         .into();
     }
+    /// Enable exact thought capture only with a garden return route. No goal authority is granted.
+    pub(crate) fn with_thoughts(
+        mut self,
+        root: Result<std::path::PathBuf, String>,
+        repo: Option<crate::repo::Repo>,
+    ) -> Self {
+        self.handoff.thoughts = Some(
+            repo.as_ref()
+                .map(|repo| crate::thought::Store::new(root, repo.root().to_path_buf()))
+                .ok_or_else(|| "Start Tinkery in a repository to save a thought.".into()),
+        );
+        self.handoff.repo = repo;
+        self
+    }
+
+    fn thought_ready(&self) -> bool {
+        self.conversation.sources().is_empty()
+            && !self.running()
+            && !self.voice_active()
+            && !self.handoff.started()
+            && !self.screen.help
+            && !self.screen.leave_prompt
+            && !self.below_minimum()
+            && self.exit == Exit::Stay
+    }
+
+    fn save_thought(&mut self) {
+        if !self.thought_ready() {
+            return;
+        }
+        let result = match &self.handoff.thoughts {
+            Some(Ok(store)) => store.save(&self.input.text),
+            Some(Err(reason)) => Err(reason.clone()),
+            None => Err("Open --home to save a thought in Tend.".into()),
+        };
+        match result {
+            Ok(crate::thought::Saved::New | crate::thought::Saved::Duplicate) => {
+                self.exit = Exit::Garden
+            }
+            Ok(crate::thought::Saved::Uncertain(reason)) | Err(reason) => self.refuse(reason),
+        }
+    }
+
     /// One key press. Releases and F2 below the minimum size are ignored;
     /// navigation and copying never send or save.
     pub fn handle_key(&mut self, key: KeyEvent) {
@@ -932,11 +979,15 @@ impl BrainDump {
             self.screen.refused = None;
         }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-        // One key map (#440): F1 lists, F2 sends, F6 speaks; other function keys do nothing.
+        // One key map (#440): F1 lists, F2 sends, F3 saves fresh thoughts, F6 speaks; other function keys do nothing.
         if let KeyCode::F(n) = key.code
-            && (!matches!(n, 1 | 2 | 6)
+            && (!matches!(n, 1 | 2 | 3 | 6)
                 || n != 6 && (key.kind == KeyEventKind::Repeat || !key.modifiers.is_empty()))
         {
+            return;
+        }
+        if key.code == KeyCode::F(3) {
+            self.save_thought();
             return;
         }
         if key.code == KeyCode::Esc
@@ -1742,6 +1793,8 @@ mod refusal_tests;
 mod scope_and_keys_tests;
 #[cfg(test)]
 mod selection_tests;
+#[cfg(test)]
+mod thought_tests;
 mod voice_input;
 #[cfg(test)]
 mod voice_tests;

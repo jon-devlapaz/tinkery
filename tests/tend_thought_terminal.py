@@ -12,17 +12,22 @@ REPO = Path(__file__).resolve().parents[1]
 WORDS = '  TEST raw thought café 👩‍💻\r\nKeep\tthese words.\rLast line.  \n'
 
 
-def launch(root, repo, size, provider=False):
-    args = [str(REPO/'target/debug/tinkery'), '--operator', 'agent', '--home',
+def launch(root, repo, size, provider=False, budget=8, home=True):
+    args = [str(REPO/'target/debug/tinkery'), '--operator', 'agent',
             '--seed-session-root', str(root/'sessions'), '--record-root', str(root/'records'),
             '--link-root', str(root/'links')]
+    if home:
+        args += ['--home']
     if provider:
-        args += ['--shape-pi', '--model', 'test/model', '--shape-budget', '8',
+        args += ['--shape-pi', '--model', 'test/model', '--shape-budget', str(budget),
                  '--pi-command', str(root/'fake-pi')]
     term = TerminalProcess(args, cwd=repo, env=subprocess.environment({**os.environ, 'TERM': 'xterm-256color',
         'NO_COLOR': '1', 'TINKERY_NODE': '/tinkery-TEST-no-node'}), width=size[0], height=size[1])
-    flow.wait(term, '1  think')
-    flow.send(term, b'2', 'this repo')
+    if home:
+        flow.wait(term, '1  think')
+        flow.send(term, b'2', 'this repo')
+    else:
+        flow.wait(term, "What's on your mind?")
     return term
 
 
@@ -52,14 +57,15 @@ def journey(size):
         term = launch(root, repo, size)
         try:
             screen = term.screen.text()
-            assert 't new thought' in screen, screen
+            assert 't think' in screen, screen
             assert '↑↓←→ move   enter open   f connections   l link   esc back' in screen, screen
-            flow.send(term, b't', 'F2 save thought only')
+            flow.send(term, b't', 'F3 Save thought and open Tend')
             screen = term.screen.text()
-            assert str(repo) in ''.join(screen.split()) and 'No model call.' in screen, screen
+            assert str(repo) in ''.join(screen.split()) and 'no model call' in screen, screen
             paste(term, WORDS)
             assert not saved(root)
-            flow.send(term, flow.F2, 'Thought saved. No goal confirmed.')
+            flow.send(term, b'\x1bOR', 'Thoughts:')
+            flow.send(term, b'v', 'Saved thoughts')
             assert len(saved(root)) == 1
             assert json.loads(saved(root)[0].read_bytes())['words'].encode() == WORDS.encode(), 'Saved words differ from typed words'
             no_goal(root, original)
@@ -74,14 +80,17 @@ def journey(size):
             flow.wait(term, 'Thoughts: 1')
             flow.send(term, b'v', 'Thought 1 of 1')
             flow.send(term, b'\x1b', 'Thoughts: 1')
-            flow.send(term, b't', 'F2 save thought only')
+            flow.send(term, b't', 'F3 Save thought and open Tend')
             paste(term, WORDS)
-            flow.send(term, flow.F2, 'Thought already saved. One entry.')
+            flow.send(term, b'\x1bOR', 'Thoughts: 1')
+            flow.send(term, b'v', 'Saved thoughts')
             assert len(saved(root)) == 1
             flow.send(term, b'\x1b', 'Thoughts: 1')
-            flow.send(term, b't', 'F2 save thought only')
+            flow.send(term, b't', 'F3 Save thought and open Tend')
             paste(term, 'TEST cancelled thought')
-            flow.send(term, b'\x1b', 'Thoughts: 1')
+            flow.send(term, b'\x1b', 'Back to menu and lose')
+            flow.send(term, b'y', '1  think')
+            flow.send(term, b'2', 'Thoughts: 1')
             assert len(saved(root)) == 1
             assert not flow.requests(root)
             no_goal(root, original)
@@ -93,9 +102,10 @@ def journey(size):
         try:
             flow.send(term, b'v', 'No thoughts saved.')
             flow.send(term, b'\x1b', 'this repo')
-            flow.send(term, b't', 'F2 save thought only')
+            flow.send(term, b't', 'F3 Save thought and open Tend')
             paste(term, WORDS)
-            flow.send(term, flow.F2, 'Thought saved. No goal confirmed.')
+            flow.send(term, b'\x1bOR', 'Thoughts:')
+            flow.send(term, b'v', 'Saved thoughts')
             assert len(saved(root)) == 2
             assert {json.loads(p.read_bytes())['repo'] for p in saved(root)} == {str(repo), str(other)}
         finally:
@@ -120,13 +130,13 @@ def unwritable(size):
         (root/'links').write_text('TEST not a directory')
         term = launch(root, repo, size)
         try:
-            flow.send(term, b't', 'F2 save thought only')
+            flow.send(term, b't', 'F3 Save thought and open Tend')
             paste(term, 'TEST keep unsaved words')
-            flow.send(term, flow.F2, 'Thought not saved:')
+            flow.send(term, b'\x1bOR', 'File exists')
             assert 'TEST keep unsaved words' in term.screen.text()
             assert (root/'links').read_text() == 'TEST not a directory'
             assert not flow.requests(root)
-            flow.send(term, b'\x1b', 'this repo')
+            flow.send(term, b'\x1b', 'Back to menu and lose')
         finally:
             term.close()
 
@@ -137,9 +147,10 @@ def unreadable(size):
         repo = flow.fixture(root)
         term = launch(root, repo, size)
         try:
-            flow.send(term, b't', 'F2 save thought only')
+            flow.send(term, b't', 'F3 Save thought and open Tend')
             paste(term, 'TEST readable thought')
-            flow.send(term, flow.F2, 'Thought saved. No goal confirmed.')
+            flow.send(term, b'\x1bOR', 'Thoughts:')
+            flow.send(term, b'v', 'Saved thoughts')
         finally:
             term.close()
         path = saved(root)[0]
@@ -178,9 +189,10 @@ def promotion(size):
         (root/'fake-pi').write_text(THINK_HOST)
         term = launch(root, repo, size, provider=True)
         try:
-            flow.send(term, b't', 'F2 save thought only')
+            flow.send(term, b't', 'F3 Save thought and open Tend')
             paste(term, WORDS)
-            flow.send(term, flow.F2, 'Thought saved. No goal confirmed.')
+            flow.send(term, b'\x1bOR', 'Thoughts:')
+            flow.send(term, b'v', 'Saved thoughts')
             thought = saved(root)[0].read_bytes()
             flow.send(term, b'g', "What's on your mind?")
             flow.wait(term, 'TEST raw thought')
@@ -213,7 +225,7 @@ def repository_link(size):
             flow.send(term, b'\x1bOP', 'Right now')
             help_text = term.screen.text()
             help_text += flow.send(term, b'\x1b[6~', 'F1 close')
-            assert 't new thought · v read thoughts' in help_text, help_text
+            assert 't think · v read thoughts' in help_text, help_text
             assert 'g in the thought reader opens Think, unsent.' in help_text, help_text
             flow.send(term, b'\x1b', 'this repo')
             flow.send(term, b'l', 'enter link')
@@ -238,8 +250,57 @@ def repository_link(size):
             term.close()
 
 
+def capture_guards(size):
+    for budget in (0, 8):
+        with tempfile.TemporaryDirectory(prefix='tinkery-TEST-capture-') as directory:
+            root = Path(directory).resolve()
+            repo = flow.fixture(root)
+            original = {p: p.read_bytes() for p in (root/'sessions').rglob('*') if p.is_file()}
+            term = launch(root, repo, size, provider=True, budget=budget)
+            try:
+                flow.send(term, b't', 'F3 Save thought and open Tend')
+                flow.send(term, b'\x1bOR', 'Write a thought of 1 to 131072 bytes')
+                assert not saved(root)
+                paste(term, WORDS)
+                flow.send(term, b'\x1bOP', 'Right now')
+                os.write(term.master, b'\x1bOR')
+                flow.wait(term, 'Right now')
+                assert not saved(root)
+                flow.send(term, b'\x1b', 'F3 Save thought and open Tend')
+                flow.send(term, b'\x1bOR', 'Thoughts: 1')
+                flow.send(term, b'v', 'Saved thoughts')
+                flow.send(term, b'g', "What's on your mind?")
+                flow.send(term, b'\x1bOR', 'Thoughts: 1')
+                assert len(saved(root)) == 1
+                flow.send(term, b'v', 'Saved thoughts')
+                flow.send(term, b'g', "What's on your mind?")
+                paste(term, 'TEST appended copy')
+                flow.send(term, b'\x1bOR', 'Thoughts: 2')
+                assert {json.loads(p.read_bytes())['words'] for p in saved(root)} == {WORDS, WORDS+'TEST appended copy'}
+                flow.send(term, b't', 'F3 Save thought and open Tend')
+                paste(term, 'TEST cancelled fresh thought')
+                flow.send(term, b'\x1b', 'Back to menu and lose')
+                flow.send(term, b'y', '1  think')
+                assert len(saved(root)) == 2
+                assert not flow.requests(root)
+                no_goal(root, original)
+            finally:
+                term.close()
+            term = launch(root, repo, size, provider=True, budget=budget, home=False)
+            try:
+                flow.wait(term, 'Open --home to save a thought in Tend.')
+                paste(term, 'TEST standalone unsaved')
+                flow.send(term, b'\x1bOR', 'Open --home to save a thought in Tend.')
+                assert 'TEST standalone unsaved' in term.screen.text()
+                assert len(saved(root)) == 2
+                assert not flow.requests(root)
+            finally:
+                term.close()
+
+
 if __name__ == '__main__':
     for size in [(80, 24), (100, 30)]:
+        capture_guards(size)
         repository_link(size)
         journey(size)
         unwritable(size)

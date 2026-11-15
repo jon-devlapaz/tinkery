@@ -893,3 +893,27 @@ fn find_on_screen(buffer: &ratatui::buffer::Buffer, needle: &str) -> (u16, u16) 
         })
         .unwrap_or_else(|| panic!("{needle:?} is not on screen"))
 }
+
+#[test]
+fn voice_capture_cannot_save_a_thought() {
+    let root = tempfile::Builder::new()
+        .prefix("tinkery-TEST-voice-thought-")
+        .tempdir()
+        .unwrap();
+    std::fs::create_dir(root.path().join(".git")).unwrap();
+    let store = root.path().join("thoughts");
+    let (mut app, fake) = attach(
+        BrainDump::default()
+            .with_thoughts(Ok(store.clone()), crate::repo::Repo::enclosing(root.path())),
+    );
+    app.paste("TEST typed original");
+    start(&mut app, &fake);
+    key(&mut app, KeyCode::F(3));
+    assert!(!store.exists());
+    assert_eq!(*app.exit(), Exit::Stay);
+    assert!(
+        snapshot(100, 30, &mut app, true)
+            .unwrap()
+            .contains("Thought saving is available only")
+    );
+}

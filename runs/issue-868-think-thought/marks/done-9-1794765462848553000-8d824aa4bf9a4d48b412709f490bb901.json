@@ -1,0 +1,7 @@
+{
+  "item": "done-9",
+  "result": "passed",
+  "evidence": "Checked in tests/tend_thought_terminal.py at 80x24 and 100x30 with local stubs; focused Think regressions passed. See 03-build/implementation.md.",
+  "candidate": "6f5bc928fb853797869995504b7eec4ce3d96d48d3da8ee59ee3aa822ed0e314",
+  "time_ns": 1794765462848553000
+}

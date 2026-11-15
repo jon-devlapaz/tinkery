@@ -1,40 +1,21 @@
 //! Exact repository thoughts in Tend's private store. Thoughts never become sessions or model
 //! sources. Only explicit saving publishes words; opening Think returns an unsent copy.
 
-use crate::{Palette, words::Words};
+use crate::Palette;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
     Frame,
     layout::Rect,
     widgets::{Paragraph, Wrap},
 };
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
-use std::{
-    fs,
-    io::{Read, Write},
-    os::unix::fs::OpenOptionsExt,
-    path::PathBuf,
-};
-
-const LIMIT: usize = 128 * 1024;
-
-#[derive(Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Thought {
-    schema: u8,
-    repo: PathBuf,
-    words: String,
-}
-
-/// Repository-bound words and their local editor. No goal or seed authority lives here.
+use std::path::PathBuf;
+/// Repository-bound words and their reader. No goal or seed authority lives here.
 pub(crate) struct Garden {
-    root: Result<PathBuf, String>,
+    store: crate::thought::Store,
     repo: PathBuf,
     entries: Result<Vec<String>, String>,
     unreadable: usize,
     selected: usize,
-    editor: Option<Words>,
     viewing: bool,
     scroll: u16,
     notice: String,
@@ -44,133 +25,29 @@ impl Garden {
     /// Read only thoughts belonging to the captured launch repository; never infer attribution.
     pub(crate) fn open(root: Result<PathBuf, String>, repo: PathBuf) -> Self {
         let mut garden = Self {
-            root,
+            store: crate::thought::Store::new(root, repo.clone()),
             repo,
             entries: Ok(vec![]),
             unreadable: 0,
             selected: 0,
-            editor: None,
             viewing: false,
             scroll: 0,
             notice: String::new(),
         };
-        garden.entries = garden.read();
+        garden.refresh();
         garden
     }
 
-    fn prefix(&self) -> String {
-        format!(
-            "thought-{:x}-",
-            Sha256::digest(self.repo.as_os_str().as_encoded_bytes())
-        )
-    }
-
-    fn file(&self, words: &str) -> Result<PathBuf, String> {
-        Ok(self.root.as_ref().map_err(Clone::clone)?.join(format!(
-            "{}{:x}.json",
-            self.prefix(),
-            Sha256::digest(words.as_bytes())
-        )))
-    }
-
-    fn read_one(&self, path: &PathBuf) -> Result<String, String> {
-        let file = fs::OpenOptions::new()
-            .read(true)
-            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-            .open(path)
-            .map_err(|e| e.to_string())?;
-        if !file.metadata().map_err(|e| e.to_string())?.is_file() {
-            return Err("A thought is not a regular local file.".into());
-        }
-        let mut bytes = vec![];
-        file.take((LIMIT * 6 + 4096) as u64 + 1)
-            .read_to_end(&mut bytes)
-            .map_err(|e| e.to_string())?;
-        if bytes.len() > LIMIT * 6 + 4096 {
-            return Err("A saved thought is oversized.".into());
-        }
-        let thought: Thought = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
-        if thought.schema != 1
-            || thought.repo != self.repo
-            || thought.words.is_empty()
-            || thought.words.len() > LIMIT
-            || self.file(&thought.words)? != *path
-        {
-            return Err("A thought has invalid words, repository or format.".into());
-        }
-        Ok(thought.words)
-    }
-
-    fn read(&mut self) -> Result<Vec<String>, String> {
-        self.unreadable = 0;
-        let root = self.root.as_ref().map_err(Clone::clone)?;
-        let files = match fs::read_dir(root) {
-            Ok(files) => files,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
-            Err(e) => return Err(e.to_string()),
-        };
-        let mut entries = vec![];
-        for file in files {
-            let path = file.map_err(|e| e.to_string())?.path();
-            if path
-                .file_name()
-                .is_some_and(|n| n.to_string_lossy().starts_with(&self.prefix()))
-                && path.extension().is_some_and(|e| e == "json")
-            {
-                match self.read_one(&path) {
-                    Ok(words) => entries.push(words),
-                    Err(_) => self.unreadable += 1,
-                }
-            }
-        }
-        entries.sort();
-        Ok(entries)
-    }
-
-    fn save(&self, words: &str) -> Result<String, String> {
-        if words.is_empty() || words.len() > LIMIT {
-            return Err("Write a thought of 1 to 131072 bytes. Nothing was saved.".into());
-        }
-        let root = self.root.as_ref().map_err(Clone::clone)?;
-        fs::create_dir_all(root).map_err(|e| e.to_string())?;
-        let path = self.file(words)?;
-        let thought = Thought {
-            schema: 1,
-            repo: self.repo.clone(),
-            words: words.into(),
-        };
-        let bytes = serde_json::to_vec(&thought).map_err(|e| e.to_string())?;
-        let mut temp = tempfile::NamedTempFile::new_in(root).map_err(|e| e.to_string())?;
-        temp.write_all(&bytes).map_err(|e| e.to_string())?;
-        temp.as_file().sync_all().map_err(|e| e.to_string())?;
-        match temp.persist_noclobber(&path) {
-            Ok(_) => {
-                if let Err(e) = fs::File::open(root).and_then(|f| f.sync_all()) {
-                    return Ok(format!(
-                        "Thought saved, but persistence is uncertain. Reopen before another save: {e}"
-                    ));
-                }
-                Ok("Thought saved. No goal confirmed.".into())
-            }
-            Err(e) if e.error.kind() == std::io::ErrorKind::AlreadyExists => {
-                if self.read_one(&path)? != words {
-                    return Err("The existing thought differs. Nothing was replaced.".into());
-                }
-                Ok("Thought already saved. One entry. No goal confirmed.".into())
-            }
-            Err(e) => Err(e.to_string()),
-        }
-    }
-
-    /// Start a local exact-word editor. No save or provider call occurs.
-    pub(crate) fn edit(&mut self) {
-        self.editor = Some(Words::new(""));
-        self.notice.clear();
+    fn refresh(&mut self) {
+        self.entries = self.store.read().map(|(entries, unreadable)| {
+            self.unreadable = unreadable;
+            entries
+        });
     }
 
     /// Open the saved thought list without granting goal authority.
     pub(crate) fn view(&mut self) {
-        self.entries = self.read();
+        self.refresh();
         self.selected = self.selected.min(
             self.entries
                 .as_ref()
@@ -182,14 +59,7 @@ impl Garden {
 
     /// Whether this local view owns keyboard and paste input.
     pub(crate) fn active(&self) -> bool {
-        self.editor.is_some() || self.viewing
-    }
-
-    /// Paste exact received words without saving them.
-    pub(crate) fn paste(&mut self, text: &str) {
-        if let Some(editor) = &mut self.editor {
-            editor.insert(text);
-        }
+        self.viewing
     }
 
     /// Return an explicit unsent Think draft only on `g`; Shape is never a destination.
@@ -198,32 +68,8 @@ impl Garden {
             return None;
         }
         if matches!(key.code, KeyCode::Esc | KeyCode::F(10)) {
-            self.editor = None;
             self.viewing = false;
             self.notice.clear();
-            return None;
-        }
-        if let Some(editor) = &mut self.editor {
-            if key.code == KeyCode::F(2) && key.modifiers == KeyModifiers::NONE {
-                let words = editor.text().to_owned();
-                match self.save(&words) {
-                    Ok(notice) => {
-                        self.entries = self.read();
-                        self.selected = self
-                            .entries
-                            .as_ref()
-                            .ok()
-                            .and_then(|entries| entries.iter().position(|w| w == &words))
-                            .unwrap_or(0);
-                        self.editor = None;
-                        self.viewing = true;
-                        self.notice = notice;
-                    }
-                    Err(reason) => self.notice = format!("Thought not saved: {reason}"),
-                }
-            } else {
-                editor.key(key);
-            }
             return None;
         }
         if key.modifiers != KeyModifiers::NONE {
@@ -251,13 +97,13 @@ impl Garden {
     pub(crate) fn summary(&self) -> String {
         match &self.entries {
             Ok(entries) if self.unreadable > 0 => format!(
-                "Thoughts: {} · v read · t new thought\n{} thoughts could not be read.",
+                "Thoughts: {} · v read · t think\n{} thoughts could not be read.",
                 entries.len(),
                 self.unreadable
             ),
-            Ok(entries) if entries.is_empty() => "t new thought".into(),
+            Ok(entries) if entries.is_empty() => "t think".into(),
             Ok(entries) => format!(
-                "Thoughts: {} · v read · t new thought\nThought: {}",
+                "Thoughts: {} · v read · t think\nThought: {}",
                 entries.len(),
                 crate::clipped(
                     entries[self.selected.min(entries.len() - 1)]
@@ -267,26 +113,17 @@ impl Garden {
                     60
                 )
             ),
-            Err(_) => "Thoughts could not be read. Press v for details. t new thought".into(),
+            Err(_) => "Thoughts could not be read. Press v for details. t think".into(),
         }
     }
 
-    /// Render the exact-word editor or labelled local record. Rendering reads no files.
+    /// Render the labelled local record. Rendering reads no files.
     pub(crate) fn render(&mut self, frame: &mut Frame, area: Rect, palette: Palette) {
-        let editing = self.editor.is_some();
         let heading = format!(
             "{}\nRepository: {}\n{}{}",
-            if editing {
-                "New thought"
-            } else {
-                "Saved thoughts"
-            },
+            "Saved thoughts",
             self.repo.display(),
-            if editing {
-                "F2 saves exact words here. No model call. No goal confirmation."
-            } else {
-                "g opens these words in Think, unsent. Confirm a goal there. No Shape."
-            },
+            "g opens these words in Think, unsent. Confirm a goal there. No Shape.",
             if self.unreadable > 0 {
                 format!("\n{} thoughts could not be read.", self.unreadable)
             } else {
@@ -310,9 +147,7 @@ impl Garden {
             area.width,
             area.height.saturating_sub(rows + 4),
         );
-        if let Some(editor) = &mut self.editor {
-            editor.render(frame, body, palette, false);
-        } else {
+        {
             let text = match &self.entries {
                 Ok(entries) if entries.is_empty() => "No thoughts saved.".into(),
                 Ok(entries) => format!(
@@ -346,12 +181,8 @@ impl Garden {
             Rect::new(area.x, area.bottom().saturating_sub(3), area.width, 2),
         );
         frame.render_widget(
-            Paragraph::new(if editing {
-                "F2 save thought only   esc cancel"
-            } else {
-                "↑↓ thoughts   PgUp/PgDn scroll   g think   esc garden"
-            })
-            .style(palette.muted),
+            Paragraph::new("↑↓ thoughts   PgUp/PgDn scroll   g think   esc garden")
+                .style(palette.muted),
             Rect::new(area.x, area.bottom().saturating_sub(1), area.width, 1),
         );
     }

@@ -275,8 +275,10 @@ impl Home {
             history.finish(result);
         }
         let mut tend_request = None;
+        let mut garden_request = false;
         if let View::Think(dump) = &mut self.view {
             dump.tick();
+            garden_request = *dump.exit() == Exit::Garden;
             if let Exit::Tend(path) = dump.exit() {
                 tend_request = Some(path.clone());
             }
@@ -289,6 +291,9 @@ impl Home {
                 // Back from think: a goal may have been saved, so read again.
                 self.request_sessions();
             }
+        }
+        if garden_request {
+            self.open(Place::Tend);
         }
         if let Some(path) = tend_request {
             self.open_tend_session(&path);
@@ -439,7 +444,7 @@ impl Home {
             && let Some(thoughts) = &mut tend.thoughts
             && thoughts.active()
         {
-            thoughts.paste(text);
+            // The thought reader never accepts edits.
             return;
         }
         if let Some(panel) = &mut self.connection {
@@ -497,7 +502,11 @@ impl Home {
         self.selected = place;
         self.help = false;
         self.view = match place {
-            Place::Think => View::Think(Box::new((self.make_dump)().with_key_bar(self.key_bar))),
+            Place::Think => View::Think(Box::new(
+                (self.make_dump)()
+                    .with_key_bar(self.key_bar)
+                    .with_thoughts(self.link_root.clone(), self.repo.clone()),
+            )),
             Place::Tend => {
                 // Deliberate reopening reads again; the last result shows meanwhile.
                 self.request_sessions();
@@ -623,7 +632,9 @@ impl Home {
         {
             if thoughts.active() {
                 if let Some(words) = thoughts.key(key) {
-                    let mut dump = (self.make_dump)().with_key_bar(self.key_bar);
+                    let mut dump = (self.make_dump)()
+                        .with_key_bar(self.key_bar)
+                        .with_thoughts(self.link_root.clone(), self.repo.clone());
                     dump.paste(&words);
                     self.help = false;
                     self.view = View::Think(Box::new(dump));
@@ -639,7 +650,7 @@ impl Home {
                 && key.modifiers == KeyModifiers::NONE
             {
                 if key.code == KeyCode::Char('t') {
-                    tend.thoughts.as_mut().unwrap().edit();
+                    self.open(Place::Think);
                     return;
                 }
                 if key.code == KeyCode::Char('v') {
