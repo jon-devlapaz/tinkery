@@ -1,0 +1,7 @@
+{
+  "item": "done-10",
+  "result": "passed",
+  "evidence": "Full-check: Rust 1127 passed, Node 39 passed, Python 86 files passed; all three reversion probes detected exact-word, provider-call and goal-confirmation mutations. See 04-test/output/supervisor.md and reversion-probes.md.",
+  "candidate": "6f5bc928fb853797869995504b7eec4ce3d96d48d3da8ee59ee3aa822ed0e314",
+  "time_ns": 1794765928814330000
+}

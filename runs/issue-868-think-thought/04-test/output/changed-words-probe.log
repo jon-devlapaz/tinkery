@@ -1,0 +1,36 @@
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import sys;sys.path.insert(0,'tests');import tend_thought_terminal as t;t.capture_guards((80,24))
+                                                                            ~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/codex/issue-868-think-thought/tests/tend_thought_terminal.py", line 270, in capture_guards
+    flow.send(term, b'\x1bOR', 'Thoughts: 1')
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/codex/issue-868-think-thought/tests/tend_connection_terminal.py", line 27, in send
+    return wait(term, text)
+  File "/Users/jondev/dev/worktrees/tinkery/codex/issue-868-think-thought/tests/tend_connection_terminal.py", line 22, in wait
+    raise AssertionError(f'Missing {text!r}:\n{term.screen.text()}')
+AssertionError: Missing 'Thoughts: 1':
+                                                                                
+  tinkery › tend                                         0 runs left         ?  
+                                                                                
+  this repo · a all                                                             
+  Thoughts: 0 · v read · t think                                                
+  1 thoughts could not be read.                                                 
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+        › TEST find repeated supp…            TEST make documentation…          
+                             ‍                                                  
+                   ⢀⠤⠤⣄                                  ⢀⠤⠤⡀                   
+                   ⡇  ⢸⠄                                 ⡇  ⢸                   
+                   ⠈⠒⠒⠋                                  ⠈⠒⠒⠁                   
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  TEST find repeated support requests                   goal saved · yesterday  
+                                                                                
+  ↑↓←→ move   enter open   f connections   l link   esc back                    
