@@ -1,0 +1,7 @@
+{
+  "item": "done-13",
+  "result": "passed",
+  "evidence": "Ten saver tests cover exclusive destination, concurrent writer, private paths, frozen confirmation and uncertain publication. Published resume cannot report success while either parent sync remains refused. Inspect stays read-only; existing publication remains non-cancellable.",
+  "candidate": "d7a38aa84facdcced4dbe413d0811ff9abada2e7b9cc45f79b07cabc7d5ca746",
+  "time_ns": 1794711409592409000
+}

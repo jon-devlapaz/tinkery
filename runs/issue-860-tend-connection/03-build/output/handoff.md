@@ -23,7 +23,7 @@ The approved first slice discovers one connection between automatically chosen a
 
 The terminal test uses a fake provider and temporary TEST roots. It covers 80×24 and 100×30 with color disabled, automatic sources, one request, review/edit/save, exact words, unchanged sources, reopening, same-destination resume and a fresh pass after save. Additional cases cover invalid quotes, zero budget, unknown origin, no result, fewer than two goals, more than 20 goals, oversized inputs, incomplete reads, duplicate identities, request cancellation, persisted dismissal and six freshness changes. A separate journey leaves an authorized save, verifies completion, and rejects a receipt redirected to another root. Unrelated changes use actual `version` and `revision` fields.
 
-The nine shared saver tests reconstruct a persisted receipt, rebuild owned partial staging, reject unowned or symlinked paths, refuse concurrent writers, inspect publication before checking changed membership, and reject changed outcome or confirmation. Public Shape and Approve tests refuse malformed and removed Tend evidence. Approve first proves the seed is verified ready.
+The ten shared saver tests reconstruct a persisted receipt, rebuild owned partial staging, reject unowned or symlinked paths, refuse concurrent writers, inspect publication before checking changed membership, and reject changed outcome or confirmation. Public Shape and Approve tests refuse malformed and removed Tend evidence. Approve first proves the seed is verified ready.
 
 The terminal tests stop and relaunch real application processes. The post-publication/final-update-loss case deliberately removes only the exploration's final saved field before relaunch. This is a filesystem-state simulation, not an observed power loss. The partial-staging and receipt-only boundaries are reconstructed in Rust tests. Linux exclusive rename is implemented but local execution occurred on macOS; Linux execution remains for CI.
 
@@ -31,14 +31,14 @@ Real discovery usefulness is unobserved. The fake proposal reveals no new human 
 
 ## Reversion probes
 
-The five `reversion-*.log` files record expected test failures with one protection temporarily removed. Every source was restored. Final probes use `tests/test_launch.py` to supply a temporary TEST HOME, preserving only tool caches. Earlier probes inherited shell HOME for their targeted Rust tests, whose fixtures used temporary roots; the final guarded rerun replaces that evidence. The executable probe helper was removed from `runs`, since run evidence is excluded from the source fingerprint.
+The seven `reversion-*.log` files record expected test failures with one protection temporarily removed. Every source was restored. Final probes use `tests/test_launch.py` to supply a temporary TEST HOME, preserving only tool caches. Earlier probes inherited shell HOME for their targeted Rust tests, whose fixtures used temporary roots; the final guarded rerun replaces that evidence. The executable probe helper was removed from `runs`, since run evidence is excluded from the source fingerprint.
 
 Exact mutations and commands for review:
 
 1. Consent: in `src/pi.rs`, replace `if used >= limit {` with `if false && used >= limit {`. Build, then call the public PTY fixture `refusal('good', 'run limit of 0 reached', budget=0)` from `tests/tend_connection_terminal.py`. It fails because a request starts despite zero allowance.
 2. Originals: in `src/seed_me/connection_save.rs`, replace the `Affirmed` goal `self.origin.goal.clone()` with `"changed words".into()`. Run `cargo +stable test --lib restart_reuses_published_goal_before_rechecking_changed_membership -- --nocapture`. It fails because displayed and saved words differ.
 3. Attribution: in `src/shape/step.rs`, replace `connection::read(session, goal)?` with `connection::read(session, goal).ok().flatten()`. Run `cargo +stable test --lib tend_origin_has_honest_history_and_invalid_evidence_is_distinct -- --nocapture`. It fails because invalid origin falls through to drafting and spends allowance.
-4. Duplicate handoff: remove the initial `if let Some(receipt) = self.inspect()? { return Ok(receipt); }` from `Pending::resume`. Run the restart test from probe 2. It fails because the already-published session's new membership blocks recovery.
+4. Recovery reuse (historical log name `reversion-duplicate-handoff.log`): remove the initial `if let Some(receipt) = self.inspect()? { return Ok(receipt); }` from `Pending::resume`. Run the restart test from probe 2. It fails because the already-published session's new membership blocks recovery. This proves recovery reuse, not duplicate prevention. Fixed identity, exclusive publication, the conflicting-destination test and concurrent-writer tests separately cover duplicate prevention.
 
 Run each command through `test_launch.run(..., env=test_launch.environment())`. Restore the source before the next probe. A compile error does not count as a successful probe.
 
@@ -58,7 +58,7 @@ The supervisor found private-file modes missing in the first candidate. A fake-p
 
 Review the bounded implementation and final verification below. Keep real-provider usefulness and acceptance separate from fake-provider mechanics. Open a PR after independent review; do not merge.
 
-## Final candidate and full check
+## Previous candidate and full check
 
 Code commits: `0fe1caf`, `ac8343d`, `6765119`.
 
@@ -67,3 +67,15 @@ The configured full check on `6765119` passed 1120 Rust tests (one ignored), 39 
 Changed product files: `README.md`, `docs/design/architecture.md`, `docs/design/shape-and-handoff.md`; `src/approve.rs`, `src/approve/tests.rs`, `src/menu.rs`, `src/menu/menu_tests.rs`, `src/pi.rs`; `src/seed_me/connection.rs`, `src/seed_me/connection_save.rs`, `src/seed_me/ledger.rs`, `src/seed_me/ledger/storage.rs`, `src/seed_me/mod.rs`, `src/seed_me/save.rs`; `src/shape.rs`, `src/shape/command.rs`, `src/shape/step.rs`, `src/shape/step/typed_tests.rs`; `src/tend/connection.rs`, `src/tend/connection/panel.rs`, `src/tend/connection-prompt.txt`, `src/tend/discovery.rs`, `src/tend/history.rs`, `src/tend/mod.rs`; `src/think_record/confirmation.rs`, `src/think_record/read.rs`, `src/think_record/read/origins.rs`; `tests/goal_confirmation_terminal.py`, `tests/tend_connection_terminal.py`.
 
 Evidence is in this run's `03-build/output` and `04-test/output`. Generated stage rules remain in the worktree's AGENTS.md but are not part of the product commit. Transient run locks remain untracked. No PR or merge was performed by the worker.
+
+## Independent review round 1 repair
+
+The review found that an already-published destination bypassed outstanding directory syncs. Resume now verifies the destination, syncs both publication parents, and returns success only after both syncs complete. `inspect` remains read-only. The existing destination still bypasses source-membership checks.
+
+The new public saver test publishes a goal, denies directory-open permission separately on each parent while retaining path traversal, and confirms the goal remains inspectable. Resume refuses until permission returns, then returns the same destination and exact words. This exercises real directory-open failure, not simulated power loss. It ran under the ordinary macOS user. Root bypasses this permission refusal, so that one test reports its limitation and returns if run as root.
+
+Two new reversion logs remove only the source-parent retry sync or only the destination-parent retry sync. The existing-destination fast path remains intact. Both reversions fail the new assertion that resume cannot report success without syncing. All source changes were restored.
+
+For each new probe, temporarily remove the relevant sync in the already-published branch and run `cargo +stable test --lib published_resume_retries_both_parent_syncs_before_reporting_success -- --nocapture` through `test_launch.run(..., env=test_launch.environment())`. Restore the source before the other probe. The logs are `reversion-resume-sync-source.log` and `reversion-resume-sync-destination.log`.
+
+The previous candidate passed full checks. The repaired candidate's final verification will be recorded after its committed full run. No push, PR change or merge is performed by the worker.

@@ -262,7 +262,8 @@ evidence, outcome, actor, destination root and one random session identity. The
 shared saver creates a 0700 sibling staging directory and a 0600 receipt, verifies
 them, and publishes
 with an atomic no-replace directory rename on macOS and Linux. Resume first checks
-the fixed destination, so the newly saved goal cannot invalidate its own recovery.
+the fixed destination, then retries both publication-parent syncs before success.
+The newly saved goal cannot invalidate its own recovery.
 Owned partial staging can be rebuilt or cancelled. Conflicting paths, symlinks and
 uncertain publication refuse replacement or a second destination. A per-repository
 lock and a per-handoff lock refuse concurrent writers.

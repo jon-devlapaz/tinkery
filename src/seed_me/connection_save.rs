@@ -149,6 +149,10 @@ impl Pending {
     ) -> Result<Receipt, String> {
         let _writer = self.writer()?;
         if let Some(receipt) = self.inspect()? {
+            // A readable rename can precede durable parent updates. Retry both before success.
+            let (staging, _) = self.paths()?;
+            sync(staging.parent().expect("staging has parent"))?;
+            sync(&self.root)?;
             return Ok(receipt);
         }
         current()?;
@@ -377,6 +381,43 @@ mod tests {
         assert_eq!(receipt.goal, pending.origin.goal);
         assert_eq!(fs::read_dir(&pending.root).unwrap().count(), 1);
         assert!(restarted.cancel().is_err());
+    }
+
+    #[test]
+    fn published_resume_retries_both_parent_syncs_before_reporting_success() {
+        use std::os::unix::fs::PermissionsExt;
+        // Root bypasses this OS permission refusal. The ordinary local and CI users exercise it.
+        if unsafe { libc::geteuid() } == 0 {
+            eprintln!("Directory-open refusal requires an unprivileged test process.");
+            return;
+        }
+        for source_parent in [true, false] {
+            let (_temp, pending) = setup();
+            let receipt = pending.resume(|| Ok(())).unwrap();
+            let parent = if source_parent {
+                pending.root.parent().unwrap().join(".tinkery-tend-staging")
+            } else {
+                pending.root.clone()
+            };
+            let original = fs::metadata(&parent).unwrap().permissions();
+            // Traversal still permits inspecting the named published goal and opening its lock.
+            // Opening the parent directory for fsync must fail without read permission.
+            fs::set_permissions(&parent, fs::Permissions::from_mode(0o111)).unwrap();
+            let inspected = pending.inspect();
+            let refusal = pending.resume(|| panic!("published goals bypass changed membership"));
+            fs::set_permissions(&parent, original).unwrap();
+            assert_eq!(inspected.unwrap().unwrap().session, receipt.session);
+            assert!(
+                refusal.is_err(),
+                "resume reported success without syncing {parent:?}"
+            );
+            let retried = pending
+                .resume(|| panic!("published goals bypass changed membership"))
+                .unwrap();
+            assert_eq!(retried.session, receipt.session);
+            assert_eq!(retried.goal, pending.origin.goal);
+            assert_eq!(fs::read_dir(&pending.root).unwrap().count(), 1);
+        }
     }
 
     #[test]
