@@ -3,8 +3,8 @@
 //!
 //! The rules live in the parts: [`Conversation`] decides what is asked and sent, `reading` and
 //! `review` own the model's contracts, [`board`] verifies a reply, and `seed_me` saves. This
-//! file routes input to them and paints the result. Nothing is sent without F2, and nothing is
-//! goals require typed `confirm`. Fresh thought capture requires the separate F3 action.
+//! file routes input to them and paints the result. Nothing is sent without F2.
+//! Saving a goal requires typed `confirm`; saving a fresh thought requires F3.
 
 use super::{
     Motion, Note,

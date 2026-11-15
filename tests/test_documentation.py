@@ -68,6 +68,12 @@ def relative_links(path):
 class DocumentationLintTests(unittest.TestCase):
     """Deterministic checks that every agent-facing page points at things that exist."""
 
+    def test_committed_guide_excludes_generated_stage_rules(self):
+        committed = subprocess.run(["git", "show", "HEAD:AGENTS.md"], cwd=REPO, check=True,
+                                   capture_output=True, text=True, env=subprocess.environment()).stdout
+        self.assertNotRegex(committed, r"<!--\s*tink:rules\b",
+                            "Keep generated stage rules in the worktree, not the committed guide")
+
     def test_one_guide_serves_every_harness(self):
         # Claude Code doesn't load .agents/skills/ by itself, as Codex and Pi do.
         self.assertEqual("@AGENTS.md\n\nProject skills live in `.agents/skills/`. "
