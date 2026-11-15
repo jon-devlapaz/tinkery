@@ -1,0 +1,32 @@
+Mutation: restore the reviewed d3bf9ab panel without capture context
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import sys;sys.path.insert(0,'tests');import tend_correction_terminal as c;c.capture_context_and_exact_replacement((80,24))
+                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/Users/jondev/dev/worktrees/tinkery/codex/issue-862-tend-correction/tests/tend_correction_terminal.py", line 232, in capture_context_and_exact_replacement
+    assert 'Reviewed proposal' in screen,screen
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError:                                                                                 
+  tinkery › tend                                         9 runs left         ?  
+                                                                                
+  Save correction in /private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/  
+  What must change, and when does it matter?                                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  F2 save correction only   esc keep stored correction                          
+                                                                                

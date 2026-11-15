@@ -1,0 +1,7 @@
+{
+  "item": "done-6",
+  "result": "passed",
+  "evidence": "Restored-source correction PTYs pass cancellation, oversized words, failed-write retry, stale Replace/Clear, and context navigation retaining draft. See 03-build/output/review-repair-focused.log.",
+  "candidate": "33e015eaa500ca3973ca9232d3a4621e0000659f962bd54ef7a45e6bbc0f05d2",
+  "time_ns": 1794718805835188000
+}

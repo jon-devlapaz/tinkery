@@ -1,0 +1,19 @@
+KEY KeyEvent { code: F(2), modifiers: KeyModifiers(0x0), kind: Press, state: KeyEventState(0x0) } editor=false
+KEY KeyEvent { code: Char('f'), modifiers: KeyModifiers(0x0), kind: Press, state: KeyEventState(0x0) } editor=false
+KEY KeyEvent { code: Char('a'), modifiers: KeyModifiers(CONTROL), kind: Press, state: KeyEventState(0x0) } editor=true
+KEY KeyEvent { code: Char('k'), modifiers: KeyModifiers(CONTROL), kind: Press, state: KeyEventState(0x0) } editor=true
+PASTE bytes=14 editor=true
+KEY KeyEvent { code: Esc, modifiers: KeyModifiers(0x0), kind: Press, state: KeyEventState(0x0) } editor=true
+KEY KeyEvent { code: Char('f'), modifiers: KeyModifiers(0x0), kind: Press, state: KeyEventState(0x0) } editor=false
+KEY KeyEvent { code: Char('a'), modifiers: KeyModifiers(CONTROL), kind: Press, state: KeyEventState(0x0) } editor=true
+KEY KeyEvent { code: Char('k'), modifiers: KeyModifiers(CONTROL), kind: Press, state: KeyEventState(0x0) } editor=true
+KEY KeyEvent { code: F(2), modifiers: KeyModifiers(0x0), kind: Press, state: KeyEventState(0x0) } editor=false
+KEY KeyEvent { code: Char('f'), modifiers: KeyModifiers(0x0), kind: Press, state: KeyEventState(0x0) } editor=false
+KEY KeyEvent { code: Char('a'), modifiers: KeyModifiers(CONTROL), kind: Press, state: KeyEventState(0x0) } editor=true
+KEY KeyEvent { code: Char('k'), modifiers: KeyModifiers(CONTROL), kind: Press, state: KeyEventState(0x0) } editor=true
+KEY KeyEvent { code: F(2), modifiers: KeyModifiers(0x0), kind: Press, state: KeyEventState(0x0) } editor=false
+KEY KeyEvent { code: Char('f'), modifiers: KeyModifiers(0x0), kind: Press, state: KeyEventState(0x0) } editor=false
+KEY KeyEvent { code: Char('a'), modifiers: KeyModifiers(CONTROL), kind: Press, state: KeyEventState(0x0) } editor=true
+KEY KeyEvent { code: Char('k'), modifiers: KeyModifiers(CONTROL), kind: Press, state: KeyEventState(0x0) } editor=true
+PASTE bytes=2049 editor=true
+KEY KeyEvent { code: F(2), modifiers: KeyModifiers(0x0), kind: Press, state: KeyEventState(0x0) } editor=true

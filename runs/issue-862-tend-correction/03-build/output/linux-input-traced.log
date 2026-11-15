@@ -1,0 +1,57 @@
+EDIT before f 14 7 '  p prepare this goal   d dismiss   ↑↓ scroll   esc back                                            '
+EDIT after f 8 '  F2 save correction only   tab context   esc keep stored correction                                '
+clear bytes 2
+paste bytes 26
+EDIT before f 2049 9 '  p prepare this goal   d dismiss   ↑↓ scroll   esc back                                            '
+EDIT after f 10 '  F2 save correction only   tab context   esc keep stored correction                                '
+clear bytes 2
+paste bytes 2061
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/work/tests/tend_correction_terminal.py", line 135, in edits_and_conflicts
+    edit(term,'x'*2049);flow.send(term,flow.F2,'1–2048 bytes')
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/work/tests/tend_connection_terminal.py", line 27, in send
+    return wait(term, text)
+           ^^^^^^^^^^^^^^^^
+  File "/work/tests/tend_connection_terminal.py", line 22, in wait
+    raise AssertionError(f'Missing {text!r}:\n{term.screen.text()}')
+AssertionError: Missing '1–2048 bytes':
+                                                                                                    
+  tinkery › tend                                                             9 runs left         ?  
+                                                                                                    
+  Save correction                                                                                   
+  Repository: /tmp/tinkery-TEST-correction-edit-_nvm2sc3/repo                                       
+  Reviewed proposal (Tinkery's guess): TEST connect support gaps to documentation.                  
+  Why: TEST support gaps can guide documentation.                                                   
+  Inspectable result: TEST one linked support example.                                              
+  Judgment: TEST was an answer easier to find?                                                      
+  Source goal-0: TEST find repeated support requests                                                
+  Keep their original words.                                                                        
+  Source goal-1: TEST make documentation easier to find                                             
+  What must change, and when does it matter? · tab reviews context                                  
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+  F2 save correction only   tab context   esc keep stored correction                                
+                                                                                                    
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/work/tests/test_launch.py", line 76, in run
+    return subprocess.run(*args, env=_checked_environment(env), **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['python3', '-c', 'import sys;sys.path.insert(0,"tests");import tend_correction_terminal as c;c.edits_and_conflicts()']' returned non-zero exit status 1.

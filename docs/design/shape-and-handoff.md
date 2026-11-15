@@ -252,7 +252,7 @@ request and grants no seed or implementation permission.
 The latest exploration and dismissal are saved per repository under `--link-root`.
 Reopening unchanged input reuses them without a request. One input identity includes
 goal IDs, complete text, repository, active membership, prompt, model, thinking and
-harness. Unrelated ledger versions and Shape answers do not change it. Changes to
+harness, and exact correction revision/text. Unrelated ledger versions and Shape answers do not change it. Changes to
 source inputs block a stale new save. A completed handoff can be opened again with
 `o`; changed inputs permit an explicit fresh pass. Esc cancels a request. After an
 explicit save begins, Esc returns while that save finishes.
@@ -274,6 +274,51 @@ A Tend confirmation source or handoff receipt also marks missing evidence as inv
 Malformed or conflicting Tend evidence is an explicit invalid origin, never legacy
 unknown attribution. It blocks Shape drafting and Approve launch commands. Existing
 Think records and legacy unknown-origin behavior retain their earlier rules.
+
+### One saved correction
+
+While reviewing a proposal, `f` opens one correction field. State what must change
+and when it matters. `F2` saves exact words only; Esc keeps stored guidance unchanged.
+The capture view keeps the reviewed proposal and wrapped repository above the editor.
+Tab switches between writing and read-only context; arrows or Page Up/Down scroll
+that context without losing the draft. Reopening preserves final blank lines exactly.
+The same action replaces existing guidance. `x` opens a separate Clear confirmation.
+Saving, replacing, clearing, and navigating make no model calls and confirm no goal.
+One current correction per canonical repository survives later explorations and no-result replies.
+The field permits 1–2048 UTF-8 bytes and does not trim or summarize the words.
+
+A separate private schema-1 record contains the repository and either null or
+`{revision, text}`. Save/Replace assigns a fresh revision; Clear atomically writes null.
+The existing repository lock protects it. A bounded read plus file identity detects
+stale edits, including explicit Clear of malformed regular files. Unsafe paths refuse.
+A pending unpublished goal blocks feedback changes. Pre-replacement failures preserve
+the prior file; a parent-sync failure reports uncertain persistence and requires rereading.
+Malformed feedback blocks new discovery but cannot hide a verified saved goal.
+
+The review discloses exact guidance before the next explicit request. Only current
+goals and that correction are sent, within the existing 32 KiB limit. Old proposals
+and old goal sets are not replayed. The response remains one connection or null.
+The prompt asks for relevant use; the UI shows what was supplied, not a model claim
+of learning. Changed guidance makes an unsaved proposal outdated. A failed pass keeps
+the previous result. Useful transfer needs a human trial with different relevant goals
+and an unrelated case; fake replies establish only the mechanics.
+
+### Correction formats and recovery
+
+New explorations use schema 2 and require an input `correction` member, null when absent.
+Strict schema-1 reads require that member to be absent. Reopening changes no bytes.
+Legacy pending saves retain schema 1, their frozen prompt identity and receipt format;
+resume still checks current goals, repository, correction absence, and request settings.
+
+Without feedback, saved origins keep `tinkery:origin/tend-v1` and schema 1.
+With feedback, `tinkery:origin/tend-v2` and schema 2 require its exact revision and text.
+The shared reader accepts both strict formats and rejects tag/version mismatches,
+duplicates, missing or invalid corrections, and unknown fields. History labels feedback
+as operator guidance, separate from the model interpretation and source quotations.
+The pending receipt, staging marker, and ledger carry the same frozen versioned origin.
+Changing or clearing reusable feedback never rewrites an already confirmed goal.
+Older binaries refuse v2 records. Preserve them on rollback and restore a supporting
+reader before using them. No old session migration or publication algorithm change is needed.
 
 The goal garden and wiki remain future work. This slice adds no background reflection,
 wiki, stored graph interpretation, seed confirmation, or execution permission.

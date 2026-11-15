@@ -1,0 +1,30 @@
+                                                                                                    
+  tinkery › tend                                                             9 runs left         ?  
+                                                                                                    
+  Find connections                                                                                  
+  Repository:                                                                                       
+  /private/var/folders/sk/r2ns7lvn2ygcsj7bhd0mvnyw0000gn/T/tinkery-TEST-correction-vorjret8/repo    
+  f save/replace correction   x clear correction                                                    
+  Correction supplied and kept for next request (operator guidance):                                
+  For support work, preserve the failed lookup before suggesting documentation.                     
+  Keep exact words: café.                                                                           
+  2 complete goals · model test/model · one request                                                 
+  Starting sends these goals and the shown correction to the provider. No tools or external         
+  search.                                                                                           
+  Drafting runs left this launch: 9 of 10.                                                          
+  Proposed connection · Tinkery's guess                                                             
+  TEST support gaps can guide documentation.                                                        
+  Source goal-0: TEST find repeated support requests                                                
+  Keep their original words.                                                                        
+  Source goal-1: TEST make documentation easier to find                                             
+  Measure missed answers.                                                                           
+  Proposed goal: TEST connect support gaps to documentation.                                        
+  Inspectable result: TEST one linked support example.                                              
+  Judgment: TEST was an answer easier to find?                                                      
+  Assumption or conflict: TEST both goals concern the same users.                                   
+  Full source goals                                                                                 
+  goal-0                                                                                            
+  TEST find repeated support requests                                                               
+                                                                                                    
+  p prepare this goal   d dismiss   ↑↓ scroll   esc back                                            
+                                                                                                    

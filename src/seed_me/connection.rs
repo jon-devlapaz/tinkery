@@ -8,6 +8,28 @@ use std::path::{Path, PathBuf};
 /// Evidence tag for the supported Tend creation format.
 pub(crate) const ARTIFACT: &str = "tinkery:origin/tend-v1";
 
+/// Exact operator guidance supplied during discovery, never source evidence or authority.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Correction {
+    pub(crate) revision: String,
+    pub(crate) text: String,
+}
+
+impl Correction {
+    /// Refuse malformed identities and words without changing the operator's text.
+    pub(crate) fn validate(&self) -> Result<(), String> {
+        if self.revision.len() != 48
+            || !self.revision.bytes().all(|c| c.is_ascii_hexdigit())
+            || self.text.trim().is_empty()
+            || self.text.len() > 2048
+        {
+            return Err("The correction is invalid; use 1–2048 bytes of exact words.".into());
+        }
+        Ok(())
+    }
+}
+
 /// The exact goal input used for discovery; unrelated ledger revisions are excluded.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -27,8 +49,7 @@ pub(crate) struct Support {
 }
 
 /// Versioned creation evidence survives later attempts; it contains no save ownership.
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub(crate) struct Origin {
     pub(crate) schema: u8,
     pub(crate) entry: String,
@@ -37,14 +58,59 @@ pub(crate) struct Origin {
     pub(crate) sources: Vec<Source>,
     pub(crate) support: Vec<Support>,
     pub(crate) interpretation: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) correction: Option<Correction>,
+}
+
+#[derive(Deserialize)]
+#[serde(remote = "Origin", deny_unknown_fields)]
+struct OriginFields {
+    schema: u8,
+    entry: String,
+    repo: PathBuf,
+    goal: String,
+    sources: Vec<Source>,
+    support: Vec<Support>,
+    interpretation: String,
+    #[serde(default)]
+    correction: Option<Correction>,
+}
+
+impl<'de> Deserialize<'de> for Origin {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(d)?;
+        let valid = match value["schema"].as_u64() {
+            Some(1) => value.get("correction").is_none(),
+            Some(2) => value.get("correction").is_some_and(|v| v.is_object()),
+            _ => false,
+        };
+        if !valid {
+            return Err(serde::de::Error::custom(
+                "Unsupported Tend origin or correction field",
+            ));
+        }
+        let origin = OriginFields::deserialize(value).map_err(serde::de::Error::custom)?;
+        origin
+            .validate(&origin.goal)
+            .map_err(serde::de::Error::custom)?;
+        Ok(origin)
+    }
 }
 
 impl Origin {
+    /// Match the evidence tag to its strict origin format.
+    pub(crate) fn artifact(&self) -> &'static str {
+        if self.schema == 2 {
+            "tinkery:origin/tend-v2"
+        } else {
+            ARTIFACT
+        }
+    }
     /// Validate the full evidence once, including exact supporting quotations.
     pub(crate) fn validate(&self, goal: &str) -> Result<(), String> {
         let ids: std::collections::HashSet<_> = self.sources.iter().map(|s| &s.id).collect();
         let supporting: std::collections::HashSet<_> = self.support.iter().map(|s| &s.id).collect();
-        if self.schema != 1
+        if !matches!((self.schema, &self.correction), (1, None) | (2, Some(_)))
             || self.entry != "tend"
             || self.goal != goal
             || goal.trim().is_empty()
@@ -69,6 +135,9 @@ impl Origin {
             })
         {
             return Err("The Tend origin is invalid or conflicts with the saved goal.".into());
+        }
+        if let Some(correction) = &self.correction {
+            correction.validate()?;
         }
         Ok(())
     }
@@ -137,7 +206,9 @@ pub(crate) fn read(session: &Path, goal: &str) -> Result<Option<Origin>, String>
         .string()
         .and_then(|s| serde_json::from_str::<Origin>(s).ok());
     let result = parsed
-        .filter(|_| entries.next().is_none() && entry["artifact"].string() == Some(ARTIFACT))
+        .filter(|origin| {
+            entries.next().is_none() && entry["artifact"].string() == Some(origin.artifact())
+        })
         .ok_or("The Tend origin is unreadable or duplicated.")?;
     result.validate(goal)?;
     Ok(Some(result))

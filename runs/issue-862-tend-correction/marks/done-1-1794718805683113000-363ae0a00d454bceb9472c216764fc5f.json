@@ -1,0 +1,7 @@
+{
+  "item": "done-1",
+  "result": "passed",
+  "evidence": "Review repair focused PTYs at 80x24 and 100x30 preserve exact correction including one and two final newlines through untouched replacement and restart. Capture shows reviewed proposal and full scrollable repository. See 03-build/output/review-repair-focused.log and screens.",
+  "candidate": "33e015eaa500ca3973ca9232d3a4621e0000659f962bd54ef7a45e6bbc0f05d2",
+  "time_ns": 1794718805683113000
+}

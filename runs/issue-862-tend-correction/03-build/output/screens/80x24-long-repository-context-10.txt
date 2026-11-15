@@ -1,0 +1,24 @@
+                                                                                
+  tinkery › tend                                         9 runs left         ?  
+                                                                                
+  Save correction                                                               
+  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/repository-segment-10-xxxxxxxxxxxxxxxxxx  
+  xxxxxxxxxxxxxxxxxxxxxx/repository-segment-11-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  
+  xxxxxxxxx/repo                                                                
+  Reviewed proposal (Tinkery's guess): TEST connect support gaps to             
+  documentation.                                                                
+  Why: TEST support gaps can guide documentation.                               
+  Inspectable result: TEST one linked support example.                          
+  Judgment: TEST was an answer easier to find?                                  
+  Review context · ↑↓ / PgUp PgDn scroll · tab returns to writing               
+  TEST draft survives full repository review                                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  F2 save correction only   tab edit   ↑↓ scroll   esc cancel                   
+                                                                                

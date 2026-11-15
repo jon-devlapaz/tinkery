@@ -222,7 +222,7 @@ impl Config {
             let mut evidence = a.originals.iter().map(|s| json!({"checked":s.label(),"at":stamp,"observed":s.text}))
                 .chain(std::iter::once(json!({"checked":"Tinkery answer/question context; questions remain provisional, not settled decisions","at":stamp,"observed":a.context}))).collect::<Vec<_>>();
             if let Some(creation) = creation {
-                evidence.push(json!({"artifact":super::connection::ARTIFACT,
+                evidence.push(json!({"artifact":creation.artifact(),
                     "checked":"Created from a Tend connection; interpretation remains provisional",
                     "at":stamp,"observed":serde_json::to_string(creation).map_err(|e| e.to_string())?}));
             }

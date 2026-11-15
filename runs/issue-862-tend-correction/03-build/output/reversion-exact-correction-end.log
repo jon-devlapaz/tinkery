@@ -1,0 +1,9 @@
+Mutation: restore words.lines() in correction editor
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import sys;sys.path.insert(0,'tests');import tend_correction_terminal as c;c.exact_trailing_newline()
+                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/jondev/dev/worktrees/tinkery/codex/issue-862-tend-correction/tests/tend_correction_terminal.py", line 219, in exact_trailing_newline
+    assert json.loads(correction(root).read_text())['correction']['text']==words, 'Untouched replacement changed the exact correction'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Untouched replacement changed the exact correction
