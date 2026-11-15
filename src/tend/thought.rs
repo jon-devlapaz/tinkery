@@ -127,7 +127,7 @@ impl Garden {
         Ok(entries)
     }
 
-    fn save(&self, words: &str) -> Result<bool, String> {
+    fn save(&self, words: &str) -> Result<String, String> {
         if words.is_empty() || words.len() > LIMIT {
             return Err("Write a thought of 1 to 131072 bytes. Nothing was saved.".into());
         }
@@ -145,16 +145,18 @@ impl Garden {
         temp.as_file().sync_all().map_err(|e| e.to_string())?;
         match temp.persist_noclobber(&path) {
             Ok(_) => {
-                fs::File::open(root)
-                    .and_then(|f| f.sync_all())
-                    .map_err(|e| e.to_string())?;
-                Ok(true)
+                if let Err(e) = fs::File::open(root).and_then(|f| f.sync_all()) {
+                    return Ok(format!(
+                        "Thought saved, but persistence is uncertain. Reopen before another save: {e}"
+                    ));
+                }
+                Ok("Thought saved. No goal confirmed.".into())
             }
             Err(e) if e.error.kind() == std::io::ErrorKind::AlreadyExists => {
                 if self.read_one(&path)? != words {
                     return Err("The existing thought differs. Nothing was replaced.".into());
                 }
-                Ok(false)
+                Ok("Thought already saved. One entry. No goal confirmed.".into())
             }
             Err(e) => Err(e.to_string()),
         }
@@ -205,7 +207,7 @@ impl Garden {
             if key.code == KeyCode::F(2) && key.modifiers == KeyModifiers::NONE {
                 let words = editor.text().to_owned();
                 match self.save(&words) {
-                    Ok(created) => {
+                    Ok(notice) => {
                         self.entries = self.read();
                         self.selected = self
                             .entries
@@ -215,12 +217,7 @@ impl Garden {
                             .unwrap_or(0);
                         self.editor = None;
                         self.viewing = true;
-                        self.notice = if created {
-                            "Thought saved. No goal confirmed."
-                        } else {
-                            "Thought already saved. One entry. No goal confirmed."
-                        }
-                        .into();
+                        self.notice = notice;
                     }
                     Err(reason) => self.notice = format!("Thought not saved: {reason}"),
                 }

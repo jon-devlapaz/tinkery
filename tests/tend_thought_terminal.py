@@ -202,8 +202,45 @@ def promotion(size):
             term.close()
 
 
+def repository_link(size):
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-thought-link-') as directory:
+        root = Path(directory).resolve()
+        repo = flow.fixture(root)
+        for index in range(2):
+            flow.update_goal(root, f'goal-{index}', goal=f'TEST goal {index}')
+        term = launch(root, repo, size)
+        try:
+            flow.send(term, b'\x1bOP', 'Right now')
+            help_text = term.screen.text()
+            help_text += flow.send(term, b'\x1b[6~', 'F1 close')
+            assert 't new thought · v read thoughts' in help_text, help_text
+            assert 'g in the thought reader opens Think, unsent.' in help_text, help_text
+            flow.send(term, b'\x1b', 'this repo')
+            flow.send(term, b'l', 'enter link')
+            lines = term.screen.text().splitlines()
+            ring = [(x, y) for y, line in enumerate(lines[4:-4], 4)
+                    for x, char in enumerate(line) if x > size[0] // 2 and '\u2801' <= char <= '\u28ff']
+            assert ring, term.screen.text()
+            x = round((min(x for x, y in ring) + max(x for x, y in ring)) / 2)
+            y = round((min(y for x, y in ring) + max(y for x, y in ring)) / 2)
+            assert lines[y+3][x] == ' ', term.screen.text()
+            def click(row):
+                return (f'\x1b[<0;{x+1};{row+1}M\x1b[<0;{x+1};{row+1}m').encode()
+            os.write(term.master, click(y+3))
+            flow.wait(term, 'esc')
+            assert not (root/'links'/'needs.json').exists(), 'Empty-space click wrote a needs link'
+            assert 'enter link' in term.screen.text(), term.screen.text()
+            flow.send(term, click(y), 'needs TEST goal 1 · not ready')
+            assert json.loads((root/'links'/'needs.json').read_text()) == {
+                'version': 1, 'needs': [{'goal': 'goal-0', 'needs': 'goal-1'}]}
+            assert not flow.requests(root)
+        finally:
+            term.close()
+
+
 if __name__ == '__main__':
     for size in [(80, 24), (100, 30)]:
+        repository_link(size)
         journey(size)
         unwritable(size)
         promotion(size)

@@ -249,6 +249,16 @@ impl Tend {
         }
     }
 
+    fn thought_summary(&self) -> Option<String> {
+        if self.detail || self.is_linking() || !self.connection_scope() {
+            return None;
+        }
+        self.thoughts
+            .as_ref()
+            .map(thought::Garden::summary)
+            .filter(|summary| !summary.is_empty())
+    }
+
     fn can_toggle_scope(&self) -> bool {
         self.repo_paths.is_some()
             && !self.pending
@@ -299,12 +309,7 @@ impl Tend {
             return;
         }
         let mut body = self.scope_body(body);
-        if self.connection_scope()
-            && self
-                .thoughts
-                .as_ref()
-                .is_some_and(|t| !t.summary().is_empty())
-        {
+        if self.thought_summary().is_some() {
             body.y = body.y.saturating_add(3);
             body.height = body.height.saturating_sub(3);
         }
@@ -380,8 +385,13 @@ impl Tend {
         } else {
             ""
         };
+        let thoughts = if !self.detail && !self.is_linking() && self.connection_scope() {
+            "\nt new thought · v read thoughts\ng in the thought reader opens Think, unsent."
+        } else {
+            ""
+        };
         format!(
-            "Right now\n{}{}{scope}\nEsc back · F10 menu\n\nF1 close · h how it works · PgUp/PgDn scroll{needs}\n\nNothing runs by itself. A saved goal is not seed or implementation approval.",
+            "Right now\n{}{}{scope}{thoughts}\nEsc back · F10 menu\n\nF1 close · h how it works · PgUp/PgDn scroll{needs}\n\nNothing runs by itself. A saved goal is not seed or implementation approval.",
             if self.detail {
                 "Read the saved goal. ↑↓ / j k or PgUp/PgDn scroll.\nr opens its Think history."
             } else if self.linking.is_some() {
@@ -465,14 +475,9 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
         );
     }
     let mut area = tend.scope_body(area);
-    if !tend.detail
-        && !tend.is_linking()
-        && tend.connection_scope()
-        && let Some(thoughts) = &tend.thoughts
-        && !thoughts.summary().is_empty()
-    {
+    if let Some(summary) = tend.thought_summary() {
         frame.render_widget(
-            Paragraph::new(thoughts.summary()).style(palette.ink),
+            Paragraph::new(summary).style(palette.ink),
             Rect {
                 height: 2.min(area.height),
                 ..area

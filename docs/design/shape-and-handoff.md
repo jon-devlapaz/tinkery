@@ -30,6 +30,7 @@ the repository before `F2` saves. Esc cancels without saving. Saving makes no mo
 call and confirms no goal. Thoughts appear above the goal graph, labelled `Thought`.
 The summary shows `t new thought`, even before any thought is saved, and `v read`
 when thoughts exist. These keys leave the goal garden's key bar unchanged.
+Garden F1 help names `t`, `v` and the reader's `g` action.
 `v` reads the saved thoughts; arrows select one and PgUp/PgDn scroll its words.
 `g` copies the selected thought into a fresh, unsent Think visit. The existing
 Think goal confirmation is still required. The thought stays unchanged on record.
