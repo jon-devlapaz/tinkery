@@ -11,6 +11,7 @@ mod graph;
 pub(crate) mod history;
 mod linking;
 pub mod needs;
+pub(crate) mod thought;
 pub use discovery::{Discovery, Found, Outcome, Source, scan};
 
 use crate::clipped;
@@ -64,6 +65,7 @@ pub(super) struct Tend {
     pub help_scroll: u16,
     pub notice: String,
     pub history: Option<history::View>,
+    pub(super) thoughts: Option<thought::Garden>,
     graph: graph::GraphView,
     last_press: Option<(PathBuf, Instant)>,
     pub(super) needs: needs::Store,
@@ -104,6 +106,7 @@ impl Tend {
             help_scroll: 0,
             notice: String::new(),
             history: None,
+            thoughts: None,
             graph: graph::GraphView::default(),
             last_press: None,
             needs: needs::Store::new(link_root),
@@ -295,7 +298,16 @@ impl Tend {
             self.graph.release();
             return;
         }
-        let body = self.scope_body(body);
+        let mut body = self.scope_body(body);
+        if self.connection_scope()
+            && self
+                .thoughts
+                .as_ref()
+                .is_some_and(|t| !t.summary().is_empty())
+        {
+            body.y = body.y.saturating_add(3);
+            body.height = body.height.saturating_sub(3);
+        }
         self.sync_graph(body);
         if matches!(event.kind, crossterm::event::MouseEventKind::Drag(_)) {
             self.last_press = None;
@@ -418,14 +430,14 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
     } else if !tend.garden_showing() {
         // An empty repo view still offers the way back to all goals.
         if tend.connection_scope() {
-            "f connections   a toggle goals   esc back"
+            "t thought   v thoughts   f connections   a toggle goals   esc back"
         } else if tend.can_toggle_scope() {
             "a toggle goals   esc back"
         } else {
             "esc back"
         }
     } else if tend.connection_scope() {
-        "↑↓←→ move   enter open   f connections   l link   esc back"
+        "arrows move   enter open   t thought   v read   f connect   l link   esc back"
     } else {
         "↑↓←→ move   enter open   l link   esc back"
     };
@@ -452,7 +464,23 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
             },
         );
     }
-    let area = tend.scope_body(area);
+    let mut area = tend.scope_body(area);
+    if !tend.detail
+        && !tend.is_linking()
+        && tend.connection_scope()
+        && let Some(thoughts) = &tend.thoughts
+        && !thoughts.summary().is_empty()
+    {
+        frame.render_widget(
+            Paragraph::new(thoughts.summary()).style(palette.ink),
+            Rect {
+                height: 2.min(area.height),
+                ..area
+            },
+        );
+        area.y = area.y.saturating_add(3);
+        area.height = area.height.saturating_sub(3);
+    }
     let stale_empty =
         tend.sessions.is_empty() && tend.unreadable == 0 && tend.error.is_none() && !tend.current;
     if tend.pending || tend.want.is_some() || stale_empty {

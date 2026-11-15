@@ -24,7 +24,7 @@ mod discovery_help;
 mod forms;
 mod help;
 mod step;
-mod words;
+use crate::words;
 
 use crate::seed_me::ledger::{AnswerAction, CheckMethod, DraftCheck};
 use crate::{

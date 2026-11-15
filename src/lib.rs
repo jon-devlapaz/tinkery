@@ -38,6 +38,7 @@ pub mod think;
 pub mod think_record;
 pub mod voice;
 pub mod watch;
+pub(crate) mod words;
 mod worker;
 
 /// Fit a single-line title into terminal cells, keeping whole graphemes and marking omitted text.

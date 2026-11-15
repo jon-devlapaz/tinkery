@@ -1,4 +1,4 @@
-//! Shape's in-memory editor: textarea motions, selection and wrapping, with original line endings
+//! The shared in-memory editor: textarea motions, selection and wrapping, with original line endings
 //! retained separately. It owns no save, folder or agent policy.
 
 use crate::Palette;
@@ -18,7 +18,7 @@ struct State {
 }
 
 /// An editable box whose displayed newlines do not normalize the operator's stored words.
-pub(super) struct Words {
+pub(crate) struct Words {
     state: State,
     undo: Vec<State>,
     redo: Vec<State>,
