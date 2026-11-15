@@ -131,7 +131,7 @@ def journey(width, height, long_question=False, suggestion=False, mono=False):
             process.wait(timeout=5)
             assert process.returncode == 0
             print(json.dumps(dict(width=width, height=height, provider='fake replay; zero real calls',
-                                  long_question=long_question, suggestion=suggestion, no_color=mono, journey='F2/question/PgDn/unsent input/exit without save')))
+                                  long_question=long_question, suggestion=suggestion, no_color=mono, journey='Enter/question/PgDn/unsent input/exit without save')))
         finally:
             if process.poll() is None:
                 process.kill()

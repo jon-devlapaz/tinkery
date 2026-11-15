@@ -313,7 +313,11 @@ fn active_recipient_survives_editing_and_saving_later_settings() {
                 Ok(Some(saved.clone())),
                 Some((active.clone(), CallBudget::new(0))),
             );
-            let recipient = format!("F2 sends to {}: {}.", active.harness.label(), active.model);
+            let recipient = format!(
+                "Enter sends to {}: {}.",
+                active.harness.label(),
+                active.model
+            );
             controls.open();
             assert!(screen_at(&controls, width, height).contains(&recipient));
             press(&mut controls, KeyCode::Enter); // Change only the later harness/model.
@@ -361,7 +365,7 @@ fn long_active_model_keeps_controls_visible_at_minimum_size() {
     );
     controls.open();
     let shown = screen_at(&controls, 80, 24);
-    for text in ["F2 sends to Pi:", "END.", "s save", "esc close"] {
+    for text in ["Enter sends to Pi:", "END.", "s save", "esc close"] {
         assert!(shown.contains(text), "Missing {text}:\n{shown}");
     }
 }

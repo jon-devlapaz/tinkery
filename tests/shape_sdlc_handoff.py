@@ -69,7 +69,7 @@ def command(argv, cwd, env, expected=0):
 
 
 def shape(root, env):
-    """Draft and confirm through F2, never by writing a seed fixture."""
+    """Draft and confirm through Enter, never by writing a seed fixture."""
     sessions = root / 'TEST-sessions'
     session = helper.create(sessions)
     old = helper.load(session)
@@ -145,7 +145,7 @@ def shape(root, env):
     try:
         wait('3  shape')
         send(b'3', 'enter open')
-        send(b'\r', 'F2 look into the next question')
+        send(b'\r', 'enter look into the next question')
         # A real sample, then Seed Me's pre-mortem, come first, without a model call (#740).
         send(b'\x1bOQ', 'Paste one real example of what this will work on')
         send(b'no sample: TEST new game', 'no sample: TEST new game')
@@ -157,7 +157,7 @@ def shape(root, env):
         # F2 confirms only a draft read to the end (#250).
         send(b'\x1bOQ', "PgDn or Down to 'End of seed' first. Nothing was confirmed.")
         os.write(master, b'\x1b[6~' * 40)
-        wait('F2 confirm seed r1')
+        wait('enter confirm seed r1')
         # #739: the recorded r1 has two commandless provisionals; each needs a TEST command first.
         for i, name in enumerate(('sounds', 'mechanics'), 2):
             send(b'\x1bOQ', f'Cannot confirm: check {i}. Missing command.')
@@ -168,7 +168,7 @@ def shape(root, env):
             send(b'\x1b[200~' + typed.encode() + b'\x1b[201~', typed)
             send(b'\x1bOQ', 'Check saved. Read the changed draft, then confirm. No model ran.')
             os.write(master, b'\x1b[6~' * 40)
-            wait('F2 confirm seed r1')
+            wait('enter confirm seed r1')
         send(b'\x1bOQ', 'Seed ready: you confirmed r1, and it still matches.')
         status = helper.status(session)
         assert status['handoff']['verified'] is True

@@ -485,6 +485,12 @@ impl Shape {
     /// confirm the displayed seed with typed words, or end a session after it asked. Every other
     /// action is a row in F1 ([`Shape::pick`]). No other function key does anything.
     pub fn key(&mut self, key: KeyEvent) -> Leave {
+        // In an open session Enter runs the key bar's action; the list keeps Enter to open.
+        let key = if self.open.is_some() {
+            crate::writing_key(key)
+        } else {
+            key
+        };
         if key.kind == KeyEventKind::Release
             || matches!(key.code, KeyCode::F(n) if n != 2 || key.kind == KeyEventKind::Repeat)
         {
@@ -617,7 +623,7 @@ impl Shape {
                     }
                     KeyCode::Enter if matches!(typing.act, Act::Confirm { .. }) => {
                         open.notice = Some((
-                            "F2 confirms the seed; Enter does not add a line.".into(),
+                            "Enter confirms the seed; ^J adds no line here.".into(),
                             None,
                         ));
                         return Leave::Stay;
@@ -732,15 +738,15 @@ impl Shape {
                 }),
                 _,
             ) => match ending {
-                Ending::Completed => "F2 end for good   esc keep it".to_owned(),
-                Ending::Stopped => "F2 stop for good   esc keep it".to_owned(),
+                Ending::Completed => "enter end for good   esc keep it".to_owned(),
+                Ending::Stopped => "enter stop for good   esc keep it".to_owned(),
             },
             (Some(open), _) if open.form.is_some() => {
                 format!("{}   esc cancel", open.form.as_ref().unwrap().bar())
             }
             (Some(open), _) if open.choosing.is_some() => {
                 format!(
-                    "{}enter newline   F2 use folder   esc cancel",
+                    "{}^J newline   enter use folder   esc cancel",
                     if overflow { "pgup/dn read   " } else { "" }
                 )
             }
@@ -753,7 +759,7 @@ impl Shape {
                             ..
                         }),
                         _,
-                    ) => Some("F2 save + compare".to_owned()),
+                    ) => Some("enter save + compare".to_owned()),
                     (
                         Some(_),
                         Some(Typing {
@@ -761,7 +767,7 @@ impl Shape {
                             ..
                         }),
                         _,
-                    ) => Some("F2 save + redraft".to_owned()),
+                    ) => Some("enter save + redraft".to_owned()),
                     (
                         _,
                         Some(Typing {
@@ -769,7 +775,7 @@ impl Shape {
                             ..
                         }),
                         _,
-                    ) => Some("F2 save check".to_owned()),
+                    ) => Some("enter save check".to_owned()),
                     (
                         Some(_),
                         Some(Typing {
@@ -777,7 +783,7 @@ impl Shape {
                             ..
                         }),
                         _,
-                    ) => Some("F2 keep with reason".to_owned()),
+                    ) => Some("enter keep with reason".to_owned()),
                     (
                         Some(_),
                         Some(Typing {
@@ -787,9 +793,9 @@ impl Shape {
                         _,
                     ) => Some(
                         if overflow || open.offers_answers() {
-                            "F2 save + look"
+                            "enter save + look"
                         } else {
-                            "F2 save answer and look into next"
+                            "enter save answer and look into next"
                         }
                         .to_owned(),
                     ),
@@ -800,7 +806,7 @@ impl Shape {
                             ..
                         }),
                         _,
-                    ) if open.read_end.is_some() => Some(format!("F2 confirm seed {r}")),
+                    ) if open.read_end.is_some() => Some(format!("enter confirm seed {r}")),
                     (
                         Some(_),
                         None,
@@ -808,7 +814,7 @@ impl Shape {
                             stage: Shaped::Waiting,
                             ..
                         })),
-                    ) => Some("F2 look into the next question".to_owned()),
+                    ) => Some("enter look into the next question".to_owned()),
                     _ => None,
                 };
                 let mut keys = Vec::new();
@@ -854,7 +860,7 @@ impl Shape {
                     if tight.width() > frame.area().width.saturating_sub(4) as usize {
                         tight
                             .replace("pgup/dn read", "pgup/dn")
-                            .replace("F2 save + look", "F2 answer")
+                            .replace("enter save + look", "enter answer")
                     } else {
                         tight
                     }
@@ -1785,7 +1791,7 @@ fn render_open(
                     notice: Some((
                         "",
                         Some(format!(
-                            "Next: F2 uses this folder; Esc keeps {}.",
+                            "Next: Enter uses this folder; Esc keeps {}.",
                             name.as_deref().unwrap_or_default()
                         )),
                     )),
@@ -1976,7 +1982,7 @@ fn render_open(
         editor.render(frame, input_area, palette, open.running.is_some());
         if label == Some("your words") && editor.text().is_empty() && open.read_end.is_some() {
             frame.render_widget(
-                Paragraph::new("type confirm, then F2").style(palette.muted),
+                Paragraph::new("type confirm, then Enter").style(palette.muted),
                 Rect {
                     height: input_area.height.min(1),
                     ..input_area
@@ -2102,11 +2108,11 @@ fn asked(ending: Ending) -> (String, Option<String>) {
     match ending {
         Ending::Completed => (
             "End this session as completed? It becomes read-only for good, and tend no longer lists it; Approve still offers its seed.".into(),
-            Some("Next: F2 ends it; Esc keeps it open.".into()),
+            Some("Next: Enter ends it; Esc keeps it open.".into()),
         ),
         Ending::Stopped => (
             "Stop this session? It becomes read-only for good and tend no longer lists it; its open questions stay recorded.".into(),
-            Some("Next: F2 stops it; Esc keeps it open.".into()),
+            Some("Next: Enter stops it; Esc keeps it open.".into()),
         ),
     }
 }
@@ -2261,7 +2267,7 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                 palette.muted,
             ));
             Some(if acts {
-                "Next: type why, then F2 keeps the answer unchanged with your reason.".into()
+                "Next: type why, then Enter keeps the answer unchanged with your reason.".into()
             } else {
                 SETUP.into()
             })
@@ -2354,7 +2360,8 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                 }
             }
             Some(if acts {
-                "Next: type your answer, then F2 saves it and looks into the next question.".into()
+                "Next: type your answer, then Enter saves it and looks into the next question."
+                    .into()
             } else {
                 SETUP.into()
             })
@@ -2377,7 +2384,7 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                 ));
             }
             Some(if acts {
-                "Next: F2 looks into the next question.".into()
+                "Next: Enter looks into the next question.".into()
             } else {
                 SETUP.into()
             })
@@ -2402,10 +2409,10 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
             }
             match (acts, revision) {
                 (true, _) if words == Some("your teach-back") => {
-                    Some("Next: F2 saves your words and compares with the draft.".into())
+                    Some("Next: Enter saves your words and compares with the draft.".into())
                 }
                 (true, _) if words == Some("your change") => {
-                    Some("Next: F2 saves your change and redrafts the seed.".into())
+                    Some("Next: Enter saves your change and redrafts the seed.".into())
                 }
                 // The key bar owns the next action, including while a refusal is shown.
                 (true, Some(_)) => None,

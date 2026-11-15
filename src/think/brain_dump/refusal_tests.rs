@@ -34,10 +34,10 @@ fn every_fixed_refusal_fits_the_status_rows_of_the_narrowest_pane() {
         "Stop or cancel voice before reviewing a goal.",
         layout::SAVE_NEEDS_REAL,
         "Still thinking; review once the reading is back.",
-        "Send (F2) or clear your unsent words, then review.",
-        "A reply is waiting; F2 applies it, then review.",
-        "The reading is behind your words; F2 retries, then review.",
-        "No reading to review yet; F2 sends your words.",
+        "Send (Enter) or clear your unsent words, then review.",
+        "A reply is waiting; Enter applies it, then review.",
+        "The reading is behind your words; Enter retries, then review.",
+        "No reading to review yet; Enter sends your words.",
         "No goal to review yet; parts remain open.",
         "Read to the end first: PgDn scrolls. Then type confirm and Enter.",
         "Type confirm, then Enter. Nothing saved.",
@@ -45,7 +45,7 @@ fn every_fixed_refusal_fits_the_status_rows_of_the_narrowest_pane() {
         "Still thinking; new typing is kept for your next submit.",
         "Answer the added-words scope question first; your draft stays local.",
         "Earlier words are too long.\nWords kept. F1: copy elsewhere.",
-        "Too long to send. Words kept.\nCtrl-A/C copy; replace, F2.",
+        "Too long to send. Words kept.\nCtrl-A/C copy; replace, Enter.",
         "Added words remain unresolved; answer their scope question before reshaping.",
         layout::EMPTY_SEND_TEXT,
         "Copy exceeds 128 KiB; not sent.",
@@ -69,7 +69,7 @@ fn every_fixed_refusal_fits_the_status_rows_of_the_narrowest_pane() {
 fn review_blocked_by_unsent_words_says_so_on_the_normal_screen_and_keeps_them() {
     for (w, h) in SIZES {
         for no_color in [false, true] {
-            const WHY: &str = "Send (F2) or clear your unsent words, then review.";
+            const WHY: &str = "Send (Enter) or clear your unsent words, then review.";
             let mut a = board();
             let goal = a.conversation.board().unwrap().parts.compose();
             a.input = Note::new("one more constraint");
@@ -108,7 +108,8 @@ fn other_review_refusals_name_their_own_reason() {
         ready(&mut a);
         a.review_goal();
         assert!(
-            shown(&mut a, w, h, false).contains("A reply is waiting; F2 applies it, then review.")
+            shown(&mut a, w, h, false)
+                .contains("A reply is waiting; Enter applies it, then review.")
         );
 
         let mut a = board();
@@ -116,7 +117,7 @@ fn other_review_refusals_name_their_own_reason() {
         a.review_goal();
         let screen = shown(&mut a, w, h, false);
         assert!(
-            screen.contains("The reading is behind your words; F2 retries, then review.")
+            screen.contains("The reading is behind your words; Enter retries, then review.")
                 && !screen.contains("Reading couldn't be updated."),
             "the refusal wins the status row: {screen}"
         );

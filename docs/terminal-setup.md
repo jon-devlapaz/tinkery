@@ -54,17 +54,17 @@ more terminal output. When reporting a rendering problem, include the terminal a
 its version, `stty size`, the selected font, and a screenshot before and after
 Ctrl-L. Leave out credentials and private data.
 
-## Function keys
+## Keys
 
-Think and Shape share one key map: F2 runs the action the key bar names, F1 lists every
+Think and Shape share one key map: **Enter** runs the action the key bar names, and
+**Ctrl+J** adds a new line. Shift+Enter and Alt+Enter also add a line in terminals that
+report them (kitty keyboard protocol). Pasted line breaks never run an action. F1 lists every
 other action allowed now with a number (press the number to run it), and Esc goes back.
-F6 speaks with local voice. On a Mac keyboard you may need to hold **fn**, or enable
-**Use F1, F2, etc. keys as standard function keys** in System Settings → Keyboard.
-The terminal must also pass function keys through rather than binding them itself.
+In a fresh Think input, **Ctrl+S** keeps the exact words as a thought; nothing reads them.
 
-Where a host keeps F2 (herdr, macOS), **Cmd+Enter** does the same in terminals that report it
-(Ghostty, kitty, WezTerm, iTerm2 with its CSI u reporting on), and **Ctrl+Alt+S** does it in any
-terminal that sends Alt (on macOS, set Option to act as Meta or Esc+).
+F2, Cmd+Enter (in terminals that report it) and Ctrl+Alt+S still run the key bar's action,
+and F3 still keeps a thought. Other screens still name F2 on their key bars. On a Mac keyboard
+F keys can need **fn**, and some hosts keep them; Herdr Desktop keeps F2.
 
 Local voice also answers to **Ctrl+Alt+Z** (⌃⌥Z on macOS), for hosts that capture F6.
 

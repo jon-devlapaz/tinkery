@@ -269,7 +269,9 @@ impl Controls {
             None => panel.draft.model.clone(),
         };
         let recipient = match &self.active {
-            Some((setup, _)) => format!("F2 sends to {}: {}.", setup.harness.label(), setup.model),
+            Some((setup, _)) => {
+                format!("Enter sends to {}: {}.", setup.harness.label(), setup.model)
+            }
             None => "This launch: practice; no model requests.".into(),
         };
         let mut lines = vec![

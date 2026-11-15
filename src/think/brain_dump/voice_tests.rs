@@ -909,11 +909,9 @@ fn voice_capture_cannot_save_a_thought() {
     app.paste("TEST typed original");
     start(&mut app, &fake);
     key(&mut app, KeyCode::F(3));
+    app.handle_key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL));
     assert!(!store.exists());
     assert_eq!(*app.exit(), Exit::Stay);
-    assert!(
-        snapshot(100, 30, &mut app, true)
-            .unwrap()
-            .contains("Thought saving is available only")
-    );
+    let shown = snapshot(100, 30, &mut app, true).unwrap();
+    assert!(!shown.contains("keep thought"), "{shown}");
 }

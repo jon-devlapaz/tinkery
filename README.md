@@ -37,11 +37,11 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
 
 - **Think:** clarify a dump and explicitly save the confirmed goal, unchanged, to
   `~/.local/share/tinkery/sessions/` with a record in `~/.local/share/tinkery/think/`.
-  Questions offer a suggested answer when available: F1 can copy it for editing; F2 sends.
+  Questions offer a suggested answer when available: F1 can copy it for editing; Enter sends.
   When started in Git, the menu names the repository and the record keeps its origin.
 - **Tend:** active goals form a needs graph. Link or unlink goals, open detail, or copy
   Shape without changing saved sessions. In this repository, `t` opens fresh Think.
-  Before sending, `F3` saves exact words and opens Tend without a model call or goal confirmation. `v` reads thoughts;
+  Before sending, `Ctrl+S` keeps exact words as a thought and opens Tend without a model call or goal confirmation. `v` reads thoughts;
   `g` opens one in Think, unsent. The thought stays on record after goal confirmation.
   In this repository, press `f` to review an
   automatic connection between goals. An explicit `F2` uses one drafting request.
@@ -53,7 +53,7 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
 - **Shape:** press `s` in goal detail or choose menu place 3 to see the current question,
   waiting draft or verified ready seed. With real drafting set up
   ([terminal setup](docs/terminal-setup.md#launch)), the saved calls or `--shape-budget CALLS` (default zero)
-  set the launch allowance shared by Think, Tend connections and Shape. `F2` saves an answer and lets an agent investigate the next with
+  set the launch allowance shared by Think, Tend connections and Shape. Enter saves an answer and lets an agent investigate the next with
   read-only tools, and confirms the seed when you type `confirm` after reading it to the end; F1 Revise the draft
   sends a correction back for a new draft.
   Agents operate Think and Shape with `--operator agent`; their saves are
@@ -114,7 +114,7 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   `e` shows checks, owed gates, the whole goal, IDs and evidence. For PR results,
   `o` opens the PR and `a`/`c` copy external review handoffs. Once a person accepts
   the result elsewhere, `l` reports that decision for this view and
-  reveals one italic next-dump guess; `t` opens it for editing in Think. Only F2 sends.
+  reveals one italic next-dump guess; `t` opens it for editing in Think. Only Enter sends.
   No unmet conditions means observe the accepted behavior, not invent another feature.
   See [Taste](docs/design/taste.md).
 - **Measure:** `r` explicitly reads this repo's PRs updated in the last 30 days from
@@ -147,8 +147,8 @@ export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PWD/.cloud-tools/node/bin:$PATH"
 cargo +stable run --locked -- --home
 ```
 
-Think is practice: no model calls or saved goals. Fresh menu Think saves thoughts only on `F3`
-and writes needs only when you explicitly link or unlink. F2 (or Cmd+Enter, Ctrl+Alt+S; see [Function keys](docs/terminal-setup.md#function-keys)) sends, Enter adds a line, F1 lists what else you can do, Esc returns to the menu.
+Think is practice: no model calls or saved goals. Fresh menu Think saves thoughts only on `Ctrl+S`
+and writes needs only when you explicitly link or unlink. Enter sends, Ctrl+J adds a line (see [Keys](docs/terminal-setup.md#keys)), F1 lists what else you can do, Esc returns to the menu.
 Add `--snapshot` for text output.
 
 Real drafting needs a model and an explicitly authorized call allowance; provider

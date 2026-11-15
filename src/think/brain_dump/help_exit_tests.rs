@@ -15,14 +15,14 @@ fn help_leads_with_numbered_actions_then_context() {
     let mut a = BrainDump::default();
     assert_eq!(
         layout::help_text(&a),
-        "Right now\nType, then F2 sends it.\n\nF1 close"
+        "Right now\nType, then Enter sends it.\n\nF1 close"
     );
     a = board();
     a.screen.help = true;
     let text = layout::help_text(&a);
     assert!(
         text.starts_with("Right now\n1  Review the goal\n2  Skip this question\n")
-            && text.contains("\n\nType your answer.\nF2 sends."),
+            && text.contains("\n\nType your answer.\nEnter sends."),
         "{text}"
     );
     for gone in [

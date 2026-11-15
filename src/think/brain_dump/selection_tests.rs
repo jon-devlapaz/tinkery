@@ -129,11 +129,15 @@ fn a_stale_original_selection_is_never_copied_after_any_focus_change() {
     );
     ctrl_c(&mut a);
     assert!(a.take_copy_request().is_none());
-    // Enter, Backspace and Delete in the original also return to writing first.
-    for code in [KeyCode::Enter, KeyCode::Backspace, KeyCode::Delete] {
+    // A new line, Backspace and Delete in the original also return to writing first.
+    for (code, modifiers) in [
+        (KeyCode::Char('j'), KeyModifiers::CONTROL),
+        (KeyCode::Backspace, KeyModifiers::NONE),
+        (KeyCode::Delete, KeyModifiers::NONE),
+    ] {
         key(&mut a, KeyCode::Tab);
         shift_right(&mut a, 3);
-        key(&mut a, code);
+        press(&mut a, code, modifiers);
         assert!(
             !a.screen.board_focus && a.screen.selection.is_none(),
             "{code:?}"
@@ -276,7 +280,7 @@ fn typing_paste_enter_and_delete_replace_the_selection_atomically() {
     a.paste("S\r\nx\u{1b}[0m");
     assert_eq!(a.input.text, "keep S\r\nx\u{1b}[0m keep");
     a.input.select_all();
-    key(&mut a, KeyCode::Enter);
+    press(&mut a, KeyCode::Char('j'), KeyModifiers::CONTROL);
     assert_eq!(a.input.text, "\n");
     a.input = Note::new("abcdef");
     a.input.cursor = 1;
@@ -721,7 +725,7 @@ fn large_paste_is_local_and_encoded_refusal_shows_before_the_first_send() {
         a.submit();
         let shown = snapshot(w, h, &mut a, true).unwrap();
         assert!(
-            shown.contains("Too long to send") && shown.contains("replace, F2"),
+            shown.contains("Too long to send") && shown.contains("replace, Enter"),
             "{w}x{h}\n{shown}"
         );
         assert_eq!(a.input.text.len(), REQUEST_LIMIT);

@@ -61,7 +61,7 @@ def journey(width, height, criteria, no_color):
             os.write(master, b'UNSENT ANSWER\x1bOP')
             wait(lambda s: 'Why: attempts and checks' in s)
             os.write(master, screen.pick('Why: attempts and checks'))
-            wait(lambda s: 'Success criteria' in s and 'F2 send' in s)
+            wait(lambda s: 'Success criteria' in s and 'enter send' in s)
             right = ' '.join(' '.join(line[width * 48 // 100 + 2:]
                                      for line in screen.text().splitlines()).split())
             assert f'Success criteria {criteria or "Not yet captured"}' in right, screen.text()
@@ -86,7 +86,7 @@ def journey(width, height, criteria, no_color):
             assert process.returncode == 0
             print(json.dumps(dict(width=width, height=height, criteria_present=criteria is not None,
                                   no_color=no_color, provider='fake; zero real calls',
-                                  journey='F2/F1 Why/Esc/F1 copy captured OSC52/unsent answer/no save')))
+                                  journey='Enter/F1 Why/Esc/F1 copy captured OSC52/unsent answer/no save')))
         finally:
             if process.poll() is None:
                 process.kill()

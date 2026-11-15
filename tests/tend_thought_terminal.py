@@ -3,9 +3,10 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import time
 
 import test_launch as subprocess
-from terminal_process import TerminalProcess
+from terminal_process import TerminalProcess, wait_output
 import tend_connection_terminal as flow
 
 REPO = Path(__file__).resolve().parents[1]
@@ -59,12 +60,18 @@ def journey(size):
             screen = term.screen.text()
             assert 't think' in screen, screen
             assert '↑↓←→ move   enter open   f connections   l link   esc back' in screen, screen
-            flow.send(term, b't', 'F3 Save thought and open Tend')
+            flow.send(term, b't', 'keep thought')
             screen = term.screen.text()
-            assert str(repo) in ''.join(screen.split()) and 'no model call' in screen, screen
+            assert 'tinkery · repo' in screen.splitlines()[1], screen
+            assert 'enter clarify goal' in screen.splitlines()[-1], screen
+            assert 'F3' not in screen and 'no model call' not in screen, screen
             paste(term, WORDS)
-            assert not saved(root)
-            flow.send(term, b'\x1bOR', 'Thoughts:')
+            # Ctrl+J is a raw line feed: a new line, never a send. Backspace removes it again.
+            flow.send(term, b'\n', 'enter clarify goal')
+            flow.send(term, b'\x7f', 'enter clarify goal')
+            assert not saved(root) and not flow.requests(root)
+            # Ctrl+S is a raw DC3 byte in raw mode.
+            flow.send(term, b'\x13', 'Thoughts:')
             flow.send(term, b'v', 'Saved thoughts')
             assert len(saved(root)) == 1
             assert json.loads(saved(root)[0].read_bytes())['words'].encode() == WORDS.encode(), 'Saved words differ from typed words'
@@ -80,13 +87,13 @@ def journey(size):
             flow.wait(term, 'Thoughts: 1')
             flow.send(term, b'v', 'Thought 1 of 1')
             flow.send(term, b'\x1b', 'Thoughts: 1')
-            flow.send(term, b't', 'F3 Save thought and open Tend')
+            flow.send(term, b't', 'keep thought')
             paste(term, WORDS)
             flow.send(term, b'\x1bOR', 'Thoughts: 1')
             flow.send(term, b'v', 'Saved thoughts')
             assert len(saved(root)) == 1
             flow.send(term, b'\x1b', 'Thoughts: 1')
-            flow.send(term, b't', 'F3 Save thought and open Tend')
+            flow.send(term, b't', 'keep thought')
             paste(term, 'TEST cancelled thought')
             flow.send(term, b'\x1b', 'Back to menu and lose')
             flow.send(term, b'y', '1  think')
@@ -102,7 +109,7 @@ def journey(size):
         try:
             flow.send(term, b'v', 'No thoughts saved.')
             flow.send(term, b'\x1b', 'this repo')
-            flow.send(term, b't', 'F3 Save thought and open Tend')
+            flow.send(term, b't', 'keep thought')
             paste(term, WORDS)
             flow.send(term, b'\x1bOR', 'Thoughts:')
             flow.send(term, b'v', 'Saved thoughts')
@@ -134,7 +141,7 @@ def save_feedback(size, unreadable_records=False, evidence=None):
         term = launch(root, repo, size, provider=True, budget=0)
         try:
             for words in ['A TEST first thought', 'B TEST second thought']:
-                flow.send(term, b't', 'F3 Save thought and open Tend')
+                flow.send(term, b't', 'keep thought')
                 paste(term, words)
                 flow.send(term, b'\x1bOR', 'Thoughts:')
             if unreadable_records:
@@ -146,7 +153,7 @@ def save_feedback(size, unreadable_records=False, evidence=None):
                 ('B TEST second thought', 'Thought already saved.', 2),
             ]:
                 before = {p: p.read_bytes() for p in saved(root)}
-                flow.send(term, b't', 'F3 Save thought and open Tend')
+                flow.send(term, b't', 'keep thought')
                 paste(term, words)
                 screen = flow.send(term, b'\x1bOR', outcome)
                 if evidence is not None:
@@ -181,7 +188,7 @@ def save_feedback(size, unreadable_records=False, evidence=None):
                 assert outcome not in screen, screen
                 assert not flow.requests(root)
             # A new save notice also clears when Tend closes, without opening the reader.
-            flow.send(term, b't', 'F3 Save thought and open Tend')
+            flow.send(term, b't', 'keep thought')
             paste(term, 'Z TEST newly saved thought')
             flow.send(term, b'\x1bOR', 'Thought already saved.')
             flow.send(term, b'\x1b', '1  think')
@@ -202,7 +209,7 @@ def unwritable(size):
         (root/'links').write_text('TEST not a directory')
         term = launch(root, repo, size)
         try:
-            flow.send(term, b't', 'F3 Save thought and open Tend')
+            flow.send(term, b't', 'keep thought')
             paste(term, 'TEST keep unsaved words')
             flow.send(term, b'\x1bOR', 'File exists')
             assert 'TEST keep unsaved words' in term.screen.text()
@@ -219,7 +226,7 @@ def unreadable(size):
         repo = flow.fixture(root)
         term = launch(root, repo, size)
         try:
-            flow.send(term, b't', 'F3 Save thought and open Tend')
+            flow.send(term, b't', 'keep thought')
             paste(term, 'TEST readable thought')
             flow.send(term, b'\x1bOR', 'Thoughts:')
             flow.send(term, b'v', 'Saved thoughts')
@@ -261,7 +268,7 @@ def promotion(size):
         (root/'fake-pi').write_text(THINK_HOST)
         term = launch(root, repo, size, provider=True)
         try:
-            flow.send(term, b't', 'F3 Save thought and open Tend')
+            flow.send(term, b't', 'keep thought')
             paste(term, WORDS)
             flow.send(term, b'\x1bOR', 'Thoughts:')
             flow.send(term, b'v', 'Saved thoughts')
@@ -275,7 +282,27 @@ def promotion(size):
             flow.send(term, term.screen.pick('Review the goal'), 'You are confirming')
             os.write(term.master, b'\x1b[6~'*30)
             flow.wait(term, 'confirm')
-            flow.send(term, b'confirm\r', 'Saved.')
+            flow.send(term, b'confirm', 'confirm')
+            before = {p: p.read_bytes() for folder in ['sessions', 'records']
+                      for p in (root/folder).rglob('*') if p.is_file()}
+            calls = (repo/'provider-calls').read_bytes()
+            for chord in [b'\x1b[13;2u', b'\x1b[13;3u', b'\x1b\r', b'\x1b[13;5u',
+                          b'\x1b[106;5u', b'\n', b'\x1b[13;1:2u']:
+                screen = flow.send(term, chord, 'Press plain Enter to confirm.')
+                assert 'Saved.' not in screen, screen
+                assert {p: p.read_bytes() for folder in ['sessions', 'records']
+                        for p in (root/folder).rglob('*') if p.is_file()} == before
+                assert (repo/'provider-calls').read_bytes() == calls
+                # Clear the refusal before the next key, so an old frame cannot pass it.
+                os.write(term.master, b'\x7fm')
+                for code in wait_output(term.master, term.process, term.screen.feed, time.monotonic()+15):
+                    if not term.screen.synchronized and 'Press plain Enter' not in term.screen.text():
+                        break
+                    if code is not None:
+                        raise AssertionError(term.screen.text())
+                else:
+                    raise AssertionError('Confirmation refusal did not clear')
+            flow.send(term, b'\r', 'Saved.')
             records = [json.loads(p.read_bytes()) for p in (root/'records').glob('*.json')]
             record = next(r for r in records if r['origin'] == 'live')
             assert record['turns'][0]['text'].encode() == WORDS.encode()
@@ -330,7 +357,7 @@ def capture_guards(size):
             original = {p: p.read_bytes() for p in (root/'sessions').rglob('*') if p.is_file()}
             term = launch(root, repo, size, provider=True, budget=budget)
             try:
-                flow.send(term, b't', 'F3 Save thought and open Tend')
+                flow.send(term, b't', 'keep thought')
                 flow.send(term, b'\x1bOR', 'Write a thought of 1 to 131072 bytes')
                 assert not saved(root)
                 paste(term, WORDS)
@@ -338,7 +365,7 @@ def capture_guards(size):
                 os.write(term.master, b'\x1bOR')
                 flow.wait(term, 'Right now')
                 assert not saved(root)
-                flow.send(term, b'\x1b', 'F3 Save thought and open Tend')
+                flow.send(term, b'\x1b', 'keep thought')
                 flow.send(term, b'\x1bOR', 'Thoughts: 1')
                 flow.send(term, b'v', 'Saved thoughts')
                 flow.send(term, b'g', "What's on your mind?")
@@ -349,7 +376,7 @@ def capture_guards(size):
                 paste(term, 'TEST appended copy')
                 flow.send(term, b'\x1bOR', 'Thoughts: 2')
                 assert {json.loads(p.read_bytes())['words'] for p in saved(root)} == {WORDS, WORDS+'TEST appended copy'}
-                flow.send(term, b't', 'F3 Save thought and open Tend')
+                flow.send(term, b't', 'keep thought')
                 paste(term, 'TEST cancelled fresh thought')
                 flow.send(term, b'\x1b', 'Back to menu and lose')
                 flow.send(term, b'y', '1  think')
@@ -360,9 +387,10 @@ def capture_guards(size):
                 term.close()
             term = launch(root, repo, size, provider=True, budget=budget, home=False)
             try:
-                flow.wait(term, 'Open --home to save a thought in Tend.')
+                flow.wait(term, "What's on your mind?")
+                assert 'keep thought' not in term.screen.text(), term.screen.text()
                 paste(term, 'TEST standalone unsaved')
-                flow.send(term, b'\x1bOR', 'Open --home to save a thought in Tend.')
+                flow.send(term, b'\x13', 'Open --home to save a thought in Tend.')
                 assert 'TEST standalone unsaved' in term.screen.text()
                 assert len(saved(root)) == 2
                 assert not flow.requests(root)

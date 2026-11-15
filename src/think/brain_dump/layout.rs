@@ -11,7 +11,7 @@ pub(super) const LIMIT_TEXT: &str = "Edit not accepted; words unchanged.";
 pub(super) const SCOPE_REFUSAL: &str =
     "Answer the skipped scope question first: F1 brings it back.";
 /// Empty sends need one next step, without a permanent warning on the blank screen.
-pub(super) const EMPTY_SEND_TEXT: &str = "Write something, then F2 sends it.";
+pub(super) const EMPTY_SEND_TEXT: &str = "Write something, then Enter sends it.";
 /// A review invitation, not a claim that the reading captured every requirement.
 const READY_FOR_REVIEW: &str = "Ready for your review.";
 /// Notices that report a finished action and stay on the status row until replaced. Other
@@ -95,32 +95,14 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         };
         frame.render_widget(
             Paragraph::new(if app.conversation.has_draft_suggestion() {
-                "Tinkery's guess · edit freely · F2 sends"
+                "Tinkery's guess · edit freely · Enter sends"
             } else {
                 "What's on your mind?"
             })
             .style(palette.muted),
             Rect::new(4, 5, width, 1),
         );
-        let capture = if app.handoff.thoughts.is_none() {
-            "Open --home to save a thought in Tend.".to_string()
-        } else if !app.thought_ready() {
-            "Thought saving is available only in the fresh input view.".into()
-        } else if let Some(repo) = app.repo() {
-            format!(
-                "F3 Save thought and open Tend · no model call\nRepository: {}",
-                repo.root().display()
-            )
-        } else {
-            "Save thought unavailable: no repository.".into()
-        };
-        let capture = Paragraph::new(capture)
-            .style(palette.muted)
-            .wrap(Wrap { trim: false });
-        let rows = capture.line_count(width).min(4) as u16;
-        frame.render_widget(capture, Rect::new(4, 6, width, rows));
-        app.screen.input_area =
-            Rect::new(4, 7 + rows, width, area.height.saturating_sub(11 + rows));
+        app.screen.input_area = Rect::new(4, 8, width, area.height.saturating_sub(12));
         render_input(frame, app, palette);
         if app.screen.refused.is_some() {
             // Show only a refusal, never the initial status as permanent clutter.
@@ -434,7 +416,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         } else {
             concat!(
                 "Nothing was sent; all words stay here.\n",
-                "Ctrl-A then Ctrl-C copies the full draft. Deliberately replace it with fewer words, then F2 sends once. ",
+                "Ctrl-A then Ctrl-C copies the full draft. Deliberately replace it with fewer words, then Enter sends once. ",
                 "The model may still refuse."
             )
         }
@@ -453,23 +435,23 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     } else if app.running() {
         "Reading your words. Keep writing if you like.\nEsc cancels."
     } else if app.conversation.sources().is_empty() {
-        "Type, then F2 sends it."
+        "Type, then Enter sends it."
     } else if app.shaping.ready.is_some() {
-        "A new reading is ready.\nF2 when you want it."
+        "A new reading is ready.\nEnter when you want it."
     } else if app
         .conversation
         .scope_pending()
         .is_some_and(|(_, q)| app.conversation.available(q))
     {
-        "Answer the question about your added words.\nF2 sends."
+        "Answer the question about your added words.\nEnter sends."
     } else if app.conversation.last_failure().is_some() {
-        "The reading failed; your words are safe.\nF2 tries again."
+        "The reading failed; your words are safe.\nEnter tries again."
     } else if app.add_more {
-        "Type a new dump.\nF2 sends it."
+        "Type a new dump.\nEnter sends it."
     } else if app.conversation.board().is_none()
         && app.conversation.applied() < app.conversation.sources().len()
     {
-        "Your words haven't been read yet.\nF2 tries again."
+        "Your words haven't been read yet.\nEnter tries again."
     } else if app.conversation.focused_question().is_none() {
         let composed = app.conversation.board().is_some_and(|g| g.goal().is_some());
         open_now = format!(
@@ -480,12 +462,12 @@ pub(super) fn help_text(app: &BrainDump) -> String {
             } else if composed && !app.can_save() {
                 SAVE_NEEDS_REAL
             } else {
-                "You can add words, then F2 sends."
+                "You can add words, then Enter sends."
             }
         );
         open_now.as_str()
     } else {
-        "Type your answer.\nF2 sends."
+        "Type your answer.\nEnter sends."
     };
     let left = app.host.calls_left().map_or_else(String::new, |left| {
         format!("\n{left}\nOne send may use two drafting runs: reading and decision review.")
@@ -516,7 +498,7 @@ pub(super) fn how_text(app: &BrainDump) -> String {
     let diagnostics = app.diagnostics().join("\n\n");
     let saving = "Only typing confirm saves. It keeps your goal and a record of this conversation, and starts no work. Leave without confirming and nothing is kept.";
     format!(
-        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nSending\n{}\nNothing runs on its own and nothing retries. Ctrl-C cancels a send.\n\nSaving\n{saving}\n\nAfter saving\nOpen Shape from Tend.\n\nWords\nItalic is my guess at what you meant; upright is exactly what you typed.\n\nKeys\nF2 sends. F1 lists everything else you can do now; press its number. Esc goes back, or leaves and asks first if words would be lost. Enter starts a new line. Tab switches between writing and your original. Shift-arrows or drag select, Ctrl-A selects all, Ctrl-C copies, Ctrl-E extracts a selection to a card. PgUp/PgDn scroll the reading; Ctrl-PgUp/PgDn switch originals. b in help hides the key bar. Ctrl-T switches dark or light. Ctrl-L repaints. Mac F-keys may need fn.{}\n\nLast result\n{}",
+        "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nSending\n{}\nNothing runs on its own and nothing retries. Ctrl-C cancels a send.\n\nSaving\n{saving}\n\nAfter saving\nOpen Shape from Tend.\n\nWords\nItalic is my guess at what you meant; upright is exactly what you typed.\n\nKeys\nEnter sends. F1 lists everything else you can do now; press its number. Esc goes back, or leaves and asks first if words would be lost. Ctrl-J or Shift-Enter starts a new line. Ctrl-S keeps a fresh input as a thought; nothing reads it. Tab switches between writing and your original. Shift-arrows or drag select, Ctrl-A selects all, Ctrl-C copies, Ctrl-E extracts a selection to a card. PgUp/PgDn scroll the reading; Ctrl-PgUp/PgDn switch originals. b in help hides the key bar. Ctrl-T switches dark or light. Ctrl-L repaints. Mac F-keys may need fn.{}\n\nLast result\n{}",
         if app.real {
             "Real: your words go to the model you chose and may cost money."
         } else {
@@ -554,9 +536,17 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
     } else {
         let mut items = if app.running() {
             vec![("esc", "cancel")]
+        } else if app.conversation.sources().is_empty() {
+            vec![("enter", "clarify goal")]
         } else {
-            vec![("F2", "send")]
+            vec![("enter", "send")]
         };
+        if app.thought_ready() && matches!(app.handoff.thoughts, Some(Ok(_))) {
+            items.push(("^S", "keep thought"));
+        }
+        if !app.running() {
+            items.push(("^J", "newline"));
+        }
         if !app.rows().is_empty() {
             items.push(("F1", "more"));
         }
@@ -578,8 +568,19 @@ pub(super) fn render_key_bar(frame: &mut Frame, app: &BrainDump, palette: Palett
     {
         return;
     }
+    let mut items = key_bar_items(app);
+    // The new-line hint is the first to go when a narrow bar would cut off Esc; `?` names it.
+    let width = |items: &[(&str, &str)]| {
+        items
+            .iter()
+            .map(|(key, label)| key.chars().count() + label.chars().count() + 4)
+            .sum::<usize>()
+    };
+    if width(&items) > area.width.saturating_sub(4) as usize + 3 {
+        items.retain(|item| *item != ("^J", "newline"));
+    }
     let mut spans = vec![];
-    for (i, (key, label)) in key_bar_items(app).into_iter().enumerate() {
+    for (i, (key, label)) in items.into_iter().enumerate() {
         if i > 0 {
             spans.push(ratatui::text::Span::raw("   "));
         }
@@ -594,17 +595,25 @@ pub(super) fn render_key_bar(frame: &mut Frame, app: &BrainDump, palette: Palett
         Rect::new(2, area.height - 1, area.width - 4, 1),
     );
 }
-pub(super) fn render_header(frame: &mut Frame, palette: Palette) {
+/// Paints the header and returns the column after its name, where the declaration may start.
+pub(super) fn render_header(frame: &mut Frame, app: &BrainDump, palette: Palette) -> u16 {
     let area = frame.area();
+    let name = match app.repo().and_then(|repo| repo.root().file_name()) {
+        Some(repo) => format!("tinkery · {}", repo.to_string_lossy()),
+        None => "tinkery".into(),
+    };
+    let name = crate::clipped(&name, 30);
+    let width = unicode_width::UnicodeWidthStr::width(name.as_str()) as u16;
     frame.render_widget(
-        Paragraph::new("tinkery").style(palette.muted),
-        Rect::new(2, 1, 7, 1).intersection(area),
+        Paragraph::new(name).style(palette.muted),
+        Rect::new(2, 1, width, 1).intersection(area),
     );
     crate::render_theme_switch(frame, palette);
     frame.render_widget(
         Paragraph::new("?").style(palette.muted),
         Rect::new(area.width.saturating_sub(3), 1, 1, 1).intersection(area),
     );
+    2 + width + 2
 }
 pub(super) fn render_leave_prompt(frame: &mut Frame, app: &BrainDump, palette: Palette) {
     if !app.screen.leave_prompt {

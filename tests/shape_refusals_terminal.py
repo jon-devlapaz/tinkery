@@ -20,7 +20,7 @@ def journey(width, height, case):
         try:
             run.open_shape()
             if recoverable:
-                run.wait('F2 look into the next question')
+                run.wait('enter look into the next question')
                 before = helper.load(session)
                 run.send(F2, 'Tink Contract r1')
                 assert helper.read_checks(session) == SEED['checks']
