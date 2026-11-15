@@ -77,6 +77,12 @@ Both new reversion probes compiled successfully and failed the intended public a
 
 The first new capture assertion joined wrapped lines without spaces. It failed on correct displayed text. The assertion now normalizes screen whitespace. This was a test assertion defect, not an additional product defect.
 
-These repairs add no provider calls or storage format changes. The existing design contract documents context navigation and final-line preservation. Human usefulness remains unobserved. Final full verification must run on the repair commit.
+These repairs add no provider calls or storage format changes. The existing design contract documents context navigation and final-line preservation. Human usefulness remains unobserved. Final full verification passed on repair commit 89b6509.
 
 The first full repair verification failed the architecture source-line limit. One new format expression exceeded 200 characters. Splitting that expression resolves the observed cause without changing behavior. All seven architecture tests then passed. The failed full log remains in `review-repair-first-full-failure.log`.
+
+## Final review-repair verification
+
+The full configured SDLC verification passed on 89b6509. It passed 1124 Rust tests with one ignored, all 39 Node tests, all 85 Python files, formatting, and Clippy with warnings denied. The current receipt covers the repaired source. The only failed full repair run was the source-line limit described above.
+
+The supervisor inspected the 80×24 capture and scrolled screens and found the repository, proposal, source context, and retained draft readable. Independent review of the repaired candidate remains the supervisor's next step. No push, PR, merge, or real model request occurred in this worker.

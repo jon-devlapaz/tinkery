@@ -1,0 +1,7 @@
+{
+  "item": "done-11",
+  "result": "passed",
+  "evidence": "Full configured verification passed on 89b6509: 1124 Rust passed, one ignored; 39 Node passed; all 85 Python files passed; fmt and Clippy passed. See 04-test/output/test-log.md and verification.json. TEST roots and fake providers only; usefulness remains unobserved.",
+  "candidate": "a1ac231f5649e1157277f4c5e2b691108554b41a71285027aeaacd841e587843",
+  "time_ns": 1794719085987204000
+}
