@@ -1,0 +1,32 @@
+{
+  "result": "passed",
+  "candidate": {
+    "head": "de96ab5d4b3833aac1d12e32c4547853b0ff750c",
+    "tree": "3914de57c200f1f60bb43978349c424ae6d5d27402cb6e33a58cf32375264eb6"
+  },
+  "inputs": "9e0a244cd454e31d2ebd7c36fda0f2bd4982b07a200496e7b5f3fae9d7dbf4b1",
+  "policy": "e893f76c10a5f08ff1fae20602123ca351c5f439b6e0583a2284c03066ba9bc6",
+  "test_lock": null,
+  "checklist": "e0dc76612aca657b20840ed89d7e4e8e757332aef7e27f0c4386770220214163",
+  "manual_marks": {
+    "done-1": "265d7841dc1df324325f8612b7d661c1b2037251c856fd2a4b2947469e3aec7c",
+    "done-2": "8bdb51b359d03782d807ed22d03ace51f9570f97b62f1829cae9fabc42b93135",
+    "done-3": "f7722eb66b7411c9a43c62a856717aff395147a6753acb4a1ca8a4351ca58beb",
+    "done-4": "fb6d9e9047e8a1665b929243b2aae0cac81565ad4d2d46c4d1b4ce7e3099a2e0",
+    "done-5": "6cb263172d0c4253555495d8370fa12ec86bad3b08b1a34000f08a2cefb4d0c4",
+    "done-6": "87d24d5397679e7633391eabe34302e2574292ccc9bff5a374a30b0e6846f8fa",
+    "done-7": "ed6c3321b8a51f2fccf05cf048c71e7810c4f7486aadf157ea58f5a2275e70f9",
+    "done-8": "62b73249a43346409832cb486c02cd818ab025265c68f65245c5a03ed8477663"
+  },
+  "checklist_items": {
+    "done-1": "attested",
+    "done-2": "attested",
+    "done-3": "attested",
+    "done-4": "attested",
+    "done-5": "attested",
+    "done-6": "attested",
+    "done-7": "attested",
+    "done-8": "attested"
+  },
+  "log": "3ee4929362f669c5b48d38f6afd5b85b4a1c3e0078a1737b8d438583007c75d6"
+}
