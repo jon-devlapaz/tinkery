@@ -135,7 +135,7 @@ def documentation():
         body = (REPO / name).read_text()
         for phrase in ('--worker-authorization', '--operator agent', 'seed', 'model', 'response cap',
                        'operator, relayed', 'cannot be verified', 'Human and undeclared F2',
-                       'Goal confirmation, seed confirmation and worker start'):
+                       'Goal confirmation, Tink confirmation and worker start'):
             assert phrase in body, (name, phrase)
     design = (REPO / 'docs/design/approve.md').read_text()
     for field in ('"words"', '"seed_sha256"', '"model"', '"responses"',

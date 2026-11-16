@@ -69,7 +69,7 @@ impl Panel {
                 let disclosure = format!(
                     "Pi model: {}\nResponse cap: {} (one response may already be in flight).\n{cap_advice}\n\
                      Checkout: {}\n\
-                     {retry}F2 uses committed source, creates the run, imports this seed, prepares an isolated build checkout, \
+                     {retry}F2 uses committed source, creates the run, imports this Tink Contract, prepares an isolated build checkout, \
                      and launches its bounded worker through tink-sdlc.\n\
                      Your goal, confirmed Tink Contract and relevant source files go to that provider. \
                      The worker may edit, run commands and commit inside its build checkout.\n\

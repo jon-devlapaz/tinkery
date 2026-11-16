@@ -13,7 +13,7 @@ use tinkery::{
     think::brain_dump::BrainDump,
 };
 
-const EMPTY: &str = "No goals are waiting for a seed.";
+const EMPTY: &str = "No goals are waiting for a Tink.";
 const OFFERED: &str = "TEST eligible goal";
 const HIDDEN: &str = "TEST ended goal";
 

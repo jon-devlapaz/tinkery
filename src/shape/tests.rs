@@ -2446,7 +2446,7 @@ fn a_question_or_seed_with_nothing_found_is_flagged() {
     assert!(!screen(&mut grounded, 100, 30, true).contains("Nothing found"));
     let seed = format!(
         "status: draft\n# Seed: TEST\nrevision: r1\n\n## You are confirming\nTEST.\n\n## What's true today\n{}\n",
-        crate::seed_me::answering::NOTHING_FOUND
+        "- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository."
     );
     let mut drafted = done(Shaped::Drafted {
         revision: Some("r1".into()),

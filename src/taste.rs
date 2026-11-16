@@ -698,7 +698,7 @@ fn goal(goal: &Goal) -> &str {
     match goal {
         Goal::Matched(text) => text,
         Goal::NoSeed => "This run has no confirmed Tink.",
-        Goal::Unknown => "Goal unknown: the original Tink Contract changed or is missing.",
+        Goal::Unknown => "Goal unknown. Tinkery could not verify the original Tink Contract.",
     }
 }
 

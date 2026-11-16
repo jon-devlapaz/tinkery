@@ -435,7 +435,7 @@ fn today(found: &[Receipt]) -> String {
 }
 
 /// What the seed's evidence section says when no step recorded a finding.
-pub const NOTHING_FOUND: &str = "- Nothing was recorded: no step said what it checked, so this Tink Contract has no repository evidence.";
+pub const NOTHING_FOUND: &str = "- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository.";
 
 /// Prose-field instructions and bundled section guidance, without conflicting artifact directions.
 /// The reference is verbatim from Seed Me c9d766760dbeac0c05c92108165f9e968bec0a66.

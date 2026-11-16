@@ -304,7 +304,7 @@ def journey(width, height, no_color, configured=True):
                     send(b'r', row['next_action'])
                     text = screen.text()
                     assert 'TEST changed goal' not in text, text
-                    unknown = "Goal unknown: the original Tink Contract changed or is missing."
+                    unknown = "Goal unknown. Tinkery could not verify the original Tink Contract."
                     absent = 'This run has no confirmed Tink.'
                     if seed_case == 'matched':
                         assert any(line.startswith('       TEST café') for line in text.splitlines()), text
@@ -332,13 +332,13 @@ def journey(width, height, no_color, configured=True):
                         send(b'r', 'TEST café')
                         with replaced_seed(file, kind):
                             started = time.monotonic()
-                            send(b'r', "Goal unknown: the original Tink Contract changed or is missing.")
+                            send(b'r', "Goal unknown. Tinkery could not verify the original Tink Contract.")
                             assert time.monotonic() - started < 2, f'non-regular {file.name} delayed Watch'
                             send(b'\r', 'Stage 3 gate: pending')
                             send(b'\x1b', 'Needs you')
                             send(b'\x1b', '1  think')
                             assert time.monotonic() - started < 2, f'non-regular {file.name} delayed Escape'
-                            send(b'5', "Goal unknown: the original Tink Contract changed or is missing.")
+                            send(b'5', "Goal unknown. Tinkery could not verify the original Tink Contract.")
                             assert 'TEST café' not in screen.text()
                         send(b'r', 'TEST café')
                 # Regular symlink targets retain the same exact goal and unchanged bytes.

@@ -173,7 +173,7 @@ or a second workflow ledger.
 The existing exact-seed prior-start check prevents another start of the same seed.
 The relay requires the seed's checkout; it adds no alternate worktree support.
 Human and undeclared F2, `l` and `u` keep their existing direct consent and require no relay file.
-Goal confirmation, seed confirmation and worker start remain separate yeses.
+Goal confirmation, Tink confirmation and worker start remain separate yeses.
 Navigation and copying never start a worker.
 
 With a configured worker allowance, the existing Approve reader selects up to five

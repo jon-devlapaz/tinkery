@@ -115,7 +115,7 @@ impl Gate {
             Ok(Some(relay)) => format!(
                 "\nAuthority: operator, relayed\nOperator declaration: agent\n{PROVENANCE}\n\
                  Relayed words (verbatim):\n{}\n\
-                 Goal confirmation, seed confirmation and worker start are separate yeses.\n",
+                 Confirm the goal, confirm the Tink and approve the worker start separately.\n",
                 relay.words
             ),
             Ok(None) => String::new(),

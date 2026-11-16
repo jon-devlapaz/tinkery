@@ -447,7 +447,7 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
             },
         },
         _ => Shaped::Unknown {
-            what: "Tinkery cannot read the first line of the Tink Contract.".into(),
+            what: "Tinkery cannot recognize the Tink Contract's status line.".into(),
         },
     };
     shaping(goal, stage)
