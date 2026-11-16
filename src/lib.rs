@@ -120,8 +120,8 @@ enum Theme {
     Dark,
 }
 
-/// The four styles every screen draws with, one job each: ink for words, jade for the one thing to
-/// act on, muted for what can wait, rust for consequences. With no colour each keeps its meaning
+/// The five styles every screen draws with, one job each: ink for words, jade for the one thing to
+/// act on, muted for what can wait, rust for consequences, violet for saved thoughts. With no colour each keeps its meaning
 /// through weight, dimming or underline, so no cue depends on colour alone.
 #[derive(Clone, Copy)]
 pub struct Palette {
@@ -130,6 +130,7 @@ pub struct Palette {
     muted: Style,
     /// Consequence only (`!`, loss prompts). Never the sole cue: always paired with `!` and words.
     rust: Style,
+    violet: Style,
     /// The theme drawn, or none without colour, where the theme switch is hidden.
     theme: Option<Theme>,
 }
@@ -149,17 +150,19 @@ impl Palette {
                 jade: base.bold(),
                 muted: base.add_modifier(Modifier::DIM),
                 rust: base.bold().underlined(),
+                violet: base,
                 theme: None,
             };
         }
         // Each colour keeps at least 4.5:1 contrast against its own background.
-        let [ink, paper, jade, muted, rust] = match theme {
+        let [ink, paper, jade, muted, rust, violet] = match theme {
             Theme::Light => [
                 (16, 15, 15),
                 (255, 252, 240),
                 (31, 122, 114),
                 (87, 86, 83),
                 (160, 62, 36),
+                (96, 82, 168),
             ],
             Theme::Dark => [
                 (232, 224, 208),
@@ -167,6 +170,7 @@ impl Palette {
                 (110, 196, 180),
                 (166, 157, 142),
                 (234, 138, 104),
+                (176, 160, 232),
             ],
         }
         .map(|(r, g, b)| Color::Rgb(r, g, b));
@@ -176,6 +180,7 @@ impl Palette {
             jade: base.fg(jade).bold(),
             muted: base.fg(muted),
             rust: base.fg(rust).bold(),
+            violet: base.fg(violet),
             theme: Some(theme),
         }
     }
@@ -302,10 +307,10 @@ mod palette_tests {
     }
 
     #[test]
-    fn both_themes_keep_four_distinct_readable_roles_on_their_own_paper() {
+    fn both_themes_keep_five_distinct_readable_roles_on_their_own_paper() {
         for theme in [Theme::Light, Theme::Dark] {
             let p = Palette::themed(false, theme);
-            let roles = [p.ink, p.jade, p.muted, p.rust];
+            let roles = [p.ink, p.jade, p.muted, p.rust, p.violet];
             let paper = luminance(p.ink.bg);
             for style in roles {
                 assert_eq!(style.bg, p.ink.bg, "{theme:?}: one paper behind every role");

@@ -43,7 +43,10 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   Shape without changing saved sessions. In this repository, `t` opens fresh Think.
   Before the first send, Enter opens a choice: `1 Clarify into a goal` (a model reads your words)
   or `2 Save as a thought` (nothing reads them). Saving keeps exact words and opens Tend.
-  Esc returns to writing unchanged. Enter and paste never pick. Ctrl+S still saves directly. `v` reads thoughts;
+  Esc returns to writing unchanged. Enter and paste never pick. Ctrl+S still saves directly.
+  Thoughts appear beside goals as violet hollow diamonds, distinct without colour.
+  Arrows select a node. Enter opens its original words. Esc returns to the same thought.
+  The status line names the save result. `v` still reads thoughts.
   `g` opens one in Think, unsent. The thought stays on record after goal confirmation.
   In this repository, press `f` to review an
   automatic connection between goals. An explicit `F2` uses one drafting request.

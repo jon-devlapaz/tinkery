@@ -32,18 +32,26 @@ confirmation. Enter still sends. After a send, Ctrl+S says why nothing was kept.
 help, leave prompts, model work and goal review cannot save a thought.
 A failed or uncertain save keeps the input. A durable save or verified duplicate opens Tend.
 The garden names the save result and selects the saved thought, including after a duplicate.
+The save result appears only while that exact saved thought is selected.
 The message clears when Tend closes or the reader opens. The reader keeps that selection.
-Save feedback, the selected thought and unreadable-record warnings each retain their space
-above the goal graph. The graph uses the same remaining area for drawing and pointer input.
+The garden starts with the scope line, then the graph. Saved thoughts are violet hollow
+diamonds with their first words, distinct from goal rings even without colour.
+The selected-line footer labels a thought `Thought:` and names the save result.
+Unreadable-thought warnings share that status line, including when a goal is selected.
 Standalone Think explains that saving thoughts requires `--home`; it never writes a thought.
-Thoughts appear above the goal graph, labelled `Thought`.
-The summary shows `t think`, even before any thought is saved, and `v read`
-when thoughts exist. These keys leave the goal garden's key bar unchanged.
+`t think` remains in the key bar, even before any thought is saved. `v` remains a reader shortcut.
 Garden F1 help names `t`, `v` and the reader's `g` action.
-`v` reads the saved thoughts; arrows select one and PgUp/PgDn scroll its words.
+Garden arrows select goals, then thoughts. Enter or a double click opens that exact original
+in the existing reader, never by its displayed label. Reader arrows select a thought and
+PgUp/PgDn scroll its words. Esc selects the last viewed thought in the garden.
+If that thought is unavailable, a visible refusal accompanies the first available entry.
+Refresh and scope toggles preserve exact identity. Thoughts stay in this repository's garden,
+not the all-goals view. A return to this repository restores its selected thought when available.
 `g` copies the selected thought into a fresh, unsent Think visit. The existing
 Think goal confirmation is still required. The thought stays unchanged on record.
-Thoughts cannot open Shape and never enter Find connections in this slice.
+Thoughts cannot open Shape, imply readiness or enter Find connections.
+`l` on a thought says that links connect goals. In goal-link mode, thoughts remain visible
+without moving the graph, but arrows select only goals and thought clicks write nothing.
 
 Thoughts use private atomic files under the captured Tend link root, separate from
 sessions and goal confirmation records. Filenames bind the exact repository path
@@ -82,7 +90,7 @@ index-size cap. Links, identity checks and readiness still use every readable
 session, including other repos and ended goals. Use all to link across repos;
 `a` does nothing during linking, detail, history, help or pending/failed reads.
 
-Tend displays the visible goals in one static graph, without paging or node cap.
+Tend displays the visible goals and repository thoughts in one static graph, without paging or node cap.
 Equal hollow Braille rings mean size is unknown; no sizes or merges are known.
 Needs lines join only active, uniquely identified endpoints. Missing, ambiguous or
 ended endpoints draw no line; the selected-line summary still names them. Straight
@@ -102,6 +110,7 @@ shown. Confirm a goal in think to start one.`, not that no sessions exist.
 
 Labels use the first saved-goal line, including unstructured goals. They sit above
 or below rings, clipped with `…` or omitted rather than overlapping or interleaving.
+Labels on the same row keep at least one blank column between them.
 The selected label gets space first and always appears, prefixed `› `; its label
 and ring are bold, jade with colour. Other labels are muted and rings use ink;
 none is italic.
@@ -122,7 +131,7 @@ row before the key bar.
 | Enter | Open detail. |
 | `+` or `=`; `-` | Zoom in; zoom out. |
 | `H J K L` | Pan left, down, up or right. |
-| Left press on a ring or label | Select its exact session path; a second press within 500 ms opens it. |
+| Left press on a node or label | Select its exact goal or thought identity; a second press within 500 ms opens it. |
 | Drag a ring or label; drag empty space; scroll | Move the goal; pan; zoom. |
 
 The key bar is `↑↓←→ move   enter open   l link   esc back` (fits 80 columns).
@@ -138,7 +147,8 @@ keep zoom and pan. Resize reflows slots with relative zoom and pan retained.
 Following selection may pan again. Session reads, scope changes and needs-link reads or
 edits prepare the path-bound nodes and links; unchanged repaints reuse those inputs.
 The adapter rebuilds Graf’s cached node colors and labels only for new graph data,
-changed ink/jade colors or a changed marked source. Geometry still updates each frame.
+changed theme colors or a changed marked source. The adapter sets cached thought shapes
+and colors without changing Graf's input or layout rules. Geometry still updates each frame.
 
 Detail uses the receipt's shared renderer for the exact stored goal, without
 `Saved.`. ↑↓, `j k`, PgUp or PgDn scroll (a page moves the view less one row); `s` opens Shape on permitted stages, and `r` opens history. Esc goes detail → garden →

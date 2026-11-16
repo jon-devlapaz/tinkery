@@ -1,4 +1,4 @@
-//! Tend: the saved goals garden and one goal's detail, read from saved sessions.
+//! Tend: the saved goals and repository thoughts garden, with read-only original detail.
 //!
 //! Shows what discovery has landed, says plainly when that is unknown, incomplete or failed,
 //! and offers explicit needs links and saved Think history; it never edits a session,
@@ -37,6 +37,21 @@ use unicode_width::UnicodeWidthStr;
 /// this only shows when something is actually slow, such as a cold or network disk.
 pub(super) const STILL_READING_AFTER: Duration = Duration::from_secs(3);
 
+#[derive(Clone, PartialEq, Eq)]
+enum Entry {
+    Goal(PathBuf),
+    Thought(String),
+}
+
+impl Entry {
+    fn graph_id(&self) -> String {
+        match self {
+            Self::Goal(path) => format!("{path:?}"),
+            Self::Thought(words) => format!("thought:{words}"),
+        }
+    }
+}
+
 pub(super) struct Tend {
     pub sessions: Vec<Session>,
     pub error: Option<String>,
@@ -67,7 +82,8 @@ pub(super) struct Tend {
     pub history: Option<history::View>,
     pub(super) thoughts: Option<thought::Garden>,
     graph: graph::GraphView,
-    last_press: Option<(PathBuf, Instant)>,
+    last_press: Option<(Entry, Instant)>,
+    hidden_thought: Option<Entry>,
     pub(super) needs: needs::Store,
     links: Result<needs::Links, String>,
     all_sessions: Vec<Session>,
@@ -109,6 +125,7 @@ impl Tend {
             thoughts: None,
             graph: graph::GraphView::default(),
             last_press: None,
+            hidden_thought: None,
             needs: needs::Store::new(link_root),
             links: Ok(needs::Links::default()),
             all_sessions: vec![],
@@ -143,6 +160,7 @@ impl Tend {
         if self.notice.is_empty() {
             self.link_error = self.links.as_ref().err().cloned();
         }
+        let first_read = self.pending;
         self.seen = version;
         self.pending = false;
         match outcome {
@@ -155,7 +173,18 @@ impl Tend {
                 self.want = None;
             }
             Ok(found) => {
-                let keep = self.current().map(|s| s.path.clone());
+                let keep = if self.connection_scope() {
+                    self.hidden_thought
+                        .take()
+                        .or_else(|| (!first_read).then(|| self.selected_entry()).flatten())
+                } else if first_read {
+                    None
+                } else {
+                    self.selected_entry()
+                };
+                if let Some(thoughts) = &mut self.thoughts {
+                    thoughts.refresh();
+                }
                 self.error = None;
                 self.unreadable = found.unreadable;
                 self.all_sessions = found.sessions.clone();
@@ -180,10 +209,7 @@ impl Tend {
                     self.error = Some(format!("Saved session is unavailable: {}", path.display()));
                     self.sessions.clear();
                 } else {
-                    self.selected = keep
-                        .and_then(|k| self.sessions.iter().position(|s| s.path == k))
-                        .unwrap_or(self.selected)
-                        .min(self.sessions.len().saturating_sub(1));
+                    self.select_entry(keep);
                 }
             }
         }
@@ -237,7 +263,7 @@ impl Tend {
     }
 
     fn scope_body(&self, area: Rect) -> Rect {
-        if self.can_toggle_scope() {
+        if self.can_toggle_scope() || self.is_linking() && self.repo_paths.is_some() {
             Rect::new(
                 area.x,
                 area.y.saturating_add(1),
@@ -247,16 +273,6 @@ impl Tend {
         } else {
             area
         }
-    }
-
-    fn thought_summary(&self) -> Option<String> {
-        if self.detail || self.is_linking() || !self.connection_scope() {
-            return None;
-        }
-        self.thoughts
-            .as_ref()
-            .map(thought::Garden::summary)
-            .filter(|summary| !summary.is_empty())
     }
 
     fn can_toggle_scope(&self) -> bool {
@@ -274,30 +290,33 @@ impl Tend {
         if !self.can_toggle_scope() {
             return;
         }
-        let keep = self.current().map(|s| s.path.clone());
+        let mut keep = self.selected_entry();
+        if matches!(keep, Some(Entry::Thought(_))) {
+            self.hidden_thought = keep.clone();
+        } else if self.show_all && self.hidden_thought.is_some() {
+            keep = self.hidden_thought.take();
+        }
         self.show_all = !self.show_all;
         self.filter_sessions();
         self.prepare_graph();
-        self.selected = keep
-            .and_then(|path| self.sessions.iter().position(|s| s.path == path))
-            .unwrap_or(0);
+        self.select_entry(keep);
         self.last_press = None;
         self.graph.release();
         self.notice.clear();
     }
 
-    /// Whether the saved-goal garden is showing, rather than detail or a discovery state.
+    /// Whether the mixed garden is showing, rather than detail or a discovery state.
     pub(super) fn garden_showing(&self) -> bool {
         !self.detail
             && !self.pending
             && self.want.is_none()
             && self.error.is_none()
-            && !self.sessions.is_empty()
+            && self.entry_count() > 0
     }
     pub(super) fn release_pointer(&mut self) {
         self.graph.release();
     }
-    /// Forward pointer mechanics to graf; only Tend can select, link or open a saved goal.
+    /// Forward pointer mechanics to graf; only Tend can open originals or link goals.
     pub(super) fn pointer(
         &mut self,
         event: crossterm::event::MouseEvent,
@@ -308,12 +327,7 @@ impl Tend {
             self.graph.release();
             return;
         }
-        let mut body = self.scope_body(body);
-        if let Some(summary) = self.thought_summary() {
-            let rows = summary.lines().count() as u16 + 1;
-            body.y = body.y.saturating_add(rows);
-            body.height = body.height.saturating_sub(rows);
-        }
+        let body = self.scope_body(body);
         self.sync_graph(body);
         if matches!(event.kind, crossterm::event::MouseEventKind::Drag(_)) {
             self.last_press = None;
@@ -321,32 +335,34 @@ impl Tend {
         let Some(id) = self.graph.pointer(event) else {
             return;
         };
-        let Some(index) = self
+        let entry = self
             .sessions
             .iter()
-            .position(|s| format!("{:?}", s.path) == id)
-        else {
-            return;
-        };
+            .map(|s| Entry::Goal(s.path.clone()))
+            .chain(self.thought_entries().iter().cloned().map(Entry::Thought))
+            .find(|entry| entry.graph_id() == id);
+        let Some(entry) = entry else { return };
         if self.linking.is_some() {
-            self.selected = index;
+            if matches!(entry, Entry::Thought(_)) {
+                self.graph.release();
+                return;
+            }
+            self.select_entry(Some(entry));
             self.commit_link();
             self.graph.release();
             return;
         }
-        let path = self.sessions[index].path.clone();
+
         let double = self.last_press.as_ref().is_some_and(|(last, at)| {
-            *last == path
+            *last == entry
                 && now
                     .checked_duration_since(*at)
                     .is_some_and(|elapsed| elapsed <= Duration::from_millis(500))
         });
-        self.selected = index;
-        self.last_press = Some((path, now));
+        self.select_entry(Some(entry.clone()));
+        self.last_press = Some((entry, now));
         if double {
-            self.detail = true;
-            self.scroll = 0;
-            self.notice.clear();
+            self.open_entry();
             self.last_press = None;
             self.graph.release();
         }
@@ -401,10 +417,10 @@ impl Tend {
                 "Arrows / j k pick · Enter links or unlinks · Esc cancels."
             } else if self.garden_showing() {
                 concat!(
-                    "Arrows / j k move · Enter or a double click opens the saved goal.\n",
+                    "Arrows / j k move · Enter or a double click opens the selected original.\n",
                     "l link or unlink\n",
-                    "Up / Left / k previous · Down / Right / j next (newest first).\n",
-                    "+ / - zoom · H J K L pan · drag a goal to move it.\n",
+                    "Up / Left / k previous · Down / Right / j next (goals, then thoughts).\n",
+                    "+ / - zoom · H J K L pan · drag a node to move it.\n",
                     "Drag empty space to pan · scroll to zoom",
                 )
             } else {
@@ -443,14 +459,14 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
     } else if !tend.garden_showing() {
         // An empty repo view still offers the way back to all goals.
         if tend.connection_scope() {
-            "f connections   a toggle goals   esc back"
+            "f connections   a toggle goals   esc back   t think"
         } else if tend.can_toggle_scope() {
             "a toggle goals   esc back"
         } else {
             "esc back"
         }
     } else if tend.connection_scope() {
-        "↑↓←→ move   enter open   f connections   l link   esc back"
+        "↑↓←→ move   enter open   f connections   l link   esc back   t think"
     } else {
         "↑↓←→ move   enter open   l link   esc back"
     };
@@ -463,7 +479,7 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
             1,
         ),
     );
-    if tend.can_toggle_scope() {
+    if tend.can_toggle_scope() || tend.is_linking() && tend.repo_paths.is_some() {
         frame.render_widget(
             Paragraph::new(if tend.show_all {
                 "all · a this repo"
@@ -477,21 +493,9 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
             },
         );
     }
-    let mut area = tend.scope_body(area);
-    if let Some(summary) = tend.thought_summary() {
-        let rows = summary.lines().count() as u16;
-        frame.render_widget(
-            Paragraph::new(summary).style(palette.ink),
-            Rect {
-                height: rows.min(area.height),
-                ..area
-            },
-        );
-        area.y = area.y.saturating_add(rows + 1);
-        area.height = area.height.saturating_sub(rows + 1);
-    }
+    let area = tend.scope_body(area);
     let stale_empty =
-        tend.sessions.is_empty() && tend.unreadable == 0 && tend.error.is_none() && !tend.current;
+        tend.entry_count() == 0 && tend.unreadable == 0 && tend.error.is_none() && !tend.current;
     if tend.pending || tend.want.is_some() || stale_empty {
         let status = if tend.still_reading {
             "Still reading your sessions. Esc goes back."
@@ -508,7 +512,7 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
         );
         return;
     }
-    if tend.sessions.is_empty() {
+    if tend.entry_count() == 0 {
         frame.render_widget(
             Paragraph::new(if let Some(message) = tend.repo_empty_message() {
                 message
@@ -528,6 +532,10 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
             .style(palette.muted)
             .wrap(Wrap { trim: false }),
             area,
+        );
+        frame.render_widget(
+            Paragraph::new(tend.thought_status()).style(palette.muted),
+            Rect::new(area.x, area.bottom().saturating_sub(2), area.width, 1),
         );
         if tend.ended > 0 || tend.links.is_err() || tend.repo_unknown > 0 && tend.unreadable > 0 {
             garden::render_note(frame, tend, area, palette);

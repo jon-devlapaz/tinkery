@@ -1,6 +1,7 @@
 //! Exact repository thoughts in Tend's private store. Thoughts never become sessions or model
 //! sources. Only explicit saving publishes words; opening Think returns an unsent copy.
 
+use super::{Entry, Tend};
 use crate::Palette;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
@@ -9,6 +10,136 @@ use ratatui::{
     widgets::{Paragraph, Wrap},
 };
 use std::path::PathBuf;
+impl Tend {
+    /// Visible repository originals, absent from the all-goals view.
+    pub(super) fn thought_entries(&self) -> &[String] {
+        if self.connection_scope() {
+            self.thoughts.as_ref().map_or(&[], Garden::entries)
+        } else {
+            &[]
+        }
+    }
+
+    /// The number of selectable goals and thoughts in this scope.
+    pub(super) fn entry_count(&self) -> usize {
+        self.sessions.len() + self.thought_entries().len()
+    }
+
+    /// The selected identity, independent of its displayed title.
+    pub(super) fn selected_entry(&self) -> Option<Entry> {
+        if let Some(session) = self.current() {
+            Some(Entry::Goal(session.path.clone()))
+        } else {
+            self.selected
+                .checked_sub(self.sessions.len())
+                .and_then(|i| self.thought_entries().get(i))
+                .cloned()
+                .map(Entry::Thought)
+        }
+    }
+
+    /// Restore exact identity or select the first available entry.
+    pub(super) fn select_entry(&mut self, entry: Option<Entry>) {
+        self.selected = match entry {
+            Some(Entry::Goal(path)) => self.sessions.iter().position(|s| s.path == path),
+            Some(Entry::Thought(words)) => self
+                .thought_entries()
+                .iter()
+                .position(|w| *w == words)
+                .map(|i| self.sessions.len() + i),
+            None => None,
+        }
+        .unwrap_or(0);
+    }
+
+    /// Open the selected original, never infer a goal from a thought.
+    pub(crate) fn open_entry(&mut self) {
+        if let Some(Entry::Thought(words)) = self.selected_entry() {
+            let thoughts = self.thoughts.as_mut().unwrap();
+            thoughts.view();
+            if let Some(index) = thoughts.entries().iter().position(|entry| *entry == words) {
+                thoughts.selected = index;
+            } else {
+                thoughts.viewing = false;
+                self.notice = "Thought unavailable. Select another entry.".into();
+            }
+            self.select_entry(Some(Entry::Thought(words)));
+            self.prepare_graph();
+        } else if self.current().is_some() {
+            self.detail = true;
+            self.scroll = 0;
+            self.notice.clear();
+            if let Some(thoughts) = &mut self.thoughts {
+                thoughts.clear_save_notice();
+            }
+        }
+    }
+
+    /// Keep the last viewed thought selected when the reader closes.
+    pub(crate) fn thought_reader_return(&mut self) {
+        let entry = self
+            .thoughts
+            .as_ref()
+            .and_then(Garden::words)
+            .map(|words| Entry::Thought(words.into()));
+        if let Some(thoughts) = &mut self.thoughts {
+            thoughts.refresh();
+        }
+        self.select_entry(entry.clone());
+        if entry.is_some() && self.selected_entry() != entry {
+            self.notice = "Thought unavailable. Select another entry.".into();
+        }
+        self.prepare_graph();
+    }
+
+    /// Select the exact durable thought and show its save result.
+    pub(crate) fn thought_saved(&mut self, words: &str, duplicate: bool) {
+        if let Some(thoughts) = &mut self.thoughts {
+            thoughts.saved(words, duplicate);
+        }
+        let entry = Some(Entry::Thought(words.into()));
+        self.select_entry(entry.clone());
+        self.hidden_thought = (self.selected_entry() != entry).then_some(entry).flatten();
+        self.prepare_graph();
+    }
+
+    /// Incomplete thought reads remain visible without claiming absence.
+    pub(super) fn thought_status(&self) -> String {
+        if self.connection_scope() {
+            self.thoughts.as_ref().map_or(String::new(), Garden::status)
+        } else {
+            String::new()
+        }
+    }
+
+    /// Thought status carries no goal readiness or authority.
+    pub(super) fn thought_line(&self) -> Option<(String, String)> {
+        let Entry::Thought(words) = self.selected_entry()? else {
+            return None;
+        };
+        let notice = self
+            .thoughts
+            .as_ref()
+            .and_then(|thoughts| thoughts.save_notice.as_ref())
+            .filter(|(saved, _)| *saved == words)
+            .map_or("", |(_, duplicate)| {
+                if *duplicate {
+                    "Thought already saved."
+                } else {
+                    "Thought saved."
+                }
+            });
+        Some((
+            format!("Thought: {}", words.lines().next().unwrap_or("")),
+            if notice.is_empty() {
+                String::new()
+            } else {
+                format!(" · {notice}")
+            },
+        ))
+    }
+}
+
 /// Repository-bound words and their reader. No goal or seed authority lives here.
 pub(crate) struct Garden {
     store: crate::thought::Store,
@@ -18,7 +149,7 @@ pub(crate) struct Garden {
     selected: usize,
     viewing: bool,
     scroll: u16,
-    notice: String,
+    save_notice: Option<(String, bool)>,
 }
 
 impl Garden {
@@ -32,37 +163,47 @@ impl Garden {
             selected: 0,
             viewing: false,
             scroll: 0,
-            notice: String::new(),
+            save_notice: None,
         };
         garden.refresh();
         garden
     }
 
-    fn refresh(&mut self) {
+    /// Refresh originals while retaining exact reader identity.
+    pub(super) fn refresh(&mut self) {
+        let keep = self.words().map(str::to_owned);
+        self.unreadable = 0;
         self.entries = self.store.read().map(|(entries, unreadable)| {
             self.unreadable = unreadable;
             entries
         });
+        self.selected = keep
+            .and_then(|words| self.entries().iter().position(|entry| *entry == words))
+            .unwrap_or(0);
+    }
+
+    fn entries(&self) -> &[String] {
+        self.entries.as_deref().unwrap_or_default()
+    }
+
+    fn words(&self) -> Option<&str> {
+        self.entries().get(self.selected).map(String::as_str)
     }
 
     /// Show the completed save and select its exact words without granting goal authority.
     pub(crate) fn saved(&mut self, words: &str, duplicate: bool) {
+        self.refresh();
         if let Ok(entries) = &self.entries
             && let Some(index) = entries.iter().position(|entry| entry == words)
         {
             self.selected = index;
         }
-        self.notice = if duplicate {
-            "Thought already saved. No goal confirmed."
-        } else {
-            "Thought saved. No goal confirmed."
-        }
-        .into();
+        self.save_notice = Some((words.into(), duplicate));
     }
 
     /// End save feedback when its Tend visit ends, retaining the saved words and selection.
     pub(crate) fn clear_save_notice(&mut self) {
-        self.notice.clear();
+        self.save_notice = None;
     }
 
     /// Open the saved thought list without granting goal authority.
@@ -75,7 +216,7 @@ impl Garden {
         );
         self.viewing = true;
         self.scroll = 0;
-        self.notice.clear();
+        self.save_notice = None;
     }
 
     /// Whether this local view owns keyboard and paste input.
@@ -90,7 +231,7 @@ impl Garden {
         }
         if matches!(key.code, KeyCode::Esc | KeyCode::F(10)) {
             self.viewing = false;
-            self.notice.clear();
+            self.save_notice = None;
             return None;
         }
         if key.modifiers != KeyModifiers::NONE {
@@ -114,31 +255,14 @@ impl Garden {
         None
     }
 
-    /// A labelled garden summary. Full words remain in the local read view.
-    pub(crate) fn summary(&self) -> String {
-        let mut summary = match &self.entries {
-            Ok(entries) if entries.is_empty() => "t think".into(),
-            Ok(entries) => format!("Thoughts: {} · v read · t think", entries.len()),
-            Err(_) => "Thoughts could not be read. Press v for details. t think".into(),
-        };
-        if !self.notice.is_empty() {
-            summary.push_str(&format!("\n{}", self.notice));
+    fn status(&self) -> String {
+        if self.entries.is_err() {
+            "Thoughts could not be read. Press v for details.".into()
+        } else if self.unreadable > 0 {
+            format!("{} thoughts could not be read.", self.unreadable)
+        } else {
+            String::new()
         }
-        if let Ok(entries) = &self.entries
-            && let Some(words) = entries.get(self.selected)
-        {
-            summary.push_str(&format!(
-                "\nThought: {}",
-                crate::clipped(words.lines().next().unwrap_or(""), 60)
-            ));
-        }
-        if self.entries.is_ok() && self.unreadable > 0 {
-            summary.push_str(&format!(
-                "\n{} thoughts could not be read.",
-                self.unreadable
-            ));
-        }
-        summary
     }
 
     /// Render the labelled local record. Rendering reads no files.

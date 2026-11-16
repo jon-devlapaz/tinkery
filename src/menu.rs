@@ -294,10 +294,8 @@ impl Home {
         }
         if let Some((words, duplicate)) = garden_request {
             self.open(Place::Tend);
-            if let View::Tend(tend) = &mut self.view
-                && let Some(thoughts) = &mut tend.thoughts
-            {
-                thoughts.saved(&words, duplicate);
+            if let View::Tend(tend) = &mut self.view {
+                tend.thought_saved(&words, duplicate);
             }
         }
         if let Some(path) = tend_request {
@@ -652,6 +650,8 @@ impl Home {
                     dump.paste(&words);
                     self.help = false;
                     self.view = View::Think(Box::new(dump));
+                } else if !thoughts.active() {
+                    tend.thought_reader_return();
                 }
                 return;
             }
@@ -686,6 +686,10 @@ impl Home {
             && !tend.detail
             && !self.help
         {
+            if tend.garden_showing() && tend.current().is_none() {
+                tend.notice = "Find connections uses goals, not thoughts.".into();
+                return;
+            }
             if !tend.connection_scope() {
                 tend.notice =
                     "Find connections is available only in this repository's garden.".into();
@@ -985,11 +989,7 @@ impl Home {
                 {
                     tend.adjust_view(c);
                 }
-                KeyCode::Enter if tend.garden_showing() => {
-                    tend.detail = true;
-                    tend.scroll = 0;
-                    tend.notice.clear();
-                }
+                KeyCode::Enter if tend.garden_showing() => tend.open_entry(),
                 _ => {}
             },
             View::Measure(measure) => {

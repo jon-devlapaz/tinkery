@@ -94,6 +94,85 @@ fn pointer(tend: &mut Tend, kind: MouseEventKind, at: (u16, u16), now: Instant) 
 }
 
 #[test]
+fn thought_diamonds_keep_violet_and_hollow_geometry_in_both_themes_and_without_colour() {
+    use crate::Theme;
+    for (width, height) in [(80, 24), (100, 30)] {
+        let mut shapes = Vec::new();
+        for thought in [false, true] {
+            let (root, mut tend) = fixture(usize::from(!thought));
+            tend.repo_paths = Some(tend.sessions.iter().map(|s| s.path.clone()).collect());
+            let repo = root.path().join("TEST-repo");
+            if thought {
+                crate::thought::Store::new(Ok(root.path().join("TEST-links")), repo.clone())
+                    .save("TEST original words")
+                    .unwrap();
+            }
+            tend.thoughts = Some(crate::tend::thought::Garden::open(
+                Ok(root.path().join("TEST-links")),
+                repo,
+            ));
+            tend.prepare_graph();
+            let mut geometry = None;
+            for palette in [
+                Palette::themed(false, Theme::Light),
+                Palette::themed(false, Theme::Dark),
+                Palette::new(true),
+            ] {
+                let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+                terminal
+                    .draw(|frame| {
+                        frame.render_widget(Paragraph::new("").style(palette.ink), frame.area());
+                        crate::tend::render(
+                            frame,
+                            &mut tend,
+                            Rect::new(2, 3, width - 4, height - 4),
+                            palette,
+                        );
+                    })
+                    .unwrap();
+                let buffer = terminal.backend().buffer();
+                let cells: Vec<_> = buffer
+                    .content
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, cell)| {
+                        cell.symbol()
+                            .chars()
+                            .any(|c| ('\u{2801}'..='\u{28ff}').contains(&c))
+                    })
+                    .map(|(i, cell)| (i, cell.symbol().to_owned()))
+                    .collect();
+                assert!(!cells.is_empty());
+                if thought && palette.theme.is_some() {
+                    assert!(
+                        buffer.content.iter().any(|cell| {
+                            cell.fg == palette.violet.fg.unwrap()
+                                && cell
+                                    .symbol()
+                                    .chars()
+                                    .any(|c| ('\u{2801}'..='\u{28ff}').contains(&c))
+                        }),
+                        "Thought shape must remain violet when selected"
+                    );
+                }
+                if let Some(previous) = &geometry {
+                    assert_eq!(
+                        previous, &cells,
+                        "Colour cannot be the thought's only distinction"
+                    );
+                }
+                geometry = Some(cells);
+            }
+            shapes.push(geometry.unwrap());
+        }
+        assert_ne!(
+            shapes[0], shapes[1],
+            "Hollow thought diamonds must differ from goal rings"
+        );
+    }
+}
+
+#[test]
 fn identical_inputs_draw_identical_buffers_and_selection_has_colour_independent_weight() {
     for mono in [false, true] {
         let (_a, mut a) = fixture(7);
