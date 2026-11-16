@@ -935,3 +935,39 @@ fn voice_capture_cannot_save_a_thought() {
     let shown = snapshot(100, 30, &mut app, true).unwrap();
     assert!(!shown.contains("keep thought"), "{shown}");
 }
+
+#[test]
+fn dictated_words_clear_a_thought_save_result_and_the_next_save_shows_its_own() {
+    let root = tempfile::Builder::new()
+        .prefix("tinkery-TEST-voice-save-")
+        .tempdir()
+        .unwrap();
+    std::fs::create_dir(root.path().join(".git")).unwrap();
+    let (mut a, fake) = attach(BrainDump::default().with_thoughts(
+        Ok(root.path().join("thoughts")),
+        crate::repo::Repo::enclosing(root.path()),
+    ));
+    a.paste("TEST typed thought");
+    a.handle_key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL));
+    assert!(
+        snapshot(100, 30, &mut a, false)
+            .unwrap()
+            .contains("Thought saved · find it in Tend")
+    );
+    start(&mut a, &fake);
+    key(&mut a, KeyCode::F(6));
+    event(
+        &mut a,
+        &fake,
+        Event::Final {
+            take: 1,
+            text: "TEST dictated words".into(),
+        },
+    );
+    let shown = snapshot(100, 30, &mut a, false).unwrap();
+    assert!(shown.contains("TEST dictated words"), "{shown}");
+    assert!(!shown.contains("Thought saved"), "{shown}");
+    a.handle_key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL));
+    let shown = snapshot(100, 30, &mut a, false).unwrap();
+    assert!(shown.contains("Thought saved · find it in Tend"), "{shown}");
+}

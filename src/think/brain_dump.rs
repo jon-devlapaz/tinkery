@@ -819,6 +819,7 @@ impl BrainDump {
     /// Advances time: lands a finished reading or save and reads voice events. Never blocks.
     pub fn tick(&mut self) {
         self.voice_tick();
+        self.end_stale_save();
         self.goal_tick();
         if let Some(result) = self.shaping.job.as_ref().and_then(Job::poll) {
             self.shaping.encoded_bytes = None;
@@ -863,6 +864,22 @@ impl BrainDump {
 
     /// Bracketed paste into whatever has focus. Never sends.
     pub fn paste(&mut self, text: &str) {
+        self.paste_input(text);
+        self.end_stale_save();
+    }
+
+    /// A save clears the input, so its result belongs to an empty box. Any new words, typed,
+    /// pasted or dictated, make it stale, so it goes and does not come back.
+    fn end_stale_save(&mut self) {
+        if !self.input.text.is_empty()
+            && (self.notice.starts_with("Thought saved · ")
+                || self.notice.starts_with("Thought already saved · "))
+        {
+            self.notice.clear();
+        }
+    }
+
+    fn paste_input(&mut self, text: &str) {
         if self.review_below_minimum() {
             return;
         }
@@ -988,9 +1005,9 @@ impl BrainDump {
                 self.shaping.encoded_bytes = None;
                 self.screen.choice = false;
                 self.notice = if matches!(saved, crate::thought::Saved::Duplicate) {
-                    "Thought already saved · t in Tend shows it"
+                    "Thought already saved · find it in Tend"
                 } else {
-                    "Thought saved · t in Tend shows it"
+                    "Thought saved · find it in Tend"
                 }
                 .into();
             }
@@ -1009,6 +1026,11 @@ impl BrainDump {
     /// One key press. Releases and F2 below the minimum size are ignored;
     /// navigation and copying never send or save.
     pub fn handle_key(&mut self, key: KeyEvent) {
+        self.key_input(key);
+        self.end_stale_save();
+    }
+
+    fn key_input(&mut self, key: KeyEvent) {
         self.shaping.encoded_bytes = None;
         self.conversation.forget_changes();
         if key.kind == KeyEventKind::Release {

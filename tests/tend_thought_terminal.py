@@ -45,9 +45,9 @@ def visit_tend(term, expected='Thought saved.'):
 
 
 def save_and_visit_tend(term, keys=b'\x1bOR', expected='Thought saved.'):
-    screen = flow.send(term, keys, 't in Tend shows it')
+    screen = flow.send(term, keys, 'find it in Tend')
     if expected.startswith('Thought'):
-        notice = expected.removesuffix('.') + ' · t in Tend shows it'
+        notice = expected.removesuffix('.') + ' · find it in Tend'
         assert notice in screen, screen
     return visit_tend(term, expected)
 
@@ -63,8 +63,10 @@ def keep_writing(size):
             flow.send(term, b't', 'enter choose')
             for index, text in enumerate(words):
                 paste(term, text)
+                # New words make the last save result stale, so it must be gone.
+                assert 'Thought saved' not in term.screen.text(), term.screen.text()
                 flow.send(term, b'\r', '1  Clarify into a goal')
-                screen = flow.send(term, b'2', 'Thought saved · t in Tend shows it')
+                screen = flow.send(term, b'2', 'Thought saved · find it in Tend')
                 assert "What's on your mind?" in screen and 'enter choose' in screen, screen
                 assert '1  Clarify into a goal' not in screen and 'tinkery › tend' not in screen, screen
                 for old in words[:index+1]:
