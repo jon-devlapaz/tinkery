@@ -5,11 +5,12 @@ person first. It is a view, not a touch: it decides nothing, starts nothing and 
 
 ## Source
 
-The operator names the checkout with `--sdlc-root PATH`. Watch never discovers or scans for
-checkouts: tink-sdlc's guide says opening a checkout trusts its executable code, so only an
-explicitly named one is read. Without a root, Watch says how to name one and runs nothing. A
-root without `_system/scripts/sdlc.py` is refused by a file check, without running anything.
-An empty `--sdlc-root` is refused before startup; use `.` to explicitly choose the current folder.
+Approve and Watch use the Git project that contains the launch folder if it has
+`_system/scripts/sdlc.py`. An explicit `--sdlc-root PATH` takes precedence, including
+when that path fails. Both views read one checkout. Opening either view trusts
+the selected checkout's status script. If there is no project, each view asks the
+operator to open Tinkery from a project with tink-sdlc installed. A selected path
+without the script reports an error. An empty `--sdlc-root` is refused before startup.
 
 Watch reads with that checkout's own `python3 _system/scripts/sdlc.py status --json`, from the
 checkout's folder, when Watch opens and when the operator presses `r`. It then reads each valid

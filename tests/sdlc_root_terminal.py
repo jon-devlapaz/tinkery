@@ -1,4 +1,4 @@
-"""An explicit checkout is required; empty CLI roots never select the working directory."""
+"""Approve and Watch use the launch project unless an explicit root takes precedence."""
 import json
 import tempfile
 from pathlib import Path
@@ -45,6 +45,45 @@ def refused_roots():
         print('Missing and empty roots refused, including repeated options; no script ran.')
 
 
+def launch_project(width, height, kind):
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-launch-project-') as directory:
+        root = Path(directory).resolve()
+        project = root / 'TEST-project'
+        subfolder = project / 'TEST-subfolder'
+        override = root / 'TEST-override'
+        (project / '.git').mkdir(parents=True)
+        subfolder.mkdir()
+        checkout(override)
+        if kind != 'no-install':
+            checkout(project)
+        launch = {'root': project, 'outside': root}.get(kind, subfolder)
+        arg = ['--sdlc-root', override] if kind == 'override' else []
+        expected = override if arg else project if kind in ('root', 'subfolder') else None
+        sessions = root / 'TEST-sessions'
+        sessions.mkdir()
+        terminal = Terminal(launch, width, height, [
+            '--operator', 'agent', '--home', '--shape-budget', '0',
+            '--seed-session-root', sessions, *arg])
+        try:
+            terminal.wait(lambda screen: MENU in screen)
+            assert calls(project) == calls(override) == []
+            terminal.send(b'4', 'No verified seeds are waiting.' if expected else
+                          'No verified seeds could be listed.')
+            if expected:
+                assert calls(expected) == [['status', '--json']]
+            else:
+                assert 'Open Tinkery from a project with tink-sdlc installed.' in terminal.screen.text()
+            terminal.send(b'\x1b[21~', MENU)
+            terminal.send(b'5', 'No runs in this checkout yet.' if expected else
+                          'Open Tinkery from a project with tink-sdlc installed.')
+            for path in (project, override):
+                assert calls(path) == ([['status', '--json']] * 2 if path == expected else [])
+            terminal.quit()
+            print(f'{kind} launch at {width}x{height}: Approve and Watch selected the expected project.')
+        finally:
+            terminal.close()
+
+
 def selected_root(width, height, kind):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-sdlc-root-selection-') as directory:
         root = Path(directory).resolve()
@@ -73,3 +112,5 @@ if __name__ == '__main__':
     for width, height in [(80, 24), (100, 30)]:
         for kind in ['absolute', 'relative', 'current']:
             selected_root(width, height, kind)
+        for kind in ['root', 'subfolder', 'override', 'outside', 'no-install']:
+            launch_project(width, height, kind)

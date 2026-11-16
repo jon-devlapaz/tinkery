@@ -138,7 +138,7 @@ impl Reader {
             let runs = match checkout {
                 Some(path) => sdlc::seeds(path, &cancelled),
                 None if root.is_some() => Err("The named checkout could not be resolved.".into()),
-                None => Err("Start Tinkery with --sdlc-root PATH to check.".into()),
+                None => Err("Open Tinkery from a project with tink-sdlc installed.".into()),
             };
             if let Err(reason) = &runs {
                 found.start_unknown = Some(reason.clone());
@@ -459,7 +459,7 @@ impl Approve {
             }
         } else {
             let start_unknown = if self.root.is_none() {
-                Some("Start Tinkery with --sdlc-root PATH to check.")
+                Some("Open Tinkery from a project with tink-sdlc installed.")
             } else {
                 match &self.found {
                     Some(Ok(found)) => found.start_unknown.as_deref(),
@@ -563,8 +563,8 @@ impl Approve {
                             lines.push(Line::raw(display(reason)));
                         } else if !matches!(reading.origin_note, Some(OriginNote::Different(_))) {
                             lines.push(Line::raw(concat!(
-                                "Cannot copy: name a checkout with tink-sdlc installed using --sdlc-root PATH; ",
-                                "checkout, seed, title and executable must be safe for one shell line."
+                                "Cannot copy: a project with tink-sdlc is required. ",
+                                "The project, seed, title and executable must fit safely in one shell command."
                             )));
                         }
                     } else {
