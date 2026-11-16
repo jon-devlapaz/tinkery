@@ -32,6 +32,7 @@ confirmation. Enter still sends. After a send, Ctrl+S says why nothing was kept.
 help, leave prompts, model work and goal review cannot save a thought.
 A failed or uncertain save keeps the input. A durable save or verified duplicate opens Tend.
 The garden names the save result and selects the saved thought, including after a duplicate.
+The save result appears only while that exact saved thought is selected.
 The message clears when Tend closes or the reader opens. The reader keeps that selection.
 The garden starts with the scope line, then the graph. Saved thoughts are violet hollow
 diamonds with their first words, distinct from goal rings even without colour.
@@ -109,6 +110,7 @@ shown. Confirm a goal in think to start one.`, not that no sessions exist.
 
 Labels use the first saved-goal line, including unstructured goals. They sit above
 or below rings, clipped with `…` or omitted rather than overlapping or interleaving.
+Labels on the same row keep at least one blank column between them.
 The selected label gets space first and always appears, prefixed `› `; its label
 and ring are bold, jade with colour. Other labels are muted and rings use ink;
 none is italic.

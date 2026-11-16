@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import tempfile
 
@@ -153,8 +154,63 @@ def thoughts_only_and_empty(size):
             term.close()
 
 
+def save_feedback_stays_with_original(size):
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-feedback-identity-') as directory:
+        root = Path(directory).resolve()
+        repo = flow.fixture(root)
+        weather = 'TEST colour weather: forecast the colours I keep saving'
+        museum = 'TEST museum heist: keep the museum plan as a thought'
+        term = thought.launch(root, repo, size, provider=True, budget=0)
+        try:
+            for words, result in [(weather, 'Thought saved.'), (museum, 'Thought saved.'),
+                                  (museum, 'Thought already saved.')]:
+                flow.send(term, b't', 'enter choose')
+                thought.paste(term, words)
+                screen = flow.send(term, b'\x1bOR', result)
+                assert result in screen.splitlines()[-3], screen
+                if words == museum:
+                    screen = flow.send(term, b'\x1b[D', 'Thought: TEST colour weather:')
+                    assert 'Thought saved.' not in screen and 'Thought already saved.' not in screen, screen
+                    flow.send(term, b'\x1b[C', 'Thought: TEST museum heist:')
+                    screen = flow.send(term, click_label(term, 'TEST colour'), 'Thought: TEST colour weather:')
+                    assert result not in screen, screen
+            assert len(thought.saved(root)) == 2
+            assert not flow.requests(root)
+        finally:
+            term.close()
+
+
+def labels_keep_a_blank_column(size):
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-label-gaps-') as directory:
+        root = Path(directory).resolve()
+        repo = flow.fixture(root)
+        for i, letter in enumerate('AB'):
+            flow.update_goal(root, f'goal-{i}', goal=letter*40)
+        for letter in 'CD':
+            store(root, repo, letter*40)
+        term = thought.launch(root, repo, size, provider=True, budget=0)
+        try:
+            screen = flow.wait(term, 'CCCC')
+            for key, selected in [(None, 'AAAA'), (b'j', 'BBBB'), (b'j', 'CCCC'), (b'j', 'DDDD')]:
+                if key is not None:
+                    screen = flow.send(term, key, '› '+selected)
+                seen = set()
+                for line in screen.splitlines()[4:-4]:
+                    labels = list(re.finditer(r'(?:[›→] )?([ABCD])\1*…?', line))
+                    seen.update(label.group(1) for label in labels)
+                    for left, right in zip(labels, labels[1:]):
+                        gap = line[left.end():right.start()]
+                        assert gap and gap.isspace(), f'Garden labels touch at {size}: {line!r}\n{screen}'
+                assert seen == set('ABCD'), screen
+            assert not flow.requests(root)
+        finally:
+            term.close()
+
+
 if __name__ == '__main__':
     for size in [(80, 24), (100, 30)]:
+        save_feedback_stays_with_original(size)
+        labels_keep_a_blank_column(size)
         mixed_identity_and_link_guards(size)
         thoughts_only_and_empty(size)
     print('Mixed garden identity, pointer/link guards, refresh, scope, reader return, restart and empty gardens passed at 80x24 and 100x30 without colour. Zero provider calls.')

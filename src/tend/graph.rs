@@ -529,9 +529,10 @@ impl GraphView {
                         continue;
                     }
                     let rect = Rect::new(left, row as u16, width, 1);
+                    let spaced = Rect::new(left.saturating_sub(1), row as u16, width + 2, 1);
                     if occupied
                         .iter()
-                        .any(|other| !other.intersection(rect).is_empty())
+                        .any(|other| !other.intersection(spaced).is_empty())
                     {
                         continue;
                     }

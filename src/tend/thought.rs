@@ -117,7 +117,18 @@ impl Tend {
         let Entry::Thought(words) = self.selected_entry()? else {
             return None;
         };
-        let notice = self.thoughts.as_ref().map_or("", |t| t.notice.as_str());
+        let notice = self
+            .thoughts
+            .as_ref()
+            .and_then(|thoughts| thoughts.save_notice.as_ref())
+            .filter(|(saved, _)| *saved == words)
+            .map_or("", |(_, duplicate)| {
+                if *duplicate {
+                    "Thought already saved."
+                } else {
+                    "Thought saved."
+                }
+            });
         Some((
             format!("Thought: {}", words.lines().next().unwrap_or("")),
             if notice.is_empty() {
@@ -138,7 +149,7 @@ pub(crate) struct Garden {
     selected: usize,
     viewing: bool,
     scroll: u16,
-    notice: String,
+    save_notice: Option<(String, bool)>,
 }
 
 impl Garden {
@@ -152,7 +163,7 @@ impl Garden {
             selected: 0,
             viewing: false,
             scroll: 0,
-            notice: String::new(),
+            save_notice: None,
         };
         garden.refresh();
         garden
@@ -187,17 +198,12 @@ impl Garden {
         {
             self.selected = index;
         }
-        self.notice = if duplicate {
-            "Thought already saved."
-        } else {
-            "Thought saved."
-        }
-        .into();
+        self.save_notice = Some((words.into(), duplicate));
     }
 
     /// End save feedback when its Tend visit ends, retaining the saved words and selection.
     pub(crate) fn clear_save_notice(&mut self) {
-        self.notice.clear();
+        self.save_notice = None;
     }
 
     /// Open the saved thought list without granting goal authority.
@@ -210,7 +216,7 @@ impl Garden {
         );
         self.viewing = true;
         self.scroll = 0;
-        self.notice.clear();
+        self.save_notice = None;
     }
 
     /// Whether this local view owns keyboard and paste input.
@@ -225,7 +231,7 @@ impl Garden {
         }
         if matches!(key.code, KeyCode::Esc | KeyCode::F(10)) {
             self.viewing = false;
-            self.notice.clear();
+            self.save_notice = None;
             return None;
         }
         if key.modifiers != KeyModifiers::NONE {
