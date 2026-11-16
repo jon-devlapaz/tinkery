@@ -45,11 +45,13 @@ pub(crate) fn path(session: &Path) -> std::path::PathBuf {
 /// Read the confirmed seed from its recorded path, refusing changed or unconfirmed session files.
 /// The caller must separately establish that these seed bytes belong to its run.
 pub(crate) fn confirmed(seed: &Path) -> Result<ReadySeed, String> {
-    let session = seed.parent().ok_or("The seed has no session folder.")?;
+    let session = seed
+        .parent()
+        .ok_or("The Tink Contract has no session folder.")?;
     if path(session) != seed {
-        return Err("The source is not this session's seed.".into());
+        return Err("The source is not this session's Tink Contract.".into());
     }
-    read(session, None)?.ok_or("The original seed's confirmation cannot be verified.".into())
+    read(session, None)?.ok_or("The original Tink's confirmation cannot be verified.".into())
 }
 
 /// Read a confirmed seed without mutation. `None` means not verified ready; errors mean unavailable.
@@ -68,7 +70,7 @@ fn read_with(
     let seed = match super::read_seed_text(&seed_path) {
         Ok(seed) => seed,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(e) => return Err(format!("Cannot read the seed: {e}")),
+        Err(e) => return Err(format!("Cannot read the Tink Contract: {e}")),
     };
     if seed.lines().next() != Some("status: confirmed for intake") {
         return Ok(None);
@@ -122,8 +124,8 @@ fn read_with(
         goal: shaped
             .goal
             .filter(|g| !g.trim().is_empty())
-            .ok_or("The verified seed has no goal.")?,
-        revision: revision.ok_or("The verified seed has no revision.")?,
+            .ok_or("The verified Tink has no goal.")?,
+        revision: revision.ok_or("The verified Tink has no revision.")?,
         acceptance: acceptance(&seed)?,
         commands,
         retry_started,
@@ -202,23 +204,23 @@ pub(crate) fn execution(target: &SeedTarget, root: &Path) -> Result<(Intake, Str
     use sha2::{Digest, Sha256};
     let ready = read(&target.session, None)?
         .filter(|ready| ready.target.as_ref() == Some(target))
-        .ok_or("The selected seed changed or is no longer confirmed. Reopen Approve.")?;
+        .ok_or("The selected Tink changed or is no longer confirmed. Reopen Approve.")?;
     let bytes = super::read_seed(&path(&target.session)).map_err(|error| error.to_string())?;
     if format!("{:x}", Sha256::digest(&bytes)) != target.sha256 {
-        return Err("The selected seed changed before intake. Reopen Approve.".into());
+        return Err("The selected Tink changed before intake. Reopen Approve.".into());
     }
     let text = std::str::from_utf8(&bytes).map_err(|error| error.to_string())?;
     let title = text.lines().find_map(|line| line.strip_prefix("# "));
     let run = title
         .and_then(|title| run_name(title, Some(target)))
-        .ok_or("The selected seed has no usable run name.")?;
+        .ok_or("The selected Tink has no usable run name.")?;
     let executable = std::env::current_exe().map_err(|error| error.to_string())?;
     let checkout = target
         .retry
         .as_ref()
         .map_or(root, |base| base.checkout.as_path());
     let intake = Intake::new(&target.session, &executable, &run, checkout)
-        .ok_or("The checkout, seed or Tinkery executable cannot be resolved safely.")?;
+        .ok_or("The checkout, Tink Contract or Tinkery executable cannot be resolved safely.")?;
     Ok((intake, ready.goal))
 }
 
@@ -372,7 +374,7 @@ fn acceptance(seed: &str) -> Result<String, String> {
     for line in seed.split_inclusive('\n') {
         if line.trim_end_matches(['\r', '\n']) == "## Acceptance criteria" {
             if found {
-                return Err("The seed repeats its acceptance section.".into());
+                return Err("The Tink Contract repeats its acceptance section.".into());
             }
             found = true;
             inside = true;
@@ -384,7 +386,7 @@ fn acceptance(seed: &str) -> Result<String, String> {
         }
     }
     if !found {
-        return Err("The seed has no acceptance section.".into());
+        return Err("The Tink Contract has no acceptance section.".into());
     }
     Ok(section)
 }
@@ -561,7 +563,7 @@ mod tests {
             ready
                 .confirmation_note
                 .unwrap()
-                .contains("Agent-confirmed seed. Intake requires tink-sdlc 1.38.0")
+                .contains("Agent-confirmed Tink. Intake requires tink-sdlc 1.38.0")
         );
         assert!(shaping::read(&session).unwrap().confirmation_note.is_some());
         let before = fs::read(&seed_path).unwrap();

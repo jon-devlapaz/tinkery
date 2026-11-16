@@ -118,7 +118,7 @@ impl Shape {
                         }),
                     ) => {
                         concat!(
-                            "Read the seed, type confirm, then Enter confirms it. To change the draft instead, ",
+                            "Read the Tink Contract, type confirm, then Enter confirms it. To change the draft instead, ",
                             "F1 Revise the draft. It is not approval to build. ",
                             "Without a completed teach-back, confirming records: Skipped teach-back."
                         )
@@ -126,7 +126,7 @@ impl Shape {
                     (Some(_), Some(_)) => {
                         "Edit the form. ^J adds a line; Esc cancels without saving."
                     }
-                    _ => "Read where this goal's seed stands. ↑↓ or PgUp/PgDn scroll.",
+                    _ => "Check the status of this Tink. ↑↓ or PgUp/PgDn scroll.",
                 };
                 let form = open
                     .form
@@ -142,11 +142,11 @@ impl Shape {
                 )
             }
             None => (
-                "↑↓ / j k choose a goal waiting for a seed · Enter opens it.",
+                "↑↓ / j k choose a goal waiting for a Tink · Enter opens it.",
                 match &self.list {
                     Some(Some(Err(error))) => format!("What went wrong:\n{error}"),
                     Some(Some(Ok(_))) if self.unreadable > 0 => self.discovery_help(),
-                    _ => "Goals whose seed is ready, ended or unknown are in tend.".into(),
+                    _ => "Goals whose Tink is ready, ended or unknown are in tend.".into(),
                 },
             ),
         };
@@ -155,7 +155,7 @@ impl Shape {
                 .to_owned()
         } else if agent.is_some() {
             "Opening, scrolling and typing write nothing. Enter runs the one action the key bar names; F1 lists the rest by number. \
-                 Saving an answer, a deferral or a delegation then looks into the next; only F2 on a drafted seed confirms it, with your words. \
+                 Saving an answer, a deferral or a delegation then looks into the next; only F2 on a drafted Tink confirms it, with your words. \
                  Revision saves and looks, asking recorded dependents before a model call. \
                  Ending a session, from F1, asks once more, then ends it for good."
                 .to_owned()

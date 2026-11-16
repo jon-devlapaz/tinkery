@@ -25,7 +25,7 @@ pub(super) fn decode(value: Value, checks: &mut [Value]) -> Result<Box<Completio
     }
     let wire: Review = serde_json::from_value(value).map_err(|_| {
         concat!(
-            "The seed reply needs a typed completion review: contradictions, decided and done. ",
+            "The Tink draft reply needs a typed completion review: contradictions, decided and done. ",
             "Put failure_case on each check. Legacy failure_cases must be a list of strings in check order, not statement/case objects. Retry the step."
         ).to_owned()
     })?;

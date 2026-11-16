@@ -300,7 +300,7 @@ fn add_reading(blocks: &mut Vec<(String, Tone)>, reading: think_record::Recorded
     }
     for (label, items) in [
         ("Also in your dump", reading.other_goals),
-        ("For the seed", reading.deferred),
+        ("For the Tink", reading.deferred),
     ] {
         if !items.is_empty() {
             blocks.push((String::new(), Tone::Ink));

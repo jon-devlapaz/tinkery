@@ -482,7 +482,7 @@ impl BrainDump {
                 ));
             }
             if !g.deferred.is_empty() {
-                text.push_str(&format!("\nfor the seed: {}\n", g.deferred.join("; ")));
+                text.push_str(&format!("\nfor the Tink: {}\n", g.deferred.join("; ")));
             }
             text.push_str(&format!(
                 "\n## Success criteria / proposed\n\n{}\n\n## Doesn't fit yet\n\n{}\n",

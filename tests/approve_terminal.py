@@ -160,11 +160,11 @@ def journey(width, height, case, no_color):
                 send(b'2', '↑↓←→ move')
                 send(b'\r', 's shape')
                 assert 'TEST newest' in flat(), screen.text()
-                send(b's', 'Seed ready:')
-                assert 'F1, then 1: Open this seed in Approve.' in flat(), screen.text()
+                send(b's', 'Tink ready:')
+                assert 'F1, then 1: Open this Tink in Approve.' in flat(), screen.text()
                 assert files(root) == before
                 # F1 opens only the actions list; the deliberate first choice navigates.
-                send(b'\x1bOP', '1 Open this seed in Approve')
+                send(b'\x1bOP', '1 Open this Tink in Approve')
                 assert 'tinkery › shape' in flat() and not copies(), screen.text()
                 seedpath = target / 'seed-contract.md'
                 ledgerpath = target / 'ledger.json'
@@ -190,11 +190,11 @@ def journey(width, height, case, no_color):
                     recordpath.write_text(json.dumps(record))
                 before = files(root)  # Only the authored TEST mutation above is allowed.
                 success = case in ('target-ready', 'target-twin-checkouts')
-                send(b'1', 'Seed 1 of 1' if success else 'Ready seeds unavailable.')
+                send(b'1', 'Tink 1 of 1' if success else 'Ready Tinks unavailable.')
                 assert 'TEST oldest café' not in flat(), 'targeted visit substituted an unrelated seed'
                 send(b'\x1bOP', 'Esc returns to Shape.')
                 assert 'Esc returns to the menu.' not in flat(), screen.text()
-                send(b'\x1b', 'Seed 1 of 1' if success else 'Ready seeds unavailable.')
+                send(b'\x1b', 'Tink 1 of 1' if success else 'Ready Tinks unavailable.')
                 if success:
                     assert 'TEST newest' in flat() and 'TEST original goal.' in flat()
                     if case == 'target-twin-checkouts':
@@ -203,7 +203,7 @@ def journey(width, height, case, no_color):
                         named = json.dumps(str(checkout), ensure_ascii=False)
                         origin = json.dumps(str(other), ensure_ascii=False)
                         expected_note = (f'Using {named}. Reopen Tinkery with --sdlc-root naming '
-                                         f'{origin}, where this seed was made.')
+                                         f'{origin}, where this Tink was made.')
                         # The terminal can wrap paths in the middle of a word.
                         assert ''.join(expected_note.split()) in ''.join(flat().split()), screen.text()
                         assert 'c copy command' not in flat() and 'python3' not in flat()
@@ -222,17 +222,17 @@ def journey(width, height, case, no_color):
                 if case == 'target-twin-checkouts':
                     assert not copies(), 'same-named checkout mismatch offered a copy'
                 wait(lambda: 'TEST newest' in flat())
-                if case in ('target-stale','target-missing'):assert 'Seed ready:' not in flat(), screen.text()
-                else:wait(lambda: 'Seed ready:' in flat())
+                if case in ('target-stale','target-missing'):assert 'Tink ready:' not in flat(), screen.text()
+                else:wait(lambda: 'Tink ready:' in flat())
                 if case in ('target-version','target-recreated','target-hash'):
                     # Back rereads the now-valid replacement identity, never reuses the old one.
-                    send(b'\x1bOP','1 Open this seed in Approve');send(b'1','Seed 1 of 1')
+                    send(b'\x1bOP','1 Open this Tink in Approve');send(b'1','Tink 1 of 1')
                     assert 'TEST newest' in flat() and 'TEST oldest café' not in flat()
-                    send(b'\x1b','Seed ready:')
+                    send(b'\x1b','Tink ready:')
                 if case == 'target-ready':
-                    send(b'\x1bOP','1 Open this seed in Approve');send(b'1','Seed 1 of 1')
+                    send(b'\x1bOP','1 Open this Tink in Approve');send(b'1','Tink 1 of 1')
                     send(b'\x1b[21~','4 approve')  # F10 drops the route-specific origin.
-                    send(b'2','↑↓←→ move');send(b'\r','s shape');send(b's','Seed ready:')
+                    send(b'2','↑↓←→ move');send(b'\r','s shape');send(b's','Tink ready:')
                 send(b'\x1b','s shape')
                 wait(lambda: 'tinkery › tend' in flat() and 'TEST newest' in flat())
                 send(b'\x1b[21~','4 approve')
@@ -242,8 +242,8 @@ def journey(width, height, case, no_color):
             os.write(master, b'4')
             if retarget:
                 for visit in (1, 2):
-                    wait(lambda: 'Seed 1 of 1' in flat())
-                    assert 'TEST newest' in flat() and "Can't tell which seeds have started" not in flat()
+                    wait(lambda: 'Tink 1 of 1' in flat())
+                    assert 'TEST newest' in flat() and "Can't tell which Tinks have started" not in flat()
                     assert named_checkout.resolve() == (checkout if visit == 1 else other)
                     send(b'c', 'Copied. Run it in a terminal; after it succeeds, open Watch.')
                     wait(lambda: len(copies()) == visit)
@@ -254,22 +254,22 @@ def journey(width, height, case, no_color):
                     if visit == 1:
                         (root / 'next-checkout').symlink_to(other)
                         os.write(master, b'4')
-                send(b'4', 'Seed 1 of 2')
-                assert 'TEST oldest café' in flat() and "Can't tell which seeds have started" not in flat()
+                send(b'4', 'Tink 1 of 2')
+                assert 'TEST oldest café' in flat() and "Can't tell which Tinks have started" not in flat()
                 send(b'\x1b[F', 'Made in ' + checkout.name)
                 assert 'c copy command' not in flat(), screen.text()
                 os.write(master, b'c')
                 send(b'\x1b', '4 approve')
                 assert len(copies()) == 2, 'stable mismatched checkout offered a copy'
             elif case in ('started', 'edited'):
-                wait(lambda: 'Seed 1 of 1' in flat())
+                wait(lambda: 'Tink 1 of 1' in flat())
                 assert 'TEST newest' in flat() and 'TEST oldest café' not in flat(), screen.text()
                 if case == 'edited':
                     assert 'unknown start' in flat(), screen.text()
                 else:
                     assert 'unknown start' not in flat(), screen.text()
             elif case == 'different-repo':
-                wait(lambda: 'Seed 1 of 2' in flat())
+                wait(lambda: 'Tink 1 of 2' in flat())
                 assert 'TEST oldest café' in flat() and 'TEST original goal.' in flat(), screen.text()
                 send(b'\x1b[F', 'Made in TEST-other-repo.')
                 assert "Current project: TEST checkout's folder." in flat(), screen.text()
@@ -279,7 +279,7 @@ def journey(width, height, case, no_color):
                 send(b'\x1b', '4 approve')
                 assert not copies(), 'mismatched repo offered a copy'
             elif case == 'no-script':
-                wait(lambda: 'Seed 1 of 2' in flat())
+                wait(lambda: 'Tink 1 of 2' in flat())
                 send(b'\x1b[F', 'Cannot copy: a project with tink-sdlc is required.')
                 assert 'c copy command' not in flat() and 'python3 _system' not in flat(), screen.text()
                 os.write(master, b'bc')
@@ -288,21 +288,21 @@ def journey(width, height, case, no_color):
                 # Restoring the script and reopening Approve offers the command again.
                 script.write_text(restored)  # It reports the oldest seed started.
                 before = files(root)
-                send(b'4', 'Seed 1 of 1')
+                send(b'4', 'Tink 1 of 1')
                 send(b'\x1b[F', 'c copy command')
                 send(b'c', 'Copied. Run it in a terminal; after it succeeds, open Watch.')
                 wait(lambda: len(copies()) == 1)
             elif case == 'no-checkout':
-                wait(lambda: 'Seed 1 of 2' in flat())
+                wait(lambda: 'Tink 1 of 2' in flat())
                 send(b'\x1b[F', 'Cannot copy:')
                 assert 'c copy command' not in flat(), screen.text()
                 os.write(master, b'c')
                 send(b'\x1b', '4 approve')
                 assert not copies()
             elif case in ('ready', 'moved', 'runs-unreadable'):
-                wait(lambda: 'Seed 1 of 2' in flat())
+                wait(lambda: 'Tink 1 of 2' in flat())
                 if case == 'runs-unreadable':
-                    assert "Can't tell which seeds have started; none are hidden." in flat(), screen.text()
+                    assert "Can't tell which Tinks have started; none are hidden." in flat(), screen.text()
                 assert 'TEST oldest café' in flat() and 'TEST newest' not in flat(), screen.text()
                 assert 'TEST original goal.' in flat(), screen.text()
                 if case == 'ready':
@@ -335,11 +335,11 @@ def journey(width, height, case, no_color):
                 assert 'Copied.' not in flat(), 'selection kept stale copy feedback'
                 send(b'p', 'TEST oldest café')
                 send(b'\x1b', '4 approve')
-                send(b'4', 'Seed 1 of 2')
+                send(b'4', 'Tink 1 of 2')
             else:
-                message = {'empty': 'No verified seeds could be listed.',
-                           'incomplete': 'No verified seeds could be listed.',
-                           'unreadable': 'Ready seeds unavailable.'}[case]
+                message = {'empty': 'No verified Tinks could be listed.',
+                           'incomplete': 'No verified Tinks could be listed.',
+                           'unreadable': 'Ready Tinks unavailable.'}[case]
                 wait(lambda: message in flat())
                 if case == 'incomplete':
                     assert 'may be incomplete' in flat()

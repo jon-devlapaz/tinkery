@@ -33,13 +33,13 @@ impl Seed {
     pub(crate) fn parse(run: &Value) -> Result<Option<Self>, String> {
         let record = run
             .get("seed_contract")
-            .ok_or("The run doesn't report its original seed.")?;
+            .ok_or("The run doesn't report its original Tink.")?;
         if record.is_null() {
             return Ok(None);
         }
         let source = record["source"]
             .as_str()
-            .ok_or("The run has no original seed location.")?;
+            .ok_or("The run has no original Tink Contract location.")?;
         let sha256 = record["sha256"]
             .as_str()
             .filter(|s| {
@@ -47,9 +47,9 @@ impl Seed {
                     && s.bytes()
                         .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
             })
-            .ok_or("The run has no readable seed fingerprint.")?;
+            .ok_or("The run has no readable Tink Contract fingerprint.")?;
         if !Path::new(source).is_absolute() || record["path"].as_str().is_none() {
-            return Err("The run has no readable seed location.".into());
+            return Err("The run has no readable Tink Contract location.".into());
         }
         Ok(Some(Self {
             source: source.into(),
@@ -62,12 +62,12 @@ impl Seed {
         crate::seed_me::migration::refuse_old_root(path)?;
         let path = path
             .canonicalize()
-            .map_err(|e| format!("Cannot locate the original seed: {e}"))?;
+            .map_err(|e| format!("Cannot locate the original Tink Contract: {e}"))?;
         if self.source.as_os_str() != path.as_os_str() {
             return Ok(false);
         }
         let bytes = crate::seed_me::read_seed(&path)
-            .map_err(|e| format!("Cannot read the original seed: {e}"))?;
+            .map_err(|e| format!("Cannot read the original Tink Contract: {e}"))?;
         Ok(self.sha256 == format!("{:x}", Sha256::digest(bytes)))
     }
 }
@@ -472,7 +472,7 @@ pub(crate) fn started(seeds: &[Seed], path: &Path) -> Result<bool, String> {
                 .iter()
                 .any(|seed| seed.source.as_os_str() == path.as_os_str())
             {
-                return Err(format!("Cannot locate the seed: {error}"));
+                return Err(format!("Cannot locate the Tink Contract: {error}"));
             }
             return Ok(false);
         }
@@ -488,7 +488,7 @@ pub(crate) fn started(seeds: &[Seed], path: &Path) -> Result<bool, String> {
         }
     }
     if same_source {
-        Err("The seed's contents differ from the run. Check it in Shape.".into())
+        Err("The Tink Contract differs from the run. Check it in Shape.".into())
     } else {
         Ok(false)
     }

@@ -63,7 +63,7 @@ impl Rejected {
         };
         let seed = run.data["seed_contract"]["source"]
             .as_str()
-            .ok_or("The prior seed is missing.")?;
+            .ok_or("The prior Tink Contract is missing.")?;
         let prior = seed_me::retry::prior(Path::new(seed), &goal)?;
         let common = git(
             self.local.checkout(),

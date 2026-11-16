@@ -479,7 +479,7 @@ pub(super) fn details(
         format!("Commit: {}", row.head.as_deref().unwrap_or("unknown")),
         format!("Run ID: {}", row.id),
         format!("Run: {}", row.slug),
-        format!("Seed digest: {}", row.seed),
+        format!("Tink Contract digest: {}", row.seed),
         format!(
             "Read {} min ago (snapshot)",
             at.map_or(0, |at| at.elapsed().as_secs() / 60)

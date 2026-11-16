@@ -271,7 +271,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         }
         if !g.deferred.is_empty() {
             lines.push(ratatui::text::Line::styled(
-                format!("for the seed: {}", g.deferred.join("; ")),
+                format!("for the Tink: {}", g.deferred.join("; ")),
                 palette.muted,
             ));
         }
@@ -416,12 +416,12 @@ pub(super) fn open_intent(app: &BrainDump) -> Option<String> {
     {
         READY_FOR_REVIEW.into()
     } else {
-        "Some parts remain open for the seed.".into()
+        "Some parts remain open for the Tink.".into()
     })
 }
 pub(super) fn help_text(app: &BrainDump) -> String {
     if app.handoff.receipt().is_some() {
-        return "Right now\nYour goal is saved. Next: shape it into a seed in Shape.\ns open in tend · Esc back to the menu\n\nF1 close".into();
+        return "Right now\nYour goal is saved. Next: shape it into a Tink in Shape.\ns open in tend · Esc back to the menu\n\nF1 close".into();
     }
     let open_now;
     let now = if matches!(

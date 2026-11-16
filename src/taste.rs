@@ -697,8 +697,8 @@ impl Taste {
 fn goal(goal: &Goal) -> &str {
     match goal {
         Goal::Matched(text) => text,
-        Goal::NoSeed => "No confirmed seed was recorded for this run.",
-        Goal::Unknown => "Goal unknown: the original seed changed or can't be found.",
+        Goal::NoSeed => "This run has no confirmed Tink.",
+        Goal::Unknown => "Goal unknown: the original Tink Contract changed or is missing.",
     }
 }
 
@@ -736,7 +736,7 @@ fn handoff(row: &ResultRow, action: char) -> Result<String, &'static str> {
     };
     Ok(format!(
         concat!(
-            "{} requested: {} @{}; run {} ({}); seed digest {}. Goal (unchanged):\n{}\n",
+            "{} requested: {} @{}; run {} ({}); Tink Contract digest {}. Goal (unchanged):\n{}\n",
             "Evidence and unresolved conditions: {}. Gates owed: {}. Source gaps: {}. ",
             "Recheck current PR head, inputs and receipts; resolve gates and inspect this exact result ",
             "before recording any decision externally. Add the operator's requested changes externally. ",

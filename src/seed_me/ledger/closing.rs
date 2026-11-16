@@ -73,7 +73,7 @@ impl CompletionReview {
     pub fn validate(&self, checks: &Value) -> Result<(), String> {
         require(
             self.contradictions.is_empty(),
-            "Completion review found a blocker. Return it as a question, not a seed draft.",
+            "Completion review found a blocker. Return the blocker as a question.",
         )?;
         require(
             self.decided

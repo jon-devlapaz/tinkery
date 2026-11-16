@@ -66,12 +66,14 @@ pub(crate) struct Prior {
 
 /// Refuse an unverified source or a goal that differs from the displayed one.
 pub(crate) fn prior(seed: &Path, goal: &str) -> Result<Prior, String> {
-    let session = seed.parent().ok_or("The prior seed has no session.")?;
+    let session = seed
+        .parent()
+        .ok_or("The prior Tink Contract has no session.")?;
     let ledger = ledger::load(session)?;
     if ledger["goal"].string() != Some(goal)
         || ledger::verify_handoff(session, &ledger)?["verified"] != ledger::Value::Bool(true)
     {
-        return Err("The prior seed changed. Reread Taste.".into());
+        return Err("The prior Tink Contract changed. Reread Taste.".into());
     }
     let state = ledger::editable(&ledger)?.to_json()?;
     let nodes = state["nodes"]

@@ -58,7 +58,7 @@ const HELD: &str = "An agent answers Shape with --shape-pi. Shape only reads; Es
 /// The only words that confirm a seed draft, as in Think: anything else may be a correction.
 const CONFIRM: &str = "confirm";
 /// Confirming before the whole seed draft has been on screen.
-const READ_FIRST: &str = "PgDn or Down to 'End of seed' first. Nothing was confirmed.";
+const READ_FIRST: &str = "PgDn or Down to 'End of Tink Contract' first. Nothing was confirmed.";
 /// Refusals about the typed words; changing the words clears them.
 const WORD_REFUSALS: [&str; 3] = [
     "Type your answer first; nothing was saved.",
@@ -427,7 +427,7 @@ impl Shape {
                         open.assumed.retain(|a| a.text != text);
                         (
                             format!(
-                                "Not assumed: {text}. It's an open question now, asked before the seed is drafted."
+                                "Not assumed: {text}. It's an open question now, asked before Shape drafts the Tink."
                             ),
                             None,
                         )
@@ -623,7 +623,7 @@ impl Shape {
                     }
                     KeyCode::Enter if matches!(typing.act, Act::Confirm { .. }) => {
                         open.notice = Some((
-                            "Enter confirms the seed; ^J adds no line here.".into(),
+                            "Enter confirms the Tink. ^J adds no line here.".into(),
                             None,
                         ));
                         return Leave::Stay;
@@ -806,7 +806,7 @@ impl Shape {
                             ..
                         }),
                         _,
-                    ) if open.read_end.is_some() => Some(format!("enter confirm seed {r}")),
+                    ) if open.read_end.is_some() => Some(format!("enter confirm Tink {r}")),
                     (
                         Some(_),
                         None,
@@ -937,7 +937,7 @@ impl Shape {
                 "Nothing can be listed from the readable sessions. Esc goes back."
             }
             Some(Some(Ok(_))) => {
-                "No goals are waiting for a seed. Confirm a goal in think, then shape it here."
+                "No goals are waiting for a Tink. Confirm a goal in think, then shape it here."
             }
             Some(Some(Err(_))) => "Your sessions couldn't be read. F1 shows why. Esc goes back.",
             _ => "Reading your sessions. Esc goes back.",
@@ -1682,7 +1682,7 @@ fn render_open(
     }
     let (reading, input) = match &open.reading {
         Reading::NotStarted | Reading::Waiting(_) => (
-            Text::styled("Reading where this seed stands.", palette.muted),
+            Text::styled("Checking this Tink.", palette.muted),
             Text::default(),
         ),
         Reading::Done(Err(error)) => (
@@ -1764,9 +1764,9 @@ fn render_open(
                         }
                         (Doing::Change, false) => "Saving your change.".into(),
                         (Doing::Change, true) => {
-                            format!("Change saved. Redrafting the seed from {name}.")
+                            format!("Change saved. Redrafting the Tink from {name}.")
                         }
-                        (Doing::Confirm, _) => "Confirming the seed.".to_owned(),
+                        (Doing::Confirm, _) => "Confirming the Tink.".to_owned(),
                     };
                     Stand {
                         acts,
@@ -1881,7 +1881,7 @@ fn render_open(
                 reading.lines.push(Line::default());
                 reading
                     .lines
-                    .push(Line::styled("End of seed", palette.muted));
+                    .push(Line::styled("End of Tink Contract", palette.muted));
             }
             (reading, input)
         }
@@ -2107,7 +2107,7 @@ fn seed_view(
 fn asked(ending: Ending) -> (String, Option<String>) {
     match ending {
         Ending::Completed => (
-            "End this session as completed? It becomes read-only for good, and tend no longer lists it; Approve still offers its seed.".into(),
+            "End this session as completed? It becomes read-only for good, and tend no longer lists it; Approve still offers its Tink.".into(),
             Some("Next: Enter ends it; Esc keeps it open.".into()),
         ),
         Ending::Stopped => (
@@ -2395,7 +2395,7 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                 lines.push(Line::styled(
                     match revision {
                         Some(r) => format!("Tink Contract {r} is waiting for you to confirm it."),
-                        None => "A seed draft is waiting for you to confirm it.".into(),
+                        None => "A draft Tink Contract is waiting for you to confirm it.".into(),
                     },
                     palette.ink,
                 ));
@@ -2403,7 +2403,7 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
             // Beside the words box, so a long seed can't scroll it away.
             if !calm && text.as_deref().is_some_and(|t| t.contains(NOTHING_FOUND)) {
                 flag = Some(Line::styled(
-                    "Nothing found: this seed records nothing checked in the repository.",
+                    "Nothing found: this Tink Contract records nothing checked in the repository.",
                     palette.ink,
                 ));
             }
@@ -2412,7 +2412,7 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                     Some("Next: Enter saves your words and compares with the draft.".into())
                 }
                 (true, _) if words == Some("your change") => {
-                    Some("Next: Enter saves your change and redrafts the seed.".into())
+                    Some("Next: Enter saves your change and redrafts the Tink.".into())
                 }
                 // The key bar owns the next action, including while a refusal is shown.
                 (true, Some(_)) => None,
@@ -2423,8 +2423,8 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
         Shaped::Ready { revision, ended } => {
             lines.push(Line::styled(
                 match revision {
-                    Some(r) => format!("Seed ready: you confirmed {r}, and it still matches."),
-                    None => "Seed ready: what you confirmed still matches.".into(),
+                    Some(r) => format!("Tink ready: you confirmed {r}, and it still matches."),
+                    None => "Tink ready: what you confirmed still matches.".into(),
                 },
                 palette.ink,
             ));
@@ -2438,23 +2438,20 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                 ));
             }
             Some(if shaping.ready_target.is_some() {
-                "Next: F1, then 1: Open this seed in Approve.".into()
+                "Next: F1, then 1: Open this Tink in Approve.".into()
             } else {
-                "Next: open Approve from the menu to inspect this seed.".into()
+                "Next: open Approve from the menu to inspect this Tink.".into()
             })
         }
         Shaped::Unverified { reason } => {
             lines.push(Line::styled(
-                format!("The seed says it's confirmed, but Tinkery can't verify it: {reason}."),
+                format!("Tinkery cannot verify this Tink: {reason}."),
                 palette.ink,
             ));
             Some(INSPECT.into())
         }
         Shaped::Practice => {
-            lines.push(Line::styled(
-                "This is a practice session's seed, not a real one.",
-                palette.ink,
-            ));
+            lines.push(Line::styled("This Tink is for practice only.", palette.ink));
             Some("Next: confirm a goal in think to start a real one.".into())
         }
         Shaped::Ended { status } => {
@@ -2466,7 +2463,7 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
         }
         Shaped::Unknown { what } => {
             lines.push(Line::styled(
-                format!("Shape can't tell where this seed stands. {what}"),
+                format!("Shape cannot check this Tink. {what}"),
                 palette.ink,
             ));
             Some(INSPECT.into())
@@ -2491,7 +2488,7 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
         {
             input.push(Line::default());
             input.push(Line::styled(
-                "Confirming the seed is not approval to build.",
+                "Confirm the Tink here. Approve the build separately.",
                 palette.ink,
             ));
         }

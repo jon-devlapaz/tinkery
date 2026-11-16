@@ -64,7 +64,7 @@ impl Review {
         };
         self.page = crate::page(body.height);
         let mut text = if help {
-            "Review the previous goal, rejection, and starting commit. Saving creates a fresh Shape session and isolated checkout. Confirming the new seed happens later in Shape.".into()
+            "Review the previous goal, rejection, and starting commit. Saving creates a fresh Shape session and isolated checkout. Confirming the new Tink happens later in Shape.".into()
         } else if let Some(r) = &self.reviewed {
             let decisions = if r.prior.decisions.is_empty() {
                 "None recorded.".into()

@@ -5,6 +5,8 @@ amends it. These notes explain design application, not a second constitution.
 
 - **Controls:** the quiet key bar shows available actions, not a catalogue. Name
   what the person does, not the underlying protocol.
+- **Names:** use Tink for the work item and Tink Contract for its document. Preserve
+  the words in saved documents and the established names in commands and files.
 - **Consent:** layout, copying, answering and skipping grant no approval. Goal
   confirmation, seed confirmation, intake approval and implementation permission
   are separate gates.

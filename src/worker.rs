@@ -309,7 +309,7 @@ fn current(run: &Run) -> Result<sdlc::Run, String> {
 }
 
 fn require_seed(value: &sdlc::Run) -> Result<ready::ReadySeed, String> {
-    sdlc::confirmed(&value.data).map_err(|_| "The run's original confirmed seed is unavailable or changed. Recheck it before running work.".into())
+    sdlc::confirmed(&value.data).map_err(|_| "The run's original confirmed Tink Contract is unavailable or changed. Recheck it before running work.".into())
 }
 
 // Check both the recorded ancestry and the files a newly launched worker will actually read.
@@ -350,7 +350,9 @@ fn committed_source(root: &Path) -> Result<String, String> {
 
 fn start(request: Start) -> Result<Snapshot, Failure> {
     let (intake, source_commit) = (|| {
-        request.authorization.check(Some(&request.target), &request.config)?;
+        request
+            .authorization
+            .check(Some(&request.target), &request.config)?;
         request.config.validate()?;
         canonical_root(&request.root)?;
         let (intake, goal) = ready::execution(&request.target, &request.root)?;
@@ -365,7 +367,7 @@ fn start(request: Start) -> Result<Snapshot, Failure> {
             && origin != &intake.root
         {
             return Err(
-                "The selected seed belongs to a different repository. No worker was started."
+                "The selected Tink belongs to a different repository. No worker was started."
                     .into(),
             );
         }
@@ -380,7 +382,10 @@ fn start(request: Start) -> Result<Snapshot, Failure> {
         }
         let seeds = sdlc::seeds(&intake.root, &AtomicBool::new(false))?;
         if sdlc::started(&seeds, &intake.seed)? {
-            return Err("This exact seed already has a run. Inspect that run instead of starting another worker.".into());
+            return Err(
+                "This Tink already has a run. Inspect that run instead of starting another worker."
+                    .into(),
+            );
         }
         ready::execution(&request.target, &intake.root)?;
         Ok((intake, source_commit))
@@ -415,9 +420,9 @@ fn start(request: Start) -> Result<Snapshot, Failure> {
         )?;
         let value = current(&run)?;
         let seed =
-            sdlc::Seed::parse(&value.data)?.ok_or("Intake did not record the selected seed.")?;
+            sdlc::Seed::parse(&value.data)?.ok_or("Intake did not record the selected Tink.")?;
         if !seed.matches(&intake.seed)? {
-            return Err("Intake recorded a different seed; no worker was started.".into());
+            return Err("Intake recorded a different Tink. No worker started.".into());
         }
         ready::execution(&request.target, &intake.root)?;
         if let Some(base) = &request.target.retry {

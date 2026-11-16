@@ -698,7 +698,7 @@ fn all_three_goal_states_are_distinct_in_list_and_detail() {
                     Goal::NoSeed => assert!(!list.contains("seed"), "{list}"),
                     Goal::Unknown => assert!(
                         list.lines().any(|line| line.starts_with(
-                            "    Goal unknown: the original seed changed or can't be found."
+                            "    Goal unknown: the original Tink Contract changed or is missing."
                         )),
                         "{list}"
                     ),
@@ -749,20 +749,14 @@ fn all_three_goal_states_are_distinct_in_list_and_detail() {
                     assert!(shown.contains("TEST café") && shown.contains("TEST full goal tail"));
                 }
                 Goal::NoSeed => {
-                    assert_eq!(
-                        shown
-                            .matches("No confirmed seed was recorded for this run.")
-                            .count(),
-                        1
-                    );
+                    assert_eq!(shown.matches("This run has no confirmed Tink.").count(), 1);
                     assert!(!shown.contains("Goal unknown"));
                 }
                 Goal::Unknown => {
-                    assert!(
-                        shown
-                            .contains("Goal unknown: the original seed changed or can't be found.")
-                    );
-                    assert!(!shown.contains("No confirmed seed"));
+                    assert!(shown.contains(
+                        "Goal unknown: the original Tink Contract changed or is missing."
+                    ));
+                    assert!(!shown.contains("This run has no confirmed Tink."));
                 }
             }
         }

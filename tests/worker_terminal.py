@@ -531,7 +531,7 @@ def check_cli():
 
 def open_review(terminal, read_to_end=True):
     terminal.wait(lambda: '4  approve' in terminal.screen.text())
-    terminal.send(b'4', 'Seed 1 of 1')
+    terminal.send(b'4', 'Tink 1 of 1')
     assert not terminal.fixture.mutations(), 'reading Approve created work'
     terminal.send(b'c', 'Copied.')
     assert len(terminal.copies()) == 1

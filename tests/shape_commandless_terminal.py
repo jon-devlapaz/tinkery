@@ -46,7 +46,7 @@ def contract_journey(width, height, agent):
             run.send(b'\x1b[200~' + words.encode() + b'\x1b[201~', shown)
 
         def read_end():
-            run.read_until('End of seed', whole_line=True)
+            run.read_until('End of Tink Contract', whole_line=True)
 
         def save():
             run.send(F2, 'Check saved. Read the changed draft, then confirm. No model ran.')
@@ -77,7 +77,7 @@ def contract_journey(width, height, agent):
             assert 'Missing manual steps.' not in run.flat()
             capture('repaired')
             assert helper.read_checks(session) == [records[0], {**records[1], 'how_to_judge': BROWSER}]
-            run.send(F2, "PgDn or Down to 'End of seed' first.")
+            run.send(F2, "PgDn or Down to 'End of Tink Contract' first.")
             run.choose('Edit check 2', 'the cleared text returns.')
             run.wait('Edit check 2 Guest browser draft stays isolated')
             capture('reopened')
@@ -117,7 +117,7 @@ def contract_journey(width, height, agent):
                 {**records[0], 'cmd': command}, {**records[1], 'how_to_judge': BROWSER}]
             assert 'Missing command.' not in run.flat()
             read_end()
-            run.send(F2, 'Seed ready:')
+            run.send(F2, 'Tink ready:')
             assert helper.status(session)['handoff']['verified']
             assert helper.load(session)['goal'] == goal
             assert helper.read_checks(session)[1]['how_to_judge'] == BROWSER
@@ -154,7 +154,7 @@ def draft_and_redraft():
             run.type('TEST revisit the steps.')
             run.send(F2, 'Tink Contract r2')
             run.wait('Missing manual steps. F1: Edit check 1.')
-            run.read_until('End of seed', whole_line=True)
+            run.read_until('End of Tink Contract', whole_line=True)
             run.type('confirm')
             before = files(session)
             run.send(F2, 'Cannot confirm: check 1. Missing manual steps. Nothing was confirmed.')
@@ -197,9 +197,9 @@ def objective_browser_check():
             run.read_until("Pass if B never shows A's draft.")
             run.read_until('Pass if the box stays empty.')
             run.read_until('Must fail: Fail if the text changes')
-            run.read_until('End of seed', whole_line=True)
+            run.read_until('End of Tink Contract', whole_line=True)
             run.type('confirm')
-            run.send(F2, 'Seed ready:')
+            run.send(F2, 'Tink ready:')
             assert helper.status(session)['handoff']['verified']
             assert helper.read_checks(session) == [record]
             assert not (root / 'check-ran').exists(), 'Shape ran the command without run authorization'
@@ -232,7 +232,7 @@ def journey(width, height, agent, repair):
         try:
             run.open_shape()
             run.wait('Tink Contract r1')
-            run.read_until('End of seed', whole_line=True)
+            run.read_until('End of Tink Contract', whole_line=True)
             run.send(b'confirm', 'your words confirm')
             if repair != 'proposed':
                 before = files(session)
@@ -250,10 +250,10 @@ def journey(width, height, agent, repair):
                     run.choose('Make check 1 a judgment', SIGNOFF)
                     run.send(b'\x1b[200~' + words.encode() + b'\x1b[201~', words.strip())
                 run.send(F2, 'Check saved. Read the changed draft, then confirm. No model ran.')
-                run.read_until('End of seed', whole_line=True)
+                run.read_until('End of Tink Contract', whole_line=True)
                 if repair == 'judge':
                     run.read_until(READING)
-            run.send(F2, 'Seed ready:')
+            run.send(F2, 'Tink ready:')
             if repair == 'judge':
                 run.wait(READING)
             else:

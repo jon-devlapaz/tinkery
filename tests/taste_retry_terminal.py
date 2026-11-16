@@ -160,7 +160,7 @@ def journey(width, height, forwarded, legacy=False):
                 # fixtures. Navigate normally and execute the command actually copied by Approve.
                 send(ESC, '1 think')
                 command_seed(retry)
-                send(b'4', 'Seed 1 of 1')
+                send(b'4', 'Tink 1 of 1')
                 send(b'c', 'open Watch with --sdlc-root set to the retry checkout.')
                 (encoded,) = re.findall(rb'\x1b\]52;[^;]*;([^\x07\x1b]*)(?:\x07|\x1b\\)', terminal.raw)
                 intake = base64.b64decode(encoded).decode()
@@ -178,7 +178,7 @@ def journey(width, height, forwarded, legacy=False):
                 executable = script.read_bytes()
                 marker = base / 'TEST-detached-script-ran'
                 script.write_text(f"from pathlib import Path\nPath({str(marker)!r}).touch()\n")
-                reopen_approve('No verified seeds are waiting.')
+                reopen_approve('No verified Tinks are waiting.')
                 assert not marker.exists()
                 script.write_bytes(executable)
 
@@ -187,13 +187,13 @@ def journey(width, height, forwarded, legacy=False):
                 damaged = json.loads(original_record)
                 damaged['seed_contract']['source'] = str(original / 'seed-contract.md')
                 record.write_text(json.dumps(damaged))
-                reopen_approve('Seed 1 of 1')
+                reopen_approve('Tink 1 of 1')
                 assert 'b review start' not in terminal.screen.text() and 'c copy command' not in terminal.screen.text()
                 send(b'\x1b[F', 'Cannot identify the retry intake.')
                 record.write_bytes(original_record)
                 new_build = base / 'TEST-second-build'
                 sdlc(detached, env, 'stage', new_run.name, '3', '--worktree', str(new_build))
-                reopen_approve('No verified seeds are waiting.')
+                reopen_approve('No verified Tinks are waiting.')
                 assert git('-C', str(new_build), 'rev-parse', 'HEAD^').stdout.decode().strip() == candidate
                 assert (new_build / 'example.txt').read_bytes() == (build / 'example.txt').read_bytes()
                 assert git('show-ref', '--heads', 'main', RUN).stdout == refs

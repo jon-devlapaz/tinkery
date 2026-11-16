@@ -214,7 +214,7 @@ fn changed_selected_seed_refuses_before_any_command() {
         wait(Job::start(fixture.request.clone()))
             .unwrap_err()
             .message
-            .contains("seed")
+            .contains("Tink")
     );
     assert!(fixture.commands().is_empty());
 }
@@ -228,7 +228,7 @@ fn stale_selected_version_refuses_even_when_seed_bytes_are_unchanged() {
         wait(Job::start(request))
             .unwrap_err()
             .message
-            .contains("seed")
+            .contains("Tink")
     );
     assert!(fixture.commands().is_empty());
 }

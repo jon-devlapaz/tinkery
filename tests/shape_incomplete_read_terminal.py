@@ -15,7 +15,7 @@ import unittest
 from vt_screen import Screen
 
 REPO = Path(__file__).resolve().parents[1]
-EMPTY = "No goals are waiting for a seed."
+EMPTY = "No goals are waiting for a Tink."
 OFFERED = "TEST eligible goal"
 HIDDEN = "TEST ended goal"
 

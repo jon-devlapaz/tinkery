@@ -221,7 +221,7 @@ fn s2_decision_changed_after_draft_refuses_the_old_confirmation() {
     fs::write(session.join(SEED), format!("{confirmed} ")).unwrap();
     assert!(!verified(&session));
     let tampered = why(refused(&session, || end(&session, Ending::Completed, None)));
-    assert!(tampered.contains("seed changed"), "{tampered}");
+    assert!(tampered.contains("Tink Contract changed"), "{tampered}");
     fs::write(session.join(SEED), confirmed).unwrap();
     end(&session, Ending::Completed, None).unwrap();
     holds(&session, Some(("TEST synced", "TEST hourly")));
@@ -318,9 +318,7 @@ fn s4_decision_changed_after_confirmation_cannot_complete_and_keeps_the_goal() {
     });
     assert_eq!(
         redraft,
-        Refusal::Refused(
-            "A seed that isn't a draft already exists; Shape never replaces it.".into()
-        )
+        Refusal::Refused("A Tink Contract already exists. Open it in Shape.".into())
     );
     end(&session, Ending::Stopped, None).unwrap();
     holds(&session, Some(("TEST local", "TEST never")));

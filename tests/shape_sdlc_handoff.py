@@ -155,9 +155,9 @@ def shape(root, env):
         wait('pgup/dn read to end')
         send(b'confirm', 'your words confirm')
         # F2 confirms only a draft read to the end (#250).
-        send(b'\x1bOQ', "PgDn or Down to 'End of seed' first. Nothing was confirmed.")
+        send(b'\x1bOQ', "PgDn or Down to 'End of Tink Contract' first. Nothing was confirmed.")
         os.write(master, b'\x1b[6~' * 40)
-        wait('enter confirm seed r1')
+        wait('enter confirm Tink r1')
         # #739: the recorded r1 has two commandless provisionals; each needs a TEST command first.
         for i, name in enumerate(('sounds', 'mechanics'), 2):
             send(b'\x1bOQ', f'Cannot confirm: check {i}. Missing command.')
@@ -168,8 +168,8 @@ def shape(root, env):
             send(b'\x1b[200~' + typed.encode() + b'\x1b[201~', typed)
             send(b'\x1bOQ', 'Check saved. Read the changed draft, then confirm. No model ran.')
             os.write(master, b'\x1b[6~' * 40)
-            wait('enter confirm seed r1')
-        send(b'\x1bOQ', 'Seed ready: you confirmed r1, and it still matches.')
+            wait('enter confirm Tink r1')
+        send(b'\x1bOQ', 'Tink ready: you confirmed r1, and it still matches.')
         status = helper.status(session)
         assert status['handoff']['verified'] is True
         for key in ('viewer', 'snapshot', 'snapshot_current'):
@@ -237,7 +237,7 @@ def approve_watch(root, env, session, project):
 
     try:
         wait('4  approve')
-        send(b'4', 'Seed 1 of 1')
+        send(b'4', 'Tink 1 of 1')
         wait(GOAL)
         send(b'c', 'Copied.')
         copies = re.findall(rb'\x1b\]52;[^;]*;([^\x07\x1b]*)(?:\x07|\x1b\\)', output)
@@ -259,8 +259,8 @@ def approve_watch(root, env, session, project):
             assert row['seed_contract']['source'] == str(seed.resolve())
             assert row['seed_contract']['sha256'] == hashlib.sha256(seed.read_bytes()).hexdigest()
         send(b'\x1b', '4 approve')
-        send(b'4', 'No verified seeds are waiting.')
-        assert 'Seed 1 of' not in screen.text(), screen.text()
+        send(b'4', 'No verified Tinks are waiting.')
+        assert 'Tink 1 of' not in screen.text(), screen.text()
         command([sys.executable, runtime, 'new', 'test-no-seed'], project, env)
         no_seed = json.loads(command([sys.executable, runtime, 'status', 'test-no-seed', '--json'], project, env).stdout)
         assert no_seed['run']['seed_contract'] is None
@@ -268,7 +268,7 @@ def approve_watch(root, env, session, project):
         send(b'5', 'Needs you')
         wait(GOAL)
         assert copied_slug[:30] in screen.text(), screen.text()
-        assert 'Goal unknown' not in screen.text() and 'No confirmed seed' not in screen.text(), screen.text()
+        assert 'Goal unknown' not in screen.text() and 'This run has no confirmed Tink.' not in screen.text(), screen.text()
         copied_first = f'› {copied_slug[:30]}' in screen.text()
         if not copied_first:
             send(b'\x1b[B', f'› {copied_slug[:30]}')
@@ -277,7 +277,7 @@ def approve_watch(root, env, session, project):
         assert 'Goal unknown' not in screen.text(), screen.text()
         send(b'\x1b', 'Needs you')
         send(b'\x1b[B' if copied_first else b'\x1b[A', '› test-no-seed')
-        send(b'\r', 'No confirmed seed was recorded for this run.')
+        send(b'\r', 'This run has no confirmed Tink.')
         assert 'Goal unknown' not in screen.text(), screen.text()
         send(b'?', 'What Watch does')
         send(b'\x1b[21~', '5 watch')

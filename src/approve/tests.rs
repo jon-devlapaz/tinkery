@@ -85,9 +85,9 @@ fn agent_confirmation_notice_keeps_copy_and_missing_checkout_guidance() {
             panic!()
         };
         found.seeds[0].seed.confirmation_note =
-            Some("Agent-confirmed seed. Intake requires tink-sdlc 1.38.0 or newer.".into());
+            Some("Agent-confirmed Tink. Intake requires tink-sdlc 1.38.0 or newer.".into());
         let shown = screen(&mut view, width, height, false);
-        assert!(shown.contains("Agent-confirmed seed."));
+        assert!(shown.contains("Agent-confirmed Tink."));
         assert!(
             shown
                 .split_whitespace()
@@ -104,7 +104,7 @@ fn agent_confirmation_notice_keeps_copy_and_missing_checkout_guidance() {
         found.seeds[0].seed.commands = None;
         view.key(KeyEvent::from(KeyCode::End), &mut false);
         let shown = screen(&mut view, width, height, false);
-        assert!(shown.contains("Agent-confirmed seed."));
+        assert!(shown.contains("Agent-confirmed Tink."));
         assert!(shown.contains("Cannot copy:"));
         view.key(KeyEvent::from(KeyCode::Char('c')), &mut false);
         assert!(view.take_copy_request().is_none());
@@ -137,7 +137,7 @@ fn unknown_and_incomplete_are_never_a_complete_empty_list() {
     let mut view = Approve::open(None);
     let shown = screen(&mut view, 80, 24, false);
     assert!(shown.contains("Reading sessions"));
-    assert!(shown.contains("Can't tell which seeds have started; none are hidden."));
+    assert!(shown.contains("Can't tell which Tinks have started; none are hidden."));
     view.found = Some(Ok(Found {
         unavailable: 2,
         reasons: vec!["TEST failure".into()],
@@ -145,9 +145,9 @@ fn unknown_and_incomplete_are_never_a_complete_empty_list() {
     }));
     let shown = screen(&mut view, 80, 24, false);
     assert!(
-        shown.contains("may be incomplete") && shown.contains("No verified seeds could be listed")
+        shown.contains("may be incomplete") && shown.contains("No verified Tinks could be listed")
     );
-    assert!(!shown.contains("No verified seeds are waiting"));
+    assert!(!shown.contains("No verified Tinks are waiting"));
     assert!(screen(&mut view, 80, 24, true).contains("TEST failure"));
 }
 
@@ -326,7 +326,7 @@ fn origin_visit(case: &str, expected_note: Option<&str>, can_copy: bool) {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         reader.poll(Some(&mut view));
-        if screen(&mut view, 100, 30, false).contains("Seed 1 of 1") {
+        if screen(&mut view, 100, 30, false).contains("Tink 1 of 1") {
             break;
         }
         assert!(
@@ -387,7 +387,7 @@ fn different_origin_stays_readable_without_command_or_copy() {
 #[test]
 fn unknown_missing_unreadable_and_outside_origins_keep_copy_with_a_note() {
     for case in ["unknown", "missing", "unreadable"] {
-        origin_visit(case, Some("Where this seed was made is unknown."), true);
+        origin_visit(case, Some("Where this Tink was made is unknown."), true);
     }
     origin_visit("no-repo", Some("Made outside any repository."), true);
 }
@@ -397,7 +397,7 @@ fn no_checkout_is_unchanged_and_unresolved_checkout_does_not_claim_a_mismatch() 
     origin_visit("no-checkout", None, false);
     origin_visit(
         "unresolved",
-        Some("Where this seed was made is unknown."),
+        Some("Where this Tink was made is unknown."),
         false,
     );
 }

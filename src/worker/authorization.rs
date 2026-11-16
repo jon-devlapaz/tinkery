@@ -79,15 +79,16 @@ impl Gate {
             .map_err(Clone::clone)?
             .as_ref()
             .ok_or(REQUIRED)?;
-        let target = target.ok_or("Agent worker admission requires a readable confirmed seed.")?;
+        let target =
+            target.ok_or("Agent worker admission requires a readable confirmed Tink Contract.")?;
         if relay.seed_sha256 != target.sha256
             || relay.model != config.model
             || relay.responses != config.responses
         {
-            return Err("Relayed authorization does not exactly match the reviewed seed, model and response cap.".into());
+            return Err("Relayed authorization does not exactly match the reviewed Tink, model and response cap.".into());
         }
         if target.retry.is_some() {
-            return Err("Relayed authorization requires the seed's checkout; alternate worktrees are outside this flow.".into());
+            return Err("Relayed authorization requires the Tink's checkout; alternate worktrees are outside this flow.".into());
         }
         Ok(Some(relay))
     }

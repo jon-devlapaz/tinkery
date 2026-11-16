@@ -435,7 +435,7 @@ fn today(found: &[Receipt]) -> String {
 }
 
 /// What the seed's evidence section says when no step recorded a finding.
-pub const NOTHING_FOUND: &str = "- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository.";
+pub const NOTHING_FOUND: &str = "- Nothing was recorded: no step said what it checked, so this Tink Contract has no repository evidence.";
 
 /// Prose-field instructions and bundled section guidance, without conflicting artifact directions.
 /// The reference is verbatim from Seed Me c9d766760dbeac0c05c92108165f9e968bec0a66.
@@ -837,9 +837,9 @@ pub fn change_draft(
     }
     let mut node = json!({
         "id": id, "kind": "decision", "status": "settled", "prerequisites": [],
-        "evidence": [], "owner": "User", "gate": format!("Your change to seed draft {revision}"),
+        "evidence": [], "owner": "User", "gate": format!("Your change to Tink Contract draft {revision}"),
         "label": format!("{CHANGE} {revision}"),
-        "question": format!("What should change in seed draft {revision}?"),
+        "question": format!("What do you want to change in Tink Contract draft {revision}?"),
         "answer": words, "authority": actor.authority(),
         "authority_source": actor.reason("asked for this change to the draft in Tinkery Shape."),
     });
@@ -862,7 +862,7 @@ pub fn change_draft(
 }
 
 /// The label of a decision recorded from a change the operator asked for in a seed draft.
-pub const CHANGE: &str = "Change to seed draft";
+pub const CHANGE: &str = "Change to Tink Contract draft";
 
 /// The label of a decision recorded from an objection to an assumption.
 pub const OBJECTION: &str = "Instead of assuming";
@@ -919,7 +919,7 @@ pub fn draft_seed(
     let open = ledger.open();
     if !open.is_empty() {
         return Err(Refusal::Refused(format!(
-            "Decisions are still open ({}), so no seed was drafted.",
+            "Decisions are still open ({}), so no Tink was drafted.",
             open.join(", ")
         )));
     }
@@ -950,7 +950,7 @@ pub fn draft_seed(
         }
         Some(_) => {
             return Err(Refusal::Refused(
-                "A seed that isn't a draft already exists; Shape never replaces it.".into(),
+                "A Tink Contract already exists. Open it in Shape.".into(),
             ));
         }
         None => 1,

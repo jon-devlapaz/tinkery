@@ -67,8 +67,8 @@ def launch_project(width, height, kind):
         try:
             terminal.wait(lambda screen: MENU in screen)
             assert calls(project) == calls(override) == []
-            terminal.send(b'4', 'No verified seeds are waiting.' if expected else
-                          'No verified seeds could be listed.')
+            terminal.send(b'4', 'No verified Tinks are waiting.' if expected else
+                          'No verified Tinks could be listed.')
             if expected:
                 assert calls(expected) == [['status', '--json']]
             else:

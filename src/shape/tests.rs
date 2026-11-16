@@ -293,7 +293,7 @@ fn seed_ready_points_to_approve_and_copies_nothing() {
         for (width, height) in [(80, 24), (100, 30)] {
             let text = screen(&mut shape, width, height, true);
             assert!(
-                text.contains("open Approve from the menu to inspect this seed."),
+                text.contains("open Approve from the menu to inspect this Tink."),
                 "{text}"
             );
             assert!(!text.contains("copy intake"), "{text}");
@@ -336,7 +336,7 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
                 revision: Some("r2".into()),
                 ended: false,
             },
-            "Seed ready: you confirmed r2, and it still matches.",
+            "Tink ready: you confirmed r2, and it still matches.",
         ),
         (
             Shaped::Ready {
@@ -347,9 +347,9 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
         ),
         (
             Shaped::Unverified {
-                reason: "the seed changed after revision r2 was confirmed".into(),
+                reason: "the Tink Contract changed after revision r2 was confirmed".into(),
             },
-            "but Tinkery can't verify it: the seed changed after revision r2",
+            "Tinkery cannot verify this Tink:",
         ),
         (
             Shaped::Ended {
@@ -361,7 +361,7 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
             Shaped::Unknown {
                 what: "This session has no confirmed goal.".into(),
             },
-            "Shape can't tell where this seed stands.",
+            "Shape cannot check this Tink.",
         ),
     ];
     for (stage, said) in cases {
@@ -480,7 +480,7 @@ fn the_question_is_jade_and_the_suggestion_reads_as_a_guess_without_colour_too()
 fn failures_and_missing_setup_are_said_plainly_with_the_reason_in_help() {
     let mut shape = Shape::session(Path::new("/tmp/TEST-shape/session"));
     let text = screen(&mut shape, 100, 30, true);
-    assert!(text.contains("Reading where this seed stands."), "{text}");
+    assert!(text.contains("Checking this Tink."), "{text}");
     assert!(!text.contains("--seed-me"), "{text}");
     let mut failed = done(Shaped::Waiting);
     failed.open.as_mut().unwrap().reading = Reading::Done(Err("Tinkery refused: no ledger".into()));
@@ -529,7 +529,7 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
         "{text}"
     );
     assert!(
-        text.contains("drafted goal") && text.contains("seed drafted"),
+        text.contains("drafted goal") && text.contains("Tink drafted"),
         "{text}"
     );
     for hidden in ["ready goal", "ended goal", "unknown goal"] {
@@ -538,7 +538,7 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
     assert_eq!(shape.key(key(KeyCode::Down)), Leave::Stay);
     assert_eq!(shape.key(key(KeyCode::Enter)), Leave::Stay);
     let text = screen(&mut shape, 100, 30, true);
-    assert!(text.contains("Reading where this seed stands."), "{text}");
+    assert!(text.contains("Checking this Tink."), "{text}");
     assert!(shape.help_text().contains("/tmp/TEST-shape/drafted"));
     assert_eq!(shape.key(key(KeyCode::Esc)), Leave::Stay);
     // Back at the list, Shape reads again: a goal whose seed was confirmed meanwhile leaves it.
@@ -558,7 +558,7 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
     assert_eq!(shape.key(key(KeyCode::Esc)), Leave::Back);
     let mut empty = Shape::list();
     empty.offer(Ok(&sessions[1..2]), 0);
-    assert!(screen(&mut empty, 100, 30, true).contains("No goals are waiting for a seed."));
+    assert!(screen(&mut empty, 100, 30, true).contains("No goals are waiting for a Tink."));
     let mut failed = Shape::list();
     failed.offer(Err("TEST read failed".into()), 0);
     assert!(screen(&mut failed, 100, 30, true).contains("couldn't be read"));
@@ -778,7 +778,7 @@ fn no_next_line_repeats_the_one_action_the_key_bar_names() {
             Shaped::Waiting,
             "enter look into the next question   F1 more   esc back",
         ),
-        (seed, "enter confirm seed r2   F1 more   esc back"),
+        (seed, "enter confirm Tink r2   F1 more   esc back"),
     ] {
         for (width, height) in [(100, 30), (80, 24)] {
             let mut shape = reading(done(stage.clone()).with_agent(Some(agent(1))), dir.path());
@@ -928,7 +928,7 @@ fn a_draft_shows_the_seed_and_f2_needs_the_operators_own_words() {
         assert!(!text.contains(raw), "{raw} shown:\n{text}");
     }
     assert!(
-        text.contains("  your words\n  type confirm, then Enter\n\n  Confirming the seed is not approval to build."),
+        text.contains("  your words\n  type confirm, then Enter\n\n  Confirm the Tink here. Approve the build separately."),
         "{text}"
     );
     shape.key(key(KeyCode::F(2)));
@@ -2454,7 +2454,9 @@ fn a_question_or_seed_with_nothing_found_is_flagged() {
     });
     let text = screen(&mut drafted, 80, 24, true);
     assert!(
-        text.contains("Nothing found: this seed records nothing checked in the repository."),
+        text.contains(
+            "Nothing found: this Tink Contract records nothing checked in the repository."
+        ),
         "{text}"
     );
 }
@@ -2544,7 +2546,7 @@ fn a_newline_key_at_seed_confirmation_guides_without_editing_or_starting_a_step(
         assert_eq!(shape.agent.as_ref().unwrap().remaining(), 0);
         assert!(
             screen(&mut shape, 80, 24, true)
-                .contains("Enter confirms the seed; ^J adds no line here.")
+                .contains("Enter confirms the Tink. ^J adds no line here.")
         );
     }
 }
@@ -2598,7 +2600,7 @@ fn enter_runs_the_key_bar_action_and_only_typed_confirm_confirms() {
         .with_agent(Some(agent(0)));
         let shown = screen(&mut shape, 80, 24, true);
         assert!(
-            shown.lines().last().unwrap().contains("enter confirm seed"),
+            shown.lines().last().unwrap().contains("enter confirm Tink"),
             "{shown}"
         );
         shape.paste(words);
@@ -3567,17 +3569,20 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
             for _ in 0..30 {
                 shape.key(key(KeyCode::PageDown));
                 text = screen(&mut shape, width, height, no_color);
-                if text.lines().any(|line| line.trim() == "End of seed") {
+                if text
+                    .lines()
+                    .any(|line| line.trim() == "End of Tink Contract")
+                {
                     break;
                 }
             }
             // The very first frame that reaches the end offers confirmation.
-            assert!(text.contains("End of seed"), "{text}");
+            assert!(text.contains("End of Tink Contract"), "{text}");
             assert!(
                 text.lines()
                     .last()
                     .unwrap()
-                    .contains("enter confirm seed r1"),
+                    .contains("enter confirm Tink r1"),
                 "{text}"
             );
             assert!(
@@ -3593,7 +3598,7 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
                     text.lines()
                         .last()
                         .unwrap()
-                        .contains("enter confirm seed r1"),
+                        .contains("enter confirm Tink r1"),
                     "{text}"
                 );
                 assert!(!text.contains("read to end"), "{text}");
@@ -3618,7 +3623,7 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
                 text.lines()
                     .last()
                     .unwrap()
-                    .contains("enter confirm seed r1"),
+                    .contains("enter confirm Tink r1"),
                 "{text}"
             );
             empty.key(key(KeyCode::F(2)));
@@ -3641,19 +3646,19 @@ fn down_reads_a_draft_to_its_end_while_the_confirm_box_has_the_words() {
         for _ in 0..400 {
             shape.key(key(KeyCode::Down));
             text = screen(&mut shape, width, height, true);
-            if text.contains("End of seed") {
+            if text.contains("End of Tink Contract") {
                 break;
             }
         }
         assert!(
-            text.contains("End of seed"),
+            text.contains("End of Tink Contract"),
             "Down never reached the end:\n{text}"
         );
         assert!(
             text.lines()
                 .last()
                 .unwrap()
-                .contains("enter confirm seed r1"),
+                .contains("enter confirm Tink r1"),
             "{text}"
         );
         shape.key(key(KeyCode::Up));
@@ -3671,7 +3676,7 @@ fn f2_waits_until_the_whole_seed_draft_has_been_on_screen() {
         assert!(shape.open.as_ref().unwrap().running.is_none());
         let refusal = screen(&mut shape, width, height, true);
         assert!(
-            refusal.contains("PgDn or Down to 'End of seed' first."),
+            refusal.contains("PgDn or Down to 'End of Tink Contract' first."),
             "{refusal}"
         );
         for _ in 0..30 {
@@ -3680,9 +3685,9 @@ fn f2_waits_until_the_whole_seed_draft_has_been_on_screen() {
         }
         let text = screen(&mut shape, width, height, true);
         let last = text.find("LAST TEST LINE").expect(&text);
-        let end = text.find("End of seed").expect(&text);
+        let end = text.find("End of Tink Contract").expect(&text);
         assert!(last < end, "{text}");
-        assert_eq!(text.matches("End of seed").count(), 1, "{text}");
+        assert_eq!(text.matches("End of Tink Contract").count(), 1, "{text}");
         assert!(
             !text.contains(READ_FIRST),
             "reaching the end left the refusal: {text}"
@@ -3745,7 +3750,7 @@ fn read_to_end_survives_same_revision_rereads_but_not_a_new_revision() {
                     "{change}: {text}"
                 );
                 assert_eq!(
-                    bar.contains("enter confirm seed r1"),
+                    bar.contains("enter confirm Tink r1"),
                     !changed,
                     "{change}: {text}"
                 );
@@ -3754,7 +3759,7 @@ fn read_to_end_survives_same_revision_rereads_but_not_a_new_revision() {
                     assert!(shape.open.as_ref().unwrap().running.is_none());
                     assert!(
                         screen(&mut shape, width, height, no_color)
-                            .contains("PgDn or Down to 'End of seed' first.")
+                            .contains("PgDn or Down to 'End of Tink Contract' first.")
                     );
                 }
                 let open = shape.open.as_ref().unwrap();

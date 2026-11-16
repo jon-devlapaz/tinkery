@@ -550,7 +550,7 @@ pub(super) fn collect(root: &Path, stop: &AtomicBool) -> Result<(Vec<ResultRow>,
         row.goal = sdlc::goal(run);
         row.seed = run["seed_contract"]["sha256"]
             .as_str()
-            .unwrap_or("unknown seed")
+            .unwrap_or("unknown")
             .into();
         row.url = links::recorded(run);
         if let Ok(url) = &row.url {
