@@ -2,6 +2,7 @@
 import errno
 import fcntl
 import importlib.util
+import io
 import os
 from pathlib import Path
 import select
@@ -217,6 +218,33 @@ class ExitDrainTests(unittest.TestCase):
             self.wait_for(terminal, lambda: False, .12)
         self.assertGreaterEqual(time.monotonic() - started, .1)
         self.assertLess(time.monotonic() - started, 2)
+
+    def test_deadline_reports_raw_tail_and_split_frame_count(self):
+        process = mock.Mock()
+        process.poll.return_value = None
+        chunks = iter([b'x' * 5000 + b'\x1b[?2026', b'l\x1b[?2026hTEST unfinished'])
+        received = []
+        output = io.StringIO()
+        with mock.patch('terminal_process.select.select', return_value=([123], [], [])), \
+             mock.patch('terminal_process.os.read', side_effect=lambda *_: next(chunks, b'')), \
+             mock.patch('terminal_process.sys.stderr', output):
+            list(wait_output(123, process, received.append, time.monotonic() + .03, interval=.005))
+        self.assertEqual(len(received), 2)
+        report = output.getvalue()
+        self.assertIn('completed_frames_in_wait=1', report)
+        self.assertIn(repr(b'\x1b[?2026l\x1b[?2026hTEST unfinished')[2:-1], report)
+        self.assertLess(len(report), 4300)
+
+    def test_satisfied_wait_does_not_print_deadline_diagnostics(self):
+        process = mock.Mock()
+        process.poll.return_value = None
+        output = io.StringIO()
+        with mock.patch('terminal_process.select.select', return_value=([123], [], [])), \
+             mock.patch('terminal_process.os.read', return_value=b'TEST ready'), \
+             mock.patch('terminal_process.sys.stderr', output):
+            for _ in wait_output(123, process, lambda _: None, time.monotonic() + .03):
+                break
+        self.assertEqual(output.getvalue(), '')
 
     def test_exit_drain_cannot_extend_a_deadline(self):
         process = mock.Mock()

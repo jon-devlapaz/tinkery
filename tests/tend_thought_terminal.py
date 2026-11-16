@@ -289,7 +289,8 @@ def unreadable(size):
         try:
             flow.wait(term, 'this repo')
             flow.wait(term, '2 thoughts could not be read.')
-            flow.send(term, b'v', 'TEST readable thought')
+            flow.send(term, b'v', 'Saved thoughts')
+            flow.wait(term, 'TEST readable thought')
             assert 'Thought 1 of 1' in term.screen.text()
             assert '2 thoughts could not be read.' in term.screen.text()
             assert not flow.requests(root)
