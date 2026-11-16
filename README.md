@@ -46,7 +46,7 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   Shape without changing saved sessions. In this repository, `t` opens fresh Think.
   Before the first send, Enter opens a choice: `1 Clarify into a goal` (a model reads your words)
   or `2 Save as a thought` (nothing reads them). Saving keeps exact words, clears the box and stays in Think.
-  A muted line says `Thought saved · t in Tend shows it`, or `Thought already saved · t in Tend shows it` for a duplicate.
+  A muted line says `Thought saved · find it in Tend`, or `Thought already saved · find it in Tend` for a duplicate.
   The next Tend visit selects the latest saved thought.
   Esc returns to writing unchanged. Enter and paste never pick. Ctrl+S still saves directly.
   Thoughts appear beside goals as violet hollow diamonds, distinct without colour.

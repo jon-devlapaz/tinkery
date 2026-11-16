@@ -277,7 +277,7 @@ fn fresh_enter_and_choice_enter_never_send_without_a_digit() {
             assert_eq!(app.take_thought_saved(), Some((exact.clone(), false)));
             let screen = snapshot(w, h, &mut app, true).unwrap();
             assert!(
-                screen.contains("Thought saved · t in Tend shows it"),
+                screen.contains("Thought saved · find it in Tend"),
                 "{screen}"
             );
             assert!(!screen.contains("1  Clarify into a goal"), "{screen}");
@@ -321,5 +321,39 @@ fn fresh_enter_and_choice_enter_never_send_without_a_digit() {
                     .contains("1  Clarify into a goal")
             );
         }
+    }
+}
+
+#[test]
+fn a_save_result_leaves_when_new_words_arrive_but_not_on_navigation() {
+    let root = tempfile::Builder::new()
+        .prefix("tinkery-TEST-thought-")
+        .tempdir()
+        .unwrap();
+    std::fs::create_dir(root.path().join(".git")).unwrap();
+    let mut app = BrainDump::default().with_thoughts(
+        Ok(root.path().join("thoughts")),
+        crate::repo::Repo::enclosing(root.path()),
+    );
+    for new_words in ["typed", "pasted"] {
+        app.paste(&format!("TEST saved words before {new_words}"));
+        snapshot(100, 30, &mut app, true).unwrap();
+        key(&mut app, KeyCode::Enter);
+        key(&mut app, KeyCode::Char('2'));
+        let shown = snapshot(100, 30, &mut app, true).unwrap();
+        assert!(shown.contains("Thought saved · find it in Tend"), "{shown}");
+        key(&mut app, KeyCode::Left);
+        key(&mut app, KeyCode::Up);
+        let shown = snapshot(100, 30, &mut app, true).unwrap();
+        assert!(shown.contains("Thought saved · find it in Tend"), "{shown}");
+        if new_words == "typed" {
+            key(&mut app, KeyCode::Char('x'));
+        } else {
+            app.paste("TEST unsaved words");
+        }
+        let shown = snapshot(100, 30, &mut app, true).unwrap();
+        assert!(!shown.contains("Thought saved"), "{new_words}: {shown}");
+        app.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL));
+        key(&mut app, KeyCode::Backspace);
     }
 }
