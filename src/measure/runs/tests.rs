@@ -298,7 +298,7 @@ fn counts_come_from_records_and_unknown_is_never_zero() {
         "Merged as ",
         "Held: not reverted on HEAD, closed 14+ days ago",
         "Gates: 2 by you",
-        "stage 3 approved · seed · automatic seed binding, not counted",
+        "stage 3 approved · seed · automatic Tink Contract link, not counted",
         "stage 2 changes-requested · pi · agent-recorded, not counted",
         "Corrections: 2 · all labels, newest first",
         "  build: 5",

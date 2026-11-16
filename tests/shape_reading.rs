@@ -182,7 +182,7 @@ fn oversized_readings_are_refused_and_f2_changes_nothing() {
             "{source}: {shown}"
         );
         assert!(
-            !shown.contains("End of seed") && !shown.contains("F2 confirm"),
+            !shown.contains("End of Tink Contract") && !shown.contains("F2 confirm"),
             "{shown}"
         );
         key(&mut shape, KeyCode::F(2));

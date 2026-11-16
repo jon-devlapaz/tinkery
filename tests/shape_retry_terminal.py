@@ -167,7 +167,7 @@ def retry_journey(width, height, case):
             last = calls[-1]['input']
             if case in ('retry', 'bounded'):
                 feedback = last['previous_refusal']
-                assert feedback['reason'].startswith('Tinkery refused: No seed was drafted:')
+                assert feedback['reason'].startswith('Tinkery refused: No Tink was drafted:')
                 assert 'keep this complete Done when line unchanged in one check statement:' in feedback['reason']
                 assert len(feedback['reason'].encode()) <= 2048
                 assert feedback['truncated'] == (case == 'bounded')

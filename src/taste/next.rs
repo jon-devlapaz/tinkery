@@ -73,7 +73,7 @@ pub(super) fn suggest(row: &ResultRow) -> Pause {
         text.push_str(goal);
     }
     let provenance = format!(
-        "Deterministic Taste guess after a report of external acceptance; not a verified verdict. Run {} ({}); seed {}; {} @{}. Decision: {decision}. Basis: {}. Gates owed: {}. Gaps: {}.",
+        "Deterministic Taste guess after a report of external acceptance; not a verified verdict. Run {} ({}); Tink Contract {}; {} @{}. Decision: {decision}. Basis: {}. Gates owed: {}. Gaps: {}.",
         row.id,
         row.slug,
         row.seed,

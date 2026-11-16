@@ -92,7 +92,7 @@ def journey(width, height, no_color):
                 os.write(terminal.master, b'6')
                 wait('Press r to read results')
                 os.write(terminal.master, b'r')
-                wait('No confirmed seed')
+                wait('This run has no confirmed Tink.')
                 screen = terminal.screen.text()
                 observed = REMINDER in screen
                 if observed != expected:

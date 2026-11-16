@@ -387,7 +387,7 @@ impl Tend {
             );
         }
         let copy = if self.detail && self.current().is_some_and(|s| s.stage.can_shape()) {
-            "\ns shape: answer its questions and confirm its seed"
+            "\ns shape: answer its questions and confirm its Tink"
         } else {
             ""
         };
@@ -410,7 +410,7 @@ impl Tend {
         format!(
             "Right now\n{}{}{scope}{thoughts}\nEsc back · F10 menu\n\n\
              F1 close · h how it works · PgUp/PgDn scroll{needs}\n\n\
-             Nothing runs by itself. A saved goal is not seed or implementation approval.",
+             Nothing runs by itself. Confirm the Tink and approve the build separately.",
             if self.detail {
                 "Read the saved goal. ↑↓ / j k or PgUp/PgDn scroll.\nr opens its Think history."
             } else if self.linking.is_some() {
@@ -728,9 +728,9 @@ mod tests {
         let (title, status) = row(&s, 40, timestamp("2026-10-11T12:00:00Z"));
         assert!(!title.contains("Why:"));
         assert!(title.trim_end().ends_with('…'));
-        assert_eq!(status, "seed drafted · 2h ago");
+        assert_eq!(status, "Tink drafted · 2h ago");
         assert_eq!(title.width() + status.width(), 40);
         assert!(title.contains("👩‍💻"));
-        assert_eq!(row(&s, 40, None).1, "seed drafted · time unknown");
+        assert_eq!(row(&s, 40, None).1, "Tink drafted · time unknown");
     }
 }

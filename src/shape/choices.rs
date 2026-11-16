@@ -36,7 +36,7 @@ impl Shape {
         }
         let mut rows = vec![];
         if matches!(&open.reading, Reading::Done(Ok(shaping)) if shaping.ready_target.is_some()) {
-            rows.push(Row::new("Open this seed in Approve", Choice::Approve));
+            rows.push(Row::new("Open this Tink in Approve", Choice::Approve));
         }
         let agent = self.agent.is_some() && !self.held;
         if open.instinct_first() {

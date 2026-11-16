@@ -16,7 +16,7 @@ def journey(width, height, changed):
         try:
             run.open_shape()
             run.wait('Tink Contract r1')
-            run.read_until('End of seed', whole_line=True)
+            run.read_until('End of Tink Contract', whole_line=True)
             words = 'confirm'
             run.send(b'\x1b[200~' + words.encode() + b'\x1b[201~', 'your words confirm')
             path = session / 'seed-contract.md'
@@ -36,10 +36,10 @@ def journey(width, height, changed):
                 assert files(session) == before, 'Stale confirmation wrote a skip, receipt or seed'
                 assert not (session / 'seed-confirmation.json').exists()
                 if changed == 'seed':
-                    run.send(F2, "PgDn or Down to 'End of seed' first. Nothing was confirmed.")
+                    run.send(F2, "PgDn or Down to 'End of Tink Contract' first. Nothing was confirmed.")
                     assert files(session) == before, 'The changed draft skipped the reading gate'
-                    run.read_until('End of seed', whole_line=True)
-            run.send(F2, 'Seed ready:')
+                    run.read_until('End of Tink Contract', whole_line=True)
+            run.send(F2, 'Tink ready:')
             assert helper.status(session)['handoff']['verified']
             receipt = json.loads((session / 'seed-confirmation.json').read_text())
             assert receipt['source'] == words

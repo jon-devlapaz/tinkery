@@ -79,7 +79,7 @@ impl Reader {
             Ok(found) => Ok(found),
             Err(mpsc::TryRecvError::Empty) => return,
             Err(mpsc::TryRecvError::Disconnected) => Err(
-                "Reading seeds stopped unexpectedly. Return to the menu and reopen Approve.".into(),
+                "Reading Tinks stopped unexpectedly. Return to the menu and reopen Approve.".into(),
             ),
         };
         let cancelled = stop.load(Ordering::SeqCst);
@@ -145,7 +145,7 @@ impl Reader {
             }
             // Discovery owns chronological sorting. Reverse its newest-first order, not timestamps.
             let mut target_failure =
-                "This seed is missing or unavailable in the current sessions root.".to_owned();
+                "This Tink is missing or unavailable in the current sessions root.".to_owned();
             for (session, origin) in sessions.into_iter().zip(origins).rev() {
                 if cancelled.load(Ordering::SeqCst) {
                     return;
@@ -158,7 +158,7 @@ impl Reader {
                 }
                 if session.stage != Stage::SeedUnchecked && !session.stage.ended() {
                     target_failure =
-                        "This seed is no longer verified ready. Return to Shape to read it again."
+                        "This Tink is no longer verified ready. Return to Shape to read it again."
                             .into();
                     continue;
                 }
@@ -166,7 +166,7 @@ impl Reader {
                     match sdlc::started(runs, &ready::path(&session.path)) {
                         Ok(true) => {
                             target_failure =
-                                "This seed has already started. Open Watch to inspect its run."
+                                "This Tink has already started. Open Watch to inspect its run."
                                     .into();
                             continue;
                         }
@@ -184,11 +184,11 @@ impl Reader {
                 match ready::read(&session.path, checkout) {
                     Ok(Some(mut seed)) => {
                         if target.as_ref().is_some_and(|target| seed.target.as_ref() != Some(target)) {
-                            target_failure = "This seed changed since Shape read it. Return to Shape to read it again.".into();
+                            target_failure = "This Tink changed since Shape read it. Return to Shape to read it again.".into();
                             continue;
                         }
                         if seed.retry_started == Ok(true) {
-                            target_failure = "This seed has already started. Open Watch with --sdlc-root set to its retry checkout.".into();
+                            target_failure = "This Tink has already started. Open Watch with --sdlc-root set to its retry checkout.".into();
                             continue;
                         }
                         let origin_note = root.as_deref().and_then(|root| {
@@ -200,9 +200,9 @@ impl Reader {
                         });
                         found.seeds.push(Reading { seed, origin_note });
                     }
-                    Ok(None) => target_failure = "This seed is missing or no longer verified ready. Return to Shape to read it again.".into(),
+                    Ok(None) => target_failure = "This Tink is missing or no longer verified ready. Return to Shape to read it again.".into(),
                     Err(reason) => {
-                        target_failure = format!("This seed is unavailable: {reason}");
+                        target_failure = format!("This Tink is unavailable: {reason}");
                         found.unavailable += 1;
                         if found.reasons.len() < crate::seed_me::MAX_READ_FAILURES {
                             found
@@ -319,7 +319,7 @@ impl Approve {
                 Ok(())
             } else {
                 Err(
-                    "The previous seed read is finishing. Return to the menu and reopen Approve."
+                    "The previous Tink read is finishing. Return to the menu and reopen Approve."
                         .into(),
                 )
             }
@@ -439,7 +439,7 @@ impl Approve {
             keys = "↑↓ scroll   esc close help";
             lines.push(Line::styled("Right now", palette.jade));
             lines.push(Line::raw(
-                "n/p choose seed · ↑↓ or PgUp/PgDn read · b review worker start · c copy command",
+                "n/p choose Tink · ↑↓ or PgUp/PgDn read · b review worker start · c copy command",
             ));
             lines.push(Line::raw(if self.target.is_some() {
                 "Esc returns to Shape. F10 returns to the menu even from help."
@@ -448,9 +448,9 @@ impl Approve {
             }));
             lines.push(Line::default());
             lines.push(Line::raw("Copying starts nothing and grants no approval. b reviews a worker start; only F2 there authorizes execution. tink-sdlc keeps its definition approval gate."));
-            lines.push(Line::raw("Return to the menu and reopen Approve for a fresh read. Seeds are oldest first by the session update time."));
+            lines.push(Line::raw("Return to the menu and reopen Approve for a fresh read. Tinks are oldest first by the session update time."));
             lines.push(Line::raw(
-                "Seeds already recorded by a run move to Watch. Only the original location and unchanged contents establish a match.",
+                "Tinks already recorded by a run move to Watch. Only the original location and unchanged contents establish a match.",
             ));
             if let Some(Ok(found)) = &self.found {
                 for reason in &found.reasons {
@@ -468,7 +468,7 @@ impl Approve {
             };
             if let Some(reason) = start_unknown {
                 lines.push(Line::styled(
-                    "Can't tell which seeds have started; none are hidden.",
+                    "Can't tell which Tinks have started; none are hidden.",
                     palette.muted,
                 ));
                 lines.push(Line::raw(display(reason)));
@@ -477,15 +477,15 @@ impl Approve {
                 None => lines.push(Line::raw(if self.waiting {
                     "Reading sessions…"
                 } else {
-                    "Verifying seeds…"
+                    "Verifying Tinks…"
                 })),
                 Some(Err(reason)) => {
-                    lines.push(Line::raw("Ready seeds unavailable."));
+                    lines.push(Line::raw("Ready Tinks unavailable."));
                     lines.push(Line::raw(display(reason)));
                 }
                 Some(Ok(found)) => {
                     if found.changed > 0 {
-                        lines.push(Line::styled(format!("{} seeds have an unknown start: the original is changed or unavailable. Check in Shape; F1 shows why.", found.changed), palette.muted));
+                        lines.push(Line::styled(format!("{} Tinks have an unknown start: the original is changed or unavailable. Check in Shape; F1 shows why.", found.changed), palette.muted));
                     }
                     if found.unavailable > 0 {
                         lines.push(Line::styled(format!("{} sessions couldn't be read; this list may be incomplete. F1 shows why.", found.unavailable), palette.muted));
@@ -494,16 +494,16 @@ impl Approve {
                         let seed = &reading.seed;
                         keys = if seed.commands.is_some() {
                             if found.start_unknown.is_none() && seed.target.is_some() {
-                                "b review start   c copy command   n/p seed   ↑↓ read   esc back   ? help"
+                                "b review start   c copy command   n/p Tink   ↑↓ read   esc back   ? help"
                             } else {
-                                "n/p seed   ↑↓ read   c copy command   esc back   ? help"
+                                "n/p Tink   ↑↓ read   c copy command   esc back   ? help"
                             }
                         } else {
-                            "n/p seed   ↑↓ read   esc back   ? help"
+                            "n/p Tink   ↑↓ read   esc back   ? help"
                         };
                         lines.push(Line::styled(
                             format!(
-                                "Seed {} of {} · {}",
+                                "Tink {} of {} · {}",
                                 self.selected + 1,
                                 found.seeds.len(),
                                 seed.revision
@@ -521,7 +521,7 @@ impl Approve {
                             lines.push(Line::raw(display(line)));
                         }
                         lines.push(Line::styled(
-                            "Choose how to start · seed confirmation is not implementation permission",
+                            "Choose how to start · Tink confirmation is separate from build approval",
                             palette.muted,
                         ));
                         if let Some(base) = seed
@@ -542,7 +542,7 @@ impl Approve {
                             let (text, style) = match note {
                                 OriginNote::Different(reason) => (reason.as_str(), palette.ink),
                                 OriginNote::Unknown => {
-                                    ("Where this seed was made is unknown.", palette.muted)
+                                    ("Where this Tink was made is unknown.", palette.muted)
                                 }
                                 OriginNote::NoRepo => {
                                     ("Made outside any repository.", palette.muted)
@@ -564,7 +564,7 @@ impl Approve {
                         } else if !matches!(reading.origin_note, Some(OriginNote::Different(_))) {
                             lines.push(Line::raw(concat!(
                                 "Cannot copy: a project with tink-sdlc is required. ",
-                                "The project, seed, title and executable must fit safely in one shell command."
+                                "The project, Tink Contract, title and executable must fit safely in one shell command."
                             )));
                         }
                     } else {
@@ -573,13 +573,13 @@ impl Approve {
                                 && start_unknown.is_none()
                                 && found.changed == 0
                             {
-                                "No verified seeds are waiting."
+                                "No verified Tinks are waiting."
                             } else {
-                                "No verified seeds could be listed."
+                                "No verified Tinks could be listed."
                             },
                         ));
                         lines.push(Line::raw(
-                            "Confirm a seed in Shape, or open Watch for started runs.",
+                            "Confirm a Tink in Shape, or open Watch for started runs.",
                         ));
                     }
                 }
@@ -649,7 +649,7 @@ fn origin_note(
             let checkout_name = name(checkout);
             let reason = if display(&origin_name) == display(&checkout_name) {
                 format!(
-                    "Using {checkout:?}. Reopen Tinkery with --sdlc-root naming {other:?}, where this seed was made."
+                    "Using {checkout:?}. Reopen Tinkery with --sdlc-root naming {other:?}, where this Tink was made."
                 )
             } else {
                 format!(

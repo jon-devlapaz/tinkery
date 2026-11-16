@@ -182,7 +182,7 @@ fn agent_sessions_require_verified_confirmation_to_complete() {
     assert!(verify_handoff(directory, &load(directory).unwrap()).unwrap()["verified"].truth());
     let confirmed = fs::read(&seed_path).unwrap();
     fs::write(&seed_path, [confirmed.as_slice(), b" "].concat()).unwrap();
-    assert_blocked(directory, "seed changed");
+    assert_blocked(directory, "Tink Contract changed");
     fs::write(seed_path, confirmed).unwrap();
     ledger::end(directory, "completed", "TEST complete", STAMP).unwrap();
     let saved = load(directory).unwrap();
@@ -196,7 +196,7 @@ fn changed_seed_bytes_cannot_verify_or_complete() {
     let path = root.path().join(FILE);
     let seed = fs::read_to_string(&path).unwrap();
     fs::write(path, seed + " ").unwrap();
-    assert_blocked(root.path(), "seed changed");
+    assert_blocked(root.path(), "Tink Contract changed");
 }
 #[test]
 fn changed_decisions_cannot_verify_or_complete() {

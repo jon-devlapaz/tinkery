@@ -397,7 +397,7 @@ def full_journey(width, height):
             if width == 100:
                 print('TEST Shape answering 100x30 screen:\n' + run.screen.text())
             run.send(F2, 'Tink Contract r1')
-            run.wait('Confirming the seed is not approval to build.')
+            run.wait('Confirm the Tink here. Approve the build separately.')
             # The displayed card comes from Seed Me, not model-written criteria.
             run.read_until('Manual steps: Inspect refusal output for private text.')
             # Inspect each page: the flag can be above the bottom viewport on either CI platform.
@@ -442,9 +442,9 @@ def full_journey(width, height):
             # Returning rereads the same session, including the garden's stage, without work.
             before_return = files(cwd)
             run.send(b'\x1b', 'tinkery › tend')
-            run.wait('Next: confirm the seed draft in Shape.')
-            run.send(b'\x1b', 'seed drafted')
-            run.send(b'\r', 'Next: confirm the seed draft in Shape.')
+            run.wait('Next: confirm the draft in Shape.')
+            run.send(b'\x1b', 'Tink drafted')
+            run.send(b'\r', 'Next: confirm the draft in Shape.')
             assert files(cwd) == before_return and len(run.calls()) == 2, 'Returning from draft wrote or called'
             run.send(b's', 'Tink Contract r1')
             run.wait('pgup/dn read to end')
@@ -453,20 +453,20 @@ def full_journey(width, height):
             run.type('Yes, I reject r1.')
             run.send(b'\x1b[D' * 4 + b'\x17confirm', 'Yes, I confirm r1.')
             run.send(b'\x1b[H' + b'\x1b[1;2C' * 3 + b'Indeed', 'Indeed, I confirm r1.')
-            run.send(b'\x1b[1;1:2Q' * 3 + F1, 'Read the seed, type confirm, then Enter')
+            run.send(b'\x1b[1;1:2Q' * 3 + F1, 'Read the Tink Contract, type confirm, then Enter')
             run.send(b'\x1b', 'Indeed, I confirm r1.')
             assert files(run.sessions) == before and files(cwd) == before_all and len(run.calls()) == 2, 'Editing or held Enter wrote or called'
             # F2 waits until the whole draft has been on screen (#250), and says so.
-            run.send(b'\x1b[H' + F2, "PgDn or Down to 'End of seed' first. Nothing was confirmed.")
+            run.send(b'\x1b[H' + F2, "PgDn or Down to 'End of Tink Contract' first. Nothing was confirmed.")
             assert files(run.sessions) == before, 'Enter confirmed an unread draft'
             run.read_until('This is not implementation approval.')
-            run.read_until('End of seed', whole_line=True)
+            run.read_until('End of Tink Contract', whole_line=True)
             run.wait('Indeed, I confirm r1.')
             # Only the word confirm confirms; other words are kept and may be a correction (#614).
             run.send(F2, 'Type confirm, or F1 Revise the draft. Nothing was confirmed.')
             assert files(run.sessions) == before, 'Enter confirmed with words other than confirm'
             run.send(b'\x01\x0b' + b'confirm', 'your words confirm')
-            run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
+            run.send(F2, 'Tink ready: you confirmed r1, and it still matches.')
             status = helper.status(session)
             assert status['seed']['line_1'] == 'status: confirmed for intake', status
             assert status['handoff']['verified'] is True, status
@@ -476,13 +476,13 @@ def full_journey(width, height):
             assert len(run.calls()) == 2, 'Confirmation called a model'
             before_return = files(cwd)
             run.send(b'\x1b', 'tinkery › tend')
-            run.wait('Next: check the seed in Shape.')
-            run.send(b'\x1b', 'seed needs checking')
-            run.send(b'\r', 'Next: check the seed in Shape.')
+            run.wait('Next: check the Tink in Shape.')
+            run.send(b'\x1b', 'Tink needs checking')
+            run.send(b'\r', 'Next: check the Tink in Shape.')
             assert ' '.join(goal.split()) in run.flat(), 'Return changed the displayed goal'
             assert files(cwd) == before_return and len(run.calls()) == 2, 'Returning from confirmation wrote or called'
             # Ending is an F1 row that asks once more; Esc between keeps the session open (#231).
-            run.send(b's', 'Seed ready: you confirmed r1, and it still matches.')
+            run.send(b's', 'Tink ready: you confirmed r1, and it still matches.')
             run.wait('F1 more')
             before = files(run.sessions)
             run.choose('End this session', 'End this session as completed?')
@@ -493,10 +493,10 @@ def full_journey(width, height):
             run.send(F2, 'Session completed. It\'s read-only now.')
             run.wait('This session is completed, so nothing in it can change.')
             # Intake needs only the verified seed, so Approve still offers it.
-            run.wait('F1, then 1: Open this seed in Approve.')
+            run.wait('F1, then 1: Open this Tink in Approve.')
             run.send(F1, 'F1 close')
             assert 'End this session' not in run.flat(), run.screen.text()
-            run.send(ESC, 'F1, then 1: Open this seed in Approve.')
+            run.send(ESC, 'F1, then 1: Open this Tink in Approve.')
             assert helper.load(session)['status'] == 'completed'
             assert helper.status(session)['handoff']['verified'] is True
             assert helper.load(session)['goal'] == goal, 'Ending changed the confirmed goal'
@@ -673,7 +673,7 @@ def case(name, width=100, height=30):
                 run.type('Local.')
                 run.send(F2, 'Nothing found: this question records nothing checked in the repository.')
                 run.type('Yes.')
-                run.send(F2, 'Nothing found: this seed records nothing checked in the repository.')
+                run.send(F2, 'Nothing found: this Tink Contract records nothing checked in the repository.')
                 ledger = helper.load(session)
                 assert helper.decisions_block(ledger) in (session / 'seed-contract.md').read_text()
                 assert not any(n['kind'] == 'fact' for n in ledger['nodes']), ledger['nodes']
@@ -683,15 +683,15 @@ def case(name, width=100, height=30):
                 os.write(run.master, b'\x1b[6~' * 10)
                 if name == 'confirmation hint':
                     run.wait('type confirm, then Enter')
-                run.wait('Confirming the seed is not approval to build.')
+                run.wait('Confirm the Tink here. Approve the build separately.')
                 before = files(cwd)
-                run.send(b'\n', 'Enter confirms the seed; ^J adds no line here.')
+                run.send(b'\n', 'Enter confirms the Tink. ^J adds no line here.')
                 run.wait('type confirm, then Enter')
                 run.type('confirm')
                 # The placeholder already contains "confirm"; wait for the edited field.
                 run.wait('your words confirm')
                 assert 'type confirm, then Enter' not in run.flat(), run.screen.text()
-                run.send(b'\n' + F1, 'Read the seed, type confirm, then Enter')
+                run.send(b'\n' + F1, 'Read the Tink Contract, type confirm, then Enter')
                 run.send(b'\x1b', 'your words confirm')
                 # Enter reaches the ledger, not the word refusal: neither Ctrl+J inserted a break.
                 run.send(b'\r', 'Tinkery refused:')
@@ -713,16 +713,16 @@ def case(name, width=100, height=30):
                     # Changed words clear the refusal about the old ones (#249).
                     run.send(b'\x7f' * 13, 'type confirm, then Enter')
                     assert 'Type confirm, or F1' not in run.flat(), run.screen.text()
-                    run.send(F1, 'Read the seed, type confirm, then Enter')
+                    run.send(F1, 'Read the Tink Contract, type confirm, then Enter')
                     run.send(b'\x1b', 'your words')
                 assert not (session / 'seed-confirmation.json').exists()
             elif name == 'practice confirmation':
                 run.wait('Tink Contract r1')
                 run.type('confirm')
-                run.read_until('End of seed')
+                run.read_until('End of Tink Contract')
                 before = files(sessions)
                 run.send(F2, 'Tinkery refused: a simulated session cannot be confirmed')
-                assert files(sessions) == before, 'A practice seed was confirmed'
+                assert files(sessions) == before, 'A practice Tink was confirmed'
             else:
                 if question:
                     run.wait('Keep records local or synced?')
@@ -734,7 +734,7 @@ def case(name, width=100, height=30):
                     'zero budget': "No drafting runs are left: this launch's allowance is 0.",
                     'model failure': 'Your answer is saved. Looking into the next question failed: Pi exited',
                     'helper refusal': "Your answer is saved. The model's reply was refused, so nothing from it was saved: receipt appears to contain a secret",
-                    'model tries to confirm': "Looking into the next question failed: Reply field next must be question or seed; a model reply cannot confirm a seed.",
+                    'model tries to confirm': "Looking into the next question failed: Reply field next must be question or seed; a model reply cannot confirm a Tink.",
                     'model writes decisions': "field confirming / Problem statement, line 2: ## Decisions (from the ledger)",
                     'seed secret': "The model's reply was refused, so nothing from it was saved: receipt appears to contain a secret",
                 }[name]
@@ -987,8 +987,8 @@ def typed_findings_review(width, height):
             run.type('confirm')
             run.read_until('This is not implementation approval.')
             # The handoff paragraph is not the end: confirmation rows follow it.
-            run.read_until('End of seed', whole_line=True)
-            run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
+            run.read_until('End of Tink Contract', whole_line=True)
+            run.send(F2, 'Tink ready: you confirmed r1, and it still matches.')
             assert helper.status(session)['handoff']['verified'] is True
             assert len(run.calls()) == 2 and helper.load(session)['goal'] == GOAL
             print(f'Shape typed findings and contradiction review passed at {width}x{height}: '
@@ -1161,8 +1161,8 @@ def closing_summary(width, height):
             for rule in ['Before drafting in this same step', 'Separate decided', 'one case that must fail']:
                 assert rule in prompt, rule
             run.type('confirm')
-            run.read_until('End of seed', whole_line=True)
-            run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
+            run.read_until('End of Tink Contract', whole_line=True)
+            run.send(F2, 'Tink ready: you confirmed r1, and it still matches.')
             saved = helper.load(session)
             origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
             assert origin['evidence'][-1]['observed'] == 'Skipped teach-back.'
@@ -1225,9 +1225,9 @@ def completion_review_display(width, height, done=False, replay_299=False):
                 assert flat.index(line) < flat.index('esc back'), run.screen.text()
             assert len(run.calls()) == 1 and saved['goal'] == GOAL
             run.type('confirm')
-            run.read_until('End of seed', whole_line=True)
+            run.read_until('End of Tink Contract', whole_line=True)
             assert 'Must fail:' not in run.flat(), run.screen.text()
-            run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
+            run.send(F2, 'Tink ready: you confirmed r1, and it still matches.')
             assert helper.status(session)['handoff']['verified'] is True
             print(f'Shape completion review display {"#299 exact replay" if replay_299 else "done" if done else "empty done"} passed at {width}x{height}: 1 stub call')
         finally:
@@ -1257,7 +1257,7 @@ def completion_reviews(width, height):
                 run.wait('enter look into the next question')
                 before = files(run.sessions)
                 expected = {'missing': 'needs a typed completion review', 'untyped': 'needs a typed completion review',
-                            'missing case': 'exactly one failure case', 'blocker': 'Return it as a question',
+                            'missing case': 'exactly one failure case', 'blocker': 'Return the blocker as a question',
                             'question': 'TEST choices conflict; local or synced?'}[kind]
                 run.send(F2, expected)
                 assert len(run.calls()) == 1 and not (session / 'seed-contract.md').exists()
@@ -1337,15 +1337,15 @@ def read_end_revision(width, height):
             assert 'enter confirm' not in run.screen.text(), run.screen.text()
             seed_before = (session / 'seed-contract.md').read_bytes()
             before = files(session)
-            run.send(F2, "PgDn or Down to 'End of seed' first. Nothing was confirmed.")
+            run.send(F2, "PgDn or Down to 'End of Tink Contract' first. Nothing was confirmed.")
             assert files(session) == before and len(run.calls()) == 1
-            assert b'End of seed' not in seed_before
+            assert b'End of Tink Contract' not in seed_before
             assert 'Next: type your own words' not in run.screen.text()
             run.read_until('TEST-SEED-END')
-            run.read_until('End of seed', whole_line=True)
-            assert 'enter confirm seed r1' in run.screen.text(), run.screen.text()
+            run.read_until('End of Tink Contract', whole_line=True)
+            assert 'enter confirm Tink r1' in run.screen.text(), run.screen.text()
             assert 'read to end' not in run.screen.text(), run.screen.text()
-            assert sum(line.strip() == 'End of seed' for line in run.screen.text().splitlines()) == 1
+            assert sum(line.strip() == 'End of Tink Contract' for line in run.screen.text().splitlines()) == 1
             assert (session / 'seed-contract.md').read_bytes() == seed_before
             # The marker follows the risk summary too; grow the editor without another scroll.
             words = 'TEST I confirm r1. ' + 'TEST read already. ' * 30 + 'TEST exact end.'
@@ -1356,16 +1356,16 @@ def read_end_revision(width, height):
             run.width = resized_width
             run.screen = Screen(resized_width, resized_height)
             fcntl.ioctl(run.slave, termios.TIOCSWINSZ, struct.pack('HHHH', resized_height, resized_width, 0, 0))
-            run.wait('enter confirm seed r1')
+            run.wait('enter confirm Tink r1')
             assert files(session) == before and len(run.calls()) == 1
             run.choose('Teach back', 'your teach-back')
             run.send(F2, 'Teach-back compared. Mismatches never block confirming.')
-            run.wait('enter confirm seed r1')
+            run.wait('enter confirm Tink r1')
             assert (session / 'seed-contract.md').read_bytes() == seed_before
             # No page key after typing or the fresh read of the same revision.
             run.send(F2, 'Type confirm, or F1 Revise the draft. Nothing was confirmed.')
             run.send(b'\x01\x1b[1;2F' + b'confirm', 'your words confirm')
-            run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
+            run.send(F2, 'Tink ready: you confirmed r1, and it still matches.')
             confirmation = json.loads((session / 'seed-confirmation.json').read_text())
             assert confirmation['source'] == 'confirm'
             assert helper.load(session)['goal'] == GOAL
@@ -1484,8 +1484,8 @@ def teach_back(width, height, exhausted=False):
                 assert run.calls()[1]['cwd'] == str(cwd), run.calls()
                 assert run.calls()[1]['input'] == {'kind': 'teach-back',
                     'draft': (session / 'seed-contract.md').read_text(), 'operator_words': words}
-            run.read_until('End of seed', whole_line=True)
-            run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
+            run.read_until('End of Tink Contract', whole_line=True)
+            run.send(F2, 'Tink ready: you confirmed r1, and it still matches.')
             saved = helper.load(session)
             origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
             if exhausted:
@@ -1511,7 +1511,7 @@ def revise_the_draft(width, height):
             run.open_shape()
             run.wait('enter look into the next question')
             run.send(F2, 'Tink Contract r1')
-            run.read_until('End of seed', whole_line=True)
+            run.read_until('End of Tink Contract', whole_line=True)
             change = 'TEST keep the cache local, not shared'
             run.type(change)
             before = files(run.sessions)
@@ -1566,8 +1566,8 @@ def teach_back_retry(width, height):
             run.type('TEST corrected teach-back')
             run.send(F2, 'Teach-back compared. Mismatches never block confirming.')
             run.read_until('Teach-back guess: no mismatches reported.')
-            run.read_until('End of seed', whole_line=True)
-            run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
+            run.read_until('End of Tink Contract', whole_line=True)
+            run.send(F2, 'Tink ready: you confirmed r1, and it still matches.')
             saved = helper.load(session)
             origin = next(n for n in saved['nodes'] if n['id'] == saved['origin'])
             assert [r['observed'] for r in origin['evidence'] if r.get('artifact', '').startswith('tinkery:teach-back/')] == [
@@ -1631,9 +1631,9 @@ def exit_hint(width, height, stage):
                     break
             assert run.process.poll() == 0, output
             text = output.decode().replace('\r\n', '\n')
-            expected = {'goal': 'Next: shape it into a seed in Shape.',
-                        'draft': 'Next: confirm the seed draft in Shape.',
-                        'ready': 'Next: take the confirmed seed to Approve.',
+            expected = {'goal': 'Next: shape it into a Tink in Shape.',
+                        'draft': 'Next: confirm the draft in Shape.',
+                        'ready': 'Next: take the confirmed Tink to Approve.',
                         'stale': 'Next: check this session in Shape.',
                         'unreadable': 'Next: check this session in Shape.'}[stage]
             assert expected in text, text
@@ -1666,7 +1666,7 @@ def complete_scenario_recovery(width, height):
             run.open_shape()
             run.wait('enter look into the next question')
             before = files(run.sessions)
-            run.send(F2, 'No seed was drafted')
+            run.send(F2, 'No Tink was drafted')
             assert files(run.sessions) == before
             assert len(run.calls()) == 1, 'Refusal retried automatically'
             run.send(F2, 'Tink Contract r1')

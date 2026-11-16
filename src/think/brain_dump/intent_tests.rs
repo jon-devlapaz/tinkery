@@ -448,19 +448,19 @@ fn present_but_open_and_deferred_context_is_not_called_missing() {
     assert!(a.conversation.focused_question().is_none() && !a.goal_ready());
     for screen in screens(&mut a) {
         assert!(
-            screen.contains("Some parts remain open for the seed. Review when you're ready."),
+            screen.contains("Some parts remain open for the Tink. Review when you're ready."),
             "{screen}"
         );
         assert!(!screen.contains("Still missing") && !screen.contains("Ready for your review"));
     }
     let paper = a.copy_text();
-    assert!(paper.contains("for the seed: editing can wait"));
+    assert!(paper.contains("for the Tink: editing can wait"));
     assert!(paper.contains("also in your dump: release builds"));
     review_lists_and_saves(
         &mut a,
         &[
             "Why — still open",
-            "for the seed: editing can wait",
+            "for the Tink: editing can wait",
             "release builds",
         ],
     );
@@ -509,7 +509,7 @@ fn a_submitted_refinement_that_failed_to_apply_is_not_called_ready() {
     for screen in screens(&mut a) {
         assert!(!screen.contains("Ready for your review"), "{screen}");
         assert!(
-            screen.contains("Some parts remain open for the seed."),
+            screen.contains("Some parts remain open for the Tink."),
             "{screen}"
         );
     }
@@ -536,7 +536,7 @@ fn a_skipped_question_without_a_target_keeps_the_goal_open() {
     });
     for screen in screens(&mut a) {
         assert!(
-            screen.contains("Some parts remain open for the seed."),
+            screen.contains("Some parts remain open for the Tink."),
             "{screen}"
         );
         assert!(!screen.contains("Ready for your review"));

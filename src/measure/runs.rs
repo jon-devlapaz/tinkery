@@ -273,7 +273,7 @@ fn details(run: &Closed) -> String {
         let by = match d.by {
             By::Operator => "",
             By::Agent => " · agent-recorded, not counted",
-            By::Automatic => " · automatic seed binding, not counted",
+            By::Automatic => " · automatic Tink Contract link, not counted",
         };
         lines.push(format!(
             "  stage {} {} · {}{by}",

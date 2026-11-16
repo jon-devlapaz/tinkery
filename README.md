@@ -13,7 +13,7 @@ without losing your words or your control. Nothing runs without you: one next st
 | --- | --- |
 | **Think** | Clarify a goal or save a thought. |
 | **Tend** | Your goals and thoughts. |
-| **Shape** | Investigate and turn the goal into a confirmed seed. |
+| **Shape** | Investigate and turn the goal into a confirmed Tink. |
 | **Approve** | Understand the decision and exactly what you're authorizing. |
 | **Watch** | See progress, blockers and decisions needing your attention. |
 | **Taste** | See the result beside your original goal and say whether it is good. |
@@ -61,17 +61,17 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   Press `r` in detail for [Think history](docs/design/shape-and-handoff.md#think-history)
   when its saved record verifies.
 - **Shape:** press `s` in goal detail or choose menu place 3 to see the current question,
-  waiting draft or verified ready seed. With real drafting set up
+  draft Tink or verified Tink. With real drafting set up
   ([terminal setup](docs/terminal-setup.md#launch)), the saved calls or `--shape-budget CALLS` (default zero)
   set the launch allowance shared by Think, Tend connections and Shape. Enter saves an answer and lets an agent investigate the next with
-  read-only tools, and confirms the seed when you type `confirm` after reading it to the end; F1 Revise the draft
+  read-only tools, and confirms the Tink when you type `confirm` after reading it to the end; F1 Revise the draft
   sends a correction back for a new draft.
   Agents operate Think and Shape with `--operator agent`; their saves are
   [recorded as the agent's](docs/design/think.md#confirmation-attribution-185). `F1` lists
   every other action allowed now by number: So far (the whole goal and decisions), objecting
   to an assumed default, optional one-call teach-back on a draft (mismatches never block
   confirming), the options on a hard-to-undo question after your instinct, and ending a
-  session, which asks once more. Tinkery owns the ledger, seed checks,
+  session, which asks once more. Tinkery owns the ledger, Tink Contract checks,
   confirmation, verification and ending; no viewer or network read is involved.
   `tinkery seed status --json DIR` and `tinkery seed checks DIR` expose read-only intake JSON.
   Without a screen, `tinkery seed new GOAL_FILE` saves a goal's exact words and
@@ -79,8 +79,8 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   see [Shape without a screen](docs/design/shape-and-handoff.md#without-a-screen).
   Its draft guidance and artifact reference are bundled; no external skill is needed.
   The agent's step reads the repository where the goal was made, else the one named by
-  `--sdlc-root`, else where Tinkery started. A ready seed points to Approve.
-- **Approve:** menu place 4 shows verified seeds, oldest first, with their exact goal
+  `--sdlc-root`, else where Tinkery started. A ready Tink points to Approve.
+- **Approve:** menu place 4 shows verified Tinks, oldest first, with their exact goal
   and acceptance checks. `c` copies run creation and intake commands; nothing runs.
   `b` reviews an explicit bounded Pi start; after the full disclosure, F2 creates and
   imports the run, prepares its isolated build checkout and launches the worker.
@@ -88,21 +88,21 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   worker allowance is zero, separate from drafting.
   With `--operator agent`, F2, `l` and `u` share one relayed-authorization door:
   supply `--worker-authorization FILE` containing the operator's verbatim words bound exactly
-  to the seed hash, model pin and response cap. Missing or mismatched authorization refuses
+  to the Tink Contract hash, model pin and response cap. Missing or mismatched authorization refuses
   before work. The review shows the words and authority `operator, relayed`; provenance
   cannot be verified. Each admission appends to `runs/<slug>/worker-authorization.jsonl`.
   Human and undeclared F2, `l` and `u` keep their existing direct consent without a relay file.
-  Goal confirmation, seed confirmation and worker start remain separate yeses.
+  Goal confirmation, Tink confirmation and worker start remain separate yeses.
   See the [relay file contract](docs/design/approve.md#start-a-worker). Navigation never starts work.
   Recent Pi launch logs show how many
   responses workers used before editing. The review warns when your cap leaves too little
   room for an edit and a follow-up. The worker screen retains
   requests across navigation and offers explicit refresh, resume, finish, stop and
   verification. Home `b` reopens it; Watch `b` selects an existing run.
-  Intake rechecks the seed through this executable with `--tinkery PATH`.
-  A seed known to come from another repository stays readable but cannot be copied
+  Intake rechecks the Tink Contract through this executable with `--tinkery PATH`.
+  A Tink known to come from another repository stays readable but cannot be copied
   into the named checkout; unknown origins keep copy with a note.
-  Seeds already started move to Watch. See [Approve](docs/design/approve.md).
+  Tinks already started move to Watch. See [Approve](docs/design/approve.md).
 - **Watch:** reads the project's runs when opened or on `r`, with runs waiting on you first.
   Approve and Watch use the project you opened Tinkery from if tink-sdlc is installed
   there. Use `--sdlc-root PATH` to choose another project. Matched runs show their
@@ -137,7 +137,7 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
 
 On first default-root launch, old saved sessions move once to Tinkery's sessions folder,
 with a visible notice and no Think-record writes. History matches unique ledger session IDs. Leftover old and new roots
-refuse rather than merge; no old-root reader remains. Runs bound to moved seeds show unknown
+refuse rather than merge; no old-root reader remains. Runs bound to moved Tink Contracts show unknown
 in Watch, not a guessed match.
 
 ## What success means

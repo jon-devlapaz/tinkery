@@ -134,7 +134,7 @@ def journey(width, height, no_color, configured=True):
                 assert text.index('waits') < text.index('quiet-a'), text
                 assert 'waiting on a decision' in text and 'TEST next for waits' in text
                 assert 'Quiet' in text and 'verified · 1/2 checks passed' in text
-                assert 'Goal unknown' not in text and 'No confirmed seed' not in text
+                assert 'Goal unknown' not in text and 'This run has no confirmed Tink.' not in text
                 assert 'From python3 _system/scripts/sdlc.py status --json' in text
                 assert calls() == ['status --json', 'status quiet-a --json', 'status waits --json']
                 set_state(list=envelope(runs=[run('quiet-a', 'failed'), run('waits', 'blocked')]))
@@ -142,7 +142,7 @@ def journey(width, height, no_color, configured=True):
                 assert calls() == ['status --json', 'status quiet-a --json', 'status waits --json'] * 2
                 send(b'\r', 'Stage 3 gate: approved')
                 assert 'Checklist: 1/2 passed. How each is checked: 2 automated, 0 by you.' in ' '.join(screen.text().split())
-                assert 'No confirmed seed was recorded for this run.' in screen.text()
+                assert 'This run has no confirmed Tink.' in screen.text()
                 assert 'Goal unknown' not in screen.text()
                 assert calls()[-1] == 'status quiet-a --json', calls()
                 send(b'\x1b', 'Needs you')
@@ -212,7 +212,7 @@ def journey(width, height, no_color, configured=True):
                     assert 'Checklist:' not in screen.text(), 'oversized detail looked complete'
                     send(b'\x1b', 'TEST-readable')
                     send(b'\x1b[B', '› TEST-readable')
-                    send(b'\r', 'No confirmed seed was recorded for this run.')
+                    send(b'\r', 'This run has no confirmed Tink.')
                     send(b'\x1b', 'TEST-readable')
                 for status in ['blocked', 'failed', 'interrupted', 'running', 'not-run', 'stale', 'invalid']:
                     row = run('TEST-state', status)
@@ -304,8 +304,8 @@ def journey(width, height, no_color, configured=True):
                     send(b'r', row['next_action'])
                     text = screen.text()
                     assert 'TEST changed goal' not in text, text
-                    unknown = "Goal unknown: the original seed changed or can't be found."
-                    absent = 'No confirmed seed was recorded for this run.'
+                    unknown = "Goal unknown. Tinkery could not verify the original Tink Contract."
+                    absent = 'This run has no confirmed Tink.'
                     if seed_case == 'matched':
                         assert any(line.startswith('       TEST café') for line in text.splitlines()), text
                     else:
@@ -332,13 +332,13 @@ def journey(width, height, no_color, configured=True):
                         send(b'r', 'TEST café')
                         with replaced_seed(file, kind):
                             started = time.monotonic()
-                            send(b'r', "Goal unknown: the original seed changed or can't be found.")
+                            send(b'r', "Goal unknown. Tinkery could not verify the original Tink Contract.")
                             assert time.monotonic() - started < 2, f'non-regular {file.name} delayed Watch'
                             send(b'\r', 'Stage 3 gate: pending')
                             send(b'\x1b', 'Needs you')
                             send(b'\x1b', '1  think')
                             assert time.monotonic() - started < 2, f'non-regular {file.name} delayed Escape'
-                            send(b'5', "Goal unknown: the original seed changed or can't be found.")
+                            send(b'5', "Goal unknown. Tinkery could not verify the original Tink Contract.")
                             assert 'TEST café' not in screen.text()
                         send(b'r', 'TEST café')
                 # Regular symlink targets retain the same exact goal and unchanged bytes.
@@ -365,11 +365,11 @@ def journey(width, height, no_color, configured=True):
                 rows = screen.text().splitlines()
                 at = next(i for i, line in enumerate(rows) if 'TEST-quiet-seeded' in line)
                 assert 'TEST-quiet-unseeded' in rows[at + 1], screen.text()
-                assert not any(word in screen.text() for word in ('TEST café', 'TEST exact goal tail', 'Goal unknown', 'No confirmed seed'))
+                assert not any(word in screen.text() for word in ('TEST café', 'TEST exact goal tail', 'Goal unknown', 'This run has no confirmed Tink.'))
                 send(b'\r', 'TEST exact goal tail')
                 send(b'\x1b', 'TEST-quiet-unseeded')
                 send(b'\x1b[B', '› TEST-quiet-unseeded')
-                send(b'\r', 'No confirmed seed was recorded for this run.')
+                send(b'\r', 'This run has no confirmed Tink.')
                 assert 'Goal unknown' not in screen.text(), screen.text()
                 send(b'\x1b', 'TEST-quiet-unseeded')
                 set_state(list={**envelope(runs=[]), 'protocol': 'other'})

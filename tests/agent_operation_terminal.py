@@ -17,7 +17,7 @@ ACTOR = {'by': 'terminal', 'declaration': 'declared: agent',
          'action': 'typed confirm at this terminal', 'identity': 'declaration is not verified identity'}
 # A why long enough that review needs scrolling at every tested size.
 LONG_WHY = 'the work is stuck' + ', and TEST detail keeps this review long' * 80
-NOTE = 'Agent-confirmed seed. Intake requires tink-sdlc 1.38.0 or newer;'
+NOTE = 'Agent-confirmed Tink. Intake requires tink-sdlc 1.38.0 or newer;'
 
 
 def status(session):
@@ -134,7 +134,7 @@ def journey(width, height):
             run.send(F2, 'pgup/dn read to end')
             os.write(run.master, b'\x1b[6~' * 20)
             run.type('confirm')
-            run.send(F2, 'Seed ready: you confirmed r1, and it still matches.')
+            run.send(F2, 'Tink ready: you confirmed r1, and it still matches.')
             ledger = helper.load(session)
             assert ledger['operator'] == 'agent'
             assert ledger['goal'] == record['goal'] == goal
@@ -152,13 +152,13 @@ def journey(width, height):
             assert 'c copy intake' not in run.flat(), run.screen.text()
             before = files(root)
             os.write(run.master, b'c')
-            run.read_until('F1, then 1: Open this seed in Approve.')
+            run.read_until('F1, then 1: Open this Tink in Approve.')
             assert copies() == [], 'Shape copied a command'
             assert 'declared: agent' in (session / 'seed-contract.md').read_text()
             assert len(run.calls()) == 2
             # Both views disclose agent confirmation; copying never creates a run or approves.
             run.menu()
-            run.send(b'4', 'Seed 1 of 1')
+            run.send(b'4', 'Tink 1 of 1')
             run.read_until(NOTE)
             assert 'c copy command' in run.flat()
             run.send(b'c', 'Copied.')

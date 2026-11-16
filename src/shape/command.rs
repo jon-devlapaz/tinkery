@@ -202,7 +202,7 @@ pub fn step(
         }
         _ => {
             return Err(
-                "That action does not fit where this seed stands; read `tinkery seed show DIR`. Nothing was changed."
+                "That action does not fit the status of this Tink; read `tinkery seed show DIR`. Nothing was changed."
                     .into(),
             );
         }

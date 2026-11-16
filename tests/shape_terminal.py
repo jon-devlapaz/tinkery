@@ -164,12 +164,12 @@ def journey(width, height, case, no_color=False, operator='human'):
             if case == 'list':
                 send(b'3', LIST_KEYS)
                 assert 'Ready goal' not in screen.text(), screen.text()
-                assert 'goal saved' in screen.text() and 'seed drafted' in screen.text(), screen.text()
+                assert 'goal saved' in screen.text() and 'Tink drafted' in screen.text(), screen.text()
                 before = files(sessions)
                 lines = screen.text().splitlines()
                 drafted = 'j' if any('› I can see' in l for l in lines) else ''
                 os.write(master, drafted.encode())
-                send(b'\r', 'Confirming the seed is not approval to build.')
+                send(b'\r', 'Confirm the Tink here. Approve the build separately.')
                 assert 'status: draft' not in screen.text(), screen.text()
                 so_far('Drafted goal')
                 # Confirmed elsewhere while open: back at the list, Shape reads again and drops it.
@@ -182,11 +182,11 @@ def journey(width, height, case, no_color=False, operator='human'):
                 before_tend = files(sessions)
                 send(b'2', 'enter open')
                 if case in ('ready', 'stale'):
-                    assert 'seed needs checking' in flat(), screen.text()
-                    assert 'seed ready' not in flat().lower(), screen.text()
+                    assert 'Tink needs checking' in flat(), screen.text()
+                    assert 'tink ready' not in flat().lower(), screen.text()
                 send(b'\r', DETAIL_KEYS)
                 if case in ('ready', 'stale'):
-                    assert 'Next: check the seed in Shape.' in flat(), screen.text()
+                    assert 'Next: check the Tink in Shape.' in flat(), screen.text()
                     assert 'ready for intake' not in flat(), screen.text()
                     assert files(sessions) == before_tend, 'Tend changed confirmation evidence'
                     assert not (cwd / 'provider-was-run').exists()
@@ -198,9 +198,9 @@ def journey(width, height, case, no_color=False, operator='human'):
                 expected = {
                     'question': 'Where records live Keep records local or synced?',
                     'p051': P051_QUESTION,
-                    'drafted': 'Tink Contract r1' if held else 'Confirming the seed is not approval to build.',
-                    'ready': 'Seed ready: you confirmed r1, and it still matches.',
-                    'stale': "Tinkery can't verify it: the seed changed after revision r1 was confirmed.",
+                    'drafted': 'Tink Contract r1' if held else 'Confirm the Tink here. Approve the build separately.',
+                    'ready': 'Tink ready: you confirmed r1, and it still matches.',
+                    'stale': "Tinkery cannot verify this Tink: the Tink Contract changed after revision r1 was confirmed.",
                     'ended': 'This session has ended (stopped).',
                     'unreadable': 'Tinkery refused to read this session:',
                 }[case]
@@ -245,7 +245,7 @@ def journey(width, height, case, no_color=False, operator='human'):
                 # Approve owns the one command that starts a build; Shape points there (#466).
                 assert 'c copy intake' not in flat() and '<run>' not in flat(), screen.text()
                 if case == 'ready':
-                    assert 'Next: F1, then 1: Open this seed in Approve.' in flat(), screen.text()
+                    assert 'Next: F1, then 1: Open this Tink in Approve.' in flat(), screen.text()
                 if case != 'unreadable':
                     so_far()
                 else:
@@ -291,9 +291,9 @@ def journey(width, height, case, no_color=False, operator='human'):
                     send(b'\x1b', 'Saved session unavailable. F1 then h for details.')
                     assert GOAL.splitlines()[0] not in flat(), screen.text()
                 else:
-                    next_step = ('Next: confirm the seed draft in Shape.' if case == 'drafted' else
-                                 'Next: check the seed in Shape.' if case in ('ready', 'stale') else
-                                 'Next: shape it into a seed in Shape.')
+                    next_step = ('Next: confirm the draft in Shape.' if case == 'drafted' else
+                                 'Next: check the Tink in Shape.' if case in ('ready', 'stale') else
+                                 'Next: shape it into a Tink in Shape.')
                     send(b'\x1b', 'tinkery › tend')
                     wait(lambda: next_step in flat())
                     shows_goal()

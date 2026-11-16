@@ -109,7 +109,7 @@ Empty state points to Shape or Watch.
 [SDLC handoff](shape-and-handoff.md#sdlc-handoff) owns the exact join: matching
 started seeds are hidden. Changed or unavailable originals get an unknown-start
 notice and a Shape recovery step, not a waiting claim. If the project is missing or
-the runs cannot be read, say `Can't tell which seeds have started; none are hidden.`
+the runs cannot be read, say `Can't tell which Tinks have started; none are hidden.`
 and how to check.
 Help retains the bounded reasons. Unknown start classification never conceals a
 verified seed or justifies a complete empty-waiting claim.
@@ -173,7 +173,7 @@ or a second workflow ledger.
 The existing exact-seed prior-start check prevents another start of the same seed.
 The relay requires the seed's checkout; it adds no alternate worktree support.
 Human and undeclared F2, `l` and `u` keep their existing direct consent and require no relay file.
-Goal confirmation, seed confirmation and worker start remain separate yeses.
+Goal confirmation, Tink confirmation and worker start remain separate yeses.
 Navigation and copying never start a worker.
 
 With a configured worker allowance, the existing Approve reader selects up to five

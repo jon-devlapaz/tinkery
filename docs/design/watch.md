@@ -49,9 +49,9 @@ worker, never during painting or input. The [SDLC handoff](shape-and-handoff.md#
 owns matching and keeps three states distinct:
 - A matched seed supplies the exact saved goal.
 - An explicit null record means no confirmed seed was used, not a failed match.
-  Show nothing in the list; detail says `No confirmed seed was recorded for this run.`
+  Show nothing in the list; detail says `This run has no confirmed Tink.`
 - An edited, moved, missing or unreadable original, or a missing/malformed record,
-  says `Goal unknown: the original seed changed or can't be found.` in needs-you
+  says `Goal unknown. Tinkery could not verify the original Tink Contract.` in needs-you
   rows and detail. Never borrow a goal from the run name or another original.
 
 Watch reads only tink-sdlc API 1: `protocol` must be `tink-sdlc` and `api_version` the integer 1.

@@ -69,9 +69,9 @@ impl Panel {
                 let disclosure = format!(
                     "Pi model: {}\nResponse cap: {} (one response may already be in flight).\n{cap_advice}\n\
                      Checkout: {}\n\
-                     {retry}F2 uses committed source, creates the run, imports this seed, prepares an isolated build checkout, \
+                     {retry}F2 uses committed source, creates the run, imports this Tink Contract, prepares an isolated build checkout, \
                      and launches its bounded worker through tink-sdlc.\n\
-                     Your goal, confirmed seed and relevant source files go to that provider. \
+                     Your goal, confirmed Tink Contract and relevant source files go to that provider. \
                      The worker may edit, run commands and commit inside its build checkout.\n\
                      Commit project changes first. Definition gates still apply; passing checks is not your acceptance.",
                     config.model,
@@ -378,7 +378,7 @@ impl Panel {
         };
         if self.help {
             add(
-                "Worker actions\n\nF2 starts only the reviewed seed with its separate worker allowance.\n\
+                "Worker actions\n\nF2 starts only the reviewed Tink with its separate worker allowance.\n\
                  r reads status. l launches a prepared step; u resumes an ended turn on its existing model/session and cumulative cap.\n\
                  v verifies first. Only current passing checks allow f to record the normally ended worker.\n\
                  After a refused request, only r and s work until a read succeeds.\n\

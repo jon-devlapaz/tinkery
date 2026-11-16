@@ -759,7 +759,7 @@ pub(super) enum Next {
 /// checks must keep each of `goal`'s Done when lines whole; every broken rule is named at once.
 pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
     let start = reply.find('{').ok_or_else(|| {
-        "The reply contains no JSON object. Return one question or seed draft.".to_owned()
+        "The reply contains no JSON object. Return one question or Tink draft.".to_owned()
     })?;
     let end = reply[start..]
         .rfind('}')
@@ -768,9 +768,9 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
     let mut stream = serde_json::Deserializer::from_str(object).into_iter::<Value>();
     let value = stream.next().expect("Object starts with an opening brace").map_err(|error| {
         if error.is_eof() {
-            "The reply ended before its JSON object was complete. No question or seed draft was applied.".to_owned()
+            "The reply ended before its JSON object was complete. No question or Tink draft was applied.".to_owned()
         } else {
-            format!("The reply has invalid JSON at line {}, column {}. Return one question or seed draft.", error.line(), error.column())
+            format!("The reply has invalid JSON at line {}, column {}. Return one question or Tink draft.", error.line(), error.column())
         }
     })?;
     if !object[stream.byte_offset()..]
@@ -778,7 +778,7 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
         .all(|c| c == '}' || c.is_whitespace())
         || reply[end..].contains('{')
     {
-        return Err("The reply contains extra content after its JSON object. Return only one question or seed draft.".into());
+        return Err("The reply contains extra content after its JSON object. Return only one question or Tink draft.".into());
     }
     let text = |key: &str| {
         value[key]
@@ -789,7 +789,7 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
     };
     if !matches!(value["next"].as_str(), Some("question" | "seed")) {
         return Err(
-            "Reply field next must be question or seed; a model reply cannot confirm a seed."
+            "Reply field next must be question or seed; a model reply cannot confirm a Tink."
                 .into(),
         );
     }
@@ -836,7 +836,8 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
                 .filter(|checks| !checks.is_empty())
                 .cloned()
                 .ok_or_else(|| {
-                    "Seed reply field checks must be a non-empty list of check records.".to_owned()
+                    "Tink draft reply field checks must be a non-empty list of check records."
+                        .to_owned()
                 })?;
             restore_case(goal, &mut checks);
             let review = review_reply::decode(value["review"].clone(), &mut checks);
@@ -844,7 +845,7 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
             Ok(Next::Seed {
                 review,
                 confirming: value.get("confirming").cloned().ok_or_else(||
-                    "Seed reply field confirming is missing; supply the named summary and prose fields.".to_owned())?,
+                    "Tink draft reply field confirming is missing; supply the named summary and prose fields.".to_owned())?,
                 checks,
                 found,
                 resolves: value.get("resolves").cloned(),

@@ -460,7 +460,7 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
             palette,
             SavedGoal {
                 goal: &receipt.goal,
-                next: Some("Next: shape it into a seed in Shape."),
+                next: Some("Next: shape it into a Tink in Shape."),
                 notice,
                 saved: true,
             },
@@ -543,7 +543,7 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
     }
     if !review.affirmation.deferred.is_empty() {
         body.push_str(&format!(
-            "\n\nfor the seed: {}",
+            "\n\nfor the Tink: {}",
             review.affirmation.deferred.join("; ")
         ));
     }

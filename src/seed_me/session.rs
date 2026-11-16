@@ -42,12 +42,12 @@ impl Stage {
     pub fn label(self) -> &'static str {
         match self {
             Self::GoalSaved => "goal saved",
-            Self::SeedDrafted => "seed drafted",
-            Self::SeedUnchecked => "seed needs checking",
+            Self::SeedDrafted => "Tink drafted",
+            Self::SeedUnchecked => "Tink needs checking",
             Self::Completed => "completed",
             Self::Stopped => "stopped",
             Self::Unknown => "status unknown",
-            Self::Simulated => "practice seed",
+            Self::Simulated => "practice Tink",
         }
     }
     /// Over, whether completed or stopped: nothing to continue.
@@ -64,9 +64,9 @@ impl Stage {
     /// What to do next at this stage; none when there is nothing to continue.
     pub fn next(self) -> Option<&'static str> {
         match self {
-            Self::GoalSaved => Some("Next: shape it into a seed in Shape."),
-            Self::SeedDrafted => Some("Next: confirm the seed draft in Shape."),
-            Self::SeedUnchecked => Some("Next: check the seed in Shape."),
+            Self::GoalSaved => Some("Next: shape it into a Tink in Shape."),
+            Self::SeedDrafted => Some("Next: confirm the draft in Shape."),
+            Self::SeedUnchecked => Some("Next: check the Tink in Shape."),
             _ => None,
         }
     }
@@ -258,8 +258,8 @@ mod identity_tests {
             let Record::Session(session) = read(root.path()) else {
                 panic!("the declared stage must remain readable");
             };
-            assert_eq!(session.stage.label(), "seed needs checking");
-            assert_eq!(session.stage.next(), Some("Next: check the seed in Shape."));
+            assert_eq!(session.stage.label(), "Tink needs checking");
+            assert_eq!(session.stage.next(), Some("Next: check the Tink in Shape."));
             assert!(
                 session.stage.can_shape(),
                 "manual continuation stays available"

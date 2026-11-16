@@ -32,7 +32,7 @@ pub(super) fn seed_lines(directory: &Path) -> Result<Vec<String>> {
     require(
         path.is_file(),
         format!(
-            "no seed to use: {} is missing; save the seed there first",
+            "No Tink Contract found. Save it at {} first.",
             path.display()
         ),
     )?;
@@ -113,7 +113,7 @@ fn require_seed_body(directory: &Path, refusal: &str) -> Result<()> {
     require(
         valid,
         format!(
-            "{refusal}: {} is not a seed contract; after its status line it needs a 'revision:' line and a '## You are confirming' section with content",
+            "{refusal}: {} is not a Tink Contract; after its status line it needs a 'revision:' line and a '## You are confirming' section with content",
             directory.join(FILE).display()
         ),
     )
@@ -123,7 +123,7 @@ pub(super) fn require_seed_line(directory: &Path, expected: &str) -> Result<()> 
     require(
         path.is_file(),
         format!(
-            "cannot complete: {} is missing; save the seed there with line 1 {}",
+            "cannot complete: {} is missing; save the Tink Contract there with line 1 {}",
             path.display(),
             repr(expected)
         ),
@@ -278,7 +278,7 @@ pub(super) fn require_seed_decisions(
         format!("not current: {}", stale.join(", "))
     };
     Err(format!(
-        "{refusal}: the seed's decisions do not match the ledger ({detail}); reopen Shape and draft again from the current ledger"
+        "{refusal}: the Tink Contract's decisions do not match the ledger ({detail}); reopen Shape and draft again from the current ledger"
     ))
 }
 
@@ -353,17 +353,17 @@ pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Value> {
     }
     let seed = seed_summary(directory)?;
     if seed == Value::Null {
-        return refused("no seed is saved".into());
+        return refused("no Tink Contract is saved".into());
     }
     if !seed["line_1"].is(CONFIRMED) {
         return refused(format!(
-            "the seed is not confirmed (line 1 is {})",
+            "the Tink is not confirmed (line 1 is {})",
             repr(seed["line_1"].string().ok_or("Invalid seed status line.")?)
         ));
     }
     let Some(record) = confirmation_record(directory) else {
         return refused(
-            "the seed has no confirmation record from `seed confirm` in this session".into(),
+            "the Tink has no confirmation record from `seed confirm` in this session".into(),
         );
     };
     if record["session_id"] != ledger["session_id"]
@@ -379,7 +379,7 @@ pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Value> {
         let Ok(actor) = serde_json::from_str::<crate::think_record::GoalConfirmation>(
             &record["actor"].compact(false)?,
         ) else {
-            return refused("the seed actor is invalid".into());
+            return refused("the Tink confirmation actor is invalid".into());
         };
         let (Some(source), Some(timestamp)) =
             (record["source"].string(), record["confirmed_at"].string())
@@ -391,12 +391,12 @@ pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Value> {
             .iter()
             .any(|line| split_terminator(line).0 == expected)
         {
-            return refused("the agent attribution does not match the confirmed seed".into());
+            return refused("the agent attribution does not match the confirmed Tink".into());
         }
     }
     if record["seed_sha256"] != seed["sha256"] {
         return refused(format!(
-            "the seed changed after revision {label} was confirmed"
+            "the Tink Contract changed after revision {label} was confirmed"
         ));
     }
     if record["decisions_sha256"].string() != Some(&decisions_digest(ledger)?) {
@@ -405,7 +405,9 @@ pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Value> {
         ));
     }
     let Ok(records) = checks::require_seed_checks(directory, ledger, true) else {
-        return refused("checks are missing, invalid or differ from the rendered seed".into());
+        return refused(
+            "checks are missing, invalid or differ from the rendered Tink Contract".into(),
+        );
     };
     if record["checks_sha256"].string() != Some(&checks::digest(&records)?) {
         return refused(format!(
@@ -463,7 +465,7 @@ pub(super) fn confirmed_as(
     require(
         super::one_of(&super::operator(ledger), &["human", "agent"]),
         format!(
-            "a simulated session cannot be confirmed: its seed stays {}",
+            "a simulated session cannot be confirmed: its Tink Contract stays {}",
             repr(SIMULATED)
         ),
     )?;
@@ -504,7 +506,7 @@ pub(super) fn confirmed_as(
     require(
         first != CONFIRMED,
         format!(
-            "the seed is already confirmed (line 1 is {}); to confirm a change, save a new revision with line 1 {} and no 'Confirmed by:' line, show it, and confirm that",
+            "the Tink is already confirmed (line 1 is {}); to confirm a change, save a new revision with line 1 {} and no 'Confirmed by:' line, show it, and confirm that",
             repr(first),
             repr(DRAFT)
         ),

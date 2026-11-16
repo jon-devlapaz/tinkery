@@ -631,7 +631,7 @@ fn goal_display_keeps_exact_words_and_escapes_unsafe_controls_only() {
     assert!(
         goal_lines(goal_text(&Goal::Unknown), Palette::new(true))[0].spans[0]
             .content
-            .starts_with("Goal unknown:")
+            .starts_with("Goal unknown.")
     );
 }
 
@@ -695,10 +695,12 @@ fn all_three_goal_states_are_distinct_in_list_and_detail() {
                         );
                         assert!(!list.contains("TEST full goal tail"));
                     }
-                    Goal::NoSeed => assert!(!list.contains("seed"), "{list}"),
+                    Goal::NoSeed => {
+                        assert!(!list.contains("This run has no confirmed Tink."), "{list}")
+                    }
                     Goal::Unknown => assert!(
                         list.lines().any(|line| line.starts_with(
-                            "    Goal unknown: the original seed changed or can't be found."
+                            "    Goal unknown. Tinkery could not verify the original Tink Contract."
                         )),
                         "{list}"
                     ),
@@ -706,7 +708,7 @@ fn all_three_goal_states_are_distinct_in_list_and_detail() {
             } else {
                 assert!(
                     !list.contains("café")
-                        && !list.contains("seed")
+                        && !list.contains("This run has no confirmed Tink.")
                         && !list.contains("TEST full goal tail"),
                     "{list}"
                 );
@@ -749,20 +751,14 @@ fn all_three_goal_states_are_distinct_in_list_and_detail() {
                     assert!(shown.contains("TEST café") && shown.contains("TEST full goal tail"));
                 }
                 Goal::NoSeed => {
-                    assert_eq!(
-                        shown
-                            .matches("No confirmed seed was recorded for this run.")
-                            .count(),
-                        1
-                    );
+                    assert_eq!(shown.matches("This run has no confirmed Tink.").count(), 1);
                     assert!(!shown.contains("Goal unknown"));
                 }
                 Goal::Unknown => {
-                    assert!(
-                        shown
-                            .contains("Goal unknown: the original seed changed or can't be found.")
-                    );
-                    assert!(!shown.contains("No confirmed seed"));
+                    assert!(shown.contains(
+                        "Goal unknown. Tinkery could not verify the original Tink Contract."
+                    ));
+                    assert!(!shown.contains("This run has no confirmed Tink."));
                 }
             }
         }

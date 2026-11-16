@@ -214,7 +214,7 @@ fn read_session(session: &Path) -> Result<(Shaping, Option<super::retry::Base>),
         shaping.deferred = super::ledger::deferred_prerequisite(&saved)?;
     }
     if matches!(shaping.stage, Shaped::Ready { .. }) && status["handoff"]["operator"] == "agent" {
-        shaping.confirmation_note = Some("Agent-confirmed seed. Intake requires tink-sdlc 1.38.0 or newer; this is not operator confirmation or implementation approval.".into());
+        shaping.confirmation_note = Some("Agent-confirmed Tink. Intake requires tink-sdlc 1.38.0 or newer; this is not operator confirmation or implementation approval.".into());
     }
     if matches!(shaping.stage, Shaped::Ready { .. })
         && let Ok(records) = super::ledger::read_checks(session)
@@ -447,7 +447,7 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
             },
         },
         _ => Shaped::Unknown {
-            what: "Tinkery doesn't recognise the seed's first line.".into(),
+            what: "Tinkery cannot recognize the Tink Contract's status line.".into(),
         },
     };
     shaping(goal, stage)

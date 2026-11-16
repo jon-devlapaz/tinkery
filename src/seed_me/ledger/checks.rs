@@ -263,7 +263,7 @@ pub(crate) fn validate_goal_checks(goal: &str, records: &Value) -> Result<()> {
                     .is_some_and(|statement| keeps_criterion(statement, criterion, false))
             }),
             format!(
-                "No seed was drafted: keep this complete Done when line unchanged in one check statement: {criterion} Separate checks may supplement it, not replace its sequence or qualifiers."
+                "No Tink was drafted: keep this complete Done when line unchanged in one check statement: {criterion} Separate checks may supplement it, not replace its sequence or qualifiers."
             ),
         )?;
     }
@@ -285,7 +285,7 @@ pub(crate) fn validate_goal_checks(goal: &str, records: &Value) -> Result<()> {
             (0..commands.len()).find(|&i| i != index && commands[i] == Some((cmd, cwd)))
         {
             return Err(format!(
-                "No seed was drafted: check {} proposes `{cmd}`, which check {} also uses in cwd `{}`. \
+                "No Tink was drafted: check {} proposes `{cmd}`, which check {} also uses in cwd `{}`. \
                  A provisional's proposed command must select its missing regression by name; otherwise leave cmd out.",
                 index + 1,
                 other + 1,

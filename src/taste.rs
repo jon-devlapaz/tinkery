@@ -697,8 +697,8 @@ impl Taste {
 fn goal(goal: &Goal) -> &str {
     match goal {
         Goal::Matched(text) => text,
-        Goal::NoSeed => "No confirmed seed was recorded for this run.",
-        Goal::Unknown => "Goal unknown: the original seed changed or can't be found.",
+        Goal::NoSeed => "This run has no confirmed Tink.",
+        Goal::Unknown => "Goal unknown. Tinkery could not verify the original Tink Contract.",
     }
 }
 

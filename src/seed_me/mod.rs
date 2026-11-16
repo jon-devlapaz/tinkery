@@ -58,7 +58,7 @@ pub fn resolve_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
 /// Read only an opened regular seed file; symlinks keep their existing target semantics.
 /// Nonblocking open prevents a replaced path or FIFO from waiting for a writer.
 pub(crate) fn read_seed(path: &Path) -> std::io::Result<Vec<u8>> {
-    read_regular(path, "original seed")
+    read_regular(path, "original Tink Contract")
 }
 
 // Check the opened file, so a path replacement cannot turn the read into a FIFO wait.
@@ -83,7 +83,7 @@ fn read_regular(path: &Path, name: &str) -> std::io::Result<Vec<u8>> {
 
 /// Read regular seed bytes as UTF-8, refusing invalid text without changing the bytes.
 pub(crate) fn read_seed_text(path: &Path) -> std::io::Result<String> {
-    read_regular_text(path, "original seed")
+    read_regular_text(path, "original Tink Contract")
 }
 
 fn read_regular_text(path: &Path, name: &str) -> std::io::Result<String> {

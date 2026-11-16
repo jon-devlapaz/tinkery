@@ -52,9 +52,9 @@ fn recorded_169_exclusions_and_affirmative_deferrals_keep_their_scripted_categor
         }
         assert_eq!(board.deferred, later.into_iter().collect::<Vec<_>>());
         let paper = a.copy_text();
-        assert!(!paper.contains("for the seed: Fix incomplete discovery"));
+        assert!(!paper.contains("for the Tink: Fix incomplete discovery"));
         if let Some(request) = later {
-            assert!(paper.contains(&format!("for the seed: {request}")));
+            assert!(paper.contains(&format!("for the Tink: {request}")));
         }
         a.review_goal();
         let frozen = &a.handoff.review().unwrap().affirmation;
@@ -353,7 +353,7 @@ fn quiet_asides_survive_paper_review_and_are_not_constraints() {
     assert!(!reading.contains("renaming") && !reading.contains("editing"));
     let paper = a.copy_text();
     assert!(paper.contains("also in your dump: renaming a tab; release builds"));
-    assert!(paper.contains("for the seed: editing can wait"));
+    assert!(paper.contains("for the Tink: editing can wait"));
     let text = snapshot(160, 40, &mut a, false).unwrap();
     assert!(text.contains("anything to add or change?"));
     a.review_goal();

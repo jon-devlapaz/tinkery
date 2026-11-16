@@ -118,7 +118,7 @@ os.execv({sys.executable!r}, [{sys.executable!r}, *sys.argv[1:]])
         try:
             wait('1  think')
             send(b'6', 'Press r to read results')
-            send(b'r', 'No confirmed seed')
+            send(b'r', 'This run has no confirmed Tink.')
             assert 'awaiting human verdict' in screen.text(), screen.text()
             send(b'\r', 'Is this good?')
             assert 'Run ID' not in screen.text(), screen.text()

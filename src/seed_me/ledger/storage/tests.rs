@@ -103,7 +103,7 @@ fn draft_saves_share_the_lock_and_refuse_stale_or_replaced_inputs_before_writes(
     assert!(
         save_draft(root.path(), 0, None, &records, draft)
             .unwrap_err()
-            .contains("seed changed")
+            .contains("Tink Contract changed")
     );
     fs::write(
         root.path().join(super::super::seed::FILE),

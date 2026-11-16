@@ -268,10 +268,10 @@ def journey(width, height, kind='garden'):
                 send(b'\x1b', GARDEN_KEYS)
                 wait(lambda: selected(1))
                 move(b'k', 0)
-            for index, next_line in enumerate(['Next: shape it into a seed in Shape.',
-                    'Next: confirm the seed draft in Shape.', 'Next: check the seed in Shape.']
+            for index, next_line in enumerate(['Next: shape it into a Tink in Shape.',
+                    'Next: confirm the draft in Shape.', 'Next: check the Tink in Shape.']
                     if kind == 'garden' else []):
-                label = ['goal saved', 'seed drafted', 'seed needs checking'][index]
+                label = ['goal saved', 'Tink drafted', 'Tink needs checking'][index]
                 wait(lambda: label in screen.text().splitlines()[height-3])
                 send(b'\r', 'esc back   F10 menu')
                 assert 'Saved.' not in screen.text()

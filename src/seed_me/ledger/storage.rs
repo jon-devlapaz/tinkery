@@ -222,7 +222,7 @@ pub fn respond(
     if matches!(action, super::AnswerAction::Revisit(_)) {
         super::require(
             !directory.join(super::seed::FILE).exists(),
-            "A seed is already recorded. Reopen Shape before answering a deferred prerequisite.",
+            "A Tink Contract already exists. Reopen Shape before answering a deferred prerequisite.",
         )?;
     }
     let (mut state, mut reviewed) = super::answers::change(&ledger, id, action)?;
@@ -295,7 +295,7 @@ fn publication(
         timestamp,
     )?;
     if result != *ledger && result["status"].string() == Some("completed") {
-        return Err("publish cannot complete a session: use `end --status completed`, which checks the confirmed seed".to_owned().into());
+        return Err("publish cannot complete a session: use `end --status completed`, which checks the confirmed Tink".to_owned().into());
     }
     // JSON refusals precede the IO attempt, as in the helper's atomic_write.
     let bytes = if result != *ledger {
@@ -374,7 +374,7 @@ pub(crate) fn save_draft(
     super::checks::validate_checks(records)?;
     super::require(
         seed.lines().next() == Some(super::seed::DRAFT),
-        "a seed draft must start with status: draft",
+        "a Tink Contract draft must start with status: draft",
     )?;
     let _writer = Writer::acquire(directory).map_err(|e| e.reason)?;
     let ledger = load(directory)?;
@@ -393,11 +393,11 @@ pub(crate) fn save_draft(
         current
             .as_ref()
             .is_none_or(|s| s.lines().next() == Some(super::seed::DRAFT)),
-        "a seed that is not a draft already exists; never replace it",
+        "a Tink Contract that is not a draft already exists; never replace it",
     )?;
     super::require(
         current.as_deref() == previous,
-        "the seed changed while the draft was prepared; reopen this session before trying again",
+        "the Tink Contract changed while the draft was prepared; reopen this session before trying again",
     )?;
     atomic_text(
         &directory.join(super::checks::FILE),
@@ -406,7 +406,7 @@ pub(crate) fn save_draft(
     )
     .map_err(|e| format!("could not save check records: {e}"))?;
     atomic_text(&path, seed, None)
-        .map_err(|e| format!("check records saved, but the seed draft was not saved: {e}"))
+        .map_err(|e| format!("check records saved, but the Tink Contract draft was not saved: {e}"))
 }
 
 /// Record a drafting review or teach-back against the displayed ledger and exact draft bytes.

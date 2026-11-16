@@ -100,7 +100,7 @@ impl ExitReceipt {
                 text
             }
             Self::Incomplete { session } => format!(
-                "Incomplete handoff; inspect saved session {}. No seed confirmed.",
+                "Incomplete handoff; inspect saved session {}. No Tink confirmed.",
                 session.display()
             ),
         }
@@ -128,9 +128,9 @@ impl Receipt {
     pub fn text(&self) -> String {
         use super::shaping::Shaped;
         let next = match super::shaping::read(&self.session).map(|s| s.stage) {
-            Ok(Shaped::Ready { .. }) => "Next: take the confirmed seed to Approve.",
-            Ok(Shaped::Drafted { .. }) => "Next: confirm the seed draft in Shape.",
-            Ok(Shaped::Waiting | Shaped::Question { .. }) => "Next: shape it into a seed in Shape.",
+            Ok(Shaped::Ready { .. }) => "Next: take the confirmed Tink to Approve.",
+            Ok(Shaped::Drafted { .. }) => "Next: confirm the draft in Shape.",
+            Ok(Shaped::Waiting | Shaped::Question { .. }) => "Next: shape it into a Tink in Shape.",
             Ok(Shaped::Ended { .. }) => "This session has ended.",
             _ => "Next: check this session in Shape.",
         };
@@ -216,7 +216,7 @@ impl Config {
             return Err("Session is not active for this actor; nothing overwritten.".into());
         }
         if session.join("seed-contract.md").exists() {
-            return Err("A seed file already exists; reopen this session in Shape.".into());
+            return Err("A Tink Contract already exists; reopen this session in Shape.".into());
         }
         if current["origin"] == super::ledger::Value::Null {
             let mut evidence = a.originals.iter().map(|s| json!({"checked":s.label(),"at":stamp,"observed":s.text}))

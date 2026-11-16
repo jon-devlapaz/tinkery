@@ -215,7 +215,7 @@ fn completion_through_publish_is_refused() {
         serde_json::from_str(&ledger::editable(&ledger).unwrap().pretty().unwrap()).unwrap();
     state["status"] = "completed".into();
     assert_eq!(publish_at(&session, 1, "TEST complete", &state, STAMP), Err(Refusal::Refused(
-        "Tinkery refused: publish cannot complete a session: use `end --status completed`, which checks the confirmed seed".into())));
+        "Tinkery refused: publish cannot complete a session: use `end --status completed`, which checks the confirmed Tink".into())));
     assert_eq!(ledger::load(&session).unwrap(), ledger);
 }
 

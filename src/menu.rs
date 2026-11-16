@@ -1848,10 +1848,7 @@ mod tests {
         assert!(matches!(h.view, View::Shape(..)));
         let screen = snapshot(100, 30, &mut h, true).unwrap();
         assert!(screen.contains("tinkery › shape"), "{screen}");
-        assert!(
-            screen.contains("Reading where this seed stands."),
-            "{screen}"
-        );
+        assert!(screen.contains("Checking this Tink."), "{screen}");
         // A terminal may report ? with Shift; it still opens and closes help.
         let shifted = KeyEvent::new(KeyCode::Char('?'), KeyModifiers::SHIFT);
         h.handle_key(shifted);
@@ -1880,12 +1877,12 @@ mod tests {
             (
                 "status: draft",
                 Stage::SeedDrafted,
-                "confirm the seed draft in Shape",
+                "confirm the draft in Shape",
             ),
             (
                 "status: confirmed for intake",
                 Stage::SeedUnchecked,
-                "check the seed in Shape",
+                "check the Tink in Shape",
             ),
         ] {
             let tmp = tempfile::tempdir().unwrap();
@@ -1995,8 +1992,8 @@ mod tests {
         assert_eq!(
             got,
             vec![
-                ("goal new", "seed needs checking"),
-                ("goal draft", "seed drafted"),
+                ("goal new", "Tink needs checking"),
+                ("goal draft", "Tink drafted"),
                 ("goal old", "goal saved")
             ]
         );
@@ -2126,8 +2123,8 @@ mod tests {
             }
             for (id, label) in [
                 ("saved", "goal saved"),
-                ("drafted", "seed drafted"),
-                ("ready", "seed needs checking"),
+                ("drafted", "Tink drafted"),
+                ("ready", "Tink needs checking"),
             ] {
                 let selected = snapshot(w, height, &mut h, false).unwrap();
                 let line = selected.lines().nth(height as usize - 3).unwrap();
@@ -2184,7 +2181,7 @@ mod tests {
                     && !screen.contains("any harness")
                     && !screen.contains("/")
             );
-            assert!(screen.contains("Next: shape it into a seed in Shape."));
+            assert!(screen.contains("Next: shape it into a Tink in Shape."));
             assert_eq!(
                 screen.lines().last().unwrap().trim(),
                 "s shape   r history   esc back   F10 menu"
@@ -2220,13 +2217,13 @@ mod tests {
                 "draft",
                 "active",
                 Some("status: draft"),
-                Some("Next: confirm the seed draft in Shape."),
+                Some("Next: confirm the draft in Shape."),
             ),
             (
                 "ready",
                 "active",
                 Some("status: confirmed for intake"),
-                Some("Next: check the seed in Shape."),
+                Some("Next: check the Tink in Shape."),
             ),
             ("stopped", "stopped", None, None),
             (

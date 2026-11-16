@@ -153,7 +153,7 @@ fn captured_missing_source_preserves_the_answer_and_recovers_on_next_look() {
     assert!(error.answer_saved && saved.load(Ordering::Relaxed));
     assert!(
         matches!(error.why, Why::Refused(ref reason) if reason.contains("Source must name the confirmed goal")
-            && reason.contains("Also: The seed reply needs a typed completion review")
+            && reason.contains("Also: The Tink draft reply needs a typed completion review")
             && reason.contains("failure_cases must be a list of strings in check order")),
         "#432: both broken rules in one refusal: {error:?}"
     );
@@ -228,7 +228,8 @@ fn captured_rechecks_refuse_without_changing_saved_answers_then_recover() {
             match &error.why {
                 Why::Refused(reason) if index == 2 =>
                     reason.contains(SHARED_SUITE)
-                        && reason.contains("Also: The seed reply needs a typed completion review")
+                        && reason
+                            .contains("Also: The Tink draft reply needs a typed completion review")
                         && reason.contains(review),
                 Why::Model(reason) => index != 2 && reason.contains(review),
                 _ => false,

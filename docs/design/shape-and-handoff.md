@@ -161,13 +161,13 @@ writes nothing and calls no model.
 | Stored state | Label | Detail next step |
 | --- | --- | --- |
 | Confirmed goal | goal saved | Shape it into a seed in Shape |
-| Draft seed contract | seed drafted | Confirm the seed draft in Shape |
-| Seed declares confirmation for intake | seed needs checking | Check the seed in Shape |
+| Draft seed contract | Tink drafted | Confirm the draft in Shape |
+| Seed declares confirmation for intake | Tink needs checking | Check the Tink in Shape |
 | Completed session | completed | None; copying unavailable |
 | Stopped session | stopped | None; copying unavailable |
 
 File-only discovery never verifies seed confirmation: even a legitimately confirmed,
-unchanged seed says `seed needs checking`. Missing receipts or changed seeds cannot
+unchanged seed says `Tink needs checking`. Missing receipts or changed seeds cannot
 claim readiness. Shape remains available; only Shape's Tinkery-owned
 status verifier can say ready. Discovery invokes no helper or duplicate verification.
 Unknown and practice stages stay distinct.
@@ -519,7 +519,7 @@ The screen starts with the confirmed goal's first line in ink:
 | Current question | Show a muted label, jade question, `What I found:` for only the first supported finding (or legacy question receipt), and italic `Suggestion:`. So far holds all findings for this question in recorded order. Options and the case against show above the suggestion; see [options](#options-and-instinct-first). |
 | No question or seed | If the saved record explicitly lacks a success criterion: `The saved goal leaves Done when open.` Otherwise: `Shape hasn't asked its next question yet.` |
 | Draft seed | Draft replaces goal under muted `Tink Contract rN`; see [screen](#the-screen) |
-| Confirmed seed verified by `status`, active or completed | `Seed ready` and revision, then `Next: Approve copies the command that starts the build.`; completed adds a muted note that nothing can change |
+| Confirmed seed verified by `status`, active or completed | `Tink ready` and revision, then `Next: Approve copies the command that starts the build.`; completed adds a muted note that nothing can change |
 | Unverifiable confirmation | Tinkery's reason, e.g. changed seed |
 | Practice, stopped, unrecognised | Name that state plainly. |
 
@@ -550,7 +550,7 @@ unchanged.
 
 Shape copies no intake command. [Approve](approve.md) owns the one command that
 creates a run in the named checkout and imports the seed, so a seed has one handoff
-line and no placeholder to replace (#466). Seed ready points there; choosing or
+line and no placeholder to replace (#466). Tink ready points there; choosing or
 creating an SDLC run stays outside Shape.
 
 ### The screen
@@ -602,7 +602,7 @@ line, F1 numbers the rest. The session list keeps Enter to open a session.
 | Current question | Reason, then revisit condition after F1 **Defer** | `enter next field`, then `enter save deferral`: publish deferred, then one step |
 | Current question | None required | F1 **Delegate**: accept the grounded suggestion, then one step |
 | No question or seed | None | `enter look into the next question`: one step |
-| Draft replacing goal | `your words` | `enter confirm seed rN`: confirm displayed revision when the words are exactly `confirm` |
+| Draft replacing goal | `your words` | `enter confirm Tink rN`: confirm displayed revision when the words are exactly `confirm` |
 | Draft replacing goal | `your change` after F1 **Revise the draft** | `enter save + redraft`: save the change as your settled decision, then one step |
 | Draft replacing goal | `your teach-back` after F1 **Teach back** | `enter save + compare`: capture words and compare with the draft, one call; Esc restores confirmation words |
 
@@ -826,8 +826,8 @@ line, F1 numbers the rest. The session list keeps Enter to open a session.
   before recording anything. A change keeps the typed words, refreshes the reading and requires
   confirmation again. Model replies cannot confirm; Tinkery refuses practice confirmation. Until the
   draft revision's last line has been on screen during this Shape visit, Enter says
-  `PgDn or Down to 'End of seed' first. Nothing was confirmed.`; reaching the display-only
-  `End of seed` marker after the last section clears that in the same frame. The saved seed is unchanged.
+  `PgDn or Down to 'End of Tink Contract' first. Nothing was confirmed.`; reaching the display-only
+  `End of Tink Contract` marker after the last section clears that in the same frame. The saved seed is unchanged.
   Confirmation words are one line, so Up and Down scroll the draft while they are typed, for
   terminals or multiplexers that take PgUp/PgDn (#614).
   Before that marker is reached, the key bar says `pgup/dn read to end` instead of
@@ -932,7 +932,7 @@ work, risk, cost, reversibility and behavior about the same. Tinkery adds them t
 Ending is for good: Tinkery makes the session read-only and Tend stops listing it,
 which Tend's readiness needs. It needs no model or budget.
 
-- F1's **End this session** on an active Seed ready completes it; **Stop this session** on a question,
+- F1's **End this session** on an active Tink ready completes it; **Stop this session** on a question,
   waiting or draft stops it, keeping open questions recorded and typed words unsaved.
 - Choosing it asks and says what ending costs; Approve still offers a completed seed;
   Enter then ends, Esc says `Nothing was ended.` Other keys and a held Enter do nothing while asked.
@@ -940,7 +940,7 @@ which Tend's readiness needs. It needs no model or budget.
   Completion needs the verified seed, not a viewer or `--no-viewer`. Tinkery refuses an unverified
   seed or a conflicting ended status; an identical ending is a no-op. Shape shows the ledger's
   refusal or uncertain-save message without claiming nothing changed. Every ending is followed by a fresh read.
-- A completed session's verified seed stays Seed ready, and Approve still offers it, since intake
+- A completed session's verified seed stays Tink ready, and Approve still offers it, since intake
   checks only the verified handoff. Tend doesn't list ended sessions.
 
 ### Without a screen

@@ -62,7 +62,7 @@ def journey(case, operator='agent', size=(100, 30), mono=True):
                 assert 'Provenance cannot be verified.' in terminal.flat()
                 assert 'TEST operator words:  budget OK: 200' in terminal.screen.text()
                 assert 'Start only this reviewed builder.' in terminal.flat()
-                assert 'separate yeses' in terminal.flat()
+                assert 'Confirm the goal, confirm the Tink and approve the worker start separately.' in terminal.flat()
             if case == 'snapshot':
                 path.write_text(json.dumps(dict(words='TEST replaced after launch', model='test/other:off',
                                                responses=CAP + 1, seed_sha256='0' * 64)))
@@ -135,7 +135,7 @@ def documentation():
         body = (REPO / name).read_text()
         for phrase in ('--worker-authorization', '--operator agent', 'seed', 'model', 'response cap',
                        'operator, relayed', 'cannot be verified', 'Human and undeclared F2',
-                       'Goal confirmation, seed confirmation and worker start'):
+                       'Goal confirmation, Tink confirmation and worker start'):
             assert phrase in body, (name, phrase)
     design = (REPO / 'docs/design/approve.md').read_text()
     for field in ('"words"', '"seed_sha256"', '"model"', '"responses"',

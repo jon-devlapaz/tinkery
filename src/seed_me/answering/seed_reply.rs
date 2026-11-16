@@ -15,7 +15,7 @@ fn fields() -> impl Iterator<Item = &'static str> {
 pub(super) fn instructions(reference: &str) -> Result<String, Refusal> {
     let missing = || {
         Refusal::Refused(
-        "Shape's bundled seed contract is incomplete. Rebuild Tinkery from a complete checkout before retrying.".into(),
+        "Shape's bundled Tink Contract is incomplete. Rebuild Tinkery from a complete checkout before retrying.".into(),
     )
     };
     let mut guidance = String::new();
@@ -63,8 +63,9 @@ pub(super) fn instructions(reference: &str) -> Result<String, Refusal> {
 }
 
 pub(super) fn prose(value: &Value) -> Result<Vec<(&'static str, &str)>, Refusal> {
-    let refuse =
-        |reason: String| Refusal::Rejected(format!("Seed reply {reason}; nothing was saved."));
+    let refuse = |reason: String| {
+        Refusal::Rejected(format!("Tink draft reply {reason}; nothing was saved."))
+    };
     let object = value.as_object().ok_or_else(|| {
         let line = value.as_str().and_then(|text| text.lines().next())
             .map(|line| format!("; line 1: {line}")).unwrap_or_default();
