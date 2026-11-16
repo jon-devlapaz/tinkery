@@ -62,7 +62,7 @@ def journey(case, operator='agent', size=(100, 30), mono=True):
                 assert 'Provenance cannot be verified.' in terminal.flat()
                 assert 'TEST operator words:  budget OK: 200' in terminal.screen.text()
                 assert 'Start only this reviewed builder.' in terminal.flat()
-                assert 'separate yeses' in terminal.flat()
+                assert 'Confirm the goal, confirm the Tink and approve the worker start separately.' in terminal.flat()
             if case == 'snapshot':
                 path.write_text(json.dumps(dict(words='TEST replaced after launch', model='test/other:off',
                                                responses=CAP + 1, seed_sha256='0' * 64)))

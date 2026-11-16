@@ -734,7 +734,7 @@ def case(name, width=100, height=30):
                     'zero budget': "No drafting runs are left: this launch's allowance is 0.",
                     'model failure': 'Your answer is saved. Looking into the next question failed: Pi exited',
                     'helper refusal': "Your answer is saved. The model's reply was refused, so nothing from it was saved: receipt appears to contain a secret",
-                    'model tries to confirm': "Looking into the next question failed: Reply field next must be question or seed; a model reply cannot confirm a seed.",
+                    'model tries to confirm': "Looking into the next question failed: Reply field next must be question or seed; a model reply cannot confirm a Tink.",
                     'model writes decisions': "field confirming / Problem statement, line 2: ## Decisions (from the ledger)",
                     'seed secret': "The model's reply was refused, so nothing from it was saved: receipt appears to contain a secret",
                 }[name]
