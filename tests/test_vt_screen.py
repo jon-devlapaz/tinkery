@@ -4,6 +4,31 @@ from vt_screen import Screen
 
 
 class FrameTests(unittest.TestCase):
+    def test_history_keeps_transient_frames_after_the_action_starts(self):
+        screen = Screen(100, 30)
+        def frame(text):
+            return ('\x1b[?2026h\x1b[2J\x1b[1;1H' + text + '\x1b[?2026l').encode()
+        screen.feed(frame('old saving notice'))
+        before = screen.frames
+        screen.feed(frame('transient saving notice') + frame('final refusal'))
+        def shown_after(text):
+            return any(number > before and text in view
+                       for number, view in screen.frame_history)
+        self.assertTrue(shown_after('transient saving notice'))
+        self.assertTrue(shown_after('final refusal'))
+        self.assertNotIn('transient saving notice', screen.text())
+        self.assertFalse(shown_after('old saving notice'))
+        self.assertEqual([number for number, _ in screen.frame_history], [1, 2, 3])
+        screen.feed(frame('unfinished notice')[:-1])
+        self.assertFalse(shown_after('unfinished notice'))
+        screen.feed(b'l')
+        self.assertTrue(shown_after('unfinished notice'))
+        for _ in range(40):
+            screen.feed(frame('later frame'))
+        self.assertEqual(len(screen.frame_history), 32)
+        self.assertFalse(shown_after('transient saving notice'))
+        self.assertEqual(screen.frame_history[-1][0], screen.frames)
+
     def test_only_a_complete_expected_view_can_finish_an_action(self):
         for expected in ('┌ Right now ', 'PgUp/PgDn scroll reading', '1  Copy the reading',
                          '↑↓←→ move   enter open   l link   esc back'):

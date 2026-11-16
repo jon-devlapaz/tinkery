@@ -1,6 +1,7 @@
 """Small UTF-8 screen reader for the cursor/style sequences emitted by this demo."""
 import base64
 import codecs
+from collections import deque
 import re
 
 CSI = re.compile(r"\x1b\[([0-?]*)([ -/]*)([@-~])")
@@ -15,6 +16,7 @@ class Screen:
         self.clipboards = []
         self.synchronized = False
         self.frames = 0
+        self.frame_history = deque(maxlen=32)
         self.decoder = codecs.getincrementaldecoder("utf-8")()
 
     def feed(self, data):
@@ -47,6 +49,7 @@ class Screen:
                     self.synchronized = command == "h"
                     if command == "l":
                         self.frames += 1
+                        self.frame_history.append((self.frames, self.text()))
                     continue
                 if arguments.startswith("?") or command == "m" or command == "c" and not arguments:
                     continue

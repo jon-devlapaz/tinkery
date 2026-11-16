@@ -96,7 +96,7 @@ def contract_journey(width, height, agent):
             run.send(F2, stale_notice)
             run.wait('Edit check 2 Guest browser draft stays isolated')
             run.wait('TEST UNSAVED CORRECTION')
-            run.send(F2, 'Saving your check. No model runs.')
+            run.send_frame(F2, 'Saving your check. No model runs.')
             run.wait(stale_notice)
             assert files(session) == other_writer, 'A stale retry overwrote the new card.'
             run.send(ESC, 'How to judge cancelled. Nothing was saved.')

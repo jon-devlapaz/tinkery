@@ -220,6 +220,19 @@ class Run:
         os.write(self.master, data)
         self.wait(text)
 
+    def send_frame(self, data, text, timeout=20):
+        before = self.screen.frames
+        os.write(self.master, data)
+        deadline = wait_deadline(timeout)
+        want = ' '.join(text.split())
+        for returncode in wait_output(self.master, self.process, self.screen.feed, deadline):
+            if any(number > before and want in ' '.join(view.split())
+                   for number, view in self.screen.frame_history):
+                return
+            if returncode is not None:
+                break
+        raise AssertionError(f'{text!r} not shown in a new frame:\n{self.screen.text()}')
+
     def menu(self):
         """Return through completed screens; never answer a draft-discard prompt."""
         deadline = wait_deadline(12)
