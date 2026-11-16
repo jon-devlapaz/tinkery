@@ -9,7 +9,11 @@ Before the first send, Enter (or F2) opens a choice above the key bar:
 Only a fresh, unmodified digit picks. Enter, repeated keys and paste never pick.
 Esc returns to writing with exact words unchanged. Without thought storage, option 2
 says it is unavailable and names the reason. Ctrl+S and F3 still save directly.
-After the first send, Enter sends directly. Goal review keeps plain-Enter confirmation.
+After the first send, Enter sends directly. F1’s “Save my words as a thought” saves
+the exact submitted original shown on the left, without a model call. Ctrl-PgUp/PgDn
+switches originals when more than one was sent. A duplicate keeps one thought record.
+Saving leaves the conversation, reading and unsent words unchanged. Goal review and
+plain-Enter confirmation stay separate. Model work, voice and goal review hide this action.
 Ctrl+J, Shift+Enter or Alt+Enter add a line, and pasted line breaks never send.
 The key bar names `enter choose` before sending and no longer names Ctrl+S.
 It names `shift+enter newline` when startup detects keyboard enhancement, otherwise
