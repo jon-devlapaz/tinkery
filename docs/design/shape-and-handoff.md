@@ -28,7 +28,8 @@ claims readiness; other ended sessions are named as ended.
 In this repository's garden, `t` opens fresh Think. Think's
 [thought actions](think.md#shipped-experience) save exact words without a model call or
 goal confirmation. A failed or uncertain save keeps the words. Before sending, a durable
-save or verified duplicate opens Tend. After sending, the F1 action keeps Think open
+save or verified duplicate clears the box and keeps Think open. The next Tend visit
+selects the latest saved thought and shows its save result. After sending, the F1 action keeps Think open
 and reports the save result. Ctrl+S and F3 remain fresh-input shortcuts.
 The garden names the save result and selects the saved thought, including after a duplicate.
 The save result appears only while that exact saved thought is selected.

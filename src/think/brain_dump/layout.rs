@@ -124,10 +124,11 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
                 Rect::new(2, area.height - 6, area.width - 4, 4),
             );
         }
-        if app.screen.refused.is_some() {
-            // Show only a refusal, never the initial status as permanent clutter.
+        if let Some(notice) = status(app)
+            && (!app.screen.choice || app.screen.refused.is_some())
+        {
             frame.render_widget(
-                Paragraph::new(app.notice.as_str())
+                Paragraph::new(notice)
                     .style(palette.muted)
                     .wrap(Wrap { trim: false }),
                 Rect::new(4, area.height - 4, width, 2),
