@@ -79,7 +79,7 @@ fn added_words_are_visible_unresolved_and_not_sent_until_scope_answer() {
     a.submit();
     wait(&mut a);
     let old = a.conversation.board().cloned().unwrap();
-    super::tests::choose(&mut a, "new dump");
+    super::tests::choose(&mut a, "Add a dump");
     a.paste("Also fix a typo in the welcome email.");
     a.submit();
     assert!(!a.running());
@@ -140,7 +140,7 @@ fn skipping_scope_does_not_include_added_words_in_later_model_context_or_confirm
     a.paste("Books I've read.");
     a.submit();
     wait(&mut a);
-    super::tests::choose(&mut a, "new dump");
+    super::tests::choose(&mut a, "Add a dump");
     a.paste("A welcome-email typo.");
     a.submit();
     super::tests::choose(&mut a, "Skip this question");
@@ -738,7 +738,7 @@ fn waiting_reply_contraction_sends_the_fitting_preview_once() {
     wait(&mut a);
     assert!(a.conversation.focused_question().is_some());
     super::tests::choose(&mut a, "Skip this question");
-    super::tests::choose(&mut a, "new dump");
+    super::tests::choose(&mut a, "Add a dump");
     a.paste("additional exact words");
     a.submit();
     assert!(a.conversation.awaiting_scope());
@@ -928,7 +928,7 @@ fn size_cache_tracks_edits_waiting_reply_scope_and_cards() {
     wait(&mut a);
     assert_cached_size(&mut a);
 
-    super::tests::choose(&mut a, "new dump");
+    super::tests::choose(&mut a, "Add a dump");
     assert!(a.shaping.encoded_bytes.is_none());
     a.paste("added words");
     assert_cached_size(&mut a);

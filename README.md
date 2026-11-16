@@ -38,6 +38,7 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
 - **Think:** clarify a dump and explicitly save the confirmed goal, unchanged, to
   `~/.local/share/tinkery/sessions/` with a record in `~/.local/share/tinkery/think/`.
   Questions offer a suggested answer when available: F1 can copy it for editing; Enter sends.
+  F1’s “Add a dump to this conversation” keeps the reading and adds words to the same conversation.
   When started in Git, the menu names the repository and the record keeps its origin.
 - **Tend:** active goals form a needs graph. Link or unlink goals, open detail, or copy
   Shape without changing saved sessions. In this repository, `t` opens fresh Think.

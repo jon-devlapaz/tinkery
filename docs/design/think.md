@@ -69,8 +69,9 @@ history and unreproduced failures stay in originals, not invented requirements.
 Explicit requirements and undecided success checks or permissions still belong in
 goals or questions.
 
-Answers and added dumps remain separate exact sources. Sending refines even a ready
-reading, never starts another dump. Skips persist; F1 brings the last one back. Separate
+Answers and added dumps remain separate exact sources. F1’s “Add a dump to this conversation”
+keeps the current reading and switches the writing box to add words, not answer the question.
+Sending refines the same conversation, even with a ready reading. Skips persist; F1 brings the last one back. Separate
 goals stay aside, not in each other's constraints; deferred items remain seed context.
 Constraint-polarity errors remain possible; decision coverage is a model
 judgment, not proof that choices mean the same thing. See [#64 evidence](../../findings/README.md#goal-history-and-review-regression-check-64).

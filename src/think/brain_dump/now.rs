@@ -43,9 +43,9 @@ impl BrainDump {
         if !self.conversation.sources().is_empty() {
             rows.push(Row::new(
                 if self.add_more {
-                    "Answer instead of a new dump"
+                    "Answer the question instead"
                 } else {
-                    "Start a new dump instead"
+                    "Add a dump to this conversation"
                 },
                 Act::NewDump,
             ));

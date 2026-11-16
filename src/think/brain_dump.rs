@@ -1263,7 +1263,7 @@ impl BrainDump {
         self.add_more = !self.add_more;
         self.focus_writing();
         self.notice = if self.add_more {
-            "New dump, not an answer. Enter sends it; F1 goes back to answering."
+            "Add to this conversation, not an answer. Enter sends; F1 returns to answering."
         } else {
             "Typing answers the focused question; Enter sends."
         }

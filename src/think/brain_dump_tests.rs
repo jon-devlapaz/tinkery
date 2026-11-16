@@ -1097,6 +1097,52 @@ fn answered_ids_and_equivalent_text_with_new_ids_never_regain_focus() {
 }
 
 #[test]
+fn adding_another_dump_keeps_the_reading_and_conversation() {
+    for (width, height) in [(80, 24), (100, 30)] {
+        let host = Arc::new(Recording::default());
+        let mut a = BrainDump::with_host(host.clone());
+        snapshot(width, height, &mut a, true).unwrap();
+        a.paste("Keep these exact original words.");
+        key(&mut a, KeyCode::F(2));
+        settle(&mut a);
+        let reading = a.copy_text();
+        a.paste("Keep these unsent added words.");
+        key(&mut a, KeyCode::F(1));
+        let help = snapshot(width, height, &mut a, true).unwrap();
+        assert!(help.contains("Add a dump to this conversation"), "{help}");
+        choose(&mut a, "Add a dump to this conversation");
+        let view = snapshot(width, height, &mut a, true).unwrap();
+        assert!(view.contains("add more"), "{view}");
+        assert!(view.contains("Keep these unsent added words."), "{view}");
+        assert!(view.contains("I think you mean"), "{view}");
+        assert_eq!(a.copy_text(), reading);
+        assert_eq!(host.requests.lock().unwrap().len(), 1);
+        choose(&mut a, "Answer the question instead");
+        assert_eq!(a.copy_text(), reading);
+        choose(&mut a, "Add a dump to this conversation");
+        key(&mut a, KeyCode::F(2));
+        let view = snapshot(width, height, &mut a, true).unwrap();
+        assert!(view.contains("Should these added words"), "{view}");
+        assert_eq!(host.requests.lock().unwrap().len(), 1);
+        a.paste("include");
+        key(&mut a, KeyCode::F(2));
+        settle(&mut a);
+        let requests = host.requests.lock().unwrap();
+        assert_eq!(requests.len(), 2);
+        assert!(requests[1].previous.is_some());
+        assert_eq!(
+            requests[1].sources[0].text,
+            "Keep these exact original words."
+        );
+        assert_eq!(
+            requests[1].sources[1].text,
+            "Keep these unsent added words."
+        );
+        assert!(requests[1].sources[1].in_reply_to.is_none());
+    }
+}
+
+#[test]
 fn reply_label_is_stable_and_empty_chrome_is_hidden() {
     let mut a = BrainDump::with_host(Arc::new(Recording::default()));
     a.paste("Short goal.");
@@ -1119,19 +1165,19 @@ fn reply_label_is_stable_and_empty_chrome_is_hidden() {
     assert!(view.lines().rev().skip(1).all(|line| !line.contains("F2")));
     assert!(view.lines().last().unwrap().contains("enter send"));
     assert!(!view.contains("Highlighted words support"));
-    choose(&mut a, "new dump");
+    choose(&mut a, "Add a dump");
     assert!(a.notice.contains("not an answer"));
     assert!(
         snapshot(100, 30, &mut a, false)
             .unwrap()
             .contains("add more")
     );
-    choose(&mut a, "new dump");
+    choose(&mut a, "Answer the question");
     a.paste("both");
     a.submit();
     settle(&mut a);
     assert!(a.conversation.sources()[1].in_reply_to.is_some());
-    choose(&mut a, "new dump");
+    choose(&mut a, "Add a dump");
     a.paste("Separate new dump.");
     a.submit();
     settle(&mut a);
