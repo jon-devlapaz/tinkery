@@ -15,7 +15,7 @@ F10 = b'\x1b[21~'
 
 def wait(term, text):
     for code in wait_output(term.master, term.process, term.screen.feed, wait_deadline(15)):
-        if not term.screen.synchronized and text in term.screen.text():
+        if term.screen.ready() and text in term.screen.text():
             return term.screen.text()
         if code is not None:
             break

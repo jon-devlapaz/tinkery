@@ -246,7 +246,8 @@ def journey(width=100, height=30, mono=False, forwarded=True, case='ready'):
             # An orderly leave exercises product ownership even after an assertion fails.
             if process.poll() is None:
                 os.write(terminal.master, b'\x1b[21~')
-                for _ in wait_output(terminal.master, process, screen.feed, time.monotonic() + .4):
+                for _ in wait_output(terminal.master, process, screen.feed, time.monotonic() + .4,
+                                     report=False):
                     pass
             terminal.close()
             assert not gh_called.exists(), 'local result or malformed PR called GitHub'

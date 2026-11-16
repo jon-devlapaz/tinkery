@@ -1,6 +1,7 @@
 """Deterministic process-exit interleavings; no application, helper or provider runs."""
 import importlib.util
 import itertools
+import io
 import os
 from pathlib import Path
 import unittest
@@ -55,7 +56,8 @@ class ExitWaitTests(unittest.TestCase):
         terminal = self.terminal(None, synchronized=True)
         terminal.process.poll.return_value = None
         with mock.patch.object(JOURNEY.time, 'monotonic', side_effect=itertools.chain([0, 0], itertools.repeat(11))), \
-             mock.patch.object(JOURNEY.select, 'select', return_value=([], [], [])):
+             mock.patch.object(JOURNEY.select, 'select', return_value=([], [], [])), \
+             mock.patch('terminal_process.sys.stderr', io.StringIO()):
             with self.assertRaises(AssertionError):
                 terminal.wait(lambda _: True)
 
@@ -63,7 +65,8 @@ class ExitWaitTests(unittest.TestCase):
         terminal = self.terminal(None)
         terminal.process.poll.return_value = None
         with mock.patch.object(JOURNEY.time, 'monotonic', side_effect=itertools.chain([0, 0], itertools.repeat(11))), \
-             mock.patch.object(JOURNEY.select, 'select', return_value=([], [], [])):
+             mock.patch.object(JOURNEY.select, 'select', return_value=([], [], [])), \
+             mock.patch('terminal_process.sys.stderr', io.StringIO()):
             with self.assertRaises(AssertionError):
                 terminal.wait_exit()
 

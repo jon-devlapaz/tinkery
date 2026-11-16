@@ -52,11 +52,11 @@ class Terminal:
     def wait(self, predicate, timeout=20):
         deadline = wait_deadline(timeout)
         for returncode in wait_output(self.master, self.process, self.screen.feed, deadline):
-            if not self.screen.synchronized and predicate(self.screen.text()):
+            if not self.screen.synchronized and not self.screen.pending and predicate(self.screen.text()):
                 return self.screen.text()
             if returncode is not None:
                 break
-        if not self.screen.synchronized and predicate(self.screen.text()):
+        if not self.screen.synchronized and not self.screen.pending and predicate(self.screen.text()):
             return self.screen.text()
         raise AssertionError(self.screen.text())
 
@@ -144,17 +144,15 @@ def read_history(terminal, marker, record):
     assert terminal.changed(b'\x1b[A') == first
     frames.append(terminal.changed(b'\x1b[6~'))
     assert terminal.changed(b'\x1b[5~') == first
-    frames.append(terminal.changed(b'\x1b[F'))
-    assert 'Confirmed goal' in frames[-1], frames[-1]
+    end = terminal.changed(b'\x1b[F')
+    frames.append(end)
+    assert 'Confirmed goal' in end, end
     assert terminal.changed(b'\x1b[H') == first
     # One-line steps also prove no line disappears between pages or at the bottom.
     for _ in range(100):
-        before = terminal.screen.text()
-        os.write(terminal.master, b'\x1b[B')
-        try:
-            frames.append(terminal.wait(lambda screen: screen != before, timeout=.5))
-        except AssertionError:
+        if terminal.screen.text() == end:
             break
+        frames.append(terminal.changed(b'\x1b[B'))
     else:
         raise AssertionError('History never reached its end')
     visible = '\n'.join(frames)

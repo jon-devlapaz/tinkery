@@ -2,6 +2,7 @@
 import errno
 import fcntl
 import importlib.util
+import io
 import os
 from pathlib import Path
 import select
@@ -192,8 +193,9 @@ class ExitDrainTests(unittest.TestCase):
         process = mock.Mock()
         process.poll.return_value = None
         started = time.monotonic()
-        checks = sum(1 for _ in wait_output(reader, process, self.fail,
-                                           started + .06, interval=.01))
+        with mock.patch('terminal_process.sys.stderr', io.StringIO()):
+            checks = sum(1 for _ in wait_output(reader, process, self.fail,
+                                               started + .06, interval=.01))
         self.assertGreaterEqual(time.monotonic() - started, .05)
         self.assertLess(time.monotonic() - started, 1)
         self.assertGreater(checks, 0)
@@ -213,10 +215,49 @@ class ExitDrainTests(unittest.TestCase):
     def test_never_satisfied_predicate_has_a_deadline(self):
         terminal = self.launch("import time; print('TEST running', flush=True); time.sleep(30)")
         started = time.monotonic()
-        with self.assertRaisesRegex(AssertionError, 'predicate deadline'):
+        with mock.patch('terminal_process.sys.stderr', io.StringIO()), \
+             self.assertRaisesRegex(AssertionError, 'predicate deadline'):
             self.wait_for(terminal, lambda: False, .12)
         self.assertGreaterEqual(time.monotonic() - started, .1)
         self.assertLess(time.monotonic() - started, 2)
+
+    def test_deadline_reports_raw_tail_and_split_frame_count(self):
+        process = mock.Mock()
+        process.poll.return_value = None
+        chunks = iter([b'x' * 5000 + b'\x1b[?2026', b'l\x1b[?2026hTEST unfinished'])
+        received = []
+        output = io.StringIO()
+        with mock.patch('terminal_process.select.select', return_value=([123], [], [])), \
+             mock.patch('terminal_process.os.read', side_effect=lambda *_: next(chunks, b'')), \
+             mock.patch('terminal_process.sys.stderr', output):
+            list(wait_output(123, process, received.append, time.monotonic() + .03, interval=.005))
+        self.assertEqual(len(received), 2)
+        report = output.getvalue()
+        self.assertIn('completed_frames_in_wait=1', report)
+        self.assertIn(repr(b'\x1b[?2026l\x1b[?2026hTEST unfinished')[2:-1], report)
+        self.assertLess(len(report), 4300)
+
+    def test_exhausted_settle_does_not_print_deadline_diagnostics(self):
+        process = mock.Mock()
+        process.poll.return_value = None
+        output = io.StringIO()
+        with mock.patch('terminal_process.select.select', return_value=([], [], [])), \
+             mock.patch('terminal_process.sys.stderr', output):
+            checks = list(wait_output(123, process, self.fail, time.monotonic() + .03,
+                                      interval=.005, report=False))
+        self.assertTrue(checks)
+        self.assertEqual(output.getvalue(), '')
+
+    def test_satisfied_wait_does_not_print_deadline_diagnostics(self):
+        process = mock.Mock()
+        process.poll.return_value = None
+        output = io.StringIO()
+        with mock.patch('terminal_process.select.select', return_value=([123], [], [])), \
+             mock.patch('terminal_process.os.read', return_value=b'TEST ready'), \
+             mock.patch('terminal_process.sys.stderr', output):
+            for _ in wait_output(123, process, lambda _: None, time.monotonic() + .03):
+                break
+        self.assertEqual(output.getvalue(), '')
 
     def test_exit_drain_cannot_extend_a_deadline(self):
         process = mock.Mock()
