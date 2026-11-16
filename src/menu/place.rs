@@ -37,8 +37,11 @@ impl Place {
             Self::Think => ("think", "Clarify a goal or save a thought"),
             Self::Tend => ("tend", "Your goals and thoughts"),
             Self::Shape => ("shape", "Prepare a brief"),
-            Self::Approve => ("approve", "Prepare work for approval"),
-            Self::Watch => ("watch", "See work status"),
+            Self::Approve => (
+                "approve",
+                "Show work to approve using the project's status script",
+            ),
+            Self::Watch => ("watch", "Read runs with the project's status script"),
             Self::Taste => ("taste", "Review a result"),
             Self::Measure => ("measure", "Browse recent pull requests"),
         }

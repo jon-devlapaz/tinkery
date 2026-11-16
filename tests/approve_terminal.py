@@ -202,7 +202,7 @@ def journey(width, height, case, no_color):
                         # One parent contains a literal backslash followed by t, the other a tab.
                         named = json.dumps(str(checkout), ensure_ascii=False)
                         origin = json.dumps(str(other), ensure_ascii=False)
-                        expected_note = (f'You named {named}. Reopen Tinkery with --sdlc-root naming '
+                        expected_note = (f'Using {named}. Reopen Tinkery with --sdlc-root naming '
                                          f'{origin}, where this seed was made.')
                         # The terminal can wrap paths in the middle of a word.
                         assert ''.join(expected_note.split()) in ''.join(flat().split()), screen.text()
@@ -272,7 +272,7 @@ def journey(width, height, case, no_color):
                 wait(lambda: 'Seed 1 of 2' in flat())
                 assert 'TEST oldest café' in flat() and 'TEST original goal.' in flat(), screen.text()
                 send(b'\x1b[F', 'Made in TEST-other-repo,')
-                assert "not the checkout you named (TEST checkout's folder)." in flat(), screen.text()
+                assert "Current project: TEST checkout's folder." in flat(), screen.text()
                 assert 'To start it, reopen Tinkery with --sdlc-root naming TEST-other-repo.' in flat(), screen.text()
                 assert 'c copy command' not in flat() and 'python3' not in flat(), screen.text()
                 os.write(master, b'c')

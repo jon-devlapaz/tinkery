@@ -649,11 +649,11 @@ fn origin_note(
             let checkout_name = name(checkout);
             let reason = if display(&origin_name) == display(&checkout_name) {
                 format!(
-                    "You named {checkout:?}. Reopen Tinkery with --sdlc-root naming {other:?}, where this seed was made."
+                    "Using {checkout:?}. Reopen Tinkery with --sdlc-root naming {other:?}, where this seed was made."
                 )
             } else {
                 format!(
-                    "Made in {origin_name}, not the checkout you named ({checkout_name}). \
+                    "Made in {origin_name}. Current project: {checkout_name}. \
                      To start it, reopen Tinkery with --sdlc-root naming {origin_name}."
                 )
             };

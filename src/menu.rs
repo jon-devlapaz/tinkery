@@ -1713,8 +1713,8 @@ mod tests {
             "Clarify a goal or save a thought",
             "Your goals and thoughts",
             "Prepare a brief",
-            "Prepare work for approval",
-            "See work status",
+            "Show work to approve using the project's status script",
+            "Read runs with the project's status script",
             "Review a result",
             "Browse recent pull requests",
         ];
