@@ -1701,8 +1701,8 @@ mod tests {
     fn menu_descriptions_distinguish_outputs_without_granting_permission() {
         let tmp = tempfile::tempdir().unwrap();
         let descriptions = [
-            "Clarify a goal",
-            "Open saved goals",
+            "Clarify a goal or save a thought",
+            "Your goals and thoughts",
             "Prepare a brief",
             "Prepare work for approval",
             "See work status",
@@ -1766,7 +1766,7 @@ mod tests {
                 assert_eq!(rows[1].find("tinkery"), Some(2));
                 assert!(rows[4].starts_with("  1  think"));
                 assert!(rows[6].starts_with("  2  tend         10"));
-                assert_eq!(rows[6].find("Open saved goals"), Some(22));
+                assert_eq!(rows[6].find("Your goals and thoughts"), Some(22));
                 assert!(rows[8].starts_with("  3  shape"));
                 assert!(rows[16].starts_with("  7  measure"));
                 assert!(rows[17].is_empty() && rows[18].is_empty());

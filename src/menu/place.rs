@@ -34,8 +34,8 @@ impl Place {
     /// The name and one-line purpose shown on Home, independent of navigation position.
     pub fn label(self) -> (&'static str, &'static str) {
         match self {
-            Self::Think => ("think", "Clarify a goal"),
-            Self::Tend => ("tend", "Open saved goals"),
+            Self::Think => ("think", "Clarify a goal or save a thought"),
+            Self::Tend => ("tend", "Your goals and thoughts"),
             Self::Shape => ("shape", "Prepare a brief"),
             Self::Approve => ("approve", "Prepare work for approval"),
             Self::Watch => ("watch", "See work status"),

@@ -25,7 +25,9 @@ def launch(root, repo, size, provider=False, budget=8, home=True):
     term = TerminalProcess(args, cwd=repo, env=subprocess.environment({**os.environ, 'TERM': 'xterm-256color',
         'NO_COLOR': '1', 'TINKERY_NODE': '/tinkery-TEST-no-node'}), width=size[0], height=size[1])
     if home:
-        flow.wait(term, '1  think')
+        screen = flow.wait(term, '1  think')
+        assert 'Clarify a goal or save a thought' in screen, screen
+        assert 'Your goals and thoughts' in screen, screen
         flow.send(term, b'2', 'this repo')
     else:
         flow.wait(term, "What's on your mind?")
@@ -72,7 +74,9 @@ def journey(size):
             assert not saved(root) and not flow.requests(root)
             # Ctrl+S is a raw DC3 byte in raw mode.
             flow.send(term, b'\x13', 'Thought saved.')
-            flow.send(term, b'v', 'Saved thoughts')
+            screen = flow.send(term, b'v', 'Saved thoughts')
+            assert 'g copies these words into Think, unsent.' in screen, screen
+            assert 'Confirm a goal there' not in screen and 'No Shape.' not in screen, screen
             assert len(saved(root)) == 1
             assert json.loads(saved(root)[0].read_bytes())['words'].encode() == WORDS.encode(), 'Saved words differ from typed words'
             no_goal(root, original)

@@ -47,8 +47,9 @@ PgUp/PgDn scroll its words. Esc selects the last viewed thought in the garden.
 If that thought is unavailable, a visible refusal accompanies the first available entry.
 Refresh and scope toggles preserve exact identity. Thoughts stay in this repository's garden,
 not the all-goals view. A return to this repository restores its selected thought when available.
-`g` copies the selected thought into a fresh, unsent Think visit. The existing
-Think goal confirmation is still required. The thought stays unchanged on record.
+The reader header says `g copies these words into Think, unsent.`
+`g` copies the selected thought into a fresh Think visit without requiring goal clarification.
+Saving a goal still requires Think goal confirmation. The thought stays unchanged on record.
 Thoughts cannot open Shape, imply readiness or enter Find connections.
 `l` on a thought says that links connect goals. In goal-link mode, thoughts remain visible
 without moving the graph, but arrows select only goals and thought clicks write nothing.
