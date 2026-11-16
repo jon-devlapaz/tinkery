@@ -45,7 +45,10 @@ def visit_tend(term, expected='Thought saved.'):
 
 
 def save_and_visit_tend(term, keys=b'\x1bOR', expected='Thought saved.'):
-    flow.send(term, keys, 'Thought saved · t in Tend shows it')
+    screen = flow.send(term, keys, 't in Tend shows it')
+    if expected.startswith('Thought'):
+        notice = expected.removesuffix('.') + ' · t in Tend shows it'
+        assert notice in screen, screen
     return visit_tend(term, expected)
 
 

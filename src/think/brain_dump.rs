@@ -987,7 +987,12 @@ impl BrainDump {
                 ));
                 self.shaping.encoded_bytes = None;
                 self.screen.choice = false;
-                self.notice = "Thought saved · t in Tend shows it".into();
+                self.notice = if matches!(saved, crate::thought::Saved::Duplicate) {
+                    "Thought already saved · t in Tend shows it"
+                } else {
+                    "Thought saved · t in Tend shows it"
+                }
+                .into();
             }
             Ok(crate::thought::Saved::Uncertain(reason)) | Err(reason) => self.refuse(reason),
         }
