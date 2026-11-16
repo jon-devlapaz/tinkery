@@ -13,6 +13,11 @@ SPEC.loader.exec_module(JOURNEY)
 
 
 class ExitWaitTests(unittest.TestCase):
+    def setUp(self):
+        scale = mock.patch.dict(os.environ, TINKERY_TEST_WAIT_SCALE='1')
+        scale.start()
+        self.addCleanup(scale.stop)
+
     def terminal(self, polls, synchronized=False):
         terminal = JOURNEY.Terminal.__new__(JOURNEY.Terminal)
         terminal.master = -1

@@ -1,4 +1,5 @@
 """Run.menu advances only after complete frames, with bounded failure and no discard answer."""
+import os
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
@@ -14,6 +15,11 @@ def frame(text):
 
 
 class MenuTests(unittest.TestCase):
+    def setUp(self):
+        scale = patch.dict(os.environ, TINKERY_TEST_WAIT_SCALE='1')
+        scale.start()
+        self.addCleanup(scale.stop)
+
     def run_menu(self, transitions, initial=None):
         screen = Screen(100, 30)
         screen.feed(initial or frame('Shape help'))
