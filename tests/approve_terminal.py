@@ -271,7 +271,7 @@ def journey(width, height, case, no_color):
             elif case == 'different-repo':
                 wait(lambda: 'Seed 1 of 2' in flat())
                 assert 'TEST oldest café' in flat() and 'TEST original goal.' in flat(), screen.text()
-                send(b'\x1b[F', 'Made in TEST-other-repo,')
+                send(b'\x1b[F', 'Made in TEST-other-repo.')
                 assert "Current project: TEST checkout's folder." in flat(), screen.text()
                 assert 'To start it, reopen Tinkery with --sdlc-root naming TEST-other-repo.' in flat(), screen.text()
                 assert 'c copy command' not in flat() and 'python3' not in flat(), screen.text()
