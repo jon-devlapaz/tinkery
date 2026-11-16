@@ -1,5 +1,5 @@
 """Practice-only PTY regression: Escape returns to menu without implicit saving."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import fcntl
 import json
 import os
@@ -38,7 +38,7 @@ def journey(width, height):
                     screen.feed(os.read(master, 65536))
 
         def wait(check):
-            deadline = time.monotonic() + 6
+            deadline = wait_deadline(6)
             for returncode in wait_output(master, process, screen.feed, deadline):
                 if not screen.synchronized and check(screen.text()):
                     return

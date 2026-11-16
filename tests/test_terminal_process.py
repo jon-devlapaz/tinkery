@@ -14,7 +14,48 @@ import unittest
 from unittest import mock
 
 import test_launch
+import terminal_process
 from terminal_process import wait_output, TerminalProcess
+
+
+class DeadlineTests(unittest.TestCase):
+    def test_default_preserves_the_checked_five_second_wait(self):
+        with mock.patch.dict(os.environ, {}, clear=True), \
+             mock.patch('terminal_process.time.monotonic', return_value=100):
+            self.assertEqual(terminal_process.wait_deadline(), 105)
+
+    def test_one_scale_applies_to_default_and_explicit_waits(self):
+        with mock.patch.dict(os.environ, TINKERY_TEST_WAIT_SCALE='3'), \
+             mock.patch('terminal_process.time.monotonic', return_value=100):
+            self.assertEqual(terminal_process.wait_deadline(), 115)
+            self.assertEqual(terminal_process.wait_deadline(20), 160)
+
+    def test_feature_wait_helpers_have_no_local_unscaled_deadlines(self):
+        import ast
+        root = Path(__file__).resolve().parent
+        for path in root.glob('*.py'):
+            if path.name in ('terminal_process.py', 'test_terminal_process.py', 'test_python_tests.py'):
+                continue
+            tree = ast.parse(path.read_text())
+            parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.BinOp) or not isinstance(node.op, ast.Add):
+                    continue
+                if ast.unparse(node.left) != 'time.monotonic()':
+                    continue
+                if isinstance(node.right, ast.Constant) and node.right.value < 1:
+                    continue
+                owner = parents.get(node)
+                while owner is not None and not isinstance(owner, ast.FunctionDef):
+                    owner = parents.get(owner)
+                self.assertIn(owner.name if owner else None, ('pump', 'settle'),
+                              f'{path.name}:{node.lineno} bypasses wait_deadline')
+
+    def test_invalid_scales_fail_instead_of_skipping_the_wait(self):
+        for value in ('0', '-1', 'nan', 'inf', 'invalid'):
+            with self.subTest(value=value), mock.patch.dict(os.environ, TINKERY_TEST_WAIT_SCALE=value):
+                with self.assertRaises(ValueError):
+                    terminal_process.wait_deadline()
 
 
 class OwnershipTests(unittest.TestCase):

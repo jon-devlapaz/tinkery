@@ -5,7 +5,7 @@ repositories under TEST storage. A deliberately fake SDLC records external calls
 and supplies controlled worker observations; it does not establish Pi quality or
 the real runtime's approval enforcement.
 """
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import base64
 import fcntl
 import hashlib
@@ -348,7 +348,7 @@ class Terminal:
         return ' '.join(self.screen.text().split())
 
     def wait(self, predicate, seconds=15):
-        until = time.monotonic() + seconds
+        until = wait_deadline(seconds)
         def consume(chunk):
             self.output.extend(chunk)
             self.screen.feed(chunk)
@@ -383,7 +383,7 @@ class Terminal:
         def consume(chunk):
             self.output.extend(chunk)
             self.screen.feed(chunk)
-        for returncode in wait_output(self.master, self.process, consume, time.monotonic() + 15):
+        for returncode in wait_output(self.master, self.process, consume, wait_deadline(15)):
             if returncode is not None:
                 return returncode
         raise AssertionError('Worker exit did not finish:\n' + self.screen.text()

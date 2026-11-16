@@ -11,7 +11,7 @@ import time
 import unittest
 
 import test_launch as subprocess
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 
 BINARY = Path(__file__).resolve().parents[1] / 'target/debug/tinkery'
 
@@ -45,7 +45,7 @@ def hangup(ignore_hup, width, height):
             os.close(slave)
             slave = None
             output = bytearray()
-            deadline = time.monotonic() + 5
+            deadline = wait_deadline()
             for returncode in wait_output(master, process, output.extend, deadline):
                 if b'1  think' in output or returncode is not None:
                     break

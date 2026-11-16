@@ -1,5 +1,5 @@
 """#176: real Shape list discovery in a PTY, with TEST roots and fail-if-called helpers/providers."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import fcntl
 import json
 import os
@@ -70,7 +70,7 @@ class ShapeIncompleteReadJourney(unittest.TestCase):
                 return ' '.join(screen.text().split())
 
             def wait(predicate):
-                deadline = time.monotonic() + 8
+                deadline = wait_deadline(8)
                 for returncode in wait_output(master, process, screen.feed, deadline):
                     if predicate() and not screen.synchronized:
                         return

@@ -1,4 +1,4 @@
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 from pathlib import Path
 import hashlib
 import json
@@ -302,14 +302,14 @@ class SessionRootTests(unittest.TestCase):
                                    cwd=self.cwd, env=self.environment(str(home)),
                                    stdin=slave, stdout=slave, stderr=slave)
         try:
-            deadline = time.monotonic() + 5
+            deadline = wait_deadline()
             for _ in wait_output(master, process, screen.feed, deadline):
                 if 'Press any key to continue.' in screen.text() and not screen.synchronized:
                     break
             self.assertIn('Moved saved sessions', screen.text())
             self.assertIn('Press any key to continue.', screen.text())
             os.write(master, b'q')
-            deadline = time.monotonic() + 5
+            deadline = wait_deadline()
             for _ in wait_output(master, process, screen.feed, deadline):
                 if '1  think' in screen.text() and not screen.synchronized:
                     break

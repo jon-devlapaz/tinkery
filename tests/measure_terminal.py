@@ -7,7 +7,7 @@ import test_launch as subprocess
 import tempfile
 import time
 
-from terminal_process import wait_output, TerminalProcess
+from terminal_process import wait_deadline, wait_output, TerminalProcess
 
 REPO = Path(__file__).resolve().parents[1]
 UNKNOWN = 'No launch repository.'
@@ -49,7 +49,7 @@ class Terminal(TerminalProcess):
                 for p in self.root.rglob('*') if p.is_file()}
 
     def wait(self, predicate, seconds=5):
-        deadline = time.monotonic() + seconds
+        deadline = wait_deadline(seconds)
         def consume_wait_output(chunk):
             self.raw.extend(chunk)
             self.screen.feed(chunk)

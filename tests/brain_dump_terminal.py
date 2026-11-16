@@ -1,5 +1,5 @@
 """Plain POSIX PTY: no Herdr routing/pacing, no actual provider charges."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import fcntl, json, os, select, struct, tempfile, termios, time
 import test_launch as subprocess
 from pathlib import Path
@@ -28,7 +28,7 @@ def journey(width,height):
   master,slave=os.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',height,width,0,0));original=termios.tcgetattr(slave);screen=Screen(width,height);out=bytearray()
   process=subprocess.Popen([str(BINARY),'--shape-pi', '--shape-budget', '64','--record-root',str(cwd/'TEST-records'),'--model','test/model','--pi-command',str(host)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=subprocess.environment({**os.environ,'TERM':'xterm-256color'}))
   def await_text(text,timeout=5):
-   deadline=time.monotonic()+timeout
+   deadline=wait_deadline(timeout)
    def consume_wait_output(chunk):
        out.extend(chunk)
        screen.feed(chunk)
@@ -39,7 +39,7 @@ def journey(width,height):
     if returncode is not None:break
    raise AssertionError(f'Missing {text!r}:\n{screen.text()}')
   def absent(text):
-   deadline=time.monotonic()+5
+   deadline=wait_deadline()
    for _ in wait_output(master, process, screen.feed, deadline):
     if text not in screen.text():return
    raise AssertionError(f'Stale help still visible: {text}')
@@ -83,7 +83,7 @@ def journey(width,height):
    send(b'\x1b','Back to menu and lose this draft? y / n');assert process.poll() is None
    send(b'n',"Reading couldn't be updated.");absent('lose this draft?')
    send(b'\x03',"Reading couldn't be updated.");absent('lose this draft');send(b'\x1b','Back to menu and lose this draft? y / n');os.write(master,b'y');process.wait(timeout=5);assert process.returncode==0
-   for _ in wait_output(master,process,out.extend,time.monotonic()+5):pass
+   for _ in wait_output(master,process,out.extend,wait_deadline()):pass
    assert b'\x1b[?2004l' in out and b'\x1b[?1006l' in out and b'\x1b[>0s' in out
    after=termios.tcgetattr(slave);original[3]&=~getattr(termios,'PENDIN',0);after[3]&=~getattr(termios,'PENDIN',0);assert after==original
    assert {p.name for p in cwd.iterdir()}=={'pi','requests.jsonl'},'Unexpected persistence'

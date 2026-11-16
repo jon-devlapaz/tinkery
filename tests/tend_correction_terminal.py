@@ -13,8 +13,8 @@ import tend_connection_terminal as flow
 EVIDENCE = Path(os.environ['TINKERY_CORRECTION_EVIDENCE']) if os.environ.get('TINKERY_CORRECTION_EVIDENCE') else None
 
 def capture(term, name):
-    settle(term)
     if EVIDENCE:
+        settle(term)
         EVIDENCE.mkdir(parents=True, exist_ok=True)
         (EVIDENCE/(name+'.txt')).write_text(term.screen.text())
 
@@ -40,7 +40,7 @@ def edit(term, words, expected='F2 save correction only'):
     # paste bytes unread after Crossterm returns keys from its first read chunk.
     frame=term.screen.frames
     assert os.write(term.master,b'\x01\x0b')==2
-    for code in flow.wait_output(term.master,term.process,term.screen.feed,time.monotonic()+15):
+    for code in flow.wait_output(term.master,term.process,term.screen.feed,flow.wait_deadline(15)):
         if term.screen.ready(frame): break
         if code is not None: break
     assert term.screen.ready(frame),f'Clear keys did not finish a frame:\n{term.screen.text()}'
@@ -82,7 +82,6 @@ def journey(size):
             assert set(request)=={'repo','sources','model','thinking','harness','prompt','correction'}
             assert request['correction']==stored['correction']
             assert '--no-tools' in flow.requests(root)[-1]['args']
-            settle(term)
             assert 'operator guidance' in term.screen.text(),term.screen.text()
             lines=term.screen.text().splitlines()
             assert any(line.strip()=='Keep exact words: café.' for line in lines),term.screen.text()
@@ -429,7 +428,8 @@ def input_limit_and_format_refusals():
 
 
 if __name__=='__main__':
-    subprocess.run(['cargo','+stable','build','--locked','--quiet'],cwd=flow.REPO,env=subprocess.environment(),check=True)
+    if not (flow.REPO/'target/debug/tinkery').is_file():
+        subprocess.run(['cargo','+stable','build','--locked','--quiet'],cwd=flow.REPO,env=subprocess.environment(),check=True)
     for size in [(80,24),(100,30)]:
         journey(size)
         capture_context_and_exact_replacement(size)

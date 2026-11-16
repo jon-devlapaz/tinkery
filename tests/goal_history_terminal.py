@@ -1,5 +1,5 @@
 """Two confirmed goals in one real CLI process; fake Pi and isolated TEST roots only."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import fcntl, json, os, select, signal, struct, tempfile, termios, time
 import test_launch as subprocess
 from pathlib import Path
@@ -35,7 +35,7 @@ def journey(w,h,home):
   master,slave=os.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',h,w,0,0));screen=Screen(w,h)
   p=subprocess.Popen([str(BINARY),*(['--home'] if home else []),'--shape-pi', '--shape-budget', '64','--model','test/model','--pi-command',str(host),'--seed-session-root',str(root),'--record-root',str(records)],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=subprocess.environment({**os.environ,'TERM':'xterm-256color'}))
   def drain(until,timeout=20):
-   end=time.monotonic()+timeout
+   end=wait_deadline(timeout)
    for returncode in wait_output(master, p, screen.feed, end):
     if not screen.synchronized and until(screen.text()):return
     if returncode is not None:break

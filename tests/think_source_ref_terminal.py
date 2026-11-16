@@ -1,5 +1,5 @@
 """Recorded #360 replay: quoted IDs apply answers and refinements without retry."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import fcntl
 import json
 import os
@@ -55,7 +55,7 @@ def journey(width, height):
             stdin=slave, stdout=slave, stderr=slave, cwd=root, env=env)
 
         def wait(check):
-            deadline = time.monotonic() + 10
+            deadline = wait_deadline(10)
             for returncode in wait_output(master, process, screen.feed, deadline):
                 if not screen.synchronized and check(screen.text()):
                     return

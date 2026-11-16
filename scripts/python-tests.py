@@ -6,7 +6,9 @@ file runs in both tiers. The default tier is `full`, which runs every file.
 Every launch passes the shared guard, so the runner refuses a non-TEST HOME.
 Each file is its own process; a failed file's output is printed whole.
 """
+import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -26,21 +28,35 @@ POST_MERGE = {
     'taste_terminal.py',
     'think_history_terminal.py',
 }
-# Slowest files that still run on pull requests.
-SLOW_PR = {'agent_operation_terminal.py', 'goal_confirmation_terminal.py', 'think_question_terminal.py',
-           'watch_terminal.py', 'approve_terminal.py'}
+DURATIONS = json.loads((ROOT / 'scripts/python-test-times.json').read_text())
 
 
-def selected(tier):
+def selected(tier, shard_index=0, shard_count=1):
+    if shard_count < 1 or not 0 <= shard_index < shard_count:
+        raise SystemExit('Shard index must be in [0, shard count), with a positive shard count.')
     if tier not in ('pr', 'full'):
         raise SystemExit(f'Unknown TINKERY_TEST_TIER {tier!r}; use pr or full.')
     files = sorted(p for p in (ROOT / 'tests').glob('*.py') if p.name not in HELPERS)
     missing = POST_MERGE - {p.name for p in files}
     if missing:
         raise SystemExit(f'POST_MERGE names missing tests: {sorted(missing)}')
-    # Start the slowest journeys first so they don't set the wall time alone at the end.
-    return sorted((p for p in files if tier == 'full' or p.name not in POST_MERGE),
-                  key=lambda p: p.name not in POST_MERGE | SLOW_PR)
+    files = sorted((p for p in files if tier == 'full' or p.name not in POST_MERGE),
+                   key=lambda p: (-DURATIONS.get(p.name, 1), p.name))
+    shards, seconds = [[] for _ in range(shard_count)], [0] * shard_count
+    for path in files:
+        index = min(range(shard_count), key=seconds.__getitem__)
+        shards[index].append(path)
+        seconds[index] += DURATIONS.get(path.name, 1)
+    return shards[shard_index]
+
+
+def worker_count():
+    override = os.environ.get('TINKERY_TEST_JOBS')
+    affinity = getattr(os, 'sched_getaffinity', None)
+    workers = int(override) if override else len(affinity(0)) if affinity else os.cpu_count() or 2
+    if workers < 1:
+        raise ValueError('TINKERY_TEST_JOBS must be a positive integer.')
+    return workers
 
 
 def run(path, env):
@@ -51,8 +67,12 @@ def run(path, env):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--shard-index', type=int, default=0)
+    parser.add_argument('--shard-count', type=int, default=1)
+    args = parser.parse_args()
     tier = os.environ.get('TINKERY_TEST_TIER', 'full')
-    files = selected(tier)
+    files = selected(tier, args.shard_index, args.shard_count)
     # Prepare both executables before workers can use them; even fresh Cargo builds
     # replace the example executable on macOS.
     env = dict(os.environ)
@@ -60,7 +80,7 @@ def main():
                      '--bin', 'tinkery', '--example', 'seed_fixture'], cwd=ROOT,
                     env=env, check=True)
     env['TINKERY_TEST_SEED_FIXTURE'] = str(ROOT / 'target/debug/examples/seed_fixture')
-    workers = int(os.environ.get('TINKERY_TEST_JOBS') or min(8, os.cpu_count() or 2))
+    workers = worker_count()
     print(f'Python tests: tier {tier}, {len(files)} files, {workers} workers', flush=True)
     failed = []
     with ThreadPoolExecutor(workers) as pool:

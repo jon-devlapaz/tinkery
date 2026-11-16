@@ -11,7 +11,7 @@ import time
 import test_launch as subprocess
 from taste_preview_terminal import SERVER, alive, process_state
 from taste_terminal import FAKE, REPO, confirmed_seed, fixture, tree
-from terminal_process import TerminalProcess, wait_output
+from terminal_process import wait_deadline, TerminalProcess, wait_output
 
 
 def journey(width=100, height=30, mono=False, forwarded=True, case='ready'):
@@ -130,7 +130,7 @@ def journey(width=100, height=30, mono=False, forwarded=True, case='ready'):
         screen, process = terminal.screen, terminal.process
 
         def wait(predicate, seconds=12):
-            for code in wait_output(terminal.master, process, screen.feed, time.monotonic() + seconds):
+            for code in wait_output(terminal.master, process, screen.feed, wait_deadline(seconds)):
                 if predicate() and not screen.synchronized:
                     return
                 assert code is None, screen.text()

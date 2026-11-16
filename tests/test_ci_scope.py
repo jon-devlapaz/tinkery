@@ -191,10 +191,13 @@ class WorkflowGateTests(unittest.TestCase):
         self.workflow = (ROOT / ".github/workflows/ci.yml").read_text()
         self.gate = textwrap.dedent(self.workflow.split("      - name: Validate required results\n", 1)[1]
                                    .split("        run: |\n", 1)[1])
+        self.runtime = ("RUST_RESULT", "STYLE_RESULT", "NODE_RESULT", "PYTHON_RESULT")
         self.env = dict(os.environ, SCOPE_RESULT="success", DOCS_ONLY="true",
-                        EVENT="pull_request", DOCS_RESULT="success",
-                        CHECK_RESULT="skipped", COLD_RESULT="skipped",
-                        SETUP="true", GITHUB_STEP_SUMMARY=os.devnull)
+                        EVENT="pull_request", DOCS_RESULT="success", COLD_RESULT="skipped",
+                        SETUP="true", GITHUB_STEP_SUMMARY=os.devnull,
+                        **dict.fromkeys(self.runtime, "skipped"))
+        self.full = dict(DOCS_ONLY="false", DOCS_RESULT="skipped",
+                         **dict.fromkeys(self.runtime, "success"))
 
     def result(self, **changes):
         return subprocess.run(["bash", "-c", self.gate], env=subprocess.environment(dict(self.env, **changes)),
@@ -204,35 +207,40 @@ class WorkflowGateTests(unittest.TestCase):
         self.assertNotIn("paths:", self.workflow)
         self.assertNotIn("paths-ignore:", self.workflow)
         self.assertIn("  ready:\n    name: CI ready\n    if: always()", self.workflow)
-        self.assertIn("    needs: [scope, docs, check, cold-clone]", self.workflow)
+        self.assertIn("    needs: [scope, docs, rust, style, node, python, cold-clone]", self.workflow)
         self.assertIn("fetch-depth: 0", self.workflow)
         self.assertIn("python3 tests/test_ci_scope.py", self.workflow)
         self.assertIn("python3 tests/test_documentation.py", self.workflow)
-        docs_job = self.workflow.split("\n  docs:\n", 1)[1].split("\n  check:\n", 1)[0]
+        docs_job = self.workflow.split("\n  docs:\n", 1)[1].split("\n  rust:\n", 1)[0]
         self.assertIn("python3 tests/test_documentation.py", docs_job)
         self.assertIn("setup: ${{ steps.classify.outputs.setup }}", self.workflow)
         self.assertIn("needs.scope.outputs.setup != 'false'", self.workflow)
         self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", self.workflow)
-        self.assertEqual(self.workflow.count("needs.scope.outputs.docs_only != 'true'"), 2)
+        self.assertEqual(self.workflow.count("needs.scope.outputs.docs_only != 'true'"), 5)
         self.assertIn("github.event.pull_request.base.sha || github.event.before", self.workflow)
 
     def test_pull_requests_use_ubuntu_and_the_pr_tier_while_main_runs_everything(self):
-        check = self.workflow.split("\n  check:\n", 1)[1].split("\n  cold-clone:\n", 1)[0]
-        self.assertIn("""fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' """
-                      """|| '["ubuntu-latest", "macos-latest"]')""", check)
-        self.assertIn("TINKERY_TEST_TIER: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}", check)
+        jobs = ('rust', 'style', 'node', 'python')
+        for job, following in zip(jobs, (*jobs[1:], 'cold-clone')):
+            body = self.workflow.split(f"\n  {job}:\n", 1)[1].split(f"\n  {following}:\n", 1)[0]
+            with self.subTest(job=job):
+                self.assertIn("""fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' """
+                              """|| '["ubuntu-latest", "macos-latest"]')""", body)
+                self.assertIn("    needs: scope\n", body)
+                self.assertIn("      fail-fast: false\n", body)
+                self.assertIn(f"python3 scripts/full-check.py --group {job}", body)
+                self.assertIn(f"${{{{ needs.{job}.result }}}}", self.workflow)
+        self.assertNotIn("continue-on-error:", self.workflow)
+        python = self.workflow.split("\n  python:\n", 1)[1].split("\n  cold-clone:\n", 1)[0]
+        self.assertIn("TINKERY_TEST_TIER: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}", python)
+        self.assertIn("        shard: [0, 1, 2]\n", python)
+        self.assertIn("--shard-index ${{ matrix.shard }} --shard-count 3", python)
         self.assertNotIn("TINKERY_TEST_TIER", self.workflow.split("\n  docs:\n", 1)[0])
 
     def test_valid_docs_and_full_routes_pass(self):
-        for changes in [{}, {"EVENT": "push"},
-                        {"DOCS_ONLY": "false", "DOCS_RESULT": "skipped",
-                         "CHECK_RESULT": "success", "COLD_RESULT": "success"},
-                        {"DOCS_ONLY": "false", "DOCS_RESULT": "skipped",
-                         "CHECK_RESULT": "success", "SETUP": "false"},
-                        {"DOCS_ONLY": "false", "EVENT": "push", "DOCS_RESULT": "skipped",
-                         "CHECK_RESULT": "success"},
-                        {"DOCS_ONLY": "false", "EVENT": "push", "DOCS_RESULT": "skipped",
-                         "CHECK_RESULT": "success", "SETUP": "false"}]:
+        for changes in [{}, {"EVENT": "push"}, dict(self.full, COLD_RESULT="success"),
+                        dict(self.full, SETUP="false"), dict(self.full, EVENT="push"),
+                        dict(self.full, EVENT="push", SETUP="false")]:
             with self.subTest(changes=changes):
                 result = self.result(**changes)
                 self.assertEqual(result.returncode, 0, result.stderr)
@@ -242,14 +250,13 @@ class WorkflowGateTests(unittest.TestCase):
             for status in ["failure", "cancelled", "skipped", ""]:
                 with self.subTest(key=key, status=status):
                     self.assertNotEqual(self.result(**{key: status}).returncode, 0)
-        for key in ["CHECK_RESULT", "COLD_RESULT"]:
+        for key in (*self.runtime, "COLD_RESULT"):
             for status in ["failure", "cancelled", "skipped", ""]:
                 with self.subTest(key=key, status=status):
-                    changes = dict(DOCS_ONLY="false", DOCS_RESULT="skipped",
-                                   CHECK_RESULT="success", COLD_RESULT="success")
+                    changes = dict(self.full, COLD_RESULT="success")
                     changes[key] = status
                     self.assertNotEqual(self.result(**changes).returncode, 0)
-        full = dict(DOCS_ONLY="false", DOCS_RESULT="skipped", CHECK_RESULT="success")
+        full = self.full
         for changes in [dict(full, SETUP="false", COLD_RESULT="success"),
                         dict(full, SETUP="false", COLD_RESULT="failure"),
                         dict(full, SETUP="", COLD_RESULT="skipped"),
@@ -258,8 +265,8 @@ class WorkflowGateTests(unittest.TestCase):
             with self.subTest(changes=changes):
                 self.assertNotEqual(self.result(**changes).returncode, 0)
         for changes in [{"DOCS_ONLY": ""}, {"DOCS_ONLY": "unknown"},
-                        {"EVENT": "unknown"}, {"CHECK_RESULT": "success"},
-                        {"COLD_RESULT": "success"}]:
+                        {"EVENT": "unknown"}, {"COLD_RESULT": "success"},
+                        *({key: "success"} for key in self.runtime)]:
             with self.subTest(changes=changes):
                 self.assertNotEqual(self.result(**changes).returncode, 0)
 

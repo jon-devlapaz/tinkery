@@ -7,7 +7,7 @@ import test_launch as subprocess
 REPO = Path(__file__).resolve().parents[1]
 BINARY = REPO / 'target/debug/examples/seed_fixture'
 # The parallel runner owns preparation; standalone journeys still prepare themselves.
-if os.environ.get('TINKERY_TEST_SEED_FIXTURE') != str(BINARY):
+if os.environ.get('TINKERY_TEST_SEED_FIXTURE') != str(BINARY) and not BINARY.is_file():
     subprocess.run(['cargo', '+stable', 'build', '--locked', '--example', 'seed_fixture'],
                    cwd=REPO, check=True, stdout=subprocess.DEVNULL, env=subprocess.environment())
 elif not BINARY.is_file():

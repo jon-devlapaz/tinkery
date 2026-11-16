@@ -1,5 +1,5 @@
 """Tend journeys with synthetic sessions and explicit TEST links; no model calls."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import base64, fcntl, json, os, re, select, struct, tempfile, termios, time
 import test_launch as subprocess
 from datetime import datetime, timedelta, timezone
@@ -68,7 +68,7 @@ def journey(width, height, kind='garden'):
             screen.feed(data)
 
         def wait(predicate, after=0):
-            deadline = time.monotonic()+5
+            deadline = wait_deadline()
             def consume_wait_output(chunk):
                 raw.extend(chunk)
                 screen.feed(chunk)

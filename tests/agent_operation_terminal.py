@@ -1,5 +1,5 @@
 """Agent-operated Think → Shape → Approve, TEST roots and stub replies, never a live provider."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import base64
 import copy
 import json
@@ -32,7 +32,7 @@ def confirmation_after_reading(width, height, correct_typo=False):
 
         def type_confirmation(data=b'confirm', word='confirm'):
             os.write(run.master, data)
-            deadline = time.monotonic() + 5
+            deadline = wait_deadline()
             for _ in wait_output(run.master, run.process, run.screen.feed, deadline):
                 if not run.screen.synchronized and any(
                         line.strip() == word for line in run.screen.text().splitlines()):

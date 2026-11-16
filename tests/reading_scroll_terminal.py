@@ -1,5 +1,5 @@
 """Long Think exclusions stay reachable before review; fake replies, isolated TEST roots."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import fcntl, json, os, select, struct, tempfile, termios, time
 import test_launch as subprocess
 from pathlib import Path
@@ -51,7 +51,7 @@ def journey(width, height, no_color):
                     screen.feed(os.read(master, 65536))
 
         def wait_for(condition, description, after=0):
-            deadline = time.monotonic() + 5
+            deadline = wait_deadline()
             for returncode in wait_output(master, process, screen.feed, deadline):
                 if condition() and screen.ready(after):
                     return

@@ -1,5 +1,5 @@
 """Watch over a fake tink-sdlc checkout in TEST roots; no real checkout, providers or writes."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import fcntl
 import hashlib
 import json
@@ -107,7 +107,7 @@ def journey(width, height, no_color, configured=True):
         process = subprocess.Popen(args, cwd=base, env=subprocess.environment(env, home=(env)['HOME']), stdin=slave, stdout=slave, stderr=slave)
 
         def wait(predicate, seconds=5):
-            deadline = time.monotonic() + seconds
+            deadline = wait_deadline(seconds)
             for returncode in wait_output(master, process, screen.feed, deadline):
                 if predicate() and not screen.synchronized:
                     return
@@ -382,7 +382,7 @@ def journey(width, height, no_color, configured=True):
                 started = time.monotonic()
                 send(b'\x1b', '1  think')
                 assert time.monotonic() - started < 3, 'leaving waited on the read'
-                deadline = time.monotonic() + 3
+                deadline = wait_deadline(3)
                 while time.monotonic() < deadline:
                     try:
                         os.kill(int(pid.read_text()), 0)

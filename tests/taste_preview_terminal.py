@@ -1,5 +1,5 @@
 """Exact-commit Taste previews: local Git fixture, fake server, stub opener, no providers."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import fcntl
 import hashlib
 import json
@@ -104,7 +104,7 @@ def verify_portable_helpers():
             assert alive(pid, env), 'live child was not detected'
             os.close(write_fd)
             write_fd = None
-            until = time.monotonic() + 5
+            until = wait_deadline()
             while process_state(pid, env) != 'Z':
                 assert time.monotonic() < until, 'exited child was not detected as a zombie'
                 time.sleep(.01)
@@ -219,7 +219,7 @@ os.execv({git!r}, [{git!r}, *args])
         repo_original = tree(repo)
 
         def wait(predicate, seconds=10):
-            until = time.monotonic() + seconds
+            until = wait_deadline(seconds)
             for returncode in wait_output(master, process, screen.feed, until):
                 if predicate() and not screen.synchronized:
                     return
@@ -324,7 +324,7 @@ os.execv({git!r}, [{git!r}, *args])
                 os.write(master, b'\x1b[21~')
                 wait(lambda: '1  think' in screen.text())
                 os.write(master, b'q')
-                until = time.monotonic() + 5
+                until = wait_deadline()
                 for returncode in wait_output(master, process, lambda chunk: None, until):
                     if returncode is not None:
                         break

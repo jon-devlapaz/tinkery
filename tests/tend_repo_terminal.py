@@ -1,5 +1,5 @@
 """Repo-first Tend and cross-repo needs; synthetic TEST records, no provider calls."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import fcntl
 import json
 import os
@@ -34,7 +34,7 @@ class Terminal:
             cwd=cwd, stdin=self.slave, stdout=self.slave, stderr=self.slave, env=subprocess.environment(env))
 
     def wait(self, predicate):
-        deadline = time.monotonic() + 10
+        deadline = wait_deadline(10)
         for returncode in wait_output(self.master, self.process, self.screen.feed, deadline):
             if not self.screen.synchronized and predicate(self.screen.text()):
                 return self.screen.text()
@@ -43,7 +43,7 @@ class Terminal:
         raise AssertionError(self.screen.text())
 
     def wait_exit(self):
-        deadline = time.monotonic() + 10
+        deadline = wait_deadline(10)
         for returncode in wait_output(self.master, self.process, self.screen.feed, deadline):
             if returncode is not None:
                 return returncode

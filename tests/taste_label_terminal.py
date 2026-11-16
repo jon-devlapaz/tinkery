@@ -11,7 +11,7 @@ import sys
 import tempfile
 import time
 import test_launch as subprocess
-from terminal_process import TerminalProcess, wait_output
+from terminal_process import wait_deadline, TerminalProcess, wait_output
 
 REPO = Path(__file__).resolve().parents[1]
 WORDS = 'Shape\'s check didn\'t run "as cloned" — 2 times? q Ω'
@@ -105,7 +105,7 @@ os.execv({sys.executable!r}, [{sys.executable!r}, *sys.argv[1:]])
             def feed(chunk):
                 terminal.raw.extend(chunk)
                 screen.feed(chunk)
-            for returncode in wait_output(master, terminal.process, feed, time.monotonic() + seconds):
+            for returncode in wait_output(master, terminal.process, feed, wait_deadline(seconds)):
                 if (text in screen.text() or (alternative and alternative in screen.text())) and not screen.synchronized:
                     return
                 assert returncode is None, screen.text()
@@ -143,7 +143,7 @@ os.execv({sys.executable!r}, [{sys.executable!r}, *sys.argv[1:]])
                 original_id = json.loads((run / 'run.json').read_text())['run_id']
                 if save_case == 'during-save':
                     send(F2, 'Saving your label')
-                    deadline = time.monotonic() + 5
+                    deadline = wait_deadline()
                     while not label_started.exists() and time.monotonic() < deadline:
                         time.sleep(.01)
                     assert label_started.exists(), 'label command never started'

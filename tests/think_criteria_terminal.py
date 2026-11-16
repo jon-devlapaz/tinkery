@@ -1,5 +1,5 @@
 """Fake-Pi PTY regressions: Why and copy distinguish experience from success criteria."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import fcntl
 import json
 import os
@@ -45,7 +45,7 @@ def journey(width, height, criteria, no_color):
                                    stdin=slave, stdout=slave, stderr=slave, cwd=root, env=env)
 
         def wait(check):
-            deadline = time.monotonic() + 8
+            deadline = wait_deadline(8)
             for returncode in wait_output(master, process, screen.feed, deadline):
                 if not screen.synchronized and check(screen.text()):
                     return

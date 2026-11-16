@@ -1,5 +1,5 @@
 """Replay #401's recorded omission and correction through keys; zero real model calls."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import json
 from datetime import datetime, timezone
 import os
@@ -51,7 +51,7 @@ def journey(width, height, no_color):
             count = len(run.screen.clipboards)
             run.send(F1, 'Copy the reading')
             os.write(run.master, run.screen.pick('Copy the reading'))
-            deadline = time.monotonic() + 8
+            deadline = wait_deadline(8)
             for _ in wait_output(run.master, run.process, run.screen.feed, deadline):
                 if len(run.screen.clipboards) > count and not run.screen.synchronized:
                     paper = run.screen.clipboards[-1]
@@ -64,7 +64,7 @@ def journey(width, height, no_color):
 
         def read_right(text):
             """Read wrapped goal lines without interleaving the intact left original."""
-            deadline = time.monotonic() + 8
+            deadline = wait_deadline(8)
             for _ in range(80):
                 right = ' '.join(' '.join(line[width * 48 // 100 + 2:]
                                          for line in run.screen.text().splitlines()).split())

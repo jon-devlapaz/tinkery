@@ -11,8 +11,9 @@ import test_launch as subprocess
 REPO = Path(__file__).resolve().parents[1]
 ENV = subprocess.environment()
 if not os.environ.get('TINKERY_TEST_SEED_FIXTURE'):
-    subprocess.run(['cargo', '+stable', 'build', '--locked', '--bin', 'tinkery',
-                    '--example', 'seed_fixture'], cwd=REPO, env=ENV, check=True)
+    if not (REPO / 'target/debug/tinkery').is_file() or not (REPO / 'target/debug/examples/seed_fixture').is_file():
+        subprocess.run(['cargo', '+stable', 'build', '--locked', '--bin', 'tinkery',
+                        '--example', 'seed_fixture'], cwd=REPO, env=ENV, check=True)
     os.environ['TINKERY_TEST_SEED_FIXTURE'] = str(REPO / 'target/debug/examples/seed_fixture')
 
 from worker_terminal import (CAP, END, F2, F10, MODEL, Fixture, Terminal,
