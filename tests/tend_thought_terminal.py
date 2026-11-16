@@ -71,33 +71,33 @@ def journey(size):
             flow.send(term, b'\x7f', 'enter choose')
             assert not saved(root) and not flow.requests(root)
             # Ctrl+S is a raw DC3 byte in raw mode.
-            flow.send(term, b'\x13', 'Thoughts:')
+            flow.send(term, b'\x13', 'Thought saved.')
             flow.send(term, b'v', 'Saved thoughts')
             assert len(saved(root)) == 1
             assert json.loads(saved(root)[0].read_bytes())['words'].encode() == WORDS.encode(), 'Saved words differ from typed words'
             no_goal(root, original)
             flow.send(term, b's', 'Saved thoughts')
             assert 'tinkery › shape' not in term.screen.text()
-            flow.send(term, b'\x1b', 'Thoughts: 1')
+            flow.send(term, b'\x1b', 'this repo')
             assert 'Thought: ' in term.screen.text()
         finally:
             term.close()
         term = launch(root, repo, size)
         try:
-            flow.wait(term, 'Thoughts: 1')
+            flow.wait(term, 'this repo')
             flow.send(term, b'v', 'Thought 1 of 1')
-            flow.send(term, b'\x1b', 'Thoughts: 1')
+            flow.send(term, b'\x1b', 'this repo')
             flow.send(term, b't', 'enter choose')
             paste(term, WORDS)
-            flow.send(term, b'\x1bOR', 'Thoughts: 1')
+            flow.send(term, b'\x1bOR', 'this repo')
             flow.send(term, b'v', 'Saved thoughts')
             assert len(saved(root)) == 1
-            flow.send(term, b'\x1b', 'Thoughts: 1')
+            flow.send(term, b'\x1b', 'this repo')
             flow.send(term, b't', 'enter choose')
             paste(term, 'TEST cancelled thought')
             flow.send(term, b'\x1b', 'Back to menu and lose')
             flow.send(term, b'y', '1  think')
-            flow.send(term, b'2', 'Thoughts: 1')
+            flow.send(term, b'2', 'this repo')
             assert len(saved(root)) == 1
             assert not flow.requests(root)
             no_goal(root, original)
@@ -111,7 +111,7 @@ def journey(size):
             flow.send(term, b'\x1b', 'this repo')
             flow.send(term, b't', 'enter choose')
             paste(term, WORDS)
-            flow.send(term, b'\x1bOR', 'Thoughts:')
+            flow.send(term, b'\x1bOR', 'Thought saved.')
             flow.send(term, b'v', 'Saved thoughts')
             assert len(saved(root)) == 2
             assert {json.loads(p.read_bytes())['repo'] for p in saved(root)} == {str(repo), str(other)}
@@ -143,7 +143,7 @@ def save_feedback(size, unreadable_records=False, evidence=None):
             for words in ['A TEST first thought', 'B TEST second thought']:
                 flow.send(term, b't', 'enter choose')
                 paste(term, words)
-                flow.send(term, b'\x1bOR', 'Thoughts:')
+                flow.send(term, b'\x1bOR', 'Thought saved.')
             if unreadable_records:
                 path = saved(root)[0]
                 prefix = path.name.rsplit('-', 1)[0]
@@ -161,8 +161,8 @@ def save_feedback(size, unreadable_records=False, evidence=None):
                     warning = '-warning' if unreadable_records else ''
                     (evidence/f'{size[0]}x{size[1]}-{case}{warning}.txt').write_text(screen)
                 assert 'tinkery › tend' in screen, screen
-                assert 'Thoughts: 3' in screen and f'Thought: {words}' in screen, screen
-                assert 'No goal confirmed.' in screen, screen
+                assert 'Thoughts:' not in screen, screen
+                assert 'Thought:' in screen and outcome in screen.splitlines()[-3], screen
                 assert 'TEST goal 0' in screen and 'TEST goal 1' in screen, screen
                 if unreadable_records:
                     assert '1 thoughts could not be read.' in screen, screen
@@ -170,21 +170,18 @@ def save_feedback(size, unreadable_records=False, evidence=None):
                     assert {p: p.read_bytes() for p in saved(root)} == before, 'Duplicate changed thought records'
                 else:
                     assert len(saved(root)) == len(before) + 1
-                # Clicking the visible right-hand goal must select that same goal.
+                # The label hit must select the displayed goal after the summary is removed.
                 lines = screen.splitlines()
-                ring = [(x, y) for y, line in enumerate(lines[4:-4], 4)
-                        for x, char in enumerate(line) if x > size[0] // 2 and '\u2801' <= char <= '\u28ff']
-                assert ring, screen
-                x = round((min(x for x, y in ring) + max(x for x, y in ring)) / 2)
-                y = round((min(y for x, y in ring) + max(y for x, y in ring)) / 2)
+                y = next(y for y, line in enumerate(lines[:-4]) if 'TEST goal 1' in line)
+                x = lines[y].index('TEST goal 1') + 4
                 click = (f'\x1b[<0;{x+1};{y+1}M\x1b[<0;{x+1};{y+1}m').encode()
                 screen = flow.send(term, click, '› TEST goal 1')
-                assert f'Thought: {words}' in screen, screen
+                assert outcome not in screen, screen
                 screen = flow.send(term, b'v', f'Thought {position} of 3')
                 assert words in screen and outcome not in screen, screen
                 if unreadable_records:
                     assert '1 thoughts could not be read.' in screen, screen
-                screen = flow.send(term, b'\x1b', 'Thoughts: 3')
+                screen = flow.send(term, b'\x1b', 'this repo')
                 assert outcome not in screen, screen
                 assert not flow.requests(root)
             # A new save notice also clears when Tend closes, without opening the reader.
@@ -192,7 +189,7 @@ def save_feedback(size, unreadable_records=False, evidence=None):
             paste(term, 'Z TEST newly saved thought')
             flow.send(term, b'\x1bOR', 'Thought already saved.')
             flow.send(term, b'\x1b', '1  think')
-            screen = flow.send(term, b'2', 'Thoughts: 3')
+            screen = flow.send(term, b'2', 'this repo')
             assert 'Thought already saved.' not in screen, screen
             assert not flow.requests(root)
             if unreadable_records:
@@ -228,7 +225,7 @@ def unreadable(size):
         try:
             flow.send(term, b't', 'enter choose')
             paste(term, 'TEST readable thought')
-            flow.send(term, b'\x1bOR', 'Thoughts:')
+            flow.send(term, b'\x1bOR', 'Thought saved.')
             flow.send(term, b'v', 'Saved thoughts')
         finally:
             term.close()
@@ -240,7 +237,7 @@ def unreadable(size):
         (path.parent/f'{prefix}-foreign.json').write_text(json.dumps(foreign))
         term = launch(root, repo, size)
         try:
-            flow.wait(term, 'Thoughts: 1')
+            flow.wait(term, 'this repo')
             flow.wait(term, '2 thoughts could not be read.')
             flow.send(term, b'v', 'TEST readable thought')
             assert 'Thought 1 of 1' in term.screen.text()
@@ -270,7 +267,7 @@ def promotion(size):
         try:
             flow.send(term, b't', 'enter choose')
             paste(term, WORDS)
-            flow.send(term, b'\x1bOR', 'Thoughts:')
+            flow.send(term, b'\x1bOR', 'Thought saved.')
             flow.send(term, b'v', 'Saved thoughts')
             thought = saved(root)[0].read_bytes()
             flow.send(term, b'g', "What's on your mind?")
@@ -367,15 +364,15 @@ def capture_guards(size):
                 flow.wait(term, 'Right now')
                 assert not saved(root)
                 flow.send(term, b'\x1b', 'enter choose')
-                flow.send(term, b'\x1bOR', 'Thoughts: 1')
+                flow.send(term, b'\x1bOR', 'this repo')
                 flow.send(term, b'v', 'Saved thoughts')
                 flow.send(term, b'g', "What's on your mind?")
-                flow.send(term, b'\x1bOR', 'Thoughts: 1')
+                flow.send(term, b'\x1bOR', 'this repo')
                 assert len(saved(root)) == 1
                 flow.send(term, b'v', 'Saved thoughts')
                 flow.send(term, b'g', "What's on your mind?")
                 paste(term, 'TEST appended copy')
-                flow.send(term, b'\x1bOR', 'Thoughts: 2')
+                flow.send(term, b'\x1bOR', 'Thought saved.')
                 assert {json.loads(p.read_bytes())['words'] for p in saved(root)} == {WORDS, WORDS+'TEST appended copy'}
                 flow.send(term, b't', 'enter choose')
                 paste(term, 'TEST cancelled fresh thought')

@@ -8,7 +8,7 @@ use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
 use graf::{
     FeatureFlags, GraphAction, GraphMouseState, GraphState, LabelMode, NodeColorMode, NodeFill,
     NodeScale, NodeSpec, Settings, ThemeColors, apply_action, draw_graph_view, handle_graph_mouse,
-    settings::SelectionFocus,
+    settings::NodeShape, settings::SelectionFocus,
 };
 use parking_lot::RwLock;
 use ratatui::{
@@ -74,6 +74,12 @@ impl Tend {
             .iter()
             .map(|s| (identity(s), s.goal.lines().next().unwrap_or("").to_owned()))
             .collect();
+        nodes.extend(self.thought_entries().iter().map(|words| {
+            (
+                super::Entry::Thought(words.clone()).graph_id(),
+                words.lines().next().unwrap_or("").to_owned(),
+            )
+        }));
         nodes.sort_by(|a, b| a.0.cmp(&b.0));
         let indices: HashMap<_, _> = nodes
             .iter()
@@ -112,7 +118,12 @@ impl Tend {
 
     pub(crate) fn step_selection(&mut self, forward: bool) {
         self.selected = if forward {
-            (self.selected + 1).min(self.sessions.len().saturating_sub(1))
+            let count = if self.is_linking() {
+                self.sessions.len()
+            } else {
+                self.entry_count()
+            };
+            (self.selected + 1).min(count.saturating_sub(1))
         } else {
             self.selected.saturating_sub(1)
         };
@@ -354,13 +365,21 @@ impl GraphView {
             self.followed = Some(selected.to_owned());
         }
         state.selection.clear();
-        if let Some(index) = source_index {
+        if let Some(index) = source_index.or(selected_index) {
             state.selection.select_only(index);
         }
         let mut settings = settings();
         settings.visual.colors.node_color = Some(palette.ink.fg.unwrap_or(Color::Reset));
         settings.visual.colors.edge_color = Some(palette.muted.fg.unwrap_or(Color::Reset));
-        settings.visual.colors.selection_ring_color = Some(palette.jade.fg.unwrap_or(Color::Reset));
+        settings.visual.colors.selection_ring_color = Some(
+            if source.is_empty() && selected.starts_with("thought:") {
+                palette.violet
+            } else {
+                palette.jade
+            }
+            .fg
+            .unwrap_or(Color::Reset),
+        );
         settings.visual.colors.background_color = Some(palette.ink.bg.unwrap_or(Color::Reset));
         let theme = ThemeColors::resolve(&settings);
         {
@@ -375,8 +394,16 @@ impl GraphView {
                     });
             if cache.topology_dirty || appearance_changed {
                 cache.rebuild_topology(state.simulation.get_graph(), &settings, &theme, false);
-                if let Some(index) = source_index {
-                    cache.node_own_color.insert(index, jade);
+                let graph = state.simulation.get_graph();
+                for index in graph.node_indices() {
+                    if graph[index].data.id.starts_with("thought:") {
+                        cache
+                            .node_own_color
+                            .insert(index, palette.violet.fg.unwrap_or(Color::Reset));
+                        cache.node_shapes.insert(index, NodeShape::Diamond);
+                    } else if Some(index) == source_index {
+                        cache.node_own_color.insert(index, jade);
+                    }
                 }
                 self.appearance = Some((ink, jade, source.to_owned()));
             }
@@ -472,7 +499,8 @@ impl GraphView {
             {
                 continue;
             }
-            let marked = node.data.id == source;
+            let thought = node.data.id.starts_with("thought:");
+            let marked = node.data.id == source || !linking && node.data.id == selected;
             let prefix = if marked {
                 "› "
             } else if linking && node.data.id == selected {
@@ -487,7 +515,11 @@ impl GraphView {
                 let left = (x - width as i32 / 2)
                     .clamp(i32::from(self.area.x), i32::from(self.area.right() - width))
                     as u16;
-                for row in [y - 3, y + 2] {
+                for row in if thought {
+                    [y + 2, y - 3]
+                } else {
+                    [y - 3, y + 2]
+                } {
                     let row = if node.data.id == selected {
                         row.clamp(i32::from(self.area.y), i32::from(self.area.bottom() - 1))
                     } else {
@@ -504,7 +536,13 @@ impl GraphView {
                         continue;
                     }
                     frame.render_widget(
-                        Paragraph::new(text.clone()).style(if marked {
+                        Paragraph::new(text.clone()).style(if thought {
+                            if marked {
+                                palette.violet.add_modifier(Modifier::BOLD)
+                            } else {
+                                palette.violet
+                            }
+                        } else if marked {
                             palette.jade
                         } else {
                             palette.muted

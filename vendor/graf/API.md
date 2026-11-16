@@ -34,6 +34,10 @@ graf's library surface is organized into these layers:
 
 - - -
 
+Hosts can set `RenderCache.node_shapes` by node index alongside `node_own_color`.
+Full and medium detail use these optional shape overrides. A topology rebuild clears them.
+They change no layout or hit-testing rule. Minimal detail retains its single-pixel dots.
+
 ## Quick start
 
 Minimal integration: build a graph from node specs, start physics, render each frame, and forward input events.

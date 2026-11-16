@@ -107,6 +107,7 @@ needed to judge the next step, and make that step and the way out clear without 
 | Italic | Tinkery’s interpretation of intent—a guess |
 | Jade | where you are: the question, the current place |
 | Rust | consequence only, always with `!` and words saying what is lost |
+| Violet | a saved thought: the operator's exact words, kept apart from goals |
 
 Colour is never the only signal. With `NO_COLOR`, the same meanings carry through bold, dim and underline.
 
@@ -120,3 +121,5 @@ Colour is never the only signal. With `NO_COLOR`, the same meanings carry throug
 *Amended by the operator on 2026-10-15: Tinkery is the substrate where agentic work happens, not only its front door.*
 
 *Amended by the operator on 2026-10-16: agents may merge approved work once its checks pass.*
+
+*Amended by the operator on 2026-11-15: saved thoughts have their own colour.*

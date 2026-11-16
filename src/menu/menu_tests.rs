@@ -455,7 +455,7 @@ fn garden_keys_step_one_goal_in_newest_order_and_clamp_after_resize() {
     h.handle_key(key(KeyCode::F(1)));
     assert!(
         screen(&mut h)
-            .contains("Arrows / j k move · Enter or a double click opens the saved goal.")
+            .contains("Arrows / j k move · Enter or a double click opens the selected original.")
     );
     h.handle_key(key(KeyCode::Down));
     assert_eq!(selected(&h), 22);

@@ -16,12 +16,13 @@ def departure(size):
                 thought.flow.send(term, b't', 'enter choose')
                 thought.paste(term, 'TEST notice lifetime')
                 thought.flow.send(term, b'\x1bOR', outcome)
+                thought.flow.send(term, b'k', '› TEST make')
                 thought.flow.send(term, b'\r', 's shape')
                 thought.flow.send(term, b's', 'tinkery › shape')
                 thought.flow.send(term, b'\x1b', 'tinkery › tend')
-                screen = thought.flow.send(term, b'\x1b', 'Thoughts: 1')
+                screen = thought.flow.send(term, b'\x1b', 'this repo')
                 assert outcome not in screen, screen
-                assert 'Thought: TEST notice lifetime' in screen, screen
+                assert 'TEST notice lifetime' in screen, screen
                 assert not thought.flow.requests(root)
                 thought.no_goal(root, original)
         finally:
@@ -43,7 +44,7 @@ def failed_refresh(size):
             prefix = path.name.rsplit('-', 1)[0]
             (path.parent/f'{prefix}-malformed.json').write_text('{')
             thought.flow.send(term, b'v', '1 thoughts could not be read.')
-            thought.flow.send(term, b'\x1b', 'Thoughts: 1')
+            thought.flow.send(term, b'\x1b', 'this repo')
             (root/'links').rename(root/'saved-links')
             (root/'links').write_text('TEST not a directory')
             thought.flow.send(term, b'v', 'Thoughts could not be read:')

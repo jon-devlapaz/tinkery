@@ -19,6 +19,10 @@ impl Tend {
         if !self.garden_showing() || self.linking.is_some() {
             return;
         }
+        if self.current().is_none() {
+            self.notice = "Links connect goals, not thoughts.".into();
+            return;
+        }
         self.notice.clear();
         self.last_press = None;
         self.link_error = None;
@@ -156,6 +160,9 @@ impl Tend {
                 String::new(),
                 clipped(&format!("{source} needs {target}"), width),
             );
+        }
+        if let Some(line) = self.thought_line() {
+            return line;
         }
         let session = &self.sessions[self.selected];
         let suffix = self.needs_text();

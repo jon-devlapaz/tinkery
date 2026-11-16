@@ -18,14 +18,27 @@ pub(super) fn render(
     now: Option<u64>,
 ) {
     tend.sync_graph(body);
-    let selected = format!("{:?}", tend.sessions[tend.selected].path);
+    let selected = tend
+        .selected_entry()
+        .map(|entry| entry.graph_id())
+        .unwrap_or_default();
     let source_index = (0..tend.sessions.len())
         .find(|&i| tend.source_marked(i))
         .unwrap_or(tend.selected);
-    let source = format!("{:?}", tend.sessions[source_index].path);
+    let source = tend
+        .sessions
+        .get(source_index)
+        .map(|s| format!("{:?}", s.path))
+        .unwrap_or_default();
     let linking = tend.is_linking();
     tend.graph.draw(frame, palette, &selected, &source, linking);
-    let (goal, status) = tend.selected_line(usize::from(body.width), now);
+    let (goal, mut status) = tend.selected_line(usize::from(body.width), now);
+    let thought_status = tend.thought_status();
+    if !thought_status.is_empty() {
+        status.push_str(&format!(" · {thought_status}"));
+    }
+    let status_width = unicode_width::UnicodeWidthStr::width(status.as_str());
+    let goal = crate::clipped(&goal, usize::from(body.width).saturating_sub(status_width));
     frame.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(goal, palette.ink),

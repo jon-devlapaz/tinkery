@@ -461,6 +461,7 @@ pub struct RenderCache {
     pub tag_colors: HashMap<String, Color>,
     pub folder_colors: HashMap<String, Color>,
     pub node_own_color: HashMap<NodeIndex, Color>,
+    pub node_shapes: HashMap<NodeIndex, NodeShape>,
     pub legend_data: Option<Vec<(String, Color)>>,
     pub max_link_count: usize,
 
@@ -493,6 +494,7 @@ impl RenderCache {
             tag_colors: HashMap::new(),
             folder_colors: HashMap::new(),
             node_own_color: HashMap::new(),
+            node_shapes: HashMap::new(),
             legend_data: None,
             max_link_count: 0,
             edges: Vec::new(),
@@ -555,6 +557,7 @@ impl RenderCache {
         }
 
         self.node_own_color.clear();
+        self.node_shapes.clear();
         for idx in graph.node_indices() {
             let node = &graph[idx];
             let color = match settings.visual.node_color_mode {
@@ -756,6 +759,11 @@ impl RenderCache {
                 NodeFill::Dynamic => tier == LodTier::Full && (grown || floor_rows > 0.0),
             };
 
+            let shape = self
+                .node_shapes
+                .get(&idx)
+                .copied()
+                .unwrap_or(settings.visual.node_shape);
             let is_selected = selected_node == Some(idx) || selected_nodes.contains(&idx);
             let is_hovered = hovered_node == Some(idx) && !is_selected;
 
@@ -790,7 +798,7 @@ impl RenderCache {
                         is_selected,
                         is_hovered,
                         selection_ring_color,
-                        shape: settings.visual.node_shape,
+                        shape,
                         filled,
                         dimmed: self.dimmed.contains(&idx),
                         grow_ring: grown,
@@ -808,7 +816,7 @@ impl RenderCache {
                         is_hovered: false,
                         selection_ring_color,
                         filled,
-                        shape: settings.visual.node_shape,
+                        shape,
                         dimmed: self.dimmed.contains(&idx),
                         grow_ring: grown,
                     });
