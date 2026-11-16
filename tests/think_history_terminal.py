@@ -1,5 +1,5 @@
 """Confirmed Think history survives restart; reads use temporary TEST roots and stub Pi only."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import fcntl
 import json
 import os
@@ -50,7 +50,7 @@ class Terminal:
                                         **(extra or {})}, home=home))
 
     def wait(self, predicate, timeout=20):
-        deadline = time.monotonic() + timeout
+        deadline = wait_deadline(timeout)
         for returncode in wait_output(self.master, self.process, self.screen.feed, deadline):
             if not self.screen.synchronized and predicate(self.screen.text()):
                 return self.screen.text()

@@ -6,7 +6,7 @@ finding, and confirms the drafted seed with the ledger's canonical sections. Sho
 model failure, stopping a step, a helper refusal, a reply that tries to confirm or to write the decisions, a
 seed finding that looks like a secret, a practice session's confirmation, a citation that isn't in the folder,
 and steps that found nothing."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import fcntl, hashlib, importlib.util, json, os, select, signal, struct, tempfile, termios, time
 import test_launch as subprocess
 from pathlib import Path
@@ -206,7 +206,7 @@ class Run:
         return ' '.join(self.screen.text().split())
 
     def wait(self, text, timeout=20, *, wrapped_path=False):
-        deadline = time.monotonic() + timeout
+        deadline = wait_deadline(timeout)
         normalize = (lambda value: ''.join(value.split())) if wrapped_path else (lambda value: ' '.join(value.split()))
         want = normalize(text)
         for returncode in wait_output(self.master, self.process, self.screen.feed, deadline):
@@ -222,7 +222,7 @@ class Run:
 
     def menu(self):
         """Return through completed screens; never answer a draft-discard prompt."""
-        deadline = time.monotonic() + 12
+        deadline = wait_deadline(12)
         for _ in range(4):
             # A caller may have stopped reading in the middle of a synchronized frame.
             if self.screen.synchronized:
@@ -235,7 +235,7 @@ class Run:
             if '4 approve' in self.flat():
                 return
             os.write(self.master, ESC)
-            transition_deadline = min(deadline, time.monotonic() + 3)
+            transition_deadline = min(deadline, wait_deadline(3))
             for returncode in wait_output(self.master, self.process, self.screen.feed, transition_deadline):
                 if not self.screen.synchronized and self.screen.text() != before:
                     if 'lose this draft?' in self.flat():
@@ -257,7 +257,7 @@ class Run:
 
     def read_until(self, text, timeout=20, *, whole_line=False, wrapped_path=False):
         """Read each rendered page; reaching the bottom can hide an earlier wrapped warning."""
-        deadline = time.monotonic() + timeout
+        deadline = wait_deadline(timeout)
         normalize = (lambda value: ''.join(value.split())) if wrapped_path else (lambda value: ' '.join(value.split()))
         want = normalize(text)
         def shown():
@@ -580,7 +580,7 @@ def case(name, width=100, height=30):
                 run.send(F2, f'Answer saved. Looking in {cwd.name} for the next question.')
                 run.wait('Keep records local or synced? your answer Local.')
                 run.wait('esc stop')
-                deadline = time.monotonic() + 10
+                deadline = wait_deadline(10)
                 while not run.calls() and time.monotonic() < deadline:
                     time.sleep(.05)
                 run.send(b'\x1b', 'Your answer is saved. Stopped before the next step finished.')
@@ -1623,7 +1623,7 @@ def exit_hint(width, height, stage):
             before = files(run.sessions)
             os.write(run.master, b'q')
             output = bytearray()
-            deadline = time.monotonic() + 10
+            deadline = wait_deadline(10)
             def consume_wait_output(chunk):
                 output.extend(chunk)
             for returncode in wait_output(run.master, run.process, consume_wait_output, deadline):

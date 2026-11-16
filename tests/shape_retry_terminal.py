@@ -1,5 +1,5 @@
 """#400: explicit retries carry one current host diagnostic, never accepted facts or consent."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import copy
 import json
 import os
@@ -27,7 +27,7 @@ def replies(criterion=CRITERION):
 
 
 def wait_calls(run, count):
-    deadline = time.monotonic() + 15
+    deadline = wait_deadline(15)
     for _ in wait_output(run.master, run.process, run.screen.feed, deadline):
         if len(run.calls()) >= count:
             return
@@ -35,7 +35,7 @@ def wait_calls(run, count):
 
 
 def wait_either(run, *texts):
-    deadline = time.monotonic() + 20
+    deadline = wait_deadline(20)
     for _ in wait_output(run.master, run.process, run.screen.feed, deadline):
         if not run.screen.synchronized:
             for text in texts:
@@ -133,7 +133,7 @@ def retry_journey(width, height, case):
                 if case == 'cancel':
                     # The stub records its call before consuming the reply. Let it enter
                     # SLOW before stopping, so cancellation cannot corrupt its queue file.
-                    deadline = time.monotonic() + 10
+                    deadline = wait_deadline(10)
                     while time.monotonic() < deadline:
                         try:
                             if len(json.loads((root / 'shape-replies.json').read_text())) == 1:

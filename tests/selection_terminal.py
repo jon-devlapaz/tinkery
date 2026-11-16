@@ -1,6 +1,6 @@
 """Original selection by keyboard and mouse: Tab, Shift-arrows, Ctrl-C, exact OSC 52 bytes.
 Plain POSIX PTY, stub provider (counts invocations), temporary cwd. No audio, no live calls."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import fcntl, json, os, select, signal, struct, tempfile, termios, time
 import test_launch as subprocess
 from pathlib import Path
@@ -50,7 +50,7 @@ def journey(width, height):
                     screen.feed(chunk)
 
         def await_text(text, timeout=5):
-            deadline = time.monotonic() + timeout
+            deadline = wait_deadline(timeout)
             def consume_wait_output(chunk):
                 terminal_output.extend(chunk)
                 screen.feed(chunk)
@@ -65,7 +65,7 @@ def journey(width, height):
             frame = b'\x1b[200~' + text.encode() + b'\x1b[201~'
             os.set_blocking(master, False)
             try:
-                deadline = time.monotonic() + 10
+                deadline = wait_deadline(10)
                 while frame:
                     assert time.monotonic() < deadline, 'paste transport deadline'
                     try:
@@ -89,7 +89,7 @@ def journey(width, height):
         def copy(expected):
             before = len(screen.clipboards)
             os.write(master, b'\x03')
-            deadline = time.monotonic() + 3
+            deadline = wait_deadline(3)
             def consume_copy_output(chunk):
                 terminal_output.extend(chunk)
                 screen.feed(chunk)
@@ -200,7 +200,7 @@ def journey(width, height):
             paste(fitting)
             assert len(starts()) == 2
             os.write(master, b'\x1bOQ')
-            deadline = time.monotonic() + 5
+            deadline = wait_deadline()
             def consume_start_output(chunk):
                 terminal_output.extend(chunk)
                 screen.feed(chunk)

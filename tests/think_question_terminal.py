@@ -1,5 +1,5 @@
 """Zero-provider PTY replay: active questions stay readable without goal review."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import fcntl
 import json
 import os
@@ -64,7 +64,7 @@ def journey(width, height, long_question=False, suggestion=False, mono=False):
         )
 
         def wait(check):
-            deadline = time.monotonic() + 8
+            deadline = wait_deadline(8)
             for returncode in wait_output(master, process, screen.feed, deadline):
                 if not screen.synchronized and check(screen.text()):
                     return

@@ -13,7 +13,7 @@ import tempfile
 import time
 
 import test_launch as subprocess
-from terminal_process import TerminalProcess, wait_output
+from terminal_process import wait_deadline, TerminalProcess, wait_output
 
 REPO = Path(__file__).resolve().parents[1]
 REMINDER = 'awaiting human verdict'
@@ -81,7 +81,7 @@ def journey(width, height, no_color):
 
             def wait(text):
                 for returncode in wait_output(terminal.master, terminal.process, terminal.screen.feed,
-                                              time.monotonic() + 10):
+                                              wait_deadline(10)):
                     if text in terminal.screen.text() and terminal.screen.ready():
                         return
                     assert returncode is None, terminal.screen.text()

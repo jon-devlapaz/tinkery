@@ -6,7 +6,7 @@ import tempfile
 import time
 
 import test_launch as subprocess
-from terminal_process import TerminalProcess, wait_output
+from terminal_process import wait_deadline, TerminalProcess, wait_output
 import tend_connection_terminal as flow
 
 REPO = Path(__file__).resolve().parents[1]
@@ -360,7 +360,7 @@ def save_after_send(size):
             flow.send(term, b'\x1b[5;5~', 'TEST raw thought')
             save({WORDS, second}, duplicate=True)
             os.write(term.master, b'\x01\x03')
-            for _ in wait_output(term.master, term.process, term.screen.feed, time.monotonic()+15):
+            for _ in wait_output(term.master, term.process, term.screen.feed, wait_deadline(15)):
                 if term.screen.clipboards and not term.screen.synchronized:
                     break
             assert term.screen.clipboards[-1] == pending
@@ -403,7 +403,7 @@ def promotion(size):
                 assert (repo/'provider-calls').read_bytes() == calls
                 # Clear the refusal before the next key, so an old frame cannot pass it.
                 os.write(term.master, b'\x7fm')
-                for code in wait_output(term.master, term.process, term.screen.feed, time.monotonic()+15):
+                for code in wait_output(term.master, term.process, term.screen.feed, wait_deadline(15)):
                     if not term.screen.synchronized and 'Press plain Enter' not in term.screen.text():
                         break
                     if code is not None:
@@ -523,7 +523,7 @@ def fresh_choice(size):
                 assert not flow.requests(root) and not saved(root)
             flow.send(term, b'\x1b', 'enter choose')
             os.write(term.master, b'\x01\x03')
-            for _ in wait_output(term.master, term.process, term.screen.feed, time.monotonic()+15):
+            for _ in wait_output(term.master, term.process, term.screen.feed, wait_deadline(15)):
                 if term.screen.clipboards and not term.screen.synchronized:
                     break
             assert term.screen.clipboards[-1] == WORDS

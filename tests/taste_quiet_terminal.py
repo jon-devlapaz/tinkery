@@ -1,6 +1,6 @@
 """Quiet Taste: a one-question review, details behind e, and unchanged copy transport, using
 synthetic API 1 and gh only."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import base64
 import fcntl
 import hashlib
@@ -80,7 +80,7 @@ def run(base, width, height, mono, binary, legacy=False, long_checks=False):
         cwd=base, env=subprocess.environment(env, home=env['HOME']), stdin=slave, stdout=slave, stderr=slave)
 
     def wait(predicate, seconds=8):
-        deadline = time.monotonic() + seconds
+        deadline = wait_deadline(seconds)
         def consume_wait_output(chunk):
             raw.extend(chunk)
             screen.feed(chunk)

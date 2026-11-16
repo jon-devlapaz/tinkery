@@ -1,5 +1,5 @@
 """Actual binary + Rust ledger, isolated TEST roots; no provider charge/browser."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import ast, base64, fcntl, json, os, re, select, struct, sys, tempfile, termios, time
 import test_launch as subprocess
 from pathlib import Path
@@ -54,7 +54,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
     if not added: return children
     found.update(added);children.update(added)
   def await_text(text,timeout=30):
-   deadline=time.monotonic()+timeout
+   deadline=wait_deadline(timeout)
    def consume_wait_output(chunk):
        raw.extend(chunk)
        screen.feed(chunk)
@@ -65,7 +65,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
     if returncode is not None:break
    raise AssertionError(f'Missing {text!r}:\n{screen.text()}')
   def absent(text):
-   deadline=time.monotonic()+5
+   deadline=wait_deadline()
    def consume_wait_output(chunk):
        raw.extend(chunk)
        screen.feed(chunk)
@@ -142,7 +142,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    calls=(run/'provider-calls').read_bytes()
    launches=(cwd/'python-launches').read_bytes() if (cwd/'python-launches').exists() else b''
    assert not any('init' in args for args in map(ast.literal_eval,launches.decode().splitlines())), 'Saving invoked an external session helper'
-   deadline=time.monotonic()+3
+   deadline=wait_deadline(3)
    owned=descendants()
    while owned and time.monotonic()<deadline:
     time.sleep(.02)
@@ -165,7 +165,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    for _ in range(16):
     if 'Think record:' in seen[-1]:break
     previous=right();before=screen.frames
-    os.write(master,b'\x1b[6~');deadline=time.monotonic()+5
+    os.write(master,b'\x1b[6~');deadline=wait_deadline()
     def consume_wait_output(chunk):
         raw.extend(chunk)
         screen.feed(chunk)
@@ -203,7 +203,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    assert not (session/'viewer.json').exists()
    assert not descendants() and (run/'provider-calls').read_bytes()==calls
    assert ((cwd/'python-launches').read_bytes() if (cwd/'python-launches').exists() else b'')==launches
-   os.write(master,b'\x1b[21~');deadline=time.monotonic()+10
+   os.write(master,b'\x1b[21~');deadline=wait_deadline(10)
    def consume_exit_output(chunk):
     raw.extend(chunk)
     screen.feed(chunk)

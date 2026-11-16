@@ -1,5 +1,5 @@
 """Synthetic PTY regression, not live-model or clipboard-permission evidence."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import fcntl, json, os, select, signal, struct, tempfile, termios, time
 import test_launch as subprocess
 from pathlib import Path
@@ -21,7 +21,7 @@ def journey(w,h):
   master,slave=os.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',h,w,0,0));original=termios.tcgetattr(slave);screen=Screen(w,h);raw=bytearray()
   process=subprocess.Popen([str(BINARY),'--shape-pi', '--shape-budget', '64','--record-root',str(cwd/'TEST-records'),'--model','test/model','--pi-command',str(host),'--seed-session-root',str(cwd/'TEST-sessions')],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=subprocess.environment({**os.environ,'TERM':'xterm-256color'}))
   def await_condition(check):
-   end=time.monotonic()+6
+   end=wait_deadline(6)
    def consume_wait_output(chunk):
        raw.extend(chunk)
        screen.feed(chunk)
@@ -67,7 +67,7 @@ def journey(w,h):
    send(b'\x1b','Back to menu and lose this draft? y / n');assert process.poll() is None
    os.write(master,b'n');await_condition(lambda s:'lose this draft?' not in s)
    send(b'\x1b','Back to menu and lose this draft? y / n');os.write(master,b'y');process.wait(timeout=5);assert process.returncode==0
-   for _ in wait_output(master,process,raw.extend,time.monotonic()+5):pass
+   for _ in wait_output(master,process,raw.extend,wait_deadline()):pass
    assert not (cwd/'TEST-sessions').exists(),'Implicit handoff'
    assert b'\x1b[?2004l' in raw and b'\x1b[?1006l' in raw
    after=termios.tcgetattr(slave);original[3]&=~getattr(termios,'PENDIN',0);after[3]&=~getattr(termios,'PENDIN',0);assert after==original
@@ -83,7 +83,7 @@ def exit_during_shaping(w,h):
   process=subprocess.Popen([str(BINARY),'--shape-pi', '--shape-budget', '64','--record-root',str(cwd/'TEST-records'),'--model','test/model','--pi-command',str(host),'--seed-session-root',str(cwd/'TEST-sessions')],stdin=slave,stdout=slave,stderr=slave,cwd=cwd,env=subprocess.environment({**os.environ,'TERM':'xterm-256color'}))
   pid=cwd/'shaping.pid'
   def await_condition(check):
-   end=time.monotonic()+6
+   end=wait_deadline(6)
    for returncode in wait_output(master, process, screen.feed, end):
     if check():return
     if returncode is not None:break

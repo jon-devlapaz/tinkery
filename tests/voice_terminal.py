@@ -1,5 +1,5 @@
 """Node-independent PTY: scripted voice transport and shaping host, no mic/Pi calls."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import ast
 import fcntl
 import json
@@ -75,7 +75,7 @@ def journey(width, height, no_color, stalled_close=False):
                 screen.feed(os.read(master, 65536))
 
         def wait(predicate, label, timeout=5):
-            deadline = time.monotonic() + timeout
+            deadline = wait_deadline(timeout)
             for returncode in wait_output(master, process, screen.feed, deadline):
                 if predicate() and not screen.synchronized:
                     assert screen.cells[1][2:9] == list('tinkery'), screen.text()
@@ -204,14 +204,14 @@ def retry_after_missing_node():
                                    stderr=slave, cwd=cwd, env=subprocess.environment(env))
 
         def text(needle, timeout=5):
-            deadline = time.monotonic() + timeout
+            deadline = wait_deadline(timeout)
             for _ in wait_output(master, process, screen.feed, deadline):
                 if needle in screen.text() and not screen.synchronized:
                     return
             raise AssertionError(f'{needle}:\n{screen.text()}')
 
         def appears(path):
-            deadline = time.monotonic() + 5
+            deadline = wait_deadline()
             while not (cwd / path).exists():
                 assert time.monotonic() < deadline, f'{path} never appeared'
                 time.sleep(.02)
@@ -220,7 +220,7 @@ def retry_after_missing_node():
             pids = cwd / 'node-pids.txt'
             if not pids.exists():
                 return
-            deadline = time.monotonic() + 5
+            deadline = wait_deadline()
             for pid in pids.read_text().splitlines():
                 while True:
                     try:
@@ -244,7 +244,7 @@ def retry_after_missing_node():
             text('ghost words')
             # Cancel the take, then leave the same empty draft through the normal UI.
             os.write(master, b'\x1b')
-            deadline = time.monotonic() + 5
+            deadline = wait_deadline()
             while 'ghost words' in screen.text():
                 assert time.monotonic() < deadline, 'cancelled partial stayed visible'
                 text(VOICE_KEY + ' speak')

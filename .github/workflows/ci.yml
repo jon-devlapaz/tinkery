@@ -39,10 +39,26 @@ jobs:
       - name: Documentation contracts
         run: |
           python3 tests/test_documentation.py
-  check:
+  rust:
     needs: scope
     if: needs.scope.outputs.docs_only != 'true'
-    # Pull requests gate on Ubuntu; pushes to main add macOS and the slow journeys.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest"]') }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Guarded rust verification
+        run: python3 scripts/full-check.py --group rust
+  style:
+    needs: scope
+    if: needs.scope.outputs.docs_only != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -57,10 +73,44 @@ jobs:
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
-      - name: Full guarded zero-call verification
+      - name: Guarded style verification
+        run: python3 scripts/full-check.py --group style
+  node:
+    needs: scope
+    if: needs.scope.outputs.docs_only != 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest"]') }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Guarded node verification
+        run: python3 scripts/full-check.py --group node
+  python:
+    needs: scope
+    if: needs.scope.outputs.docs_only != 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest"]') }}
+        shard: [0, 1, 2]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Guarded python verification
         env:
           TINKERY_TEST_TIER: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}
-        run: python3 scripts/full-check.py
+        run: python3 scripts/full-check.py --group python --shard-index ${{ matrix.shard }} --shard-count 3
   cold-clone:
     needs: scope
     if: github.event_name == 'pull_request' && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.setup != 'false'
@@ -96,7 +146,7 @@ jobs:
   ready:
     name: CI ready
     if: always()
-    needs: [scope, docs, check, cold-clone]
+    needs: [scope, docs, rust, style, node, python, cold-clone]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -107,7 +157,10 @@ jobs:
           SETUP: ${{ needs.scope.outputs.setup }}
           EVENT: ${{ github.event_name }}
           DOCS_RESULT: ${{ needs.docs.result }}
-          CHECK_RESULT: ${{ needs.check.result }}
+          RUST_RESULT: ${{ needs.rust.result }}
+          STYLE_RESULT: ${{ needs.style.result }}
+          NODE_RESULT: ${{ needs.node.result }}
+          PYTHON_RESULT: ${{ needs.python.result }}
           COLD_RESULT: ${{ needs.cold-clone.result }}
         shell: bash
         run: |
@@ -116,13 +169,17 @@ jobs:
           case "$DOCS_ONLY:$EVENT" in
             true:pull_request|true:push)
               test "$DOCS_RESULT" = success
-              test "$CHECK_RESULT" = skipped
+              for result in "$RUST_RESULT" "$STYLE_RESULT" "$NODE_RESULT" "$PYTHON_RESULT"; do
+                test "$result" = skipped
+              done
               test "$COLD_RESULT" = skipped
               message="Documentation checks passed; runtime and cold-clone checks were not applicable."
               ;;
             false:pull_request|false:push)
               test "$DOCS_RESULT" = skipped
-              test "$CHECK_RESULT" = success
+              for result in "$RUST_RESULT" "$STYLE_RESULT" "$NODE_RESULT" "$PYTHON_RESULT"; do
+                test "$result" = success
+              done
               case "$EVENT:$SETUP" in
                 pull_request:true) test "$COLD_RESULT" = success ;;
                 pull_request:false|push:true|push:false) test "$COLD_RESULT" = skipped ;;

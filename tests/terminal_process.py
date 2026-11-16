@@ -1,6 +1,7 @@
-"""Own one guarded terminal process, its screen and descriptors; feature waits stay local."""
+"""Own guarded terminal processes and scaled wait deadlines; callers own success predicates."""
 import errno
 import fcntl
+import math
 import os
 import select
 import signal
@@ -9,6 +10,14 @@ import termios
 import time
 import test_launch as subprocess
 from vt_screen import Screen
+
+
+def wait_deadline(seconds=5):
+    """Return a scaled monotonic deadline; refuse a non-finite or non-positive scale."""
+    scale = float(os.environ.get('TINKERY_TEST_WAIT_SCALE', '1'))
+    if not math.isfinite(scale) or scale <= 0:
+        raise ValueError('TINKERY_TEST_WAIT_SCALE must be finite and positive.')
+    return time.monotonic() + seconds * scale
 
 
 def wait_output(master, process, consume, deadline, *, interval=.02):

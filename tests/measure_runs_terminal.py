@@ -9,7 +9,7 @@ import time
 
 import test_launch as subprocess
 from measure_terminal import SIZES
-from terminal_process import TerminalProcess, wait_output
+from terminal_process import wait_deadline, TerminalProcess, wait_output
 
 REPO = Path(__file__).resolve().parents[1]
 DAY = 86_400 * 10**9
@@ -93,7 +93,7 @@ class Terminal(TerminalProcess):
                 if p.is_file() and '.git' not in p.relative_to(self.root).parts}
 
     def wait(self, predicate, seconds=10):
-        deadline = time.monotonic() + seconds
+        deadline = wait_deadline(seconds)
         def consume(chunk):
             self.raw.extend(chunk)
             self.screen.feed(chunk)

@@ -13,7 +13,7 @@ import test_launch as subprocess
 from shape_terminal import DECIDED, make
 from taste_label_terminal import ESC, F2, F10, checkout, sdlc
 from taste_terminal import REPO, tree
-from terminal_process import TerminalProcess, wait_output
+from terminal_process import wait_deadline, TerminalProcess, wait_output
 from worker_terminal import command_seed
 
 GOAL = 'Keep the original goal.\nRead the sample as written.'
@@ -61,7 +61,7 @@ class ReviewTerminal(TerminalProcess):
             self.screen.feed(chunk)
 
         for code in wait_output(self.master, self.process, consume,
-                                time.monotonic() + 12):
+                                wait_deadline(12)):
             if text in ' '.join(self.screen.text().split()) and self.screen.ready():
                 return
             assert code is None, self.screen.text()

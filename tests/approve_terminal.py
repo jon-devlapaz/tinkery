@@ -1,5 +1,5 @@
 """Approve's read-only handoff over official Seed Me TEST fixtures; no provider or real approval."""
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import base64
 import fcntl
 import hashlib
@@ -134,7 +134,7 @@ def journey(width, height, case, no_color):
             return ' '.join(screen.text().split())
 
         def wait(predicate):
-            until = time.monotonic() + 15
+            until = wait_deadline(15)
             def consume_wait_output(chunk):
                 output.extend(chunk)
                 screen.feed(chunk)

@@ -9,7 +9,7 @@ import time
 
 import test_launch as subprocess
 from taste_terminal import FAKE, REPO, confirmed_seed, fixture, tree
-from terminal_process import TerminalProcess, wait_output
+from terminal_process import wait_deadline, TerminalProcess, wait_output
 
 STRAY = 'notes backup'
 
@@ -46,7 +46,7 @@ def journey(strays):
             return ' '.join(screen.text().split())
 
         def wait(text, seconds=8):
-            deadline = time.monotonic() + seconds
+            deadline = wait_deadline(seconds)
             for returncode in wait_output(terminal.master, terminal.process, screen.feed, deadline):
                 if text in flat() and not screen.synchronized:
                     return

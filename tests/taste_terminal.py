@@ -11,7 +11,7 @@ import tempfile
 import time
 import test_launch as subprocess
 from shape_terminal import make as make_session, seed as make_seed
-from terminal_process import wait_output, TerminalProcess
+from terminal_process import wait_deadline, wait_output, TerminalProcess
 from support.seed_file_fixture import replaced_seed
 
 REPO = Path(__file__).resolve().parents[1]
@@ -149,7 +149,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None, empty
         original_elsewhere = tree(elsewhere)
 
         def wait(predicate, seconds=8):
-            deadline = time.monotonic() + seconds
+            deadline = wait_deadline(seconds)
             def consume_wait_output(chunk):
                 terminal.raw.extend(chunk)
                 screen.feed(chunk)
@@ -380,7 +380,6 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None, empty
                 before = len(calls())
                 send(b'?', 'After external acceptance')
                 os.write(master, b'lte')
-                time.sleep(.1)
                 os.write(master, b'\x1b')
                 wait(lambda: 'What Taste reads' not in screen.text() and 'Your goal' in screen.text())
                 assert 'Guess · Next:' not in screen.text(), 'help leaked acceptance'
@@ -571,7 +570,7 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None, empty
             footer = footer_text()
             assert 'r read results' not in footer and 'open result' not in footer and 'a/c copy' not in footer, footer
             send(b'\x1b', '1  think')
-            deadline = time.monotonic() + 3
+            deadline = wait_deadline(3)
             while time.monotonic() < deadline:
                 try:
                     os.kill(int(pid.read_text()), 0)

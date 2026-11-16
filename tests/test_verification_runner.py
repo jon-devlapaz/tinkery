@@ -1,4 +1,5 @@
 """Project verification policy and exact-block extraction; no tools, provider or audio calls."""
+from collections import Counter
 from pathlib import Path
 import os
 import runpy
@@ -27,6 +28,38 @@ class FullCheckTests(unittest.TestCase):
         self.source('before\n<!-- full-check:start -->\n```bash\n' + commands +
                     '```\n<!-- full-check:end -->\nafter\n')
         self.assertEqual(self.block(), commands)
+
+    def test_parallel_groups_cover_every_documented_command_once(self):
+        self.source((ROOT / 'AGENTS.md').read_text())
+        common = lambda line: line.startswith('export ') or line.endswith(' --version')
+        expected = [line for line in self.block().splitlines() if line and not common(line)]
+        grouped = [line for group in ('rust', 'style', 'node', 'python')
+                   for line in self.block(group).splitlines() if line and not common(line)]
+        self.assertEqual(Counter(grouped), Counter(expected))
+        for group in ('rust', 'style', 'node', 'python'):
+            lines = self.block(group).splitlines()
+            for line in self.block().splitlines():
+                if common(line):
+                    self.assertIn(line, lines)
+
+    def test_unknown_groups_commands_and_invalid_shards_fail_closed(self):
+        self.source((ROOT / 'AGENTS.md').read_text())
+        with self.assertRaises(ValueError):
+            self.block('unknown')
+        for group, index, count in ((None, 0, 3), ('rust', 0, 3), ('python', 3, 3), ('python', 0, 0)):
+            with self.subTest(group=group, index=index, count=count), self.assertRaises(ValueError):
+                self.block(group, index, count)
+        self.source((ROOT / 'AGENTS.md').read_text().replace('cargo +stable build --locked',
+                                                          'echo TEST unclassified command'))
+        with self.assertRaisesRegex(ValueError, 'Unclassified'):
+            self.block('rust')
+
+    def test_only_python_group_can_run_a_selected_shard(self):
+        self.source((ROOT / 'AGENTS.md').read_text())
+        self.assertIn('python3 scripts/python-tests.py --shard-index 1 --shard-count 3',
+                      self.block('python', 1, 3))
+        self.assertEqual(self.block().count('python3 scripts/python-tests.py'), 1)
+        self.assertNotIn('--shard-index', self.block())
 
     def test_missing_duplicate_empty_or_multiple_blocks_refuse(self):
         for source in ['', '<!-- full-check:start -->',

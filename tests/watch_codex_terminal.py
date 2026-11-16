@@ -11,7 +11,7 @@ import tempfile
 import time
 
 import test_launch as subprocess
-from terminal_process import TerminalProcess, wait_output
+from terminal_process import wait_deadline, TerminalProcess, wait_output
 from watch_terminal import DETAIL, FAKE, REPO, envelope, run, tree
 
 RUN = '00000000-0000-4000-8000-000000000729'
@@ -58,7 +58,7 @@ def journey(width, height, no_color):
 
         def wait(predicate, after=0):
             for returncode in wait_output(terminal.master, terminal.process, terminal.screen.feed,
-                                          time.monotonic() + 10):
+                                          wait_deadline(10)):
                 if predicate(terminal.screen.text()) and terminal.screen.ready(after=after):
                     return
                 assert returncode is None, terminal.screen.text()

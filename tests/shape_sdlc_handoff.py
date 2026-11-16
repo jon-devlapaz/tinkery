@@ -5,7 +5,7 @@ attestations and the reversible consumer mutation live under a short /tmp TEST r
 Locked checks protect the agreement, not the strength of the agreed checks. One confirmed command does
 assert a promised behavior: breaking only its implementation fails verify, Watch and Taste (#819).
 """
-from terminal_process import wait_output
+from terminal_process import wait_deadline, wait_output
 import base64
 import fcntl
 import hashlib
@@ -130,7 +130,7 @@ def shape(root, env):
                                stdin=slave, stdout=slave, stderr=slave)
 
     def wait(text):
-        deadline = time.monotonic() + 25
+        deadline = wait_deadline(25)
         for returncode in wait_output(master, process, screen.feed, deadline):
             if ' '.join(text.split()) in ' '.join(screen.text().split()) and not screen.synchronized:
                 return
@@ -220,7 +220,7 @@ def approve_watch(root, env, session, project):
     originals = {p: p.read_bytes() for p in session.iterdir() if p.is_file()}
 
     def wait(text):
-        deadline = time.monotonic() + 25
+        deadline = wait_deadline(25)
         def consume_wait_output(chunk):
             data = chunk
             screen.feed(chunk)
@@ -479,7 +479,7 @@ def handoff(root, env, session):
 
         def send(keys, text):
             os.write(master, keys)
-            for returncode in wait_output(master, process, screen.feed, time.monotonic() + 25):
+            for returncode in wait_output(master, process, screen.feed, wait_deadline(25)):
                 if ' '.join(text.split()) in ' '.join(screen.text().split()) and not screen.synchronized:
                     return
                 assert returncode is None, screen.text()

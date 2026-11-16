@@ -6,7 +6,7 @@ import sys
 import tempfile
 import time
 import test_launch as subprocess
-from terminal_process import TerminalProcess, wait_output
+from terminal_process import wait_deadline, TerminalProcess, wait_output
 
 REPO = Path(__file__).resolve().parents[1]
 F2 = b'\x1bOQ'
@@ -14,7 +14,7 @@ F10 = b'\x1b[21~'
 
 
 def wait(term, text):
-    for code in wait_output(term.master, term.process, term.screen.feed, time.monotonic()+15):
+    for code in wait_output(term.master, term.process, term.screen.feed, wait_deadline(15)):
         if not term.screen.synchronized and text in term.screen.text():
             return term.screen.text()
         if code is not None:
@@ -170,7 +170,7 @@ def cancellation_and_dismissal():
         term=launch(root,repo,100,30)
         try:
             wait(term,'F2 find one connection');send(term,F2,'Working')
-            deadline=time.monotonic()+5
+            deadline=wait_deadline()
             while not requests(root) and time.monotonic()<deadline: time.sleep(.01)
             send(term,b'\x1b','this repo');time.sleep(.2)
             assert len(requests(root))==1
@@ -225,7 +225,7 @@ def leaving_an_authorized_save():
             wait(term,'F2 find one connection');send(term,F2,'p prepare this goal')
             send(term,b'p','F2 save exact words')
             send(term,F2+b'\x1b','this repo')
-            deadline=time.monotonic()+5
+            deadline=wait_deadline()
             while time.monotonic()<deadline:
                 paths=list((root/'links').glob('connection-*.json'))
                 if paths and json.loads(paths[0].read_text())['saved']: break
@@ -274,7 +274,8 @@ def oversized_edit_preserves_words():
 
 
 if __name__=='__main__':
-    subprocess.run(['cargo','+stable','build','--locked','--quiet'],cwd=REPO,env=subprocess.environment(),check=True)
+    if not (REPO/'target/debug/tinkery').is_file():
+        subprocess.run(['cargo','+stable','build','--locked','--quiet'],cwd=REPO,env=subprocess.environment(),check=True)
     for size in [(80,24),(100,30)]: journey(*size)
     refusal('bad','invalid or conflicts')
     refusal('good','run limit of 0 reached',budget=0)
