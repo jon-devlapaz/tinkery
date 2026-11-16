@@ -258,6 +258,66 @@ print(json.dumps(dict(parts=dict(who='I',outcome='keep project thoughts',why='I 
 '''
 
 
+def save_after_send(size):
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-save-after-send-') as directory:
+        root = Path(directory).resolve()
+        repo = flow.fixture(root)
+        (root/'fake-pi').write_text(THINK_HOST)
+        original = {p: p.read_bytes() for p in (root/'sessions').rglob('*') if p.is_file()}
+        term = launch(root, repo, size, provider=True)
+        try:
+            flow.send(term, b't', 'enter choose')
+            paste(term, WORDS)
+            flow.send(term, flow.F2, '1  Clarify into a goal')
+            flow.send(term, b'1', 'Which UI')
+            second = '  TEST second original café\r\nKeep\tthis too.  '
+            flow.send(term, b'\x1bOP', 'Add a dump to this conversation')
+            flow.send(term, term.screen.pick('Add a dump'), 'add more')
+            paste(term, second)
+            flow.send(term, flow.F2, 'Should these added words')
+            flow.send(term, b'\x1b[5;5~', 'TEST raw thought')
+            pending = 'TEST unsent answer stays here'
+            paste(term, pending)
+            before = term.screen.text()
+            calls = (repo/'provider-calls').read_bytes()
+
+            def save(expected, duplicate=False):
+                flow.send(term, b'\x1bOP', 'Right now')
+                label = 'Save my words as a thought'
+                for _ in range(3):
+                    try:
+                        digit = term.screen.pick(label)
+                        break
+                    except AssertionError:
+                        flow.send(term, b'\x1b[C', 'Right now')
+                else:
+                    raise AssertionError(term.screen.text())
+                screen = flow.send(term, digit, 'Thought already saved.' if duplicate else 'Thought saved.')
+                assert pending in screen, screen
+                assert 'Should these added words' in screen, screen
+                assert (repo/'provider-calls').read_bytes() == calls
+                assert {json.loads(p.read_bytes())['words'] for p in saved(root)} == expected
+                no_goal(root, original)
+                return screen
+
+            after = save({WORDS})
+            assert before.splitlines()[3:15] == after.splitlines()[3:15], (before, after)
+            records = {p: p.read_bytes() for p in saved(root)}
+            save({WORDS}, duplicate=True)
+            assert {p: p.read_bytes() for p in saved(root)} == records
+            flow.send(term, b'\x1b[6;5~', 'TEST second original')
+            save({WORDS, second})
+            flow.send(term, b'\x1b[5;5~', 'TEST raw thought')
+            save({WORDS, second}, duplicate=True)
+            os.write(term.master, b'\x01\x03')
+            for _ in wait_output(term.master, term.process, term.screen.feed, time.monotonic()+15):
+                if term.screen.clipboards and not term.screen.synchronized:
+                    break
+            assert term.screen.clipboards[-1] == pending
+        finally:
+            term.close()
+
+
 def promotion(size):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-thought-goal-') as directory:
         root = Path(directory).resolve()
@@ -441,6 +501,7 @@ def fresh_choice(size):
 
 if __name__ == '__main__':
     for size in [(80, 24), (100, 30)]:
+        save_after_send(size)
         fresh_choice(size)
         save_feedback(size)
         save_feedback(size, unreadable_records=True)

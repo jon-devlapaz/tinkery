@@ -980,12 +980,7 @@ impl BrainDump {
             }
             return;
         }
-        let result = match &self.handoff.thoughts {
-            Some(Ok(store)) => store.save(&self.input.text),
-            Some(Err(reason)) => Err(reason.clone()),
-            None => Err("Open --home to save a thought in Tend.".into()),
-        };
-        match result {
+        match self.write_thought(&self.input.text) {
             Ok(saved @ (crate::thought::Saved::New | crate::thought::Saved::Duplicate)) => {
                 self.exit = Exit::Garden {
                     words: self.input.text.clone(),
@@ -993,6 +988,14 @@ impl BrainDump {
                 }
             }
             Ok(crate::thought::Saved::Uncertain(reason)) | Err(reason) => self.refuse(reason),
+        }
+    }
+
+    fn write_thought(&self, words: &str) -> Result<crate::thought::Saved, String> {
+        match &self.handoff.thoughts {
+            Some(Ok(store)) => store.save(words),
+            Some(Err(reason)) => Err(reason.clone()),
+            None => Err("Open --home to save a thought in Tend.".into()),
         }
     }
 

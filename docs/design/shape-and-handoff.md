@@ -25,12 +25,11 @@ claims readiness; other ended sessions are named as ended.
 
 ## Tend: garden and detail
 
-In this repository's garden, `t` opens fresh Think. Before the first send, Think names
-the repository in its header and its key bar offers `^S keep thought` beside
-`enter clarify goal`. Ctrl+S (or F3) saves exact input bytes without a model call or goal
-confirmation. Enter still sends. After a send, Ctrl+S says why nothing was kept. Submitted visits, voice,
-help, leave prompts, model work and goal review cannot save a thought.
-A failed or uncertain save keeps the input. A durable save or verified duplicate opens Tend.
+In this repository's garden, `t` opens fresh Think. Think's
+[thought actions](think.md#shipped-experience) save exact words without a model call or
+goal confirmation. A failed or uncertain save keeps the words. Before sending, a durable
+save or verified duplicate opens Tend. After sending, the F1 action keeps Think open
+and reports the save result. Ctrl+S and F3 remain fresh-input shortcuts.
 The garden names the save result and selects the saved thought, including after a duplicate.
 The save result appears only while that exact saved thought is selected.
 The message clears when Tend closes or the reader opens. The reader keeps that selection.

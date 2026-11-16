@@ -16,12 +16,13 @@ pub(super) const EMPTY_SEND_TEXT: &str = "Write something, then Enter sends it."
 const READY_FOR_REVIEW: &str = "Ready for your review.";
 /// Notices that report a finished action and stay on the status row until replaced. Other
 /// notices that are not refusals live only under How it works, Last result.
-const RECEIPTS: [&str; 5] = [
+const RECEIPTS: [&str; 6] = [
     "Copy",
     "Clipboard",
     "Question skipped",
     "Skip undone",
     "Added words",
+    "Thought",
 ];
 /// Why practice, or real mode without a sessions folder, can't review or save a goal.
 pub(super) const SAVE_NEEDS_REAL: &str = "Saving a goal needs real mode and a sessions folder.";
@@ -515,7 +516,12 @@ pub(super) fn how_text(app: &BrainDump) -> String {
         );
     }
     let diagnostics = app.diagnostics().join("\n\n");
-    let saving = "Only typing confirm saves a goal and its conversation record. It starts no work. Before sending, 2 in the choice or Ctrl-S saves exact words as a thought instead.";
+    let saving = concat!(
+        "Only typing confirm saves a goal and its conversation record. It starts no work. ",
+        "Before sending, 2 in the choice or Ctrl-S saves exact words as a thought instead. ",
+        "After sending, F1's Save my words as a thought saves the original shown on the left, ",
+        "without changing the conversation."
+    );
     format!(
         "How it works\nh or Esc returns to Help · PgUp/PgDn scroll\n\nSending\n{}\nNothing runs on its own and nothing retries. Ctrl-C cancels a send.\n\nSaving\n{saving}\n\nAfter saving\nOpen Shape from Tend.\n\nWords\nItalic is my guess at what you meant; upright is exactly what you typed.\n\nKeys\nEnter opens a choice before the first send: 1 clarifies into a goal (a model reads your words), 2 saves as a thought (nothing reads them). Esc returns to writing. After the first send, Enter sends. F1 lists everything else you can do now; press its number. Esc goes back, or leaves and asks first if words would be lost. Ctrl-J or Shift-Enter starts a new line. Ctrl-S keeps a fresh input as a thought; nothing reads it. Tab switches between writing and your original. Shift-arrows or drag select, Ctrl-A selects all, Ctrl-C copies, Ctrl-E extracts a selection to a card. PgUp/PgDn scroll the reading; Ctrl-PgUp/PgDn switch originals. b in help hides the key bar. Ctrl-T switches dark or light. Ctrl-L repaints. Mac F-keys may need fn.{}\n\nLast result\n{}",
         if app.real {

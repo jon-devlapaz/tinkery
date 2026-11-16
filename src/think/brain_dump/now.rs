@@ -12,6 +12,7 @@ pub(super) enum Act {
     Skip,
     UndoSkip,
     NewDump,
+    SaveWords,
     Originals,
     Why,
     Cards,
@@ -64,6 +65,9 @@ impl BrainDump {
             if board.is_some() {
                 rows.push(Row::new("Copy the reading", Act::Copy));
             }
+            if !self.running() && !self.below_minimum() && self.exit == Exit::Stay {
+                rows.push(Row::new("Save my words as a thought", Act::SaveWords));
+            }
         }
         if self.host.calls_left().is_some() {
             rows.push(Row::new("Model and runs", Act::Model));
@@ -82,6 +86,21 @@ impl BrainDump {
             Act::Skip => self.skip_question(),
             Act::UndoSkip => self.undo_skip(),
             Act::NewDump => self.new_dump(),
+            Act::SaveWords => {
+                let words = &self.conversation.sources()[self.screen.source_view].text;
+                match self.write_thought(words) {
+                    Ok(crate::thought::Saved::New) => {
+                        self.notice = "Thought saved. Your conversation is unchanged.".into();
+                    }
+                    Ok(crate::thought::Saved::Duplicate) => {
+                        self.notice =
+                            "Thought already saved. Your conversation is unchanged.".into();
+                    }
+                    Ok(crate::thought::Saved::Uncertain(reason)) | Err(reason) => {
+                        self.refuse(reason);
+                    }
+                }
+            }
             Act::Originals => {
                 self.screen.details = false;
                 self.screen.original = true;

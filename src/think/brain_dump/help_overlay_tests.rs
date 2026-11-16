@@ -64,7 +64,7 @@ fn key(app: &mut BrainDump, code: KeyCode) {
 }
 
 #[test]
-fn ten_actions_keep_model_and_calls_reachable_without_spending_calls() {
+fn eleven_actions_keep_model_and_calls_reachable_without_spending_calls() {
     use std::{
         sync::atomic::{AtomicUsize, Ordering},
         time::{Duration, Instant},
@@ -157,14 +157,14 @@ fn ten_actions_keep_model_and_calls_reachable_without_spending_calls() {
             key(&mut app, KeyCode::Right);
             let next = snapshot(width, height, &mut app, mono).unwrap();
             assert!(
-                next.contains("Actions 2/2") && next.contains("1  Model and runs"),
+                next.contains("Actions 2/2") && next.contains("2  Model and runs"),
                 "{next}"
             );
             assert!(next.contains("0 runs left"), "{next}");
             for event in [
-                KeyEvent::new(KeyCode::Char('1'), KeyModifiers::CONTROL),
+                KeyEvent::new(KeyCode::Char('2'), KeyModifiers::CONTROL),
                 KeyEvent::new_with_kind(
-                    KeyCode::Char('1'),
+                    KeyCode::Char('2'),
                     KeyModifiers::NONE,
                     KeyEventKind::Repeat,
                 ),
@@ -193,7 +193,7 @@ fn ten_actions_keep_model_and_calls_reachable_without_spending_calls() {
                     .contains("Actions 1/2")
             );
             key(&mut app, KeyCode::Right);
-            key(&mut app, KeyCode::Char('1'));
+            key(&mut app, KeyCode::Char('2'));
             assert!(app.take_model_request());
             assert!(!app.take_model_request());
             key(&mut app, KeyCode::F(1));

@@ -39,6 +39,8 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   `~/.local/share/tinkery/sessions/` with a record in `~/.local/share/tinkery/think/`.
   Questions offer a suggested answer when available: F1 can copy it for editing; Enter sends.
   F1’s “Add a dump to this conversation” keeps the reading and adds words to the same conversation.
+  After a send, F1’s “Save my words as a thought” saves the original shown on the left.
+  Ctrl-PgUp/PgDn switches originals. Saving changes no reading or goal and calls no model.
   When started in Git, the menu names the repository and the record keeps its origin.
 - **Tend:** active goals form a needs graph. Link or unlink goals, open detail, or copy
   Shape without changing saved sessions. In this repository, `t` opens fresh Think.
