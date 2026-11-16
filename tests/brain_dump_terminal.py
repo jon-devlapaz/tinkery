@@ -79,7 +79,7 @@ def journey(width,height):
    for c in slow:os.write(master,c.encode());time.sleep(0.001)
    await_text('responsive.');stream=time.monotonic()-start;assert stream<1.0,(width,stream)
    send(b'\x15FAIL','FAIL');send(b'\x1bOQ',"Reading couldn't be updated.");notice(b'', 'Reshape failed');assert requests()[2]['fragments'][0]['text']=='Typed';assert requests()[2]['fragments'][0]['start']==0 and requests()[2]['fragments'][0]['end']==5;assert 'keep review evidence' in screen.text();choose('Show your originals','Original 3');send(b'\x1b','keep review evidence')
-   choose('Start a new dump instead','add more');send(b'WAIT','WAIT');send(b'\x1bOQ','Should these added words');send(b'include','include');send(b'\x1bOQ','Thinking…');notice(b'\x1b','Cancelled; original');assert 'keep review evidence' in screen.text()
+   choose('Add a dump to this conversation','add more');send(b'WAIT','WAIT');send(b'\x1bOQ','Should these added words');send(b'include','include');send(b'\x1bOQ','Thinking…');notice(b'\x1b','Cancelled; original');assert 'keep review evidence' in screen.text()
    send(b'\x1b','Back to menu and lose this draft? y / n');assert process.poll() is None
    send(b'n',"Reading couldn't be updated.");absent('lose this draft?')
    send(b'\x03',"Reading couldn't be updated.");absent('lose this draft');send(b'\x1b','Back to menu and lose this draft? y / n');os.write(master,b'y');process.wait(timeout=5);assert process.returncode==0

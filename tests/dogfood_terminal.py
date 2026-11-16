@@ -54,7 +54,7 @@ def journey(w,h):
    # The reading is visible behind help; wait for Escape to close help before another key.
    await_condition(lambda s:'Right now' not in s and 'I think you mean' in s)
    assert 'esc menu' not in screen.text().splitlines()[-1]
-   choose('Start a new dump instead','add more')
+   choose('Add a dump to this conversation','add more')
    send(b'\x1b[200~Also fix a welcome-email typo.\x1b[201~','welcome-email typo')
    send(b'\x1bOQ','Should these added words')
    assert 'Also fix a welcome-email typo.' in screen.text(),screen.text()

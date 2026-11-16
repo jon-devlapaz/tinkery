@@ -112,7 +112,10 @@ fn ten_actions_keep_model_and_calls_reachable_without_spending_calls() {
             key(&mut app, KeyCode::Char('3'));
             key(&mut app, KeyCode::F(1));
             let help = snapshot(width, height, &mut app, mono).unwrap();
-            assert!(help.contains("3  Start a new dump instead"), "{help}");
+            assert!(
+                help.contains("3  Add a dump to this conversation"),
+                "{help}"
+            );
             key(&mut app, KeyCode::Char('3'));
             app.paste("Keep these added words too.");
             key(&mut app, KeyCode::F(2));
