@@ -193,8 +193,9 @@ class ExitDrainTests(unittest.TestCase):
         process = mock.Mock()
         process.poll.return_value = None
         started = time.monotonic()
-        checks = sum(1 for _ in wait_output(reader, process, self.fail,
-                                           started + .06, interval=.01))
+        with mock.patch('terminal_process.sys.stderr', io.StringIO()):
+            checks = sum(1 for _ in wait_output(reader, process, self.fail,
+                                               started + .06, interval=.01))
         self.assertGreaterEqual(time.monotonic() - started, .05)
         self.assertLess(time.monotonic() - started, 1)
         self.assertGreater(checks, 0)
@@ -214,7 +215,8 @@ class ExitDrainTests(unittest.TestCase):
     def test_never_satisfied_predicate_has_a_deadline(self):
         terminal = self.launch("import time; print('TEST running', flush=True); time.sleep(30)")
         started = time.monotonic()
-        with self.assertRaisesRegex(AssertionError, 'predicate deadline'):
+        with mock.patch('terminal_process.sys.stderr', io.StringIO()), \
+             self.assertRaisesRegex(AssertionError, 'predicate deadline'):
             self.wait_for(terminal, lambda: False, .12)
         self.assertGreaterEqual(time.monotonic() - started, .1)
         self.assertLess(time.monotonic() - started, 2)
@@ -234,6 +236,17 @@ class ExitDrainTests(unittest.TestCase):
         self.assertIn('completed_frames_in_wait=1', report)
         self.assertIn(repr(b'\x1b[?2026l\x1b[?2026hTEST unfinished')[2:-1], report)
         self.assertLess(len(report), 4300)
+
+    def test_exhausted_settle_does_not_print_deadline_diagnostics(self):
+        process = mock.Mock()
+        process.poll.return_value = None
+        output = io.StringIO()
+        with mock.patch('terminal_process.select.select', return_value=([], [], [])), \
+             mock.patch('terminal_process.sys.stderr', output):
+            checks = list(wait_output(123, process, self.fail, time.monotonic() + .03,
+                                      interval=.005, report=False))
+        self.assertTrue(checks)
+        self.assertEqual(output.getvalue(), '')
 
     def test_satisfied_wait_does_not_print_deadline_diagnostics(self):
         process = mock.Mock()

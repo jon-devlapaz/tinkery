@@ -1,4 +1,5 @@
 """Run.menu advances only after complete frames, with bounded failure and no discard answer."""
+import io
 import os
 from pathlib import Path
 import tempfile
@@ -44,7 +45,8 @@ class MenuTests(unittest.TestCase):
         with patch('shape_answer_terminal.time.monotonic', lambda: clock[0]), \
              patch('shape_answer_terminal.select.select', select), \
              patch('shape_answer_terminal.os.write', write), \
-             patch('shape_answer_terminal.os.read', lambda *_: pending.pop(0)[1]):
+             patch('shape_answer_terminal.os.read', lambda *_: pending.pop(0)[1]), \
+             patch('terminal_process.sys.stderr', io.StringIO()):
             try:
                 Run.menu(run)
                 error = None

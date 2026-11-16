@@ -53,7 +53,7 @@ def journey(w,h):
    await_condition(lambda s:'┌ Right now ' not in s and 'type confirm' in s,before)
    os.write(master,b'\x1b');await_condition(lambda s:'type confirm' not in s)
    send(b'\x1b','Back to menu and lose this draft? y / n');os.write(master,b'y');process.wait(timeout=5);assert process.returncode==0
-   for _ in wait_output(master,process,raw.extend,wait_deadline()):pass
+   for _ in wait_output(master,process,raw.extend,wait_deadline(),report=False):pass
    assert b'\x1b[?2004l' in raw and b'\x1b[?1006l' in raw and b'\x1b[>0s' in raw
    after=termios.tcgetattr(slave);original[3]&=~getattr(termios,'PENDIN',0);after[3]&=~getattr(termios,'PENDIN',0);assert after==original
    assert {p.name for p in cwd.iterdir()}=={'pi'},'Unexpected persistence'

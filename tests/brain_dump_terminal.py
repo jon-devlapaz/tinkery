@@ -83,7 +83,7 @@ def journey(width,height):
    send(b'\x1b','Back to menu and lose this draft? y / n');assert process.poll() is None
    send(b'n',"Reading couldn't be updated.");absent('lose this draft?')
    send(b'\x03',"Reading couldn't be updated.");absent('lose this draft');send(b'\x1b','Back to menu and lose this draft? y / n');os.write(master,b'y');process.wait(timeout=5);assert process.returncode==0
-   for _ in wait_output(master,process,out.extend,wait_deadline()):pass
+   for _ in wait_output(master,process,out.extend,wait_deadline(),report=False):pass
    assert b'\x1b[?2004l' in out and b'\x1b[?1006l' in out and b'\x1b[>0s' in out
    after=termios.tcgetattr(slave);original[3]&=~getattr(termios,'PENDIN',0);after[3]&=~getattr(termios,'PENDIN',0);assert after==original
    assert {p.name for p in cwd.iterdir()}=={'pi','requests.jsonl'},'Unexpected persistence'

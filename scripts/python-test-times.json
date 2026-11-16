@@ -63,6 +63,7 @@
   "test_shape_confirmation_wait.py": 2.6,
   "test_shape_menu.py": 2.1,
   "test_tend_repo_terminal.py": 0.1,
+  "test_terminal_journey_waits.py": 17.2,
   "test_terminal_process.py": 0.7,
   "test_verification_runner.py": 0.1,
   "test_vt_screen.py": 0.1,

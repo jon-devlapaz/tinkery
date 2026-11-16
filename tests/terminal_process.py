@@ -21,12 +21,13 @@ def wait_deadline(seconds=5):
     return time.monotonic() + seconds * scale
 
 
-def wait_output(master, process, consume, deadline, *, interval=.02):
+def wait_output(master, process, consume, deadline, *, interval=.02, report=True):
     """Yield the observed return code after reading, draining output on exit.
 
     The absolute monotonic deadline bounds reads and exit draining. Callers own
-    success and frame readiness. An exhausted deadline reports the last 4096 raw
-    bytes and completed frames observed during this wait. EOF and an exited PTY's
+    success and frame readiness. Unless report=False marks deliberate exhaustion,
+    an exhausted deadline reports the last 4096 raw bytes and completed frames
+    observed during this wait. EOF and an exited PTY's
     EIO finish a read pass; other read errors remain failures. No frame is required here.
     """
     raw = bytearray()
@@ -66,8 +67,9 @@ def wait_output(master, process, consume, deadline, *, interval=.02):
         yield returncode
         if returncode is not None:
             return
-    print(f'PTY wait deadline: completed_frames_in_wait={frames}; raw_tail={bytes(raw)!r}',
-          file=sys.stderr)
+    if report:
+        print(f'PTY wait deadline: completed_frames_in_wait={frames}; raw_tail={bytes(raw)!r}',
+              file=sys.stderr)
 
 
 class TerminalProcess:

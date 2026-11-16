@@ -359,7 +359,8 @@ class Terminal:
                 break
         before = self.screen.text()
         os.write(self.master, END)
-        for _ in wait_output(self.master, self.process, consume, time.monotonic() + 0.3):
+        for _ in wait_output(self.master, self.process, consume, time.monotonic() + 0.3,
+                             report=False):
             pass
         raise AssertionError(before + '\nEnd of screen:\n' + self.screen.text()
                              + '\nCalls:\n' + json.dumps(self.fixture.calls(), indent=2))

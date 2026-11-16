@@ -53,7 +53,7 @@ def journey(width, height, no_color):
             os.write(run.master, run.screen.pick('Copy the reading'))
             deadline = wait_deadline(8)
             for _ in wait_output(run.master, run.process, run.screen.feed, deadline):
-                if len(run.screen.clipboards) > count and not run.screen.synchronized:
+                if len(run.screen.clipboards) > count and run.screen.ready():
                     paper = run.screen.clipboards[-1]
                     goal = paper.split('## I think this is about… / guess\n\n', 1)[1]
                     return paper, goal.split('\n\nSupporting words:', 1)[0]
@@ -68,12 +68,12 @@ def journey(width, height, no_color):
             for _ in range(80):
                 right = ' '.join(' '.join(line[width * 48 // 100 + 2:]
                                          for line in run.screen.text().splitlines()).split())
-                if text in right and not run.screen.synchronized:
+                if text in right and run.screen.ready():
                     return
                 before = run.screen.text()
                 os.write(run.master, b'\x1b[6~')
                 for _ in wait_output(run.master, run.process, run.screen.feed, deadline):
-                    if not run.screen.synchronized and run.screen.text() != before:
+                    if run.screen.ready() and run.screen.text() != before:
                         break
                 else:
                     break
@@ -172,16 +172,24 @@ def journey(width, height, no_color):
             assert 'framings' not in first_history and 'structure-spans-history' not in first_history
             # Walk one row at a time so the full answer is checked through the real viewport.
             visible = '\n'.join(first_history.splitlines()[5:height - 1])
+            def history_changed(keys):
+                before = run.screen.text()
+                os.write(run.master, keys)
+                for code in wait_output(run.master, run.process, run.screen.feed, wait_deadline(8)):
+                    if run.screen.ready() and run.screen.text() != before:
+                        return run.screen.text()
+                    if code is not None:
+                        break
+                raise AssertionError(f'History did not advance:\n{run.screen.text()}')
+
+            end = history_changed(b'\x1b[F')
+            assert 'Must not: Change tool configuration.' in end, end
+            assert history_changed(b'\x1b[H') == first_history
             previous = first_history
             for _ in range(180):
-                os.write(run.master, b'\x1b[B')
-                deadline = time.monotonic() + .5
-                for _ in wait_output(run.master, run.process, run.screen.feed, deadline):
-                    if not run.screen.synchronized and run.screen.text() != previous:
-                        break
-                current = run.screen.text()
-                if current == previous:
+                if previous == end and 'Confirmed goal' in visible:
                     break
+                current = history_changed(b'\x1b[B')
                 visible += current.splitlines()[height - 2]
                 previous = current
             else:

@@ -30,7 +30,8 @@ def correction(root):
 
 
 def settle(term):
-    for _ in flow.wait_output(term.master, term.process, term.screen.feed, time.monotonic()+.15):
+    for _ in flow.wait_output(term.master, term.process, term.screen.feed, time.monotonic()+.15,
+                              report=False):
         pass
 
 

@@ -9,6 +9,7 @@ import shape_answer_terminal as shape
 import test_shape_confirmation_wait as confirmation
 import tend_thought_terminal as thoughts
 import think_history_terminal as history
+import think_delivery_terminal as delivery
 
 
 class JourneyWaitTests(unittest.TestCase):
@@ -79,6 +80,29 @@ class JourneyWaitTests(unittest.TestCase):
 
         with mock.patch.object(thoughts.flow, 'send', side_effect=delayed_reader):
             thoughts.unreadable((80, 24))
+
+    def test_delivery_reads_to_its_known_end_after_a_delayed_down_key(self):
+        write = os.write
+        close = delivery.Run.close
+        delayed = []
+
+        def hold_input(fd, data):
+            if data == b'\x1b[B' and not delayed:
+                timer = threading.Timer(.75, write, args=(fd, data))
+                delayed.append(timer)
+                timer.start()
+                return len(data)
+            return write(fd, data)
+
+        def close_after_delivery(run):
+            for timer in delayed:
+                timer.join()
+            return close(run)
+
+        with mock.patch('os.write', side_effect=hold_input), \
+             mock.patch.object(delivery.Run, 'close', close_after_delivery):
+            delivery.journey(80, 24, True)
+        self.assertEqual(len(delayed), 1)
 
     def test_history_reads_to_its_known_end_after_a_delayed_down_key(self):
         write = os.write
