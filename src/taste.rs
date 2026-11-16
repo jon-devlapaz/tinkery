@@ -736,7 +736,7 @@ fn handoff(row: &ResultRow, action: char) -> Result<String, &'static str> {
     };
     Ok(format!(
         concat!(
-            "{} requested: {} @{}; run {} ({}); Tink Contract digest {}. Goal (unchanged):\n{}\n",
+            "{} requested: {} @{}; run {} ({}); seed digest {}. Goal (unchanged):\n{}\n",
             "Evidence and unresolved conditions: {}. Gates owed: {}. Source gaps: {}. ",
             "Recheck current PR head, inputs and receipts; resolve gates and inspect this exact result ",
             "before recording any decision externally. Add the operator's requested changes externally. ",

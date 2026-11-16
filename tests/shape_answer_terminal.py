@@ -1257,7 +1257,7 @@ def completion_reviews(width, height):
                 run.wait('enter look into the next question')
                 before = files(run.sessions)
                 expected = {'missing': 'needs a typed completion review', 'untyped': 'needs a typed completion review',
-                            'missing case': 'exactly one failure case', 'blocker': 'Return it as a question',
+                            'missing case': 'exactly one failure case', 'blocker': 'Return the blocker as a question',
                             'question': 'TEST choices conflict; local or synced?'}[kind]
                 run.send(F2, expected)
                 assert len(run.calls()) == 1 and not (session / 'seed-contract.md').exists()
