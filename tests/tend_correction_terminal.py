@@ -13,8 +13,8 @@ import tend_connection_terminal as flow
 EVIDENCE = Path(os.environ['TINKERY_CORRECTION_EVIDENCE']) if os.environ.get('TINKERY_CORRECTION_EVIDENCE') else None
 
 def capture(term, name):
+    settle(term)
     if EVIDENCE:
-        settle(term)
         EVIDENCE.mkdir(parents=True, exist_ok=True)
         (EVIDENCE/(name+'.txt')).write_text(term.screen.text())
 
@@ -82,6 +82,7 @@ def journey(size):
             assert set(request)=={'repo','sources','model','thinking','harness','prompt','correction'}
             assert request['correction']==stored['correction']
             assert '--no-tools' in flow.requests(root)[-1]['args']
+            settle(term)
             assert 'operator guidance' in term.screen.text(),term.screen.text()
             lines=term.screen.text().splitlines()
             assert any(line.strip()=='Keep exact words: café.' for line in lines),term.screen.text()
