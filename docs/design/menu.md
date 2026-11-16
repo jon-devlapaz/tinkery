@@ -2,8 +2,8 @@
 
 | Key | Place | Scope |
 | --- | --- | --- |
-| 1 | think | Refine, review and explicitly save a goal. |
-| 2 | tend | Explore active goals, needs, history and opening Shape. |
+| 1 | think | Clarify a goal or save a thought |
+| 2 | tend | Your goals and thoughts |
 | 3 | shape | Read seed status; with a model and budget, answer and confirm ([Shape](shape-and-handoff.md#shape)). |
 | 4 | approve | Read verified seeds not yet started and copy one runnable manual intake command ([Approve](approve.md)). |
 | 5 | watch | Read runs with their matched goals in one named tink-sdlc checkout, waiting runs first ([Watch](watch.md)). |

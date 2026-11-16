@@ -268,7 +268,7 @@ impl Garden {
     /// Render the labelled local record. Rendering reads no files.
     pub(crate) fn render(&mut self, frame: &mut Frame, area: Rect, palette: Palette) {
         let heading = format!(
-            "Saved thoughts\nRepository: {}\ng opens these words in Think, unsent. Confirm a goal there. No Shape.{}",
+            "Saved thoughts\nRepository: {}\ng copies these words into Think, unsent.{}",
             self.repo.display(),
             if self.unreadable > 0 {
                 format!("\n{} thoughts could not be read.", self.unreadable)

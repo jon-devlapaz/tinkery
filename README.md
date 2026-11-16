@@ -11,8 +11,8 @@ without losing your words or your control. Nothing runs without you: one next st
 
 | Place | Purpose |
 | --- | --- |
-| **Think** | Clarify what you want: one reading, one question at a time. |
-| **Tend** | Choose a saved goal and open its detail. |
+| **Think** | Clarify a goal or save a thought. |
+| **Tend** | Your goals and thoughts. |
 | **Shape** | Investigate and turn the goal into a confirmed seed. |
 | **Approve** | Understand the decision and exactly what you're authorizing. |
 | **Watch** | See progress, blockers and decisions needing your attention. |
@@ -48,7 +48,7 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   Thoughts appear beside goals as violet hollow diamonds, distinct without colour.
   Arrows select a node. Enter opens its original words. Esc returns to the same thought.
   The status line names the save result. `v` still reads thoughts.
-  `g` opens one in Think, unsent. The thought stays on record after goal confirmation.
+  The reader says `g copies these words into Think, unsent.` The thought stays on record after goal confirmation.
   In this repository, press `f` to review an
   automatic connection between goals. An explicit `F2` uses one drafting request.
   Review the sources, press `p` to edit the proposed goal, then `F2` to save and open Shape.
