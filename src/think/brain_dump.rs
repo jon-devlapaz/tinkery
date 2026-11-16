@@ -819,6 +819,7 @@ impl BrainDump {
     /// Advances time: lands a finished reading or save and reads voice events. Never blocks.
     pub fn tick(&mut self) {
         self.voice_tick();
+        self.end_stale_save();
         self.goal_tick();
         if let Some(result) = self.shaping.job.as_ref().and_then(Job::poll) {
             self.shaping.encoded_bytes = None;
@@ -863,20 +864,17 @@ impl BrainDump {
 
     /// Bracketed paste into whatever has focus. Never sends.
     pub fn paste(&mut self, text: &str) {
-        let saved = self.thought_save_shown().then(|| self.input.text.clone());
         self.paste_input(text);
-        self.end_stale_save(saved);
+        self.end_stale_save();
     }
 
-    /// Whether the last fresh-input save result is still on screen.
-    fn thought_save_shown(&self) -> bool {
-        self.notice.starts_with("Thought saved · ")
-            || self.notice.starts_with("Thought already saved · ")
-    }
-
-    /// A save result describes the words it saved; new words make it stale, so it goes.
-    fn end_stale_save(&mut self, before: Option<String>) {
-        if before.is_some_and(|before| before != self.input.text) && self.thought_save_shown() {
+    /// A save clears the input, so its result belongs to an empty box. Any new words, typed,
+    /// pasted or dictated, make it stale, so it goes and does not come back.
+    fn end_stale_save(&mut self) {
+        if !self.input.text.is_empty()
+            && (self.notice.starts_with("Thought saved · ")
+                || self.notice.starts_with("Thought already saved · "))
+        {
             self.notice.clear();
         }
     }
@@ -1028,9 +1026,8 @@ impl BrainDump {
     /// One key press. Releases and F2 below the minimum size are ignored;
     /// navigation and copying never send or save.
     pub fn handle_key(&mut self, key: KeyEvent) {
-        let saved = self.thought_save_shown().then(|| self.input.text.clone());
         self.key_input(key);
-        self.end_stale_save(saved);
+        self.end_stale_save();
     }
 
     fn key_input(&mut self, key: KeyEvent) {
