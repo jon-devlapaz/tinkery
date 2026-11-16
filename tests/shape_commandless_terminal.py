@@ -6,6 +6,7 @@ import tempfile
 
 from shape_answer_terminal import ESC, F2, Run, SEED, completion_review, files, helper, make as goal_session
 from shape_terminal import make, seed
+from terminal_process import wait_deadline, wait_output
 
 SIGNOFF = "agent evidence can't sign it off"
 READING = "1 judged check: a person signs it off after seeing the built result; agent evidence can't."
@@ -96,8 +97,32 @@ def contract_journey(width, height, agent):
             run.send(F2, stale_notice)
             run.wait('Edit check 2 Guest browser draft stays isolated')
             run.wait('TEST UNSAVED CORRECTION')
-            run.send(F2, 'Saving your check. No model runs.')
+            def sync_marker(data, marker):
+                marker_input = b'\x1b[200~' + marker.encode() + b'\x1b[201~'
+                after = run.screen.frames
+                deadline = wait_deadline(20)
+                os.write(run.master, data + marker_input)
+                for returncode in wait_output(run.master, run.process, run.screen.feed, deadline):
+                    if run.screen.ready(after):
+                        after = run.screen.frames
+                        view = run.flat()
+                        shown = marker.strip() in view
+                        saving = 'Saving your check. No model runs.' in view
+                        if shown and stale_notice in view and not saving:
+                            return
+                        if not shown and not saving:
+                            os.write(run.master, marker_input)
+                    if returncode is not None:
+                        raise AssertionError(f'Exited before the editor accepted {marker!r}:\n{run.screen.text()}')
+                raise AssertionError(f'The editor did not accept {marker!r}:\n{run.screen.text()}')
+
+            lock = session / '.writer.lock'
+            lock.unlink(missing_ok=True)
+            sync_marker(b'', ' TEST IDLE SYNC')
+            assert not lock.exists(), 'Idle editor input reached the writer.'
+            sync_marker(F2, ' TEST RETRY SYNC')
             run.wait(stale_notice)
+            assert lock.exists(), 'The stale retry did not reach the writer.'
             assert files(session) == other_writer, 'A stale retry overwrote the new card.'
             run.send(ESC, 'How to judge cancelled. Nothing was saved.')
             helper.set_checks(session, current)
