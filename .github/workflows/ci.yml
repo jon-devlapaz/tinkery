@@ -59,11 +59,8 @@ jobs:
   style:
     needs: scope
     if: needs.scope.outputs.docs_only != 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest"]') }}
-    runs-on: ${{ matrix.os }}
+    # fmt is OS-independent. Clippy on Ubuntu skips only macOS-only cfg code, which the macOS rust job still compiles.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

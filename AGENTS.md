@@ -86,7 +86,7 @@ It prints the verification exports and can be rerun safely. It downloads only
 prerequisite packages, not providers, microphones, native voice engines or speech models.
 Apt may need root or sudo.
 
-CI uses stable Rust: Ubuntu on pull requests, Ubuntu and macOS on `main`; use that updated stable for Clippy.
+CI uses stable Rust: Ubuntu on pull requests, Ubuntu and macOS on `main` (fmt and Clippy run on Ubuntu only); use that updated stable for Clippy.
 Never alter operator toolchains without approval. On macOS, provision Rust, Python 3
 and Node separately (bootstrap refuses macOS). No external skill checkout or other
 developer's files are needed.

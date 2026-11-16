@@ -224,10 +224,15 @@ class WorkflowGateTests(unittest.TestCase):
         for job, following in zip(jobs, (*jobs[1:], 'cold-clone')):
             body = self.workflow.split(f"\n  {job}:\n", 1)[1].split(f"\n  {following}:\n", 1)[0]
             with self.subTest(job=job):
-                self.assertIn("""fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' """
-                              """|| '["ubuntu-latest", "macos-latest"]')""", body)
+                if job == 'style':
+                    # OS-independent lint runs once, on Ubuntu, for pull requests and main.
+                    self.assertIn("    runs-on: ubuntu-latest\n", body)
+                    self.assertNotIn("macos", body)
+                else:
+                    self.assertIn("""fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' """
+                                  """|| '["ubuntu-latest", "macos-latest"]')""", body)
+                    self.assertIn("      fail-fast: false\n", body)
                 self.assertIn("    needs: scope\n", body)
-                self.assertIn("      fail-fast: false\n", body)
                 self.assertIn(f"python3 scripts/full-check.py --group {job}", body)
                 self.assertIn(f"${{{{ needs.{job}.result }}}}", self.workflow)
         self.assertNotIn("continue-on-error:", self.workflow)
