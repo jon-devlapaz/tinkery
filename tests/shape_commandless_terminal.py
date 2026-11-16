@@ -6,6 +6,7 @@ import tempfile
 
 from shape_answer_terminal import ESC, F2, Run, SEED, completion_review, files, helper, make as goal_session
 from shape_terminal import make, seed
+from terminal_process import wait_deadline, wait_output
 
 SIGNOFF = "agent evidence can't sign it off"
 READING = "1 judged check: a person signs it off after seeing the built result; agent evidence can't."
@@ -96,7 +97,20 @@ def contract_journey(width, height, agent):
             run.send(F2, stale_notice)
             run.wait('Edit check 2 Guest browser draft stays isolated')
             run.wait('TEST UNSAVED CORRECTION')
-            run.send_frame(F2, 'Saving your check. No model runs.')
+            marker = ' TEST RETRY SYNC'
+            marker_input = b'\x1b[200~' + marker.encode() + b'\x1b[201~'
+            deadline = wait_deadline(20)
+            os.write(run.master, F2 + marker_input)
+            for returncode in wait_output(run.master, run.process, run.screen.feed, deadline):
+                view = run.flat()
+                if (run.screen.ready() and marker.strip() in view and stale_notice in view
+                        and 'Saving your check. No model runs.' not in view):
+                    break
+                if returncode is not None:
+                    raise AssertionError(f'Exited before the stale retry finished:\n{run.screen.text()}')
+                os.write(run.master, marker_input)
+            else:
+                raise AssertionError(f'The stale retry did not finish:\n{run.screen.text()}')
             run.wait(stale_notice)
             assert files(session) == other_writer, 'A stale retry overwrote the new card.'
             run.send(ESC, 'How to judge cancelled. Nothing was saved.')
