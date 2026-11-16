@@ -280,7 +280,7 @@ def journey(width, height, case, no_color):
                 assert not copies(), 'mismatched repo offered a copy'
             elif case == 'no-script':
                 wait(lambda: 'Seed 1 of 2' in flat())
-                send(b'\x1b[F', 'Cannot copy: name a checkout with tink-sdlc installed')
+                send(b'\x1b[F', 'Cannot copy: a project with tink-sdlc is required.')
                 assert 'c copy command' not in flat() and 'python3 _system' not in flat(), screen.text()
                 os.write(master, b'bc')
                 send(b'\x1b', '4 approve')
