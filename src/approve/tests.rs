@@ -378,7 +378,7 @@ fn different_origin_stays_readable_without_command_or_copy() {
     origin_visit(
         "different",
         Some(
-            "Made in TEST-other, not the checkout you named (TEST-checkout). To start it, reopen Tinkery with --sdlc-root naming TEST-other.",
+            "Made in TEST-other. Current project: TEST-checkout. To start it, reopen Tinkery with --sdlc-root naming TEST-other.",
         ),
         false,
     );

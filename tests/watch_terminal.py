@@ -124,7 +124,7 @@ def journey(width, height, no_color, configured=True):
         try:
             wait(lambda: '1  think' in screen.text())
             if not configured:
-                send(b'5', 'Start Tinkery with --sdlc-root PATH')
+                send(b'5', 'Open Tinkery from a project with tink-sdlc installed.')
                 assert not log.exists(), 'nothing runs without a named checkout'
                 send(b'\x1b', '1  think')
             else:

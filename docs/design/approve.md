@@ -11,7 +11,8 @@ The menu supplies its existing session discovery result, without Tend's reposito
 filter. Approve reads across that configured session root, oldest update first.
 The menu also supplies its Think record root. Once per visit, Approve's worker reads
 origins through `think_record::read_origins`, using the existing live identity and
-exact-goal checks. Each visit resolves the named checkout once. Approve uses that path
+exact-goal checks. Each visit resolves the [selected checkout](watch.md#source) once.
+Approve uses that path
 to find its enclosing repository, read run status and prepare the copied command.
 Reopening Approve reads the current destination of a checkout symlink. Repository
 comparison uses `Repo::enclosing` and never reads `.git` contents.
@@ -64,7 +65,7 @@ The goal and acceptance checks precede the manual handoff explanation and comman
 cd '<named checkout>' && python3 _system/scripts/sdlc.py new seed-title && python3 _system/scripts/sdlc.py stage seed-title 1 --seed-contract '<seed path>' --tinkery '<Tinkery executable path>'
 ```
 
-One shell line changes to the explicitly named `--sdlc-root`, creates a run and
+One shell line changes to the selected checkout, creates a run and
 imports its seed and checks for definition review. The default slug comes from the
 seed's H1 title (without `Seed:`): whole lowercase ASCII words joined by hyphens,
 at most 40 characters, so folder, Watch and Taste rows stay scannable; only a first
@@ -81,7 +82,7 @@ Older records, missing or unreadable Think records, and an unresolvable checkout
 leave the origin unknown; a muted note says so without adding a copy refusal.
 A known origin outside any repository likewise keeps copy with a muted note.
 These readings establish where Think ran, not what the goal concerns or whether it
-has started elsewhere. Without `--sdlc-root`, origin handling changes nothing.
+has started elsewhere. Origin handling requires a selected checkout.
 Copy uses the existing OSC 52 transport. Success says “Copied. Run it in a terminal;
 after it succeeds, open Watch.” Failure keeps its retry notice; selecting another
 seed clears feedback. For
@@ -107,9 +108,9 @@ The footer always retains navigation. When the reading doesn't fit, its last row
 Empty state points to Shape or Watch.
 [SDLC handoff](shape-and-handoff.md#sdlc-handoff) owns the exact join: matching
 started seeds are hidden. Changed or unavailable originals get an unknown-start
-notice and a Shape recovery step, not a waiting claim. Without `--sdlc-root`, or
-if the runs cannot be read, say `Can't tell which seeds have started; none are hidden.`
-and how to check. Opening reads only that checkout's status; it discovers no checkout.
+notice and a Shape recovery step, not a waiting claim. If the project is missing or
+the runs cannot be read, say `Can't tell which seeds have started; none are hidden.`
+and how to check.
 Help retains the bounded reasons. Unknown start classification never conceals a
 verified seed or justifies a complete empty-waiting claim.
 

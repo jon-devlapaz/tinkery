@@ -439,12 +439,12 @@ unmatchable or malformed record ([Evidence](../yohaku.md#3-claims-stop-where-evi
 This is a read-time snapshot, not
 permission or a live freshness claim.
 
-Only an explicitly named `--sdlc-root` is read. Missing configuration, unreadable
+Only the [selected checkout](watch.md#source) is read. A missing project, unreadable
 runs or absent/unsupported seed records mean Approve cannot tell which seeds have
 started and hides none ([Evidence](../yohaku.md#3-claims-stop-where-evidence-stops)).
 A readable null record establishes no join.
 The shared `sdlc` boundary owns status reads and matching; `seed_me` alone reads
-the session's files. There is no checkout discovery, source mutation or new store.
+the session's files. Source files and stores stay read-only during the check.
 
 Goal and seed confirmation, SDLC definition approval and implementation permission
 are separate decisions. External tink-sdlc intake preserves the confirmed seed and

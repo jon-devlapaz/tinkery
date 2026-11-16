@@ -102,10 +102,10 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   Intake rechecks the seed through this executable with `--tinkery PATH`.
   A seed known to come from another repository stays readable but cannot be copied
   into the named checkout; unknown origins keep copy with a note.
-  Seeds already started move to Watch; without a named checkout, start status is unknown.
-  See [Approve](docs/design/approve.md).
-- **Watch:** with `--sdlc-root PATH`, reads that tink-sdlc checkout's runs through its own
-  `status --json` when opened or on `r`, runs waiting on you first. Matched runs show their
+  Seeds already started move to Watch. See [Approve](docs/design/approve.md).
+- **Watch:** reads the project's runs when opened or on `r`, with runs waiting on you first.
+  Approve and Watch use the project you opened Tinkery from if tink-sdlc is installed
+  there. Use `--sdlc-root PATH` to choose another project. Matched runs show their
   exact saved goal; changed or missing originals stay unknown. It runs only read-only
   status commands and changes no records. An optional `--codex-report RUN_UUID:CHAT_ID:PATH`
   adds one saved Codex observation and suggested next step, with its original time and age.

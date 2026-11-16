@@ -202,7 +202,7 @@ def journey(width, height, case, no_color):
                         # One parent contains a literal backslash followed by t, the other a tab.
                         named = json.dumps(str(checkout), ensure_ascii=False)
                         origin = json.dumps(str(other), ensure_ascii=False)
-                        expected_note = (f'You named {named}. Reopen Tinkery with --sdlc-root naming '
+                        expected_note = (f'Using {named}. Reopen Tinkery with --sdlc-root naming '
                                          f'{origin}, where this seed was made.')
                         # The terminal can wrap paths in the middle of a word.
                         assert ''.join(expected_note.split()) in ''.join(flat().split()), screen.text()
@@ -271,8 +271,8 @@ def journey(width, height, case, no_color):
             elif case == 'different-repo':
                 wait(lambda: 'Seed 1 of 2' in flat())
                 assert 'TEST oldest café' in flat() and 'TEST original goal.' in flat(), screen.text()
-                send(b'\x1b[F', 'Made in TEST-other-repo,')
-                assert "not the checkout you named (TEST checkout's folder)." in flat(), screen.text()
+                send(b'\x1b[F', 'Made in TEST-other-repo.')
+                assert "Current project: TEST checkout's folder." in flat(), screen.text()
                 assert 'To start it, reopen Tinkery with --sdlc-root naming TEST-other-repo.' in flat(), screen.text()
                 assert 'c copy command' not in flat() and 'python3' not in flat(), screen.text()
                 os.write(master, b'c')
@@ -280,7 +280,7 @@ def journey(width, height, case, no_color):
                 assert not copies(), 'mismatched repo offered a copy'
             elif case == 'no-script':
                 wait(lambda: 'Seed 1 of 2' in flat())
-                send(b'\x1b[F', 'Cannot copy: name a checkout with tink-sdlc installed')
+                send(b'\x1b[F', 'Cannot copy: a project with tink-sdlc is required.')
                 assert 'c copy command' not in flat() and 'python3 _system' not in flat(), screen.text()
                 os.write(master, b'bc')
                 send(b'\x1b', '4 approve')

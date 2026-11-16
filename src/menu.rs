@@ -16,7 +16,7 @@ use std::{
 };
 
 use crate::{
-    Palette, approve, measure, seed_me,
+    Palette, approve, measure, sdlc, seed_me,
     shape::{Leave, Shape},
     taste::Taste,
     tend::{self, Discovery, Source, Tend},
@@ -145,7 +145,7 @@ impl Home {
         self
     }
 
-    /// The one tink-sdlc checkout the read-only run views use; absent roots explain configuration.
+    /// Override the launch project for Approve and Watch, and select the checkout for Taste.
     pub fn with_sdlc_root(mut self, root: Option<PathBuf>) -> Self {
         self.sdlc_root = root;
         self
@@ -498,6 +498,15 @@ impl Home {
         }
     }
 
+    fn approve_watch_root(&self) -> Option<PathBuf> {
+        self.sdlc_root.clone().or_else(|| {
+            let root = self.repo.as_ref()?.root();
+            root.join(sdlc::SCRIPT)
+                .is_file()
+                .then(|| root.to_path_buf())
+        })
+    }
+
     /// Opens a place. Opening tend asks for a fresh scan; opening never starts an agent.
     pub fn open(&mut self, place: Place) {
         if self.quit {
@@ -539,10 +548,10 @@ impl Home {
             }
             Place::Approve => {
                 self.request_sessions();
-                View::Approve(Box::new(approve::Approve::open(self.sdlc_root.clone())))
+                View::Approve(Box::new(approve::Approve::open(self.approve_watch_root())))
             }
             Place::Watch => View::Watch(Box::new(
-                Watch::open(self.sdlc_root.clone()).with_codex_report(self.codex_report.clone()),
+                Watch::open(self.approve_watch_root()).with_codex_report(self.codex_report.clone()),
             )),
             Place::Taste => View::Taste(Box::new(Taste::open(self.sdlc_root.clone(), self.agent))),
             Place::Measure => View::Measure(Box::new(measure::Measure::open(self.repo.clone()))),
@@ -568,7 +577,7 @@ impl Home {
         self.selected = Place::Approve;
         self.help = false;
         self.view = View::Approve(Box::new(
-            approve::Approve::open(self.sdlc_root.clone()).for_seed(target),
+            approve::Approve::open(self.approve_watch_root()).for_seed(target),
         ));
         self.approve_origin = Some(origin);
         self.sync_approve();
@@ -1702,8 +1711,8 @@ mod tests {
             "Clarify a goal or save a thought",
             "Your goals and thoughts",
             "Prepare a brief",
-            "Prepare work for approval",
-            "See work status",
+            "Show work to approve using the project's status script",
+            "Read runs with the project's status script",
             "Review a result",
             "Browse recent pull requests",
         ];

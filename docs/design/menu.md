@@ -6,7 +6,7 @@
 | 2 | tend | Your goals and thoughts |
 | 3 | shape | Read seed status; with a model and budget, answer and confirm ([Shape](shape-and-handoff.md#shape)). |
 | 4 | approve | Read verified seeds not yet started and copy one runnable manual intake command ([Approve](approve.md)). |
-| 5 | watch | Read runs with their matched goals in one named tink-sdlc checkout, waiting runs first ([Watch](watch.md)). |
+| 5 | watch | Read runs with their matched goals in the [selected tink-sdlc project](watch.md#source), waiting runs first ([Watch](watch.md)). |
 | 6 | taste | Review an exact result against its unchanged goal; open its PR or copy an external review handoff ([Taste](taste.md)). |
 | 7 | measure | This repo's recent pull requests and closed runs, each read only on explicit request; record counts, never scores or acceptance claims. |
 

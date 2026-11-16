@@ -1,4 +1,4 @@
-//! Watch: the runs in the one tink-sdlc checkout the operator named, read through its own
+//! Watch: the runs in the selected tink-sdlc project, read through its own
 //! list and per-run `status --json` (API 1) when Watch opens or the operator presses `r`. Runs waiting on a
 //! person come first. An optional bound Codex report adds a saved observation, never live status
 //! or completion evidence. It never runs verify, mark, decide, stage or
@@ -626,7 +626,8 @@ impl Watch {
     pub(crate) fn help_text(&self) -> &'static str {
         concat!(
             "Right now\n↑↓ choose · Enter details · r read again · b worker controls · Esc back · ? help\n\n",
-            "What Watch does\nIt reads the runs in the tink-sdlc checkout you named with --sdlc-root, ",
+            "What Watch does\nWatch uses the project you opened Tinkery from. Use --sdlc-root to choose another.\n",
+            "It reads runs ",
             "by running that checkout's own `python3 _system/scripts/sdlc.py status --json` when you open ",
             "Watch or press r. Watch changes nothing. b opens the separate worker controls; only their named action keys execute work.\n\n",
             "Needs you lists decisions, owed attestations, possible attestation rechecks, workers whose turn ended, unconfirmed launches, ",
@@ -658,9 +659,11 @@ impl Watch {
         );
         let Some(root) = &self.root else {
             frame.render_widget(
-                Paragraph::new("Watch reads the runs in one tink-sdlc checkout you name.\n\nStart Tinkery with --sdlc-root PATH to choose it. Nothing is discovered or run until you do.")
-                    .wrap(Wrap { trim: false })
-                    .style(palette.ink),
+                Paragraph::new(
+                    "No project found.\nOpen Tinkery from a project with tink-sdlc installed.",
+                )
+                .wrap(Wrap { trim: false })
+                .style(palette.ink),
                 body,
             );
             return;
