@@ -117,13 +117,12 @@ fn fresh_input_names_choose_and_ctrl_s_keeps_exact_words_without_sending() {
         "a new line or paste sent"
     );
     app.handle_key(KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL));
+    assert_eq!(*app.exit(), Exit::Stay);
     assert_eq!(
-        *app.exit(),
-        Exit::Garden {
-            words: "\n\nTEST kept\r\nwords".into(),
-            duplicate: false
-        }
+        app.take_thought_saved(),
+        Some(("\n\nTEST kept\r\nwords".into(), false))
     );
+    assert!(app.input.text.is_empty());
     assert!(app.conversation.sources().is_empty());
     assert_eq!(std::fs::read_dir(&store).unwrap().count(), 1);
 }
@@ -274,13 +273,14 @@ fn fresh_enter_and_choice_enter_never_send_without_a_digit() {
             key(&mut app, KeyCode::Enter);
             key(&mut app, KeyCode::Char('2'));
             assert_eq!(host.0.load(Ordering::SeqCst), 0);
-            assert_eq!(
-                app.exit(),
-                &Exit::Garden {
-                    words: exact.clone(),
-                    duplicate: false
-                }
+            assert_eq!(app.exit(), &Exit::Stay);
+            assert_eq!(app.take_thought_saved(), Some((exact.clone(), false)));
+            let screen = snapshot(w, h, &mut app, true).unwrap();
+            assert!(
+                screen.contains("Thought saved · t in Tend shows it"),
+                "{screen}"
             );
+            assert!(!screen.contains("1  Clarify into a goal"), "{screen}");
             let saved: serde_json::Value = serde_json::from_slice(
                 &std::fs::read(
                     std::fs::read_dir(store)

@@ -9,6 +9,11 @@ Before the first send, Enter (or F2) opens a choice above the key bar:
 Only a fresh, unmodified digit picks. Enter, repeated keys and paste never pick.
 Esc returns to writing with exact words unchanged. Without thought storage, option 2
 says it is unavailable and names the reason. Ctrl+S and F3 still save directly.
+A durable fresh-input save or verified duplicate clears the box and stays in Think.
+A muted line says `Thought saved · t in Tend shows it` for a new thought.
+For a duplicate, it says `Thought already saved · t in Tend shows it`.
+The next Tend visit selects the latest saved thought and shows its save result.
+A failed or uncertain save keeps the words.
 After the first send, Enter sends directly. F1’s “Save my words as a thought” saves
 the exact submitted original shown on the left, without a model call. Ctrl-PgUp/PgDn
 switches originals when more than one was sent. A duplicate keeps one thought record.

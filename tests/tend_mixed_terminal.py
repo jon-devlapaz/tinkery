@@ -134,7 +134,7 @@ def thoughts_only_and_empty(size):
             flow.wait(term, 'No active goals are recorded')
             flow.send(term, b't', 'enter choose')
             thought.paste(term, SECOND)
-            flow.send(term, b'\x1bOR', 'Thought saved.')
+            thought.save_and_visit_tend(term)
             flow.send(term, b'\r', 'TEST exact second original')
             flow.send(term, b'\x1b', 'Thought: TEST same first words')
             assert 'No active goals are recorded' not in term.screen.text()
@@ -166,7 +166,7 @@ def save_feedback_stays_with_original(size):
                                   (museum, 'Thought already saved.')]:
                 flow.send(term, b't', 'enter choose')
                 thought.paste(term, words)
-                screen = flow.send(term, b'\x1bOR', result)
+                screen = thought.save_and_visit_tend(term, expected=result)
                 assert result in screen.splitlines()[-3], screen
                 if words == museum:
                     screen = flow.send(term, b'\x1b[D', 'Thought: TEST colour weather:')

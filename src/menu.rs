@@ -71,6 +71,7 @@ pub struct Home {
     worker_panel: Option<worker::Panel>,
     quit_after_worker: bool,
     connection: Option<tend::connection::Panel>,
+    thought_saved: Option<(String, bool)>,
 }
 
 enum View {
@@ -134,6 +135,7 @@ impl Home {
             worker_panel: None,
             quit_after_worker: false,
             connection: None,
+            thought_saved: None,
         }
     }
 
@@ -273,11 +275,10 @@ impl Home {
             history.finish(result);
         }
         let mut tend_request = None;
-        let mut garden_request = None;
         if let View::Think(dump) = &mut self.view {
             dump.tick();
-            if let Exit::Garden { words, duplicate } = dump.exit() {
-                garden_request = Some((words.clone(), *duplicate));
+            if let Some(saved) = dump.take_thought_saved() {
+                self.thought_saved = Some(saved);
             }
             if let Exit::Tend(path) = dump.exit() {
                 tend_request = Some(path.clone());
@@ -290,12 +291,6 @@ impl Home {
                 self.view = View::Menu;
                 // Back from think: a goal may have been saved, so read again.
                 self.request_sessions();
-            }
-        }
-        if let Some((words, duplicate)) = garden_request {
-            self.open(Place::Tend);
-            if let View::Tend(tend) = &mut self.view {
-                tend.thought_saved(&words, duplicate);
             }
         }
         if let Some(path) = tend_request {
@@ -526,6 +521,9 @@ impl Home {
                 tend.thoughts = self.repo.as_ref().map(|repo| {
                     tend::thought::Garden::open(self.link_root.clone(), repo.root().to_path_buf())
                 });
+                if let Some((words, duplicate)) = self.thought_saved.take() {
+                    tend.thought_saved(&words, duplicate);
+                }
                 View::Tend(Box::new(tend))
             }
             Place::Shape => {

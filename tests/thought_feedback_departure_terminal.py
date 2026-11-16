@@ -15,7 +15,7 @@ def departure(size):
             for outcome in ['Thought saved.', 'Thought already saved.']:
                 thought.flow.send(term, b't', 'enter choose')
                 thought.paste(term, 'TEST notice lifetime')
-                thought.flow.send(term, b'\x1bOR', outcome)
+                thought.save_and_visit_tend(term, expected=outcome)
                 thought.flow.send(term, b'k', '› TEST make')
                 thought.flow.send(term, b'\r', 's shape')
                 thought.flow.send(term, b's', 'tinkery › shape')
@@ -39,7 +39,7 @@ def failed_refresh(size):
         try:
             thought.flow.send(term, b't', 'enter choose')
             thought.paste(term, 'TEST refresh failure')
-            thought.flow.send(term, b'\x1bOR', 'Thought saved.')
+            thought.save_and_visit_tend(term)
             path = thought.saved(root)[0]
             prefix = path.name.rsplit('-', 1)[0]
             (path.parent/f'{prefix}-malformed.json').write_text('{')

@@ -78,13 +78,6 @@ pub enum Exit {
     Menu,
     /// Open this saved session in tend.
     Tend(std::path::PathBuf),
-    /// Open the garden after saving raw words, without a goal receipt.
-    Garden {
-        /// Exact words whose durable save completed.
-        words: String,
-        /// Whether identical words were already saved in this repository.
-        duplicate: bool,
-    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -197,6 +190,7 @@ struct Handoff {
     config: Option<seed_me::Config>,
     /// Raw-word storage is independent of goal confirmation and its save state.
     thoughts: Option<Result<crate::thought::Store, String>>,
+    thought_saved: Option<(String, bool)>,
     /// Visit-scoped named attribution, or the terminal declaration frozen for this session.
     confirmation: crate::think_record::GoalConfirmation,
     save: Save,
@@ -954,6 +948,11 @@ impl BrainDump {
         self
     }
 
+    /// Take the latest durable thought save for feedback on the next Tend visit, without leaving Think.
+    pub(crate) fn take_thought_saved(&mut self) -> Option<(String, bool)> {
+        self.handoff.thought_saved.take()
+    }
+
     fn thought_ready(&self) -> bool {
         self.conversation.sources().is_empty()
             && !self.running()
@@ -982,10 +981,18 @@ impl BrainDump {
         }
         match self.write_thought(&self.input.text) {
             Ok(saved @ (crate::thought::Saved::New | crate::thought::Saved::Duplicate)) => {
-                self.exit = Exit::Garden {
-                    words: self.input.text.clone(),
-                    duplicate: matches!(saved, crate::thought::Saved::Duplicate),
+                self.handoff.thought_saved = Some((
+                    std::mem::replace(&mut self.input, Note::new("")).text,
+                    matches!(saved, crate::thought::Saved::Duplicate),
+                ));
+                self.shaping.encoded_bytes = None;
+                self.screen.choice = false;
+                self.notice = if matches!(saved, crate::thought::Saved::Duplicate) {
+                    "Thought already saved · t in Tend shows it"
+                } else {
+                    "Thought saved · t in Tend shows it"
                 }
+                .into();
             }
             Ok(crate::thought::Saved::Uncertain(reason)) | Err(reason) => self.refuse(reason),
         }
