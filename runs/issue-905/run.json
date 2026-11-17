@@ -1,0 +1,11 @@
+{
+  "profile": "light",
+  "kind": "feature",
+  "schema": 1,
+  "run_id": "330b513d-11e7-48cb-893c-fed4d75ea65f",
+  "issue": {
+    "url": "https://github.com/jon-devlapaz/tinkery/issues/905",
+    "title": "Reuse Approve test fixtures without losing isolation",
+    "sha256": "5bba21544107504dc2acf22aed08bdde771b081963bb198d7b6ee7a884461ccf"
+  }
+}

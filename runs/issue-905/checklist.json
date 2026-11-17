@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "items": [
+    {
+      "id": "done-1",
+      "description": "Ordinary and tall-goal templates come from the existing real Rust ledger helpers and are copied into fresh TEST roots for each applicable case.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-2",
+      "description": "All 68 original journey variants and their assertions remain; each case owns its process and writable copy.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-3",
+      "description": "Focused regressions prove mutations and deletion in one copy cannot change a later copy or the template, including confirmed, stale, draft and question states.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-4",
+      "description": "A relevant production-only fault still fails the unchanged journey assertions; source and executable are restored and the normal journey passes again.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-5",
+      "description": "The bounded comparison records every attempted baseline/candidate run, revision, local environment, raw durations and limits; it meets the preregistered 20% journey-median target or reports an explicit no-keep conclusion.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-6",
+      "description": "Required full verification passes on the committed candidate, with Rust, Node and Python results reported separately. CI passes before any merge decision.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    }
+  ]
+}
