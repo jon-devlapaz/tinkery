@@ -58,8 +58,10 @@ No merge, installs, delegated agents or model calls are authorized. Product/prov
 
 ## Verification and delivery order
 
-The checklist covers the six implementation and verification conditions above.
+The checklist covers the five slice-specific conditions above.
+The sixth condition is enforced by the existing configured full check through `sdlc.py verify`, bound to the committed candidate, rather than self-attested in the checklist.
+CI must still pass before any merge decision.
 The seventh condition is a delivery obligation after passing committed-revision verification, not a prerequisite for opening that PR.
 It remains required by the issue: link the PR and evidence, retain independent human review, and do not merge or record acceptance.
-This ordering changes no product protection or approved delivery scope.
+This ownership and ordering changes no product protection or approved delivery scope.
 
