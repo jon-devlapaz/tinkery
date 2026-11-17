@@ -1,0 +1,24 @@
+{
+  "result": "passed",
+  "candidate": {
+    "head": "697873c83d0870273280a25b089307dd64573f2e",
+    "tree": "a69f6295b87057bba40a8135ac9b183195f40b8055bfbc3f13f46c52310b778a"
+  },
+  "inputs": "ab45b895c7f8a0992cf87bc7f974f5a498b32b7e13a076f7d128ef166d431381",
+  "policy": "e893f76c10a5f08ff1fae20602123ca351c5f439b6e0583a2284c03066ba9bc6",
+  "test_lock": null,
+  "checklist": "5d0ad88013a50e8c574d8fc6d4d3cafdd109bdc7be220b01047bf097c4ddb52f",
+  "manual_marks": {
+    "done-1": "71c8ab908030da94045d942df81d3dd899059c5f19c9c7962e81496cb4d76ffc",
+    "done-2": "d8c3a34bb544e930dcbe65cdc824b1b2e981e10ce3aeeb00c6f326b511c9c536",
+    "done-3": "efa33bb0b47494547df5192826fe49e1dedd60914d5d1187308471602848c87b",
+    "done-4": "707fbe599e317f324b972f1de97de95d80d897654722e7522d792ea88f401dca"
+  },
+  "checklist_items": {
+    "done-1": "attested",
+    "done-2": "attested",
+    "done-3": "attested",
+    "done-4": "attested"
+  },
+  "log": "e065e06d868f758d47c54feaf2da8084f0c2584e3726873b071f61960d7dc3e0"
+}

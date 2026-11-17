@@ -1,0 +1,11 @@
+{
+  "profile": "light",
+  "kind": "feature",
+  "schema": 1,
+  "run_id": "0fec19d5-ead7-4bd7-a9e0-237b7f276aa0",
+  "issue": {
+    "url": "https://github.com/jon-devlapaz/tinkery/issues/840",
+    "title": "Show the seed SHA-256 in the worker start disclosure",
+    "sha256": "f64196708cbeb09b122e8795c5367afaaa4c749c4b090f8030829a4f8248e55b"
+  }
+}
