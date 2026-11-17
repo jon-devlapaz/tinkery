@@ -71,7 +71,9 @@ The local full check passed on the candidate's unchanged source before its code 
 - Approve's 68-variant journey passed in the full run at 172.4 seconds. Its focused fixture file passed at 2.2 seconds.
 
 [Local full-check output](local-full-check.log) and [counts](local-check-counts.json) retain the results.
-Committed-revision SDLC verification follows the code commit and owns the final receipt.
+Committed-revision SDLC verification passed at `18ac12c02ab7416e550df1313fa33294370d0299` with the same test counts, formatting and Clippy checks.
+The [generated receipt](../../04-test/output/verification.json) binds the candidate and [verification log](../../04-test/output/test-log.md).
+The five slice-specific checklist items are agent-attested. They are not independent human review.
 CI and independent human review remain separate. No real provider, microphone or operator session was used.
 
 ## Rerun

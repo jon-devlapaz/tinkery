@@ -1,0 +1,7 @@
+{
+  "item": "done-2",
+  "result": "passed",
+  "evidence": "runs/issue-905/03-build/output/contract-comparison.json records unchanged AST for all 54 original assertions, all 68 variants and every post-setup statement; all full-tier journeys passed.",
+  "candidate": "50d5b2cf07128e77197de1ab547c791d156979f5027bde3ad5ff27fac6da0600",
+  "time_ns": 1794892947501398000
+}

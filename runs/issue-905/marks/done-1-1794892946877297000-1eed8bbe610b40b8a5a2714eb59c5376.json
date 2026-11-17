@@ -1,0 +1,7 @@
+{
+  "item": "done-1",
+  "result": "passed",
+  "evidence": "Official Rust helpers generate two cached fixture families; tests/test_approve_fixtures.py verifies all five copied ledger states. See runs/issue-905/03-build/output/local-full-check.log and report.md.",
+  "candidate": "50d5b2cf07128e77197de1ab547c791d156979f5027bde3ad5ff27fac6da0600",
+  "time_ns": 1794892946877297000
+}
