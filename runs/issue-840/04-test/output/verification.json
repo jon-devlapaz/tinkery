@@ -1,0 +1,27 @@
+{
+  "result": "awaiting-attestation",
+  "candidate": {
+    "head": "4b2e92d987846c455f5849427eb0948ac5b0ebed",
+    "tree": "0de5131442361157ea9e3885450d1029c62fe21eb50ed0a5601f9a6787b75950"
+  },
+  "inputs": "ab45b895c7f8a0992cf87bc7f974f5a498b32b7e13a076f7d128ef166d431381",
+  "policy": "e893f76c10a5f08ff1fae20602123ca351c5f439b6e0583a2284c03066ba9bc6",
+  "test_lock": null,
+  "checklist": "5d0ad88013a50e8c574d8fc6d4d3cafdd109bdc7be220b01047bf097c4ddb52f",
+  "manual_marks": {
+    "done-1": "71c8ab908030da94045d942df81d3dd899059c5f19c9c7962e81496cb4d76ffc",
+    "done-2": "d8c3a34bb544e930dcbe65cdc824b1b2e981e10ce3aeeb00c6f326b511c9c536",
+    "done-3": "efa33bb0b47494547df5192826fe49e1dedd60914d5d1187308471602848c87b"
+  },
+  "pending_attestations": [
+    "done-4"
+  ],
+  "error": "Checklist incomplete: done-4 (mark them with: sdlc.py mark issue-840 <id> passed --evidence \"...\")",
+  "checklist_items": {
+    "done-1": "attested",
+    "done-2": "attested",
+    "done-3": "attested",
+    "done-4": "pending"
+  },
+  "log": "7247df283a3027a9fea6b71b344ee75298decc9bfef66e1909b7f0f5235190c8"
+}

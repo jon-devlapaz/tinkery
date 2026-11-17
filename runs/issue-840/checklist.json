@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "items": [
+    {
+      "id": "done-1",
+      "description": "The worker start disclosure shows the seed's full SHA-256, for human and agent starts.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-2",
+      "description": "A test drives the public worker screen and asserts the shown SHA-256 equals the seed's digest.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-3",
+      "description": "`python3 scripts/full-check.py` passes.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    },
+    {
+      "id": "done-4",
+      "description": "Taste: a person opens the worker start screen on a fixture seed and confirms the shown SHA-256 matches `sha256sum` of the seed file.",
+      "verify": "Show evidence on the pull request that this Done-when line holds."
+    }
+  ]
+}

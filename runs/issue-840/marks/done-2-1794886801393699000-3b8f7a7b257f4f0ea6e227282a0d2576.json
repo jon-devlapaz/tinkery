@@ -1,0 +1,10 @@
+{
+  "item": "done-2",
+  "result": "passed",
+  "evidence": "Commit 4b2e92d987846c455f5849427eb0948ac5b0ebed: tests/worker_terminal.py sha_review drives the public worker screen (Approve 4, b, Home) and asserts 'Tink Contract SHA-256: <sha256 of seed-contract.md>' is shown, for human and agent. Reversion probe: with the display line removed the test fails (AssertionError, rc=1); restored, it passes.",
+  "actor": {
+    "by": "agent"
+  },
+  "candidate": "0de5131442361157ea9e3885450d1029c62fe21eb50ed0a5601f9a6787b75950",
+  "time_ns": 1794886801393699000
+}

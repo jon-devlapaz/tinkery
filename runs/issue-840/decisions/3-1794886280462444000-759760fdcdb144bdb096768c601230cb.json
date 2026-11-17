@@ -1,0 +1,15 @@
+{
+  "inputs": "ab45b895c7f8a0992cf87bc7f974f5a498b32b7e13a076f7d128ef166d431381",
+  "decision": "approved",
+  "reviewer": "socratink (operator), relayed",
+  "source": "Claude project thread, message cmsg_01HpLSkmbLdxh9PX1LVX2D7Y4T7FEE2HbAzRNR9xgeaScr",
+  "reason": "The operator approved the four Done-when lines of #840 as the contract.",
+  "actor": {
+    "by": "agent"
+  },
+  "relay": {
+    "words": "approved",
+    "where": "Claude project thread, message cmsg_01HpLSkmbLdxh9PX1LVX2D7Y4T7FEE2HbAzRNR9xgeaScr, 2026-11-17T03:30:59Z",
+    "sha256": "85265ab2ad38d4a0921351e9d1880d616eb4a076a09aaa1591de4ede5b8e7b93"
+  }
+}
