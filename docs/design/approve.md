@@ -138,7 +138,7 @@ find the new run.
 `b` opens a review of the selected seed and canonical checkout. It needs a verified
 seed, a usable checkout and a successful start-status read; uncertainty offers no
 start shortcut. The review reads nothing and runs nothing. It shows the exact goal,
-provider/model/thinking pin, response cap, checkout, provider data and effects before
+Tink Contract SHA-256, provider/model/thinking pin, response cap, checkout, provider data and effects before
 F2. The key bar offers Start, Launch or Resume once the end of its disclosure is on
 screen. It hides worker actions while a request is pending.
 
