@@ -1,13 +1,16 @@
 """Approve's read-only handoff over official Seed Me TEST fixtures; no provider or real approval."""
 from terminal_process import wait_deadline, wait_output
+import atexit
 import base64
 import fcntl
+from functools import cache
 import hashlib
 import json
 import os
 import re
 import select
 import shlex
+import shutil
 import struct
 import test_launch as subprocess
 import tempfile
@@ -21,6 +24,38 @@ from vt_screen import Screen
 REPO = Path(__file__).resolve().parents[1]
 
 
+@cache
+def fixture_template(tall_goal):
+    template = tempfile.TemporaryDirectory(prefix='tinkery-TEST-approve-template-')
+    atexit.register(template.cleanup)
+    sessions = Path(template.name)
+    expected = []
+    for name, date in [('TEST oldest café', '2026-01-01T00:00:00Z'),
+                       ('TEST newest', '2026-02-01T00:00:00Z')]:
+        extra = ''.join(f'\nTEST goal line {i}' for i in range(20)) if tall_goal else ''
+        session = make(sessions, name, goal=name + '\nTEST original goal.' + extra, question=False)
+        seed(session, confirm=True, title=name)
+        ledger = session / 'ledger.json'
+        value = json.loads(ledger.read_text())
+        value['updated_at'] = date
+        ledger.write_text(json.dumps(value))
+        expected.append(session.name)
+    draft = make(sessions, 'draft', goal='TEST excluded draft', question=False)
+    seed(draft)
+    stale = make(sessions, 'stale', goal='TEST excluded stale', question=False)
+    seed(stale, confirm=True)
+    path = stale / 'seed-contract.md'
+    path.write_text(path.read_text() + '\nTEST changed seed\n')
+    make(sessions, 'question', goal='TEST excluded question')
+    return template, tuple(expected)
+
+
+def copy_sessions(sessions, tall_goal=False):
+    template, names = fixture_template(tall_goal)
+    shutil.copytree(template.name, sessions)
+    return [sessions / name for name in names]
+
+
 def journey(width, height, case, no_color):
     with tempfile.TemporaryDirectory(prefix="tinkery-TEST-approve-") as directory:
         root = Path(directory).resolve()
@@ -28,24 +63,7 @@ def journey(width, height, case, no_color):
         expected = []
         retarget = case == 'retarget-checkout'
         if retarget or case.startswith('target-') or case in ('ready', 'started', 'edited', 'moved', 'runs-unreadable', 'no-checkout', 'different-repo', 'no-script'):
-            for name, date in [('TEST oldest café', '2026-01-01T00:00:00Z'),
-                               ('TEST newest', '2026-02-01T00:00:00Z')]:
-                # #434: a ready goal tall enough to push the command below the fold at both sizes.
-                extra = ''.join(f'\nTEST goal line {i}' for i in range(20)) if case == 'ready' else ''
-                session = make(sessions, name, goal=name + '\nTEST original goal.' + extra, question=False)
-                seed(session, confirm=True, title=name)
-                ledger = session / 'ledger.json'
-                value = json.loads(ledger.read_text())
-                value['updated_at'] = date
-                ledger.write_text(json.dumps(value))
-                expected.append(session)
-            draft = make(sessions, 'draft', goal='TEST excluded draft', question=False)
-            seed(draft)
-            stale = make(sessions, 'stale', goal='TEST excluded stale', question=False)
-            seed(stale, confirm=True)
-            path = stale / 'seed-contract.md'
-            path.write_text(path.read_text() + '\nTEST changed seed\n')
-            make(sessions, 'question', goal='TEST excluded question')
+            expected = copy_sessions(sessions, case == 'ready')
         elif case == 'incomplete':
             broken = sessions / 'broken'
             broken.mkdir(parents=True)

@@ -1,0 +1,26 @@
+test_mutating_or_deleting_a_copy_cannot_change_the_template_or_next_copy (__main__.FixtureTests.test_mutating_or_deleting_a_copy_cannot_change_the_template_or_next_copy) ... 
+  test_mutating_or_deleting_a_copy_cannot_change_the_template_or_next_copy (__main__.FixtureTests.test_mutating_or_deleting_a_copy_cannot_change_the_template_or_next_copy) (tall=False) ... FAIL
+  test_mutating_or_deleting_a_copy_cannot_change_the_template_or_next_copy (__main__.FixtureTests.test_mutating_or_deleting_a_copy_cannot_change_the_template_or_next_copy) (tall=True) ... FAIL
+
+======================================================================
+FAIL: test_mutating_or_deleting_a_copy_cannot_change_the_template_or_next_copy (__main__.FixtureTests.test_mutating_or_deleting_a_copy_cannot_change_the_template_or_next_copy) (tall=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-905/tests/test_approve_fixtures.py", line 119, in test_mutating_or_deleting_a_copy_cannot_change_the_template_or_next_copy
+    self.assertFalse(os.path.samefile(copied, Path(template.name) / relative))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_mutating_or_deleting_a_copy_cannot_change_the_template_or_next_copy (__main__.FixtureTests.test_mutating_or_deleting_a_copy_cannot_change_the_template_or_next_copy) (tall=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/jondev/dev/worktrees/tinkery/issue-905/tests/test_approve_fixtures.py", line 119, in test_mutating_or_deleting_a_copy_cannot_change_the_template_or_next_copy
+    self.assertFalse(os.path.samefile(copied, Path(template.name) / relative))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not false
+
+----------------------------------------------------------------------
+Ran 1 test in 0.540s
+
+FAILED (failures=2)

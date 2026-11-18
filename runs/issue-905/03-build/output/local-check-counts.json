@@ -1,0 +1,17 @@
+{
+  "rust": {
+    "passed": 1137,
+    "failed": 0,
+    "ignored": 1
+  },
+  "node": {
+    "passed": 39,
+    "failed": 0
+  },
+  "python": {
+    "files": 90,
+    "failed_files": 0
+  },
+  "format": "passed",
+  "clippy": "passed"
+}

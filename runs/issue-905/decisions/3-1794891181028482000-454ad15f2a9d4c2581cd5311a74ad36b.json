@@ -1,0 +1,12 @@
+{
+  "inputs": "354a3cde693060fb172af60e5462b35fe0b5c2e14564b791162c60cd4f76aa98",
+  "decision": "approved",
+  "reviewer": "Operator",
+  "source": "Pi session structured approval: Issue and PR (Recommended)",
+  "reason": "Implement the reviewed fixture-reuse scope and bounded trial; retain the PR as a post-verification delivery obligation and independent human review as pending.",
+  "relay": {
+    "words": "Issue and PR (Recommended)",
+    "where": "Operator selection in this Pi session's ask_user_question: For \u2018Reuse Approve test fixtures without losing isolation,\u2019 which implementation scope do you approve? The selected option authorizes issue publication, isolated implementation, up to three baseline and three candidate local journey runs, a fault probe, required checks, commit/push/open PR; no merge, installs, delegated agents or model calls.",
+    "sha256": "3e12d09c643adbeb8ac9fcb198158216d1376ae69fd4b09070caf02c806d518c"
+  }
+}
