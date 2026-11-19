@@ -8,14 +8,17 @@ Promises: reads only GitHub (through the logged-in `gh`), ~/.claude/projects and
 message or tool text. Refuses to guess: a source that cannot be read is reported, not zeroed.
 
 Metrics:
-  reruns   PRs whose body or a comment says a failed CI job was re-run.
+  reruns   PRs created in the range whose body, or a PR comment made in the range, says a
+           failed CI job was re-run. Plain issues do not count.
   blocked  Foreground minutes in shell calls of at least 45 s: Claude Bash calls without
            run_in_background, outside subagent logs and not rejected at a permission
-           prompt; Codex shell calls by their reported wall time. Overlapping calls in
-           one session count once.
-  pyc      Sessions whose tool output shows the pyc test failing
+           prompt (an approved call's prompt time counts); Codex shell calls by their
+           reported wall time. Overlapping calls in one session count once, in the week
+           each span starts.
+  pyc      Sessions whose shell output shows unittest failing the pyc test
            (test_untracked_python_cache_does_not_fail_passing_suite, tink-sdlc#210).
-  fifo     Merged PRs whose title names a blocking or FIFO read fix (#489, #585, #764).
+  fifo     PRs merged in the range whose title names a blocking or FIFO read fix
+           (#489, #585, #764).
 
 Every week of the range prints, so a zero row is visible. `logs from` names the oldest log
 record read: earlier weeks have no log data (Claude Code deletes old transcripts).
@@ -33,8 +36,9 @@ REPOS = ('jon-devlapaz/tinkery', 'jon-devlapaz/tink-sdlc')
 LONG = 45
 RERUN = re.compile(r're-?r[au]n (the |a )?failed', re.I)
 FIFO = re.compile(r'fifo|named pipe|non-?regular|blocking (read|open)|o_nonblock', re.I)
-SHELL = {'Bash'}
-PYC = re.compile(r'(FAIL|ERROR): test_untracked_python_cache_does_not_fail_passing_suite')
+CODEX_SHELL = {'shell', 'shell_command', 'exec_command', 'local_shell'}
+PYC = re.compile(r'^(FAIL|ERROR): test_untracked_python_cache_does_not_fail_passing_suite \(',
+                 re.M)
 WALL = re.compile(r'Wall time:? ([\d.]+) seconds|"wall_time_seconds":\s*([\d.]+)')
 
 
@@ -58,6 +62,7 @@ def github(start, end, counts, notes):
     for repo in REPOS:
         seen = set()
         pulls = gh(f'repos/{repo}/pulls?state=all&sort=created&direction=desc&per_page=100')
+        prs = {str(p['number']) for p in pulls}
         for p in pulls:
             at = when(p['created_at'])
             if start <= at < end and RERUN.search(p['body'] or ''):
@@ -67,6 +72,8 @@ def github(start, end, counts, notes):
         for c in gh(f'repos/{repo}/issues/comments?since={since}&per_page=100'):
             at = when(c['created_at'])
             number = c['issue_url'].rsplit('/', 1)[1]
+            if number not in prs:
+                continue
             if start <= at < end and RERUN.search(c['body'] or '') and number not in seen:
                 seen.add(number)
                 counts[week(at)]['reruns'] += 1
@@ -115,19 +122,22 @@ def claude(path, start, end, counts, oldest):
         if not isinstance(content, list) or 'timestamp' not in r:
             continue
         at = when(r['timestamp'])
-        oldest[0] = min(oldest[0], at)
+        oldest[0] = min(oldest[0] or at, at)
         for block in content:
             if not isinstance(block, dict):
                 continue
             if block.get('type') == 'tool_use':
-                background = bool((block.get('input') or {}).get('run_in_background'))
-                calls[block.get('id')] = (at, background or block.get('name') not in SHELL)
+                skip = (block.get('name') != 'Bash'
+                        or bool((block.get('input') or {}).get('run_in_background')))
+                calls[block.get('id')] = (at, skip)
             elif block.get('type') == 'tool_result' and block.get('tool_use_id') in calls:
-                began, background = calls.pop(block['tool_use_id'])
+                began, skip = calls.pop(block['tool_use_id'])
+                if skip:
+                    continue
                 seconds = (at - began).total_seconds()
                 # A rejected call waited at a permission prompt and ran nothing.
                 rejected = (r.get('permissionDecision') or {}).get('decision') == 'reject'
-                if not (side or background or rejected or r.get('isSidechain')) and seconds >= LONG and start <= began < end:
+                if not (side or rejected or r.get('isSidechain')) and seconds >= LONG and start <= began < end:
                     spans.append((began, seconds))
                 if pyc is None and start <= at < end and PYC.search(text_of(block.get('content'))):
                     pyc = at
@@ -143,9 +153,10 @@ def codex(path, start, end, counts, oldest):
         if 'timestamp' not in r or not kind.endswith(('call', 'call_output')):
             continue
         at = when(r['timestamp'])
-        oldest[0] = min(oldest[0], at)
+        oldest[0] = min(oldest[0] or at, at)
         if not kind.endswith('_output'):
-            calls[payload.get('call_id')] = at
+            if kind == 'local_shell_call' or payload.get('name') in CODEX_SHELL:
+                calls[payload.get('call_id')] = at
         elif payload.get('call_id') in calls:
             began = calls.pop(payload['call_id'])
             output = text_of(payload.get('output'))
@@ -174,7 +185,7 @@ def main(argv):
     while day < end:
         counts[week(day)]['reruns'] += 0
         day += dt.timedelta(days=1)
-    oldest = [end]
+    oldest = [None]
     home = pathlib.Path.home()
     for root, read in ((home / '.claude/projects', claude), (home / '.codex/sessions', codex)):
         if not root.is_dir():
@@ -187,7 +198,10 @@ def main(argv):
             if at:
                 counts[week(at)]['pyc'] += 1
                 notes['pyc'].append(path.stem[-8:])
-    print(f'Range {argv[1]} to {argv[2]} (UTC); logs from {oldest[0]:%Y-%m-%d}')
+    if oldest[0] is None:
+        notes['unread'].append('no log record was read')
+    logs = f'{oldest[0]:%Y-%m-%d}' if oldest[0] else 'none'
+    print(f'Range {argv[1]} to {argv[2]} (UTC); logs from {logs}')
     print(f'{"week":<10}{"reruns":>8}{"blocked min":>13}{"pyc":>6}{"fifo":>6}')
     total = defaultdict(float)
     for name in sorted(counts):
