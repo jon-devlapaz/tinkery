@@ -19,7 +19,8 @@ unrequested changes. Tinkery's rules live in [AGENTS.md](../../../AGENTS.md) and
 4. Present candidates in severity order.
 5. For a named run, list each correction in the operator's exact words and ask once for a
    typed go in the chat where they are. On that go, record each label yourself with
-   `--relayed FILE`, FILE being `{"words": their exact words, "where": where they typed them}`.
+   `--relayed FILE`, FILE being `{"words": their exact words, "where": where they typed them}`,
+   written outside the checkout.
    Never hand the operator a command to run: they need not be at a terminal.
 
 ## Checks
@@ -38,8 +39,8 @@ unrequested changes. Tinkery's rules live in [AGENTS.md](../../../AGENTS.md) and
   remove a correction, never a decision. As a label command:
   `python3 _system/scripts/sdlc.py label <run> --kind correction --words <their words> --reviewer <operator> --source <'retro DATE: fix in LAYER'> --relayed FILE [--about <checkout-relative file>|outside]`.
   Shell-quote each value (as Python's `shlex.quote` does) so the words stay verbatim.
-  With no corrections, propose `--kind none --words 'No corrections'`; a run closes only
-  once labelled.
+  With no corrections, ask the operator to type `No corrections` and relay those words as
+  `--kind none`; a run closes only once labelled.
 - **Tool economy:** identify expensive, repetitive or token-heavy calls, CLIs and MCP tools.
 - **Access:** identify missing evidence sources, such as captured server logs or read-only
   service access; access changes still require permission.
