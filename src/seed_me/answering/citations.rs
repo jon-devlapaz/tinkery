@@ -159,7 +159,7 @@ pub(super) fn unfound(checked: &str, folder: &Path) -> Option<String> {
         if !file.is_file() {
             return Some(unreadable());
         }
-        let Ok(bytes) = std::fs::read(file) else {
+        let Ok(bytes) = crate::regular_file::read(&file, "not a regular file") else {
             return Some(unreadable());
         };
         let lines = bytes.iter().filter(|b| **b == b'\n').count() as u64

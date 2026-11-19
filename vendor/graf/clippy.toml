@@ -1,0 +1,1 @@
+# Vendored upstream code keeps upstream lint rules; Tinkery's root clippy.toml does not apply here.

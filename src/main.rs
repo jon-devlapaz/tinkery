@@ -2,6 +2,9 @@
 //! loop (or prints one `--snapshot`). Everything the screens do lives in the library; this file
 //! owns only the terminal: raw mode, events, the clipboard, and restoring it on the way out.
 
+// Tests and fixtures read files they made; operator paths go through `regular_file`.
+#![cfg_attr(test, allow(clippy::disallowed_methods))]
+
 #[path = "main/input.rs"]
 mod input;
 
@@ -77,6 +80,9 @@ fn seed_write(
         ["new", file, origin @ ..]
             if origin.len() <= 1 && !origin.iter().any(|o| o.starts_with("--")) =>
         {
+            // The operator names this file on the command line, and a pipe such as `<(…)` is
+            // valid here: waiting for its writer blocks only this command, never a view.
+            #[allow(clippy::disallowed_methods)]
             let goal = std::fs::read_to_string(file)
                 .map_err(|why| format!("Cannot read the goal file {file}: {why}"))?;
             let origin = origin.first().copied().unwrap_or(file);

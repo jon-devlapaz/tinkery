@@ -2,7 +2,7 @@
 //! unsafe paths and pending goal handoffs. Stored guidance grants no execution authority.
 
 use super::*;
-use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+use std::os::unix::fs::MetadataExt;
 
 const FILE_LIMIT: usize = 16 * 1024;
 
@@ -33,10 +33,13 @@ impl Context {
     }
 
     pub(super) fn correction(&self) -> Result<Snapshot, String> {
-        let file = fs::OpenOptions::new()
-            .read(true)
-            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-            .open(self.correction_file());
+        let regular = "The correction is not a regular local file.";
+        let file = crate::regular_file::open(
+            fs::OpenOptions::new().read(true),
+            libc::O_NOFOLLOW,
+            &self.correction_file(),
+            regular,
+        );
         let file = match file {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 return Ok(Snapshot {
@@ -44,12 +47,10 @@ impl Context {
                     value: Ok(None),
                 });
             }
+            Err(e) if e.kind() == std::io::ErrorKind::InvalidInput => return Err(regular.into()),
             Err(e) => return Err(format!("The correction cannot be read safely: {e}")),
             Ok(file) => file,
         };
-        if !file.metadata().map_err(|e| e.to_string())?.is_file() {
-            return Err("The correction is not a regular local file.".into());
-        }
         // Oversized records remain clearable, without reading an unbounded file.
         let meta = file.metadata().map_err(|e| e.to_string())?;
         let mut digest = Sha256::new();
@@ -126,9 +127,7 @@ impl Context {
                 return Err("Review a connection before saving a correction.".into());
             }
             let mut random = [0; 24];
-            fs::File::open("/dev/urandom")
-                .and_then(|mut f| f.read_exact(&mut random))
-                .map_err(|e| e.to_string())?;
+            crate::regular_file::random(&mut random).map_err(|e| e.to_string())?;
             let correction = Correction {
                 revision: random.iter().map(|b| format!("{b:02x}")).collect(),
                 text: words.into(),
@@ -149,6 +148,6 @@ impl Context {
         file.as_file().sync_all().map_err(|e| e.to_string())?;
         file.persist(self.correction_file())
             .map_err(|e| e.to_string())?;
-        fs::File::open(&self.store).and_then(|f| f.sync_all()).map_err(|e| format!("Correction replaced, but persistence is uncertain. Reopen before another change: {e}"))
+        crate::regular_file::sync_directory(&self.store).map_err(|e| format!("Correction replaced, but persistence is uncertain. Reopen before another change: {e}"))
     }
 }

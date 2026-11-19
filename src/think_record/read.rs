@@ -507,9 +507,14 @@ fn read_file(path: &Path) -> Result<SavedRecord, Unavailable> {
         ));
     }
     let mut bytes = Vec::new();
-    File::open(path)
-        .and_then(|file| file.take(MAX_RECORD_BYTES + 1).read_to_end(&mut bytes))
-        .map_err(|error| Unavailable::unreadable(path, error))?;
+    crate::regular_file::open(
+        File::options().read(true),
+        0,
+        path,
+        "expected a regular JSON file",
+    )
+    .and_then(|file| file.take(MAX_RECORD_BYTES + 1).read_to_end(&mut bytes))
+    .map_err(|error| Unavailable::unreadable(path, error))?;
     if bytes.len() as u64 > MAX_RECORD_BYTES {
         return Err(Unavailable::unreadable(
             path,

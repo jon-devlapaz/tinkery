@@ -42,20 +42,16 @@ impl CodexReport {
     }
 
     fn read(&self) -> Result<Report, String> {
-        let mut options = OpenOptions::new();
-        options.read(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.custom_flags(libc::O_NONBLOCK);
-        }
-        let file = options
-            .open(&self.path)
-            .map_err(|_| "could not open the named file")?;
+        let regular = "expected a regular file of at most 8 KiB";
+        let file = crate::regular_file::open(OpenOptions::new().read(true), 0, &self.path, regular)
+            .map_err(|e| match e.kind() {
+                std::io::ErrorKind::InvalidInput => regular,
+                _ => "could not open the named file",
+            })?;
         let metadata = file
             .metadata()
             .map_err(|_| "could not inspect the named file")?;
-        if !metadata.is_file() || metadata.len() > 8192 {
+        if metadata.len() > 8192 {
             return Err("expected a regular file of at most 8 KiB".into());
         }
         let mut bytes = Vec::new();

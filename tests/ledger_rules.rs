@@ -1,4 +1,6 @@
 //! Rust-only ledger contracts retained after retiring the migration's Python oracle.
+// Test code reads the files it made; only Tinkery's own code must use `regular_file`.
+#![allow(clippy::disallowed_methods)]
 use tinkery::seed_me::ledger::{self, Value};
 
 const STAMP: &str = "2026-10-19T00:00:00+00:00";

@@ -74,15 +74,17 @@ impl Seed {
 
 /// Read only the expected detached retry's intake record; never invoke its runtime or steps.
 pub(crate) fn retry_seed(directory: &Path, slug: &str) -> Option<Seed> {
-    use std::{fs::OpenOptions, io::Read as _, os::unix::fs::OpenOptionsExt};
-    let file = OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW)
-        .open(directory.join("run.json"))
-        .ok()?;
+    use std::{fs::OpenOptions, io::Read as _};
+    let file = crate::regular_file::open(
+        OpenOptions::new().read(true),
+        libc::O_NOFOLLOW,
+        &directory.join("run.json"),
+        "run.json is not a regular file",
+    )
+    .ok()?;
     let limit = 4 * 1024 * 1024;
     let metadata = file.metadata().ok()?;
-    if !metadata.is_file() || metadata.len() > limit {
+    if metadata.len() > limit {
         return None;
     }
     let mut bytes = Vec::new();

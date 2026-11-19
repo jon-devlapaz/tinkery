@@ -1,4 +1,6 @@
 //! Read-only CLI refusals never create session records.
+// Test code reads the files it made; only Tinkery's own code must use `regular_file`.
+#![allow(clippy::disallowed_methods)]
 use std::{fs, process::Command};
 
 #[test]

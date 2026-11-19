@@ -1,6 +1,8 @@
 //! Explicit-data evaluation of think. Replies are scripted by default; `--live` sends the supplied
 //! words to Pi only with operator data, a written permission and a positive call limit, all counted
 //! by one budget at the Pi boundary. Never saves a session or confirms a goal.
+// Test code reads the files it made; only Tinkery's own code must use `regular_file`.
+#![allow(clippy::disallowed_methods)]
 #[path = "support/capture.rs"]
 mod capture;
 

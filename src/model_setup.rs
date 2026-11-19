@@ -113,7 +113,7 @@ pub fn path(home: Option<&OsStr>) -> Option<PathBuf> {
 
 /// The saved setup at `path`: `None` when there is no file, or why it can't be used.
 pub fn load(path: &Path) -> Result<Option<Setup>, String> {
-    let text = match std::fs::read_to_string(path) {
+    let text = match crate::regular_file::read_text(path, "not a regular file") {
         Ok(text) => text,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(_) => {

@@ -1,4 +1,6 @@
 //! Timestamp compatibility through public discovery order and the selected goal's visible age.
+// Test code reads the files it made; only Tinkery's own code must use `regular_file`.
+#![allow(clippy::disallowed_methods)]
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::{

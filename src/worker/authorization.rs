@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs::OpenOptions,
     io::{Read, Write},
-    os::unix::fs::OpenOptionsExt,
     path::Path,
 };
 
@@ -32,14 +31,13 @@ impl Relay {
         let Some(path) = path else { return Ok(None) };
         let read = || {
             let mut bytes = Vec::new();
-            let file = OpenOptions::new()
-                .read(true)
-                .custom_flags(libc::O_NONBLOCK)
-                .open(path)
-                .map_err(|e| e.to_string())?;
-            if !file.metadata().map_err(|e| e.to_string())?.is_file() {
-                return Err("Relayed authorization must be a regular file.".into());
-            }
+            let file = crate::regular_file::open(
+                OpenOptions::new().read(true),
+                0,
+                path,
+                "Relayed authorization must be a regular file.",
+            )
+            .map_err(|e| e.to_string())?;
             file.take(LIMIT + 1)
                 .read_to_end(&mut bytes)
                 .map_err(|e| e.to_string())?;
@@ -147,7 +145,12 @@ impl Gate {
         let write = || -> Result<(), Box<dyn std::error::Error>> {
             let mut bytes = serde_json::to_vec(&value)?;
             bytes.push(b'\n');
-            let mut file = OpenOptions::new().append(true).create(true).open(path)?;
+            let mut file = crate::regular_file::open(
+                OpenOptions::new().append(true).create(true),
+                0,
+                &path,
+                "The authorization record is not a regular file.",
+            )?;
             file.write_all(&bytes)?;
             file.sync_all()?;
             Ok(())

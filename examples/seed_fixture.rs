@@ -1,4 +1,6 @@
 //! TEST-only adapter to the real Rust ledger, for zero-call terminal fixtures. No alternate rules.
+// Test code reads the files it made; only Tinkery's own code must use `regular_file`.
+#![allow(clippy::disallowed_methods)]
 use std::{
     io::{self, Read},
     path::Path,

@@ -646,7 +646,11 @@ fn look(
                 resolves.as_ref(),
             )
             .map_err(reply_refused)?;
-            let seed = std::fs::read_to_string(session.join("seed-contract.md")).map_err(|_| {
+            let seed = crate::regular_file::read_text(
+                &session.join("seed-contract.md"),
+                "not a regular file",
+            )
+            .map_err(|_| {
                 fail(Why::Model(
                     "The draft could not be read. Reopen Shape before trying again.".into(),
                 ))

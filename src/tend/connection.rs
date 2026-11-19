@@ -251,15 +251,19 @@ impl Context {
     }
     fn read(&self) -> Result<Option<Record>, String> {
         let path = self.file();
-        let file = match fs::File::open(&path) {
-            Ok(file) => file,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-            Err(e) => return Err(format!("The latest exploration is unreadable: {e}")),
-        };
-        if !file.metadata().map_err(|e| e.to_string())?.is_file()
-            || fs::symlink_metadata(&path)
-                .map_err(|e| e.to_string())?
-                .is_symlink()
+        let regular = "The exploration is not a regular local file.";
+        let file =
+            match crate::regular_file::open(fs::OpenOptions::new().read(true), 0, &path, regular) {
+                Ok(file) => file,
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+                Err(e) if e.kind() == std::io::ErrorKind::InvalidInput => {
+                    return Err(regular.into());
+                }
+                Err(e) => return Err(format!("The latest exploration is unreadable: {e}")),
+            };
+        if fs::symlink_metadata(&path)
+            .map_err(|e| e.to_string())?
+            .is_symlink()
         {
             return Err("The exploration is not a regular local file.".into());
         }
@@ -306,15 +310,18 @@ impl Context {
         Ok(Some(record))
     }
     fn lock(&self) -> Result<fs::File, String> {
-        use std::os::{fd::AsRawFd, unix::fs::OpenOptionsExt};
+        use std::os::fd::AsRawFd;
         fs::create_dir_all(&self.store).map_err(|e| e.to_string())?;
-        let file = fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .custom_flags(libc::O_NOFOLLOW)
-            .open(self.file().with_extension("lock"))
-            .map_err(|e| e.to_string())?;
+        let file = crate::regular_file::open(
+            fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(false),
+            libc::O_NOFOLLOW,
+            &self.file().with_extension("lock"),
+            "The connection lock is not a regular file.",
+        )
+        .map_err(|e| e.to_string())?;
         // SAFETY: File owns this descriptor through the operation; close releases the lock.
         if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
             return Err("Another connection pass or save is active for this repository.".into());
@@ -330,9 +337,7 @@ impl Context {
         file.write_all(&bytes).map_err(|e| e.to_string())?;
         file.as_file().sync_all().map_err(|e| e.to_string())?;
         file.persist(self.file()).map_err(|e| e.to_string())?;
-        fs::File::open(&self.store)
-            .and_then(|f| f.sync_all())
-            .map_err(|e| e.to_string())
+        crate::regular_file::sync_directory(&self.store).map_err(|e| e.to_string())
     }
     fn explore(&self, input: &Input, stop: &AtomicBool) -> Result<Record, String> {
         let _lock = self.lock()?;

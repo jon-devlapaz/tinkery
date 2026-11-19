@@ -61,24 +61,8 @@ pub(crate) fn read_seed(path: &Path) -> std::io::Result<Vec<u8>> {
     read_regular(path, "original Tink Contract")
 }
 
-// Check the opened file, so a path replacement cannot turn the read into a FIFO wait.
 fn read_regular(path: &Path, name: &str) -> std::io::Result<Vec<u8>> {
-    use std::io::Read;
-    use std::os::unix::fs::OpenOptionsExt;
-
-    let mut file = std::fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NONBLOCK)
-        .open(path)?;
-    if !file.metadata()?.is_file() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            format!("The {name} is not a regular file."),
-        ));
-    }
-    let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes)?;
-    Ok(bytes)
+    crate::regular_file::read(path, &format!("The {name} is not a regular file."))
 }
 
 /// Read regular seed bytes as UTF-8, refusing invalid text without changing the bytes.
@@ -87,6 +71,5 @@ pub(crate) fn read_seed_text(path: &Path) -> std::io::Result<String> {
 }
 
 fn read_regular_text(path: &Path, name: &str) -> std::io::Result<String> {
-    String::from_utf8(read_regular(path, name)?)
-        .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))
+    crate::regular_file::read_text(path, &format!("The {name} is not a regular file."))
 }
