@@ -684,22 +684,7 @@ pub fn ask(session: &Path, expected: u64, ask: &Ask, folder: &Path) -> Result<u6
     let mut state = ledger::Value::from(ledger.state);
     ledger::queue_question(&mut state, ledger::Value::from(node)).map_err(rejected)?;
     ledger.state = json(&state.pretty().map_err(not_saved)?)?;
-    let mut assumed = ledger.state["assumed"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default();
-    for a in ask
-        .assumed
-        .iter()
-        .filter(|a| !a.text.trim().is_empty() && !a.why.trim().is_empty())
-    {
-        if !assumed.iter().any(|known| known["text"] == a.text.as_str()) {
-            assumed.push(json!({"text": a.text, "why": a.why}));
-        }
-    }
-    if !assumed.is_empty() {
-        ledger.state["assumed"] = Value::Array(assumed);
-    }
+    assume(&mut ledger.state, &ask.assumed);
     reply_fits(&ledger.state)?;
     publish(
         session,
@@ -764,6 +749,37 @@ pub fn recommend(
         )),
         &ledger.state,
     )
+}
+
+/// What a drafting step reported beside the Tink's words: typed findings, defaults it chose
+/// instead of asking, and unknowns its evidence resolves. None of it is an operator answer.
+pub struct Reported<'a> {
+    /// Typed findings, saved with their receipts.
+    pub found: &'a [Found],
+    /// Defaults chosen instead of asking, listed in the Tink as not confirmed by the operator.
+    pub assumed: &'a [Assumption],
+    /// Links from open unknowns to the settled nodes that cover them.
+    pub resolves: Option<&'a Value>,
+}
+
+/// Add each new non-blank default to the ledger's `assumed` list, once by its text. Returns
+/// whether the list changed. A default is never an answer and never the operator's.
+fn assume(state: &mut Value, defaults: &[Assumption]) -> bool {
+    let mut assumed = state["assumed"].as_array().cloned().unwrap_or_default();
+    let before = assumed.len();
+    for a in defaults
+        .iter()
+        .filter(|a| !a.text.trim().is_empty() && !a.why.trim().is_empty())
+    {
+        if !assumed.iter().any(|known| known["text"] == a.text.as_str()) {
+            assumed.push(json!({"text": a.text, "why": a.why}));
+        }
+    }
+    let changed = assumed.len() != before;
+    if changed {
+        state["assumed"] = Value::Array(assumed);
+    }
+    changed
 }
 
 /// The operator objects to assuming `text`, from `expected`: it leaves the ledger's `assumed` list
@@ -908,10 +924,14 @@ pub fn draft_seed(
     expected: u64,
     confirming: &Value,
     checks: &Value,
-    found: &[Found],
+    reported: Reported,
     folder: &Path,
-    resolves: Option<&Value>,
 ) -> Result<String, Refusal> {
+    let Reported {
+        found,
+        assumed,
+        resolves,
+    } = reported;
     let mut ledger = read(session)?;
     if ledger.version != expected {
         return Err(Refusal::Stale);
@@ -926,6 +946,7 @@ pub fn draft_seed(
     let prose = seed_reply::prose(confirming)?;
     resolutions(&mut ledger.state, resolves)?;
     facts(&mut ledger.state, found, folder);
+    let defaults = assume(&mut ledger.state, assumed);
     reply_fits(&ledger.state)?;
     let grounding = receipts(&ledger.state, true);
     let path = session.join(SEED);
@@ -958,7 +979,7 @@ pub fn draft_seed(
     let records = ledger::Value::from(checks.clone());
     ledger::validate_goal_checks(ledger.goal().unwrap_or(""), &records).map_err(rejected)?;
     let rendered = ledger::checks_block(&records).map_err(not_saved)?;
-    let version = if found.is_empty() && resolves.is_none() {
+    let version = if found.is_empty() && resolves.is_none() && !defaults {
         expected
     } else {
         publish(

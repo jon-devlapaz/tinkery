@@ -618,6 +618,7 @@ fn look(
             checks,
             review,
             found,
+            assumed,
             resolves,
         } => {
             let records = crate::seed_me::ledger::Value::from(checks.clone());
@@ -641,9 +642,12 @@ fn look(
                 expected,
                 &confirming,
                 &checks,
-                &found,
+                answering::Reported {
+                    found: &found,
+                    assumed: &assumed,
+                    resolves: resolves.as_ref(),
+                },
                 folder,
-                resolves.as_ref(),
             )
             .map_err(reply_refused)?;
             let seed = crate::regular_file::read_text(
@@ -695,6 +699,23 @@ fn restore_case(goal: &str, checks: &mut [Value]) {
             check["statement"] = criterion.into();
         }
     }
+}
+
+/// At most five complete defaults, trimmed; incomplete entries are dropped, never repaired.
+fn assumptions(value: &Value) -> Vec<Assumption> {
+    value
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|a| {
+            Some(Assumption {
+                text: a["text"].as_str()?.trim().to_owned(),
+                why: a["why"].as_str()?.trim().to_owned(),
+            })
+        })
+        .filter(|a| !a.text.is_empty() && !a.why.is_empty())
+        .take(5)
+        .collect()
 }
 
 /// Exactly two complete options, each with a known undo cost; anything else gives none.
@@ -753,6 +774,8 @@ pub(super) enum Next {
         /// Unusable reviews wait for the check rules, so one refusal names every broken rule.
         review: Result<Box<crate::seed_me::ledger::CompletionReview>, String>,
         found: Vec<Found>,
+        /// Defaults the draft chose instead of asking; the operator sees them, never as answers.
+        assumed: Vec<Assumption>,
         resolves: Option<Value>,
     },
 }
@@ -815,19 +838,7 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
                 supported_by: value.get("supported_by").cloned(),
                 prerequisites: value.get("prerequisites").cloned(),
                 suggestion: text("suggestion"),
-                assumed: value["assumed"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|a| {
-                        Some(Assumption {
-                            text: a["text"].as_str()?.trim().to_owned(),
-                            why: a["why"].as_str()?.trim().to_owned(),
-                        })
-                    })
-                    .filter(|a| !a.text.is_empty() && !a.why.is_empty())
-                    .take(5)
-                    .collect(),
+                assumed: assumptions(&value["assumed"]),
                 options: alternatives(&value["options"]),
                 against: text("against"),
                 confidence: text("confidence")
@@ -852,6 +863,7 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
                     "Tink draft reply field confirming is missing; supply the named summary and prose fields.".to_owned())?,
                 checks,
                 found,
+                assumed: assumptions(&value["assumed"]),
                 resolves: value.get("resolves").cloned(),
             })
         }

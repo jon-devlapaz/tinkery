@@ -926,6 +926,9 @@ work, risk, cost, reversibility and behavior about the same. Tinkery adds them t
   not in the ledger; the seed's Assumed block always lists what remains.
 - With no current question, a step first makes the first ready open decision current, without a
   model call or budget, so an objection (or any recorded open decision) is asked before a new one.
+- A draft step lists its defaults the same way ([#931](https://github.com/jon-devlapaz/tinkery/issues/931)),
+  so a Tink that asked nothing still shows every choice made without the operator. They appear
+  in the seed's Assumed block. The draft has no question to show them under.
 
 ### Ending a session
 
@@ -959,8 +962,11 @@ tinkery [options] seed step DIR look|delegate|answer WORDS|confirm DRAFT_SHA256
   as `--operator` declares, and prints the session folder. `ORIGIN` records where the words came
   from, for example an approved issue's URL. The record says a command saved the goal and nobody
   was shown it. It calls no model and confirms no seed.
-- `show` prints the goal, the ledger version and the one current thing as JSON: a question with
-  its findings and suggestion, a draft with its text and SHA-256, or a ready seed. Read-only.
+- `show` prints the goal, the ledger version, the open questions and the one current thing as JSON:
+  a question with its findings and suggestion, a draft with its text and SHA-256, or a ready seed.
+  `decided_without_you` lists each settled answer whose authority is not `user`, with that
+  authority, then each assumed default as `assumed`. An empty `open` with a draft means no gray
+  item remains (Yohaku Art. 2). Read-only.
 - `step` takes one action from a fresh read, then prints `show`. `look`, `answer` and `delegate`
   need `--shape-pi` with a model and name the folder the model reads. `--shape-budget` bounds one
   command, not the session: each command is a new launch with a fresh allowance. `confirm` calls no

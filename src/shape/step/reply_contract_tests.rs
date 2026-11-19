@@ -204,9 +204,12 @@ fn captured_missing_source_preserves_the_answer_and_recovers_on_next_look() {
         answering::read(&session).unwrap().version(),
         &reply["confirming"],
         &valid_reply()["checks"],
-        &[],
+        answering::Reported {
+            found: &[],
+            assumed: &[],
+            resolves: None,
+        },
         root.path(),
-        None,
     )
     .unwrap_err();
     assert!(

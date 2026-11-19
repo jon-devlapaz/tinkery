@@ -961,6 +961,7 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
             review: Ok(serde_json::from_value(serde_json::json!({"contradictions":[],"decided":[],"done":[],"failure_cases":[{"statement":"TEST","case":"TEST wrong result must fail"}]})).unwrap()),
             checks: serde_json::json!([{"statement":"TEST","kind":"judge","source":"TEST","failure_case":"TEST wrong result must fail"}]),
             found: vec![],
+            assumed: vec![],
             resolves: None,
         }
     );
@@ -1027,9 +1028,12 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
             version,
             &serde_json::json!(legacy),
             &reply["checks"],
-            &[],
-            root.path(),
-            None,
+            answering::Reported {
+                found: &[],
+                assumed: &[],
+                resolves: None
+            },
+            root.path()
         )
         .is_err()
     );
@@ -1038,9 +1042,12 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         version,
         &reply["confirming"],
         &reply["checks"],
-        &[],
+        answering::Reported {
+            found: &[],
+            assumed: &[],
+            resolves: None,
+        },
         root.path(),
-        None,
     )
     .unwrap();
     let stored: serde_json::Value =
@@ -1113,9 +1120,12 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
                 version,
                 &reply["confirming"],
                 &bad,
-                &[],
-                root.path(),
-                None,
+                answering::Reported {
+                    found: &[],
+                    assumed: &[],
+                    resolves: None
+                },
+                root.path()
             )
             .is_err(),
             "accepted invalid checks: {bad}"
@@ -1156,9 +1166,12 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         version,
         &crlf,
         &reply["checks"],
-        &[],
+        answering::Reported {
+            found: &[],
+            assumed: &[],
+            resolves: None,
+        },
         root.path(),
-        None,
     )
     .unwrap();
     let draft = std::fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap();
@@ -1753,9 +1766,12 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
                 &malformed,
                 &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json"))
                     .unwrap(),
-                &[],
-                temp.path(),
-                None,
+                answering::Reported {
+                    found: &[],
+                    assumed: &[],
+                    resolves: None
+                },
+                temp.path()
             )
             .is_err()
         );
@@ -1773,9 +1789,12 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
             version,
             &confirming,
             &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json")).unwrap(),
-            &[],
-            temp.path(),
-            None,
+            answering::Reported {
+                found: &[],
+                assumed: &[],
+                resolves: None
+            },
+            temp.path()
         )
         .unwrap(),
         "r9"
@@ -2097,9 +2116,12 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
                 &template,
                 &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json"))
                     .unwrap(),
-                &[],
-                temp.path(),
-                None,
+                answering::Reported {
+                    found: &[],
+                    assumed: &[],
+                    resolves: None
+                },
+                temp.path()
             )
             .is_err()
         );
@@ -2780,15 +2802,7 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
         Shaped::Waiting
     ));
     let version = answering::read(&session).unwrap().version();
-    let revision = answering::draft_seed(
-        &session,
-        version,
-        &prose_reply(include_str!("../../tests/fixtures/shape-seed-reply.txt")),
-        &serde_json::json!([{"statement":"It ends.","kind":"judge","source":"TEST confirmed goal","how_to_judge":"Inspect the ended state."}]),
-        &[],
-        temp.path(),
-        None,
-    )
+    let revision = answering::draft_seed(&session, version, &prose_reply(include_str!("../../tests/fixtures/shape-seed-reply.txt")), &serde_json::json!([{"statement":"It ends.","kind":"judge","source":"TEST confirmed goal","how_to_judge":"Inspect the ended state."}]), answering::Reported { found: &[], assumed: &[], resolves: None }, temp.path())
     .unwrap();
     answering::confirm_seed(
         &session,

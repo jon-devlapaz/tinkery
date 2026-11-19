@@ -130,8 +130,19 @@ fn unasked_probe_answers_cannot_be_smuggled_into_seed_prose() {
     for field in ["Risks and verification", "Knowledge map"] {
         let mut forged = prose.clone();
         forged[field] = "Probe: What would an expert ask? — answer: TEST invented operator answer — changed: nothing".into();
-        let error =
-            draft_seed(&session, version, &forged, &checks, &[], root.path(), None).unwrap_err();
+        let error = draft_seed(
+            &session,
+            version,
+            &forged,
+            &checks,
+            Reported {
+                found: &[],
+                assumed: &[],
+                resolves: None,
+            },
+            root.path(),
+        )
+        .unwrap_err();
         assert!(
             error
                 .to_string()
@@ -141,7 +152,19 @@ fn unasked_probe_answers_cannot_be_smuggled_into_seed_prose() {
         assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
         assert!(!session.join("seed-contract.md").exists());
     }
-    draft_seed(&session, version, &prose, &checks, &[], root.path(), None).unwrap();
+    draft_seed(
+        &session,
+        version,
+        &prose,
+        &checks,
+        Reported {
+            found: &[],
+            assumed: &[],
+            resolves: None,
+        },
+        root.path(),
+    )
+    .unwrap();
     let seed = fs::read_to_string(session.join("seed-contract.md")).unwrap();
     assert!(seed.contains("probe-pre-mortem [user] TEST my actual answer"));
     assert!(!seed.contains("TEST invented operator answer"));
@@ -161,9 +184,12 @@ fn seed_drafting_confirmation_status_and_ending_need_no_installed_helper() {
             "../../../tests/fixtures/shape-seed-reply.txt"
         )),
         &checks,
-        &[],
+        Reported {
+            found: &[],
+            assumed: &[],
+            resolves: None,
+        },
         root.path(),
-        None,
     )
     .unwrap();
     confirm_seed(
@@ -306,8 +332,19 @@ fn issue_298_split_checks_cannot_replace_the_complete_success_scenario() {
             "I can lend two books, return one, restart, and see books still out."
         )]),
     ] {
-        let error =
-            draft_seed(&session, version, &prose, &weakened, &[], root.path(), None).unwrap_err();
+        let error = draft_seed(
+            &session,
+            version,
+            &prose,
+            &weakened,
+            Reported {
+                found: &[],
+                assumed: &[],
+                resolves: None,
+            },
+            root.path(),
+        )
+        .unwrap_err();
         assert!(error.to_string().contains(scenario), "{error}");
         assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
         assert!(!session.join("seed-checks.json").exists());
@@ -315,7 +352,19 @@ fn issue_298_split_checks_cannot_replace_the_complete_success_scenario() {
     }
 
     let complete = json!([check(scenario)]);
-    draft_seed(&session, version, &prose, &complete, &[], root.path(), None).unwrap();
+    draft_seed(
+        &session,
+        version,
+        &prose,
+        &complete,
+        Reported {
+            found: &[],
+            assumed: &[],
+            resolves: None,
+        },
+        root.path(),
+    )
+    .unwrap();
     let stored: Value =
         serde_json::from_slice(&fs::read(session.join("seed-checks.json")).unwrap()).unwrap();
     assert_eq!(stored, complete);
@@ -409,7 +458,19 @@ fn literal_goal_round_trip(goal: &str) {
     let prose =
         ledger::fixtures::prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt"));
     let checks = json!([{"statement":"TEST", "kind":"judge", "source":"TEST", "how_to_judge":"Inspect the TEST result." }]);
-    let revision = draft_seed(&session, 1, &prose, &checks, &[], root.path(), None).unwrap();
+    let revision = draft_seed(
+        &session,
+        1,
+        &prose,
+        &checks,
+        Reported {
+            found: &[],
+            assumed: &[],
+            resolves: None,
+        },
+        root.path(),
+    )
+    .unwrap();
     let path = session.join("seed-contract.md");
     let seed = fs::read_to_string(&path).unwrap();
     assert_eq!(read(&session).unwrap().goal(), Some(goal));
