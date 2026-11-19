@@ -140,7 +140,7 @@ fn clauses(text: &str) -> Vec<String> {
         } else if quote.is_none()
             && (c == '"'
                 || c == '“'
-                || c == '`'
+                || (c == '`' && !previous.is_some_and(char::is_alphanumeric))
                 || (matches!(c, '\'' | '‘') && !previous.is_some_and(char::is_alphanumeric)))
         {
             quote = Some(match c {

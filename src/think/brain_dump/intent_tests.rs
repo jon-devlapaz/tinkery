@@ -322,6 +322,7 @@ fn a_command_in_done_when_keeps_every_byte() {
     for done_when in [
         format!("the scope guard passes: {command}"),
         "the scope guard passes: `find . -name x && ! true`".to_owned(),
+        "the build passes: `make. make test; make lint`".to_owned(),
     ] {
         let p = GoalParts {
             who: Some("I".into()),

@@ -1147,6 +1147,10 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
             })
             .collect(),
     );
+    // Each check carries its case; a repair to human judgment must keep it (#913).
+    for check in reply["checks"].as_array_mut().unwrap() {
+        check["failure_case"] = "TEST wrong result must fail".into();
+    }
     answering::draft_seed(
         &receipt.session,
         version,
@@ -1182,6 +1186,20 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         )
         .unwrap();
     }
+    let repaired: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(receipt.session.join("seed-checks.json")).unwrap())
+            .unwrap();
+    let repaired = repaired.as_array().unwrap();
+    assert!(
+        repaired.iter().any(|c| c["kind"] == "judge"
+            && c["how_to_judge"] == "TEST operator inspects this requirement.")
+    );
+    assert!(
+        repaired
+            .iter()
+            .all(|c| c["failure_case"] == "TEST wrong result must fail"),
+        "a repaired check keeps its failure case: {repaired:?}"
+    );
     answering::confirm_seed(
         &receipt.session,
         crate::seed_me::answering::read(&receipt.session)
