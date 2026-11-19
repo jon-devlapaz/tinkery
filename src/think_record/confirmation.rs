@@ -36,6 +36,25 @@ pub struct ConfirmationClass {
     pub blast_radius_reason: String,
 }
 
+impl ConfirmationClass {
+    /// Both axes and their reasons as one escaped line, for display only.
+    pub(crate) fn summary(&self) -> String {
+        let door = match self.door {
+            Door::OneWay => "one-way",
+            Door::TwoWay => "two-way",
+        };
+        let radius = match self.blast_radius {
+            BlastRadius::Small => "small",
+            BlastRadius::Large => "large",
+        };
+        format!(
+            "door: {door} ({}); blast radius: {radius} ({})",
+            self.door_reason.escape_debug(),
+            self.blast_radius_reason.escape_debug()
+        )
+    }
+}
+
 /// Who the caller says performed a confirmation. No declaration means unrecorded, never operator.
 /// Think and Shape record this separately; supplying it for a goal never confirms a seed or approves work.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -283,19 +302,10 @@ impl GoalConfirmation {
             ),
             Self::Terminal { .. } => return "unrecorded".into(),
         };
-        let door = match class.door {
-            Door::OneWay => "one-way",
-            Door::TwoWay => "two-way",
-        };
-        let radius = match class.blast_radius {
-            BlastRadius::Small => "small",
-            BlastRadius::Large => "large",
-        };
         format!(
-            "{who}; source: {}; door: {door} ({}); blast radius: {radius} ({})",
+            "{who}; source: {}; {}",
             source.escape_debug(),
-            class.door_reason.escape_debug(),
-            class.blast_radius_reason.escape_debug()
+            class.summary()
         )
     }
 

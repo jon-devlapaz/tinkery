@@ -20,6 +20,8 @@ from worker_terminal import (CAP, END, F2, F10, MODEL, Fixture, Terminal,
                              open_review, real_runtime_journey)
 
 WORDS = 'TEST operator words:  budget OK: 200\nStart only this reviewed builder.  '
+GRANT = 'TEST operator grant: start two-way, small Tinks with nothing gray.'
+ALLOWED = ('matching', 'snapshot', 'standing')
 
 
 def authorization(fixture, case):
@@ -33,6 +35,20 @@ def authorization(fixture, case):
         return path
     if case == 'directory':
         path.mkdir()
+        return path
+    if case.startswith('standing'):
+        # #932: words given once for any two-way, small Tink; the starting agent classes this one.
+        value = dict(words=GRANT, granted='2026-11-19', model=MODEL, responses=CAP, class_=dict(
+            door='two_way', door_reason='TEST fake worker only', blast_radius='small',
+            blast_radius_reason='TEST temporary checkout'))
+        value['class'] = value.pop('class_')
+        if case == 'standing-large':
+            value['class']['blast_radius'] = 'large'
+        if case == 'standing-oneway':
+            value['class']['door'] = 'one_way'
+        if case == 'standing-undated':
+            value['granted'] = 'x'
+        path.write_text(json.dumps(value))
         return path
     value = dict(words=WORDS, seed_sha256=hashlib.sha256(
         (fixture.session / 'seed-contract.md').read_bytes()).hexdigest(), model=MODEL, responses=CAP)
@@ -48,16 +64,29 @@ def authorization(fixture, case):
 
 def journey(case, operator='agent', size=(100, 30), mono=True):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-worker-relay-') as directory:
-        fixture = Fixture(Path(directory).resolve())
+        fixture = Fixture(Path(directory).resolve(), gray=case == 'standing-gray')
         path = authorization(fixture, case)
         originals = {name: (fixture.session / name).read_bytes()
                      for name in ('seed-contract.md', 'ledger.json', 'seed-confirmation.json')}
-        expected_relay = json.loads(path.read_text()) if case in ('matching', 'snapshot') else None
+        expected_relay = json.loads(path.read_text()) if case in ALLOWED else None
         terminal = Terminal(fixture, *size, operator=operator, authorization=path, mono=mono)
         try:
             open_review(terminal)
-            refused = operator == 'agent' and case not in ('matching', 'snapshot')
-            if not refused and operator == 'agent':
+            refused = operator == 'agent' and case not in ALLOWED
+            reasons = {'standing-gray': 'ask the operator about: TEST where notes go.',
+                       'standing-large': 'covers only two-way, small work',
+                       'standing-oneway': 'covers only two-way, small work',
+                       'standing-undated': 'needs its date as YYYY-MM-DD'}
+            if operator == 'agent' and case in reasons:
+                assert reasons[case] in terminal.flat(), terminal.screen.text()
+            if case == 'standing' and operator == 'agent':
+                assert 'Authority: operator, standing grant, relayed' in terminal.flat(), terminal.screen.text()
+                assert 'Gray items: none' in terminal.flat()
+                assert 'Granted: 2026-11-19' in terminal.flat()
+                assert 'door: two-way (TEST fake worker only)' in terminal.flat()
+                assert GRANT in terminal.flat()
+                assert 'The operator can stop this worker at any time.' in terminal.flat()
+            elif not refused and operator == 'agent':
                 assert 'Authority: operator, relayed' in terminal.flat(), terminal.screen.text()
                 assert 'Operator declaration: agent' in terminal.flat()
                 assert 'Provenance cannot be verified.' in terminal.flat()
@@ -90,10 +119,11 @@ def journey(case, operator='agent', size=(100, 30), mono=True):
                     receipt = json.loads(lines[0])
                     assert receipt['action'] == 'start'
                     assert receipt['operator'] == 'agent'
-                    assert receipt['authority'] == 'operator, relayed'
+                    assert receipt['authority'] == ('operator, standing grant, relayed' if case == 'standing'
+                                                    else 'operator, relayed')
                     assert 'cannot be verified' in receipt['provenance']
-                    assert receipt['authorization'] == expected_relay
-                    assert receipt['authorization']['words'] == WORDS
+                    assert receipt['authorization'] == expected_relay, 'the record does not cite the grant'
+                    assert receipt['authorization']['words'] == (GRANT if case == 'standing' else WORDS)
                     assert receipt['authorization']['responses'] == CAP, 'words inferred a budget'
                     assert receipt['run_id'] == fixture.read()['run']['run_id']
                     assert receipt['step'] == 'build' and receipt['checkout'] == str(build)
@@ -149,7 +179,8 @@ def documentation():
 def existing_journey(action, case, operator='agent', agent_start=False, record_block=False):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-worker-existing-relay-') as directory:
         fixture = Fixture(Path(directory).resolve(),
-                          scenario='launch-refused' if action == 'launch' else 'normal')
+                          scenario='launch-refused' if action == 'launch' else 'normal',
+                          gray=case == 'standing-gray')
         first = Terminal(fixture, 100, 30, operator='agent' if agent_start else 'human')
         try:
             open_review(first)
@@ -176,7 +207,11 @@ def existing_journey(action, case, operator='agent', agent_start=False, record_b
                 assert 'Provenance cannot be verified.' in terminal.flat()
                 assert 'TEST operator words:  budget OK: 200' in terminal.screen.text()
                 assert 'Start only this reviewed builder.' in terminal.flat()
-            refused = operator == 'agent' and (case != 'matching' or record_block)
+            if operator == 'agent' and case.startswith('standing'):
+                # This panel has not read the ledger, so it must not claim the Tink has no gray item.
+                assert 'Gray items: checked at each start, launch and resume' in terminal.flat(), terminal.screen.text()
+                assert 'Gray items: none' not in terminal.flat()
+            refused = operator == 'agent' and (case not in ('matching', 'standing') or record_block)
             os.write(terminal.master, b'l' if action == 'launch' else b'u')
             terminal.wait(lambda: 'Request in progress' not in terminal.flat() and
                           ('Current worker and verification state unknown.' in terminal.flat()
@@ -198,7 +233,8 @@ def existing_journey(action, case, operator='agent', agent_start=False, record_b
                     receipt = json.loads(lines[-1])
                     assert receipt['action'] == action
                     assert receipt['authorization'] == json.loads(path.read_text())
-                    assert receipt['authority'] == 'operator, relayed'
+                    assert receipt['authority'] == ('operator, standing grant, relayed' if case == 'standing'
+                                                    else 'operator, relayed')
                     assert receipt['run_id'] == fixture.read()['run']['run_id']
                     assert receipt['checkout'] == str(build) and receipt['step'] == 'build'
                 else:
@@ -243,6 +279,18 @@ def reversion_probe():
         print(result.stdout + result.stderr)
         assert result.returncode != 0 and 'agent_retry_with_matching_relay_refuses_before_creation ... FAILED' in result.stdout
         print('PASS retry guard reversion detected')
+        begin_gray = retry_original.index('        if let Relay::Standing(_) = relay {')
+        end_gray = retry_original.index('        if target.retry.is_some() {', begin_gray)
+        retry_source.write_text(retry_original.replace(retry_original[begin_gray:end_gray], ''))
+        subprocess.run(['cargo', '+stable', 'build', '--locked', '--bin', 'tinkery'],
+                       cwd=REPO, env=ENV, check=True)
+        result = subprocess.run([sys.executable, __file__, '--gray-only'], cwd=REPO,
+                                env={**ENV, 'TINKERY_TEST_SEED_FIXTURE': str(
+                                    REPO / 'target/debug/examples/seed_fixture')},
+                                capture_output=True, text=True)
+        print(result.stdout + result.stderr)
+        assert result.returncode != 0 and 'AssertionError' in result.stderr
+        print('PASS zero-gray guard reversion detected')
     finally:
         source.write_text(original)
         retry_source.write_text(retry_original)
@@ -255,6 +303,8 @@ if __name__ == '__main__':
         reversion_probe()
     elif sys.argv[1:] == ['--unauthorized-only']:
         journey('absent')
+    elif sys.argv[1:] == ['--gray-only']:
+        journey('standing-gray')
     elif sys.argv[1:] == ['--unauthorized-existing-only']:
         existing_journey('launch', 'absent')
     else:
@@ -263,6 +313,9 @@ if __name__ == '__main__':
         for case in ('absent', 'seed', 'model', 'cap', 'unreadable', 'empty', 'type', 'unknown',
                      'malformed', 'oversized', 'fifo', 'directory'):
             journey(case)
+        for case in ('standing', 'standing-gray', 'standing-large', 'standing-oneway', 'standing-undated'):
+            journey(case)
+        journey('standing', operator='human')
         journey('matching', size=(80, 24), mono=False)
         journey('matching')
         journey('snapshot')
@@ -275,6 +328,8 @@ if __name__ == '__main__':
                 existing_journey(action, case)
             for operator in ('human', None):
                 existing_journey(action, 'absent', operator=operator)
+            for case in ('standing', 'standing-gray'):
+                existing_journey(action, case)
             existing_journey(action, 'matching', agent_start=True)
             existing_journey(action, 'matching', record_block=True)
         real_runtime_journey()

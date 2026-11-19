@@ -1,8 +1,10 @@
 //! Relayed start words are caller-supplied, never authenticated consent. This boundary binds
-//! them to one reviewed seed and allowance and records attribution before worker admission.
+//! them to one reviewed seed and allowance, or to a standing grant that covers only two-way, small
+//! work and only a Tink with no gray item, and records attribution before worker admission.
 
 use super::{Config, Run};
-use crate::seed_me::ready::SeedTarget;
+use crate::seed_me::{answering, ledger, ready::SeedTarget};
+use crate::think_record::{BlastRadius, ConfirmationClass, Door};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::OpenOptions,
@@ -15,12 +17,33 @@ const REQUIRED: &str = "Agent worker admission requires --worker-authorization F
 const PROVENANCE: &str =
     "Provenance cannot be verified. These are relayed words, not verified operator identity.";
 
-/// Verbatim caller-supplied words and their exact start binding; never inferred from a budget.
+/// Verbatim caller-supplied words and their start binding; never inferred from a budget.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(untagged)]
+pub(crate) enum Relay {
+    /// Words for one reviewed seed.
+    Exact(Exact),
+    /// Words given once, ahead of time, for any two-way, small Tink with no gray item.
+    Standing(Standing),
+}
+
+/// The operator's words for exactly one seed, model and response cap.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct Relay {
+pub(crate) struct Exact {
     words: String,
     seed_sha256: String,
+    model: String,
+    responses: usize,
+}
+
+/// The operator's standing grant, its date, and the starting agent's own risk class for this Tink.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Standing {
+    words: String,
+    granted: String,
+    class: ConfirmationClass,
     model: String,
     responses: usize,
 }
@@ -44,13 +67,47 @@ impl Relay {
             if bytes.len() > LIMIT as usize {
                 return Err("Relayed authorization exceeds 16 KiB.".to_string());
             }
-            let relay: Self = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
-            if relay.words.trim().is_empty() {
+            let relay: Self = serde_json::from_slice(&bytes).map_err(|_| {
+                "Relayed authorization must hold exactly words, seed_sha256, model and responses, \
+                 or a standing grant: words, granted, class, model and responses."
+                    .to_string()
+            })?;
+            if relay.words().trim().is_empty() {
                 return Err("Relayed authorization needs the operator's verbatim words.".into());
+            }
+            if let Self::Standing(grant) = &relay {
+                let class = &grant.class;
+                let date = grant.granted.as_bytes();
+                let iso = date.len() == 10
+                    && date.iter().enumerate().all(|(i, b)| {
+                        if i == 4 || i == 7 {
+                            *b == b'-'
+                        } else {
+                            b.is_ascii_digit()
+                        }
+                    });
+                if !iso
+                    || class.door_reason.trim().is_empty()
+                    || class.blast_radius_reason.trim().is_empty()
+                {
+                    return Err(
+                        "A standing grant needs its date as YYYY-MM-DD and a reason for each risk axis.".into(),
+                    );
+                }
+                if class.door != Door::TwoWay || class.blast_radius != BlastRadius::Small {
+                    return Err("A standing grant covers only two-way, small work; ask the operator for this start.".into());
+                }
             }
             Ok(Some(relay))
         };
         read().map_err(|e: String| format!("Cannot read relayed authorization: {e}"))
+    }
+
+    fn words(&self) -> &str {
+        match self {
+            Self::Exact(exact) => &exact.words,
+            Self::Standing(grant) => &grant.words,
+        }
     }
 }
 
@@ -79,11 +136,28 @@ impl Gate {
             .ok_or(REQUIRED)?;
         let target =
             target.ok_or("Agent worker admission requires a readable confirmed Tink Contract.")?;
-        if relay.seed_sha256 != target.sha256
-            || relay.model != config.model
-            || relay.responses != config.responses
+        let (seed, model, responses) = match relay {
+            Relay::Exact(exact) => (Some(&exact.seed_sha256), &exact.model, exact.responses),
+            Relay::Standing(grant) => (None, &grant.model, grant.responses),
+        };
+        if seed.is_some_and(|seed| *seed != target.sha256)
+            || *model != config.model
+            || responses != config.responses
         {
             return Err("Relayed authorization does not exactly match the reviewed Tink, model and response cap.".into());
+        }
+        if let Relay::Standing(_) = relay {
+            let saved: serde_json::Value =
+                serde_json::from_str(&ledger::load(&target.session)?.pretty()?)
+                    .map_err(|e| e.to_string())?;
+            let gray = answering::gray(&saved);
+            if !gray.is_empty() {
+                let labels: Vec<_> = gray.iter().filter_map(|g| g["label"].as_str()).collect();
+                return Err(format!(
+                    "A standing grant starts only a Tink with no gray item; ask the operator about: {}.",
+                    labels.join("; ")
+                ));
+            }
         }
         if target.retry.is_some() {
             return Err("Relayed authorization requires the Tink's checkout; alternate worktrees are outside this flow.".into());
@@ -101,6 +175,7 @@ impl Gate {
         if !self.agent {
             return String::new();
         }
+        let bound = binding.is_some();
         let input = match binding {
             Some((target, config)) => self.bind(Some(target), config),
             None => self
@@ -110,11 +185,26 @@ impl Gate {
                 .and_then(|relay| relay.as_ref().map(Some).ok_or_else(|| REQUIRED.into())),
         };
         match input {
-            Ok(Some(relay)) => format!(
+            Ok(Some(Relay::Exact(exact))) => format!(
                 "\nAuthority: operator, relayed\nOperator declaration: agent\n{PROVENANCE}\n\
                  Relayed words (verbatim):\n{}\n\
                  Confirm the goal, confirm the Tink and approve the worker start separately.\n",
-                relay.words
+                exact.words
+            ),
+            Ok(Some(Relay::Standing(grant))) => format!(
+                "\nAuthority: operator, standing grant, relayed\nOperator declaration: agent\n\
+                 {PROVENANCE}\nGranted: {}\nAgent's class: {}\nGray items: {}\n\
+                 Relayed words (verbatim):\n{}\n\
+                 The operator can stop this worker at any time.\n",
+                grant.granted.escape_debug(),
+                grant.class.summary(),
+                // Only a bound reading has read the ledger; claims stop where evidence stops.
+                if bound {
+                    "none"
+                } else {
+                    "checked at each start, launch and resume"
+                },
+                grant.words
             ),
             Ok(None) => String::new(),
             Err(error) => format!("\nWorker authorization refused: {error}\n"),
@@ -133,7 +223,10 @@ impl Gate {
             return Ok(());
         };
         let value = serde_json::json!({
-            "schema": 1, "operator": "agent", "authority": "operator, relayed",
+            "schema": 1, "operator": "agent", "authority": match relay {
+                Relay::Exact(_) => "operator, relayed",
+                Relay::Standing(_) => "operator, standing grant, relayed",
+            },
             "provenance": PROVENANCE, "authorization": relay, "action": action,
             "run_id": run.id, "step": "build", "checkout": run.root,
         });

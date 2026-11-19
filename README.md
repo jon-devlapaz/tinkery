@@ -93,7 +93,9 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   before work. The review shows the words and authority `operator, relayed`; provenance
   cannot be verified. Each admission appends to `runs/<slug>/worker-authorization.jsonl`.
   Human and undeclared F2, `l` and `u` keep their existing direct consent without a relay file.
-  Goal confirmation, Tink confirmation and worker start remain separate yeses.
+  Goal confirmation, Tink confirmation and worker start remain separate yeses, unless the
+  operator gave a standing grant for two-way, small work (Yohaku Art. 2). A standing grant file
+  starts only a Tink with no `gray` item; the review shows authority `operator, standing grant, relayed`.
   See the [relay file contract](docs/design/approve.md#start-a-worker). Navigation never starts work.
   Recent Pi launch logs show how many
   responses workers used before editing. The review warns when your cap leaves too little
