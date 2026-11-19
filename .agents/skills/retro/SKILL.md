@@ -17,8 +17,10 @@ unrequested changes. Tinkery's rules live in [AGENTS.md](../../../AGENTS.md) and
    session and Think record they bind to, and the worker session named by its build step.
 3. Find improvements using the checks below.
 4. Present candidates in severity order.
-5. For a named run, end with one ready-to-run `sdlc.py label` command per correction, for
-   the operator to run in that checkout. Never run `label` yourself.
+5. For a named run, list each correction in the operator's exact words and ask once for a
+   typed go in the chat where they are. On that go, record each label yourself with
+   `--relayed FILE`, FILE being `{"words": their exact words, "where": where they typed them}`.
+   Never hand the operator a command to run: they need not be at a terminal.
 
 ## Checks
 
@@ -34,7 +36,7 @@ unrequested changes. Tinkery's rules live in [AGENTS.md](../../../AGENTS.md) and
   and propose the leftmost one, per Yohaku's [move each correction left](../../../docs/yohaku.md#for-anyone-changing-tinkery-human-or-agent).
   Count corrections apart from required decisions (confirm, approve, merge): a fix may
   remove a correction, never a decision. As a label command:
-  `python3 _system/scripts/sdlc.py label <run> --kind correction --words <their words> --reviewer <operator> --source <'retro DATE: fix in LAYER'> [--about <checkout-relative file>|outside]`.
+  `python3 _system/scripts/sdlc.py label <run> --kind correction --words <their words> --reviewer <operator> --source <'retro DATE: fix in LAYER'> --relayed FILE [--about <checkout-relative file>|outside]`.
   Shell-quote each value (as Python's `shlex.quote` does) so the words stay verbatim.
   With no corrections, propose `--kind none --words 'No corrections'`; a run closes only
   once labelled.
