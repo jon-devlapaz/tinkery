@@ -77,12 +77,21 @@ impl Relay {
             }
             if let Self::Standing(grant) = &relay {
                 let class = &grant.class;
-                if grant.granted.trim().is_empty()
+                let date = grant.granted.as_bytes();
+                let iso = date.len() == 10
+                    && date.iter().enumerate().all(|(i, b)| {
+                        if i == 4 || i == 7 {
+                            *b == b'-'
+                        } else {
+                            b.is_ascii_digit()
+                        }
+                    });
+                if !iso
                     || class.door_reason.trim().is_empty()
                     || class.blast_radius_reason.trim().is_empty()
                 {
                     return Err(
-                        "A standing grant needs its date and a reason for each risk axis.".into(),
+                        "A standing grant needs its date as YYYY-MM-DD and a reason for each risk axis.".into(),
                     );
                 }
                 if class.door != Door::TwoWay || class.blast_radius != BlastRadius::Small {
@@ -166,6 +175,7 @@ impl Gate {
         if !self.agent {
             return String::new();
         }
+        let bound = binding.is_some();
         let input = match binding {
             Some((target, config)) => self.bind(Some(target), config),
             None => self
@@ -183,11 +193,17 @@ impl Gate {
             ),
             Ok(Some(Relay::Standing(grant))) => format!(
                 "\nAuthority: operator, standing grant, relayed\nOperator declaration: agent\n\
-                 {PROVENANCE}\nGranted: {}\nAgent's class: {}\nGray items: none\n\
+                 {PROVENANCE}\nGranted: {}\nAgent's class: {}\nGray items: {}\n\
                  Relayed words (verbatim):\n{}\n\
                  The operator can stop this worker at any time.\n",
                 grant.granted.escape_debug(),
                 grant.class.summary(),
+                // Only a bound reading has read the ledger; claims stop where evidence stops.
+                if bound {
+                    "none"
+                } else {
+                    "checked at each start, launch and resume"
+                },
                 grant.words
             ),
             Ok(None) => String::new(),

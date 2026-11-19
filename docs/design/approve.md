@@ -166,12 +166,14 @@ risk class for this Tink:
 {"words":"The operator's verbatim standing grant", "granted":"2026-11-19", "class":{"door":"two_way", "door_reason":"Why it is cheap to undo", "blast_radius":"small", "blast_radius_reason":"Why the scope is bounded"}, "model":"provider/model:thinking", "responses":7}
 ```
 
-The agent saves the grant words once and copies them unchanged into each file. Any other door
-or radius, a blank date or a blank reason refuses at launch. Admission also refuses while the
+The agent saves the grant words once and copies them unchanged into each file. Tinkery keeps
+no saved grant, so it cannot detect changed words; like every relay file, it is a claim. Any
+other door or radius, a date not in `YYYY-MM-DD` form or a blank reason refuses at launch. Admission also refuses while the
 Tink has a `gray` item, as `tinkery seed show` lists it; the refusal names each one, for the
 operator. The model pin and response cap must still match; the cap applies to each start. The
 review shows authority `operator, standing grant, relayed`, the date, the agent's class and
-"Gray items: none". The record cites the grant words, date and class. Stop works as for any worker.
+"Gray items: none". A panel for an existing run has not read the ledger, so it says the gray
+check runs at each start, launch and resume. The record cites the grant words, date and class. Stop works as for any worker.
 Missing, unreadable, malformed or mismatched authorization refuses before run creation
 for F2 and before any SDLC mutation for `l` and `u`. An unreadable run seed also refuses.
 The review shows the verbatim words, the declared agent operator and authority

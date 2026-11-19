@@ -44,8 +44,10 @@ def authorization(fixture, case):
         value['class'] = value.pop('class_')
         if case == 'standing-large':
             value['class']['blast_radius'] = 'large'
+        if case == 'standing-oneway':
+            value['class']['door'] = 'one_way'
         if case == 'standing-undated':
-            value['granted'] = ' '
+            value['granted'] = 'x'
         path.write_text(json.dumps(value))
         return path
     value = dict(words=WORDS, seed_sha256=hashlib.sha256(
@@ -73,7 +75,8 @@ def journey(case, operator='agent', size=(100, 30), mono=True):
             refused = operator == 'agent' and case not in ALLOWED
             reasons = {'standing-gray': 'ask the operator about: TEST where notes go.',
                        'standing-large': 'covers only two-way, small work',
-                       'standing-undated': 'needs its date and a reason for each risk axis'}
+                       'standing-oneway': 'covers only two-way, small work',
+                       'standing-undated': 'needs its date as YYYY-MM-DD'}
             if operator == 'agent' and case in reasons:
                 assert reasons[case] in terminal.flat(), terminal.screen.text()
             if case == 'standing' and operator == 'agent':
@@ -176,7 +179,8 @@ def documentation():
 def existing_journey(action, case, operator='agent', agent_start=False, record_block=False):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-worker-existing-relay-') as directory:
         fixture = Fixture(Path(directory).resolve(),
-                          scenario='launch-refused' if action == 'launch' else 'normal')
+                          scenario='launch-refused' if action == 'launch' else 'normal',
+                          gray=case == 'standing-gray')
         first = Terminal(fixture, 100, 30, operator='agent' if agent_start else 'human')
         try:
             open_review(first)
@@ -203,7 +207,11 @@ def existing_journey(action, case, operator='agent', agent_start=False, record_b
                 assert 'Provenance cannot be verified.' in terminal.flat()
                 assert 'TEST operator words:  budget OK: 200' in terminal.screen.text()
                 assert 'Start only this reviewed builder.' in terminal.flat()
-            refused = operator == 'agent' and (case != 'matching' or record_block)
+            if operator == 'agent' and case.startswith('standing'):
+                # This panel has not read the ledger, so it must not claim the Tink has no gray item.
+                assert 'Gray items: checked at each start, launch and resume' in terminal.flat(), terminal.screen.text()
+                assert 'Gray items: none' not in terminal.flat()
+            refused = operator == 'agent' and (case not in ('matching', 'standing') or record_block)
             os.write(terminal.master, b'l' if action == 'launch' else b'u')
             terminal.wait(lambda: 'Request in progress' not in terminal.flat() and
                           ('Current worker and verification state unknown.' in terminal.flat()
@@ -225,7 +233,8 @@ def existing_journey(action, case, operator='agent', agent_start=False, record_b
                     receipt = json.loads(lines[-1])
                     assert receipt['action'] == action
                     assert receipt['authorization'] == json.loads(path.read_text())
-                    assert receipt['authority'] == 'operator, relayed'
+                    assert receipt['authority'] == ('operator, standing grant, relayed' if case == 'standing'
+                                                    else 'operator, relayed')
                     assert receipt['run_id'] == fixture.read()['run']['run_id']
                     assert receipt['checkout'] == str(build) and receipt['step'] == 'build'
                 else:
@@ -304,7 +313,7 @@ if __name__ == '__main__':
         for case in ('absent', 'seed', 'model', 'cap', 'unreadable', 'empty', 'type', 'unknown',
                      'malformed', 'oversized', 'fifo', 'directory'):
             journey(case)
-        for case in ('standing', 'standing-gray', 'standing-large', 'standing-undated'):
+        for case in ('standing', 'standing-gray', 'standing-large', 'standing-oneway', 'standing-undated'):
             journey(case)
         journey('standing', operator='human')
         journey('matching', size=(80, 24), mono=False)
@@ -319,6 +328,8 @@ if __name__ == '__main__':
                 existing_journey(action, case)
             for operator in ('human', None):
                 existing_journey(action, 'absent', operator=operator)
+            for case in ('standing', 'standing-gray'):
+                existing_journey(action, case)
             existing_journey(action, 'matching', agent_start=True)
             existing_journey(action, 'matching', record_block=True)
         real_runtime_journey()
