@@ -1,0 +1,6 @@
+disallowed-methods = [
+  { path = "std::fs::read", reason = "Operator paths can be FIFOs. Use crate::regular_file::read (#489, #585, #764)." },
+  { path = "std::fs::read_to_string", reason = "Operator paths can be FIFOs. Use crate::regular_file::read_text (#489, #585, #764)." },
+  { path = "std::fs::File::open", reason = "Operator paths can be FIFOs. Use crate::regular_file (#489, #585, #764)." },
+  { path = "std::fs::OpenOptions::open", reason = "Operator paths can be FIFOs. Use crate::regular_file (#489, #585, #764)." },
+]

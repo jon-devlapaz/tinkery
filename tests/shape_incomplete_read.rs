@@ -1,4 +1,6 @@
 //! #176: real discovery must retain incomplete-read evidence through the menu into Shape.
+// Test code reads the files it made; only Tinkery's own code must use `regular_file`.
+#![allow(clippy::disallowed_methods)]
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::{

@@ -1,5 +1,7 @@
 //! The light/dark switch as the operator sees it: one header label beside `?` on every screen,
 //! Ctrl-T or a click flips every colour at once, and without colour nothing changes.
+// Test code reads the files it made; only Tinkery's own code must use `regular_file`.
+#![allow(clippy::disallowed_methods)]
 
 use crossterm::event::{
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,

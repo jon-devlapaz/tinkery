@@ -1,7 +1,7 @@
 //! Compare what a worker or local reviewer can read with the checked commit. Run receipts
 //! and SDLC's generated rules are allowed to change independently of the project source.
 
-use std::{fs, io::Read, os::unix::fs::OpenOptionsExt, path::Path};
+use std::{fs, io::Read, path::Path};
 
 /// Refuse changed or untracked project files. The caller supplies bounded Git reads for
 /// this checkout, including its cancellation and configuration policy.
@@ -30,14 +30,13 @@ pub(crate) fn check(
         }
         let committed = git(&["show", &format!("{head}:AGENTS.md")]).map_err(|_| differs)?;
         let mut current = Vec::new();
-        let mut file = fs::OpenOptions::new()
-            .read(true)
-            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-            .open(checkout.join("AGENTS.md"))
-            .map_err(|_| differs)?;
-        if !file.metadata().is_ok_and(|meta| meta.is_file()) {
-            return Err(differs.into());
-        }
+        let mut file = crate::regular_file::open(
+            fs::OpenOptions::new().read(true),
+            libc::O_NOFOLLOW,
+            &checkout.join("AGENTS.md"),
+            differs,
+        )
+        .map_err(|_| differs)?;
         file.read_to_end(&mut current).map_err(|_| differs)?;
         if super::without_generated_rules(committed.as_bytes())
             != super::without_generated_rules(&current)

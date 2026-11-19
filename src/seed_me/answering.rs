@@ -930,7 +930,7 @@ pub fn draft_seed(
     let grounding = receipts(&ledger.state, true);
     let path = session.join(SEED);
     let previous =
-        match std::fs::read_to_string(&path) {
+        match crate::regular_file::read_text(&path, "seed-contract.md is not a regular file.") {
             Ok(existing) => Some(existing),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
             Err(_) => return Err(Refusal::Refused(

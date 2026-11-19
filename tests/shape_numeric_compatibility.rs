@@ -1,4 +1,6 @@
 //! Public Shape ledger actions preserve legacy numeric reads, exact refusals and publication data.
+// Test code reads the files it made; only Tinkery's own code must use `regular_file`.
+#![allow(clippy::disallowed_methods)]
 
 use std::{fs, path::PathBuf};
 use tinkery::seed_me::{

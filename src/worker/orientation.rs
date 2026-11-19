@@ -9,7 +9,6 @@ use std::{
     collections::HashMap,
     fs::{self, File, OpenOptions},
     io::{self, BufRead, BufReader, Read},
-    os::unix::fs::OpenOptionsExt,
     path::{Path, PathBuf},
     process::Command,
     sync::atomic::{AtomicBool, Ordering},
@@ -171,12 +170,13 @@ fn regular(path: &Path) -> Option<File> {
     if path.canonicalize().ok()? != path {
         return None;
     }
-    let file = OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-        .open(path)
-        .ok()?;
-    file.metadata().ok()?.is_file().then_some(file)
+    crate::regular_file::open(
+        OpenOptions::new().read(true),
+        libc::O_NOFOLLOW,
+        path,
+        "not a regular file",
+    )
+    .ok()
 }
 
 #[derive(Deserialize)]

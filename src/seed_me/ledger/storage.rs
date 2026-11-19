@@ -106,11 +106,13 @@ impl From<String> for PublishError {
 struct Writer(File);
 impl Writer {
     fn acquire(directory: &Path) -> Result<Self, PublishError> {
-        let file = OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(directory.join(".writer.lock"))
-            .map_err(|e| e.to_string())?;
+        let file = crate::regular_file::open(
+            OpenOptions::new().append(true).create(true),
+            0,
+            &directory.join(".writer.lock"),
+            "the session's writer lock is not a regular file",
+        )
+        .map_err(|e| e.to_string())?;
         // SAFETY: the descriptor remains owned by `file` through this call.
         if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
             let error = io::Error::last_os_error();
@@ -384,11 +386,12 @@ pub(crate) fn save_draft(
     )?;
     super::require(ledger["status"].is("active"), "ended session is read-only")?;
     let path = directory.join(super::seed::FILE);
-    let current = match std::fs::read_to_string(&path) {
-        Ok(text) => Some(text),
-        Err(e) if e.kind() == io::ErrorKind::NotFound => None,
-        Err(e) => return Err(e.to_string()),
-    };
+    let current =
+        match crate::regular_file::read_text(&path, "the Tink Contract is not a regular file") {
+            Ok(text) => Some(text),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+            Err(e) => return Err(e.to_string()),
+        };
     super::require(
         current
             .as_ref()
@@ -431,9 +434,12 @@ pub fn record_teach_back(
         ledger["version"] == super::value::int(expected),
         super::STALE_VERSION,
     )?;
-    let current = std::fs::read_to_string(directory.join(super::seed::FILE)).map_err(|_| {
-        "The draft could not be read. Reopen Shape before recording this review again.".to_owned()
-    })?;
+    let current =
+        crate::regular_file::read_text(&directory.join(super::seed::FILE), "not a regular file")
+            .map_err(|_| {
+                "The draft could not be read. Reopen Shape before recording this review again."
+                    .to_owned()
+            })?;
     super::require(
         current == seed,
         "The draft changed. Reopen Shape before recording this review again.",
@@ -624,9 +630,11 @@ fn confirm(
             ledger["version"] == super::value::int(expected),
             super::STALE_VERSION,
         )?;
-        let current = std::fs::read_to_string(directory.join(super::seed::FILE)).map_err(|_| {
-            "The draft could not be read. Reopen Shape before confirming.".to_owned()
-        })?;
+        let current = crate::regular_file::read_text(
+            &directory.join(super::seed::FILE),
+            "not a regular file",
+        )
+        .map_err(|_| "The draft could not be read. Reopen Shape before confirming.".to_owned())?;
         super::require(
             current == seed,
             "The draft changed. Read it again before confirming.",
@@ -635,9 +643,11 @@ fn confirm(
     let ledger = if record_skip {
         // Refusals precede the skip record: an invalid confirmation must write nothing.
         super::seed::confirmed_as(directory, &ledger, revision, source, timestamp, actor)?;
-        let draft = std::fs::read_to_string(directory.join(super::seed::FILE)).map_err(|_| {
-            "The draft could not be read. Reopen Shape before confirming.".to_owned()
-        })?;
+        let draft = crate::regular_file::read_text(
+            &directory.join(super::seed::FILE),
+            "not a regular file",
+        )
+        .map_err(|_| "The draft could not be read. Reopen Shape before confirming.".to_owned())?;
         let state = super::teach_back::skip(&ledger, revision, &draft, timestamp)?;
         publication(
         directory,

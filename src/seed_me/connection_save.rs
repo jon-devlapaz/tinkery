@@ -6,7 +6,7 @@ use crate::think_record::{Actor, GoalConfirmation};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
-    io::{Read, Write},
+    io::Write,
     os::unix::fs::{DirBuilderExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
@@ -36,9 +36,7 @@ impl Pending {
             .canonicalize()
             .map_err(|_| "The sessions folder is unavailable.")?;
         let mut random = [0u8; 24];
-        fs::File::open("/dev/urandom")
-            .and_then(|mut f| f.read_exact(&mut random))
-            .map_err(|e| e.to_string())?;
+        crate::regular_file::random(&mut random).map_err(|e| e.to_string())?;
         Ok(Self {
             id: format!(
                 "session-tend-{}",
@@ -134,8 +132,11 @@ impl Pending {
         if !meta.is_file() || meta.is_symlink() {
             return Err("The staging ownership is invalid.".into());
         }
-        let read: Self = serde_json::from_slice(&fs::read(marker).map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
+        let read: Self = serde_json::from_slice(
+            &crate::regular_file::read(&marker, "The staging ownership is invalid.")
+                .map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
         if read != *self {
             return Err("This directory belongs to another confirmation.".into());
         }
@@ -169,12 +170,16 @@ impl Pending {
         match fs::DirBuilder::new().mode(0o700).create(&staging) {
             Ok(()) => {
                 let marker = staging.join("tend-handoff.json");
-                let mut file = fs::OpenOptions::new()
-                    .write(true)
-                    .create_new(true)
-                    .mode(0o600)
-                    .open(marker)
-                    .map_err(|e| e.to_string())?;
+                let mut file = crate::regular_file::open(
+                    fs::OpenOptions::new()
+                        .write(true)
+                        .create_new(true)
+                        .mode(0o600),
+                    0,
+                    &marker,
+                    "The staging ownership is invalid.",
+                )
+                .map_err(|e| e.to_string())?;
                 file.write_all(&serde_json::to_vec(self).map_err(|e| e.to_string())?)
                     .map_err(|e| e.to_string())?;
                 file.sync_all().map_err(|e| e.to_string())?;
@@ -223,19 +228,22 @@ impl Pending {
     }
 
     fn writer(&self) -> Result<fs::File, String> {
-        use std::os::{fd::AsRawFd, unix::fs::OpenOptionsExt};
+        use std::os::fd::AsRawFd;
         let (staging, _) = self.paths()?;
         let parent = staging.parent().expect("staging parent");
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         sync(parent.parent().expect("staging ancestor"))?;
-        let file = fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .custom_flags(libc::O_NOFOLLOW)
-            .open(parent.join(format!("{}.lock", self.id)))
-            .map_err(|e| e.to_string())?;
+        let file = crate::regular_file::open(
+            fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false),
+            libc::O_NOFOLLOW,
+            &parent.join(format!("{}.lock", self.id)),
+            "The pending save's lock is not a regular file.",
+        )
+        .map_err(|e| e.to_string())?;
         // SAFETY: the file descriptor stays owned by this File until the operation ends.
         if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
             return Err("Another writer owns this pending save.".into());
@@ -263,9 +271,7 @@ impl Pending {
 }
 
 fn sync(path: &Path) -> Result<(), String> {
-    fs::File::open(path)
-        .and_then(|f| f.sync_all())
-        .map_err(|e| e.to_string())
+    crate::regular_file::sync_directory(path).map_err(|e| e.to_string())
 }
 
 fn publish(source: &Path, destination: &Path) -> Result<(), String> {

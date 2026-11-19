@@ -5,6 +5,8 @@
 //! share (`goal`, `model_setup`, `repo`, `seed_me`, `think_record`, `voice`, and the palette and sizes below) is shared code that names
 //! no phase. `docs/design/architecture.md` has the map and `tests/architecture.rs` enforces it.
 #![deny(missing_docs, unreachable_pub)]
+// Tests and fixtures read files they made; operator paths go through `regular_file`.
+#![cfg_attr(test, allow(clippy::disallowed_methods))]
 
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -27,6 +29,7 @@ pub mod measure;
 pub mod menu;
 pub mod model_setup;
 pub mod pi;
+mod regular_file;
 pub mod repo;
 mod sdlc;
 pub mod seed_me;

@@ -5,7 +5,6 @@ use sha2::{Digest, Sha256};
 use std::{
     fs,
     io::{Read, Write},
-    os::unix::fs::OpenOptionsExt,
     path::PathBuf,
 };
 
@@ -52,14 +51,13 @@ impl Store {
     }
 
     fn read_one(&self, path: &PathBuf) -> Result<String, String> {
-        let file = fs::OpenOptions::new()
-            .read(true)
-            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-            .open(path)
-            .map_err(|e| e.to_string())?;
-        if !file.metadata().map_err(|e| e.to_string())?.is_file() {
-            return Err("A thought is not a regular local file.".into());
-        }
+        let file = crate::regular_file::open(
+            fs::OpenOptions::new().read(true),
+            libc::O_NOFOLLOW,
+            path,
+            "A thought is not a regular local file.",
+        )
+        .map_err(|e| e.to_string())?;
         let mut bytes = vec![];
         file.take((LIMIT * 6 + 4096) as u64 + 1)
             .read_to_end(&mut bytes)
@@ -123,7 +121,7 @@ impl Store {
         temp.as_file().sync_all().map_err(|e| e.to_string())?;
         match temp.persist_noclobber(&path) {
             Ok(_) => {
-                if let Err(e) = fs::File::open(root).and_then(|f| f.sync_all()) {
+                if let Err(e) = crate::regular_file::sync_directory(root) {
                     return Ok(Saved::Uncertain(format!(
                         "Thought persistence is uncertain. Keep these words: {e}"
                     )));
@@ -134,7 +132,7 @@ impl Store {
                 if self.read_one(&path)? != words {
                     return Err("The existing thought differs. Nothing was replaced.".into());
                 }
-                if let Err(e) = fs::File::open(root).and_then(|f| f.sync_all()) {
+                if let Err(e) = crate::regular_file::sync_directory(root) {
                     return Ok(Saved::Uncertain(format!(
                         "Thought persistence is uncertain. Keep these words: {e}"
                     )));

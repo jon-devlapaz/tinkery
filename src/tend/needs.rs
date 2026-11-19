@@ -178,7 +178,10 @@ impl Store {
             Ok(root) => root,
             Err(reason) => return Read::Unreadable(reason.clone()),
         };
-        let bytes = match fs::read(root.join("needs.json")) {
+        let bytes = match crate::regular_file::read(
+            &root.join("needs.json"),
+            "needs.json is not a regular file.",
+        ) {
             Ok(bytes) => bytes,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
                 return if self.populated.get() {
@@ -240,12 +243,16 @@ impl Store {
         let root = self.root.as_ref().map_err(Clone::clone)?;
         let lock = (|| -> std::io::Result<std::fs::File> {
             fs::create_dir_all(root)?;
-            let lock = fs::OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create(true)
-                .truncate(false)
-                .open(root.join("needs.lock"))?;
+            let lock = crate::regular_file::open(
+                fs::OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .create(true)
+                    .truncate(false),
+                0,
+                &root.join("needs.lock"),
+                "needs.lock is not a regular file.",
+            )?;
             let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
             loop {
                 match lock.try_lock() {
@@ -290,10 +297,13 @@ impl Store {
                         return Err("The existing links file is read-only.".into());
                     }
                     // Opening without truncation checks this process's permissions, including ACLs.
-                    fs::OpenOptions::new()
-                        .write(true)
-                        .open(root.join("needs.json"))
-                        .map_err(|error| error.to_string())?;
+                    crate::regular_file::open(
+                        fs::OpenOptions::new().write(true),
+                        0,
+                        &root.join("needs.json"),
+                        "needs.json is not a regular file.",
+                    )
+                    .map_err(|error| error.to_string())?;
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
                 Err(error) => return Err(error.to_string()),

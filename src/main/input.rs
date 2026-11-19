@@ -46,6 +46,8 @@ impl Input {
             Some(if stdin.is_terminal() {
                 stdin.as_fd().try_clone_to_owned()?
             } else {
+                // The controlling terminal is the one device Tinkery reads on purpose.
+                #[allow(clippy::disallowed_methods)]
                 std::fs::File::options()
                     .read(true)
                     .write(true)

@@ -4,6 +4,8 @@
 //! worse than its limit, and also when it gets better, so the limit is lowered in the same PR and
 //! the gain can't quietly slip back. Test code is not checked: anything behind `#[cfg(test)]` is
 //! skipped, except the count of tests that reach into Think's private conversation state.
+// Test code reads the files it made; only Tinkery's own code must use `regular_file`.
+#![allow(clippy::disallowed_methods)]
 
 use std::{
     fs,
@@ -50,6 +52,7 @@ const MODULES: &[(&str, &str)] = &[
     ("menu", "menu"),
     ("model_setup", "shared"),
     ("pi", "shared"),
+    ("regular_file", "shared"),
     ("repo", "shared"),
     ("sdlc", "shared"),
     ("seed_me", "shared"),

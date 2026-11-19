@@ -1,4 +1,6 @@
 //! A model host must not launch a harness without an explicit call allowance.
+// Test code reads the files it made; only Tinkery's own code must use `regular_file`.
+#![allow(clippy::disallowed_methods)]
 
 use std::{os::unix::fs::PermissionsExt, sync::atomic::AtomicBool};
 use tinkery::{

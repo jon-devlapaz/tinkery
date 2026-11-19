@@ -7,10 +7,7 @@ use super::read::{Check, commit};
 use crate::sdlc::{self, DEADLINE};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use serde_json::Value;
-use std::{
-    fs, io::Read, os::unix::fs::OpenOptionsExt, path::Path, process::Command,
-    sync::atomic::AtomicBool,
-};
+use std::{fs, io::Read, path::Path, process::Command, sync::atomic::AtomicBool};
 
 /// The operator's answer, on keys 1 and 2. Taste offers only these two of tink-sdlc's kinds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -85,14 +82,13 @@ pub(super) fn read(
     if path.canonicalize().ok().as_ref() != Some(&path) {
         return Err("Cannot read this run's verdict words in its checkout.".into());
     }
-    let file = fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW)
-        .open(&path)
-        .map_err(|error| error.to_string())?;
-    if !file.metadata().is_ok_and(|m| m.is_file()) {
-        return Err("The verdict words are not in a regular file.".into());
-    }
+    let file = crate::regular_file::open(
+        fs::OpenOptions::new().read(true),
+        libc::O_NOFOLLOW,
+        &path,
+        "The verdict words are not in a regular file.",
+    )
+    .map_err(|error| error.to_string())?;
     const LIMIT: u64 = 4 * 1024 * 1024;
     let mut bytes = Vec::new();
     file.take(LIMIT + 1)

@@ -1,4 +1,6 @@
 //! Every operator-action boundary refuses invalid agent context before any file write.
+// Test code reads the files it made; only Tinkery's own code must use `regular_file`.
+#![allow(clippy::disallowed_methods)]
 use tinkery::{
     seed_me::{self, answering, ledger},
     think_record::{BlastRadius, ConfirmationClass, Door, GoalConfirmation},

@@ -1,4 +1,6 @@
 //! Escape clears original selection, returns to writing, then guards unsaved work.
+// Test code reads the files it made; only Tinkery's own code must use `regular_file`.
+#![allow(clippy::disallowed_methods)]
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::{
