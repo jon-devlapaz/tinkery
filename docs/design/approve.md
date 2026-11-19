@@ -157,6 +157,21 @@ with only these fields:
 ```
 
 The seed SHA-256, model pin and response cap must exactly match the reviewed admission.
+
+A standing grant ([#932](https://github.com/jon-devlapaz/tinkery/issues/932), Yohaku Art. 2)
+replaces `seed_sha256` with the date the operator gave the words and the starting agent's own
+risk class for this Tink:
+
+```json
+{"words":"The operator's verbatim standing grant", "granted":"2026-11-19", "class":{"door":"two_way", "door_reason":"Why it is cheap to undo", "blast_radius":"small", "blast_radius_reason":"Why the scope is bounded"}, "model":"provider/model:thinking", "responses":7}
+```
+
+The agent saves the grant words once and copies them unchanged into each file. Any other door
+or radius, a blank date or a blank reason refuses at launch. Admission also refuses while the
+Tink has a `gray` item, as `tinkery seed show` lists it; the refusal names each one, for the
+operator. The model pin and response cap must still match; the cap applies to each start. The
+review shows authority `operator, standing grant, relayed`, the date, the agent's class and
+"Gray items: none". The record cites the grant words, date and class. Stop works as for any worker.
 Missing, unreadable, malformed or mismatched authorization refuses before run creation
 for F2 and before any SDLC mutation for `l` and `u`. An unreadable run seed also refuses.
 The review shows the verbatim words, the declared agent operator and authority

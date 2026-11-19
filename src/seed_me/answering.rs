@@ -481,6 +481,23 @@ fn json(text: &str) -> Result<Value, Refusal> {
     serde_json::from_str(text).map_err(|e| Refusal::Refused(format!("Invalid session JSON: {e}")))
 }
 
+/// Each decision in a parsed `ledger` that the operator has not answered in their own words: open,
+/// or settled or deferred by anyone else, including a decision a draft change added. The fixed
+/// probes never count. An empty list promises only that no recorded decision was settled without
+/// the operator; a gray choice Shape never asked is not detected.
+pub fn gray(ledger: &Value) -> Vec<Value> {
+    let probes = [PROBE.0, SAMPLE.0];
+    ledger["nodes"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|n| n["kind"] == "decision" && n["id"] != "goal")
+        .filter(|n| !probes.iter().any(|p| n["id"] == *p))
+        .filter(|n| n["status"] == "unresolved" || n["authority"] != "user")
+        .map(|n| json!({"id": n["id"], "label": n["label"], "status": n["status"], "authority": n["authority"]}))
+        .collect()
+}
+
 /// Read `session`'s editable ledger at one version, without writing or calling the helper.
 pub fn read(session: &Path) -> Result<Ledger, Refusal> {
     let unreadable =

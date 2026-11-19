@@ -248,7 +248,7 @@ print(json.dumps(reply))
 
 
 class Fixture:
-    def __init__(self, root, scenario='normal'):
+    def __init__(self, root, scenario='normal', gray=False):
         self.root = root
         self.project = root / "TEST project's checkout"
         scripts = self.project / '_system/scripts'
@@ -259,6 +259,13 @@ class Fixture:
         launcher.chmod(0o755)
         self.sessions = root / 'TEST sessions'
         self.session = make(self.sessions, 'TEST worker', goal='TEST keep this exact goal.', question=False)
+        if gray:
+            # An answer the operator did not give in their own words is gray (#931).
+            old = ledger.load(self.session)
+            state = ledger.editable(old)
+            notes = next(n for n in state['nodes'] if n['id'] == 'notes')
+            notes.update(authority='delegated', evidence=['TEST agent accepted the suggestion'])
+            ledger.publish(self.session, state, old['version'], 'TEST delegated answer')
         seed(self.session, confirm=True, title='TEST worker')
         self.state = root / 'state.json'
         self.log = root / 'calls.jsonl'
