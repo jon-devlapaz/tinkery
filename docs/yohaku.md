@@ -42,6 +42,10 @@ interface by the operator or an agent acting within the operator’s explicit au
 Copying is not running. Readiness is not consent. Goal confirmation, seed confirmation and implementation
 permission are separate.
 
+For two-way, small work, the operator can give all three ahead of time, in their own words. Then a Tink
+with no gray item starts without a confirm. Its "Decided without you" list stays visible, and the operator
+can stop the work at any time. Gray items, taste and one-way or large work still wait for the operator.
+
 Ask the operator only what only they can decide. Investigate discoverable facts within the work and budget
 they authorized; ask before going beyond them.
 
@@ -123,3 +127,5 @@ Colour is never the only signal. With `NO_COLOR`, the same meanings carry throug
 *Amended by the operator on 2026-10-16: agents may merge approved work once its checks pass.*
 
 *Amended by the operator on 2026-11-15: saved thoughts have their own colour.*
+
+*Amended by the operator on 2026-11-19: for two-way, small work, a standing grant lets a Tink with no gray item start without a confirm.*
