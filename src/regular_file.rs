@@ -1,7 +1,9 @@
 //! The one door for opening files on disk. Promises: no open here waits, and every file it
 //! returns is a regular file, checked on the opened descriptor so a path swapped for a FIFO or
 //! device cannot turn a read into a wait for a writer. Refuses anything else with the caller's
-//! words. `clippy.toml` forbids `std::fs` opens and reads everywhere else (#489, #585, #764).
+//! words. `clippy.toml` forbids `std::fs` opens and reads everywhere else (#489, #585, #764),
+//! except two allowed reads that may wait on purpose: the controlling terminal and the
+//! command-line goal file.
 #![allow(clippy::disallowed_methods)]
 
 use std::{
@@ -35,8 +37,12 @@ pub(crate) fn read(path: &Path, refusal: &str) -> io::Result<Vec<u8>> {
 
 /// Reads a regular file as UTF-8, refusing invalid text without changing the bytes.
 pub(crate) fn read_text(path: &Path, refusal: &str) -> io::Result<String> {
-    String::from_utf8(read(path, refusal)?)
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
+    String::from_utf8(read(path, refusal)?).map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            "stream did not contain valid UTF-8",
+        )
+    })
 }
 
 /// Flushes a directory's entries to disk. Refuses anything that is not a directory.
@@ -48,7 +54,7 @@ pub(crate) fn sync_directory(path: &Path) -> io::Result<()> {
         .sync_all()
 }
 
-/// Fills `bytes` from the system's random device, the only non-regular file Tinkery opens.
+/// Fills `bytes` from the system's random device, the one non-regular file this module opens.
 pub(crate) fn random(bytes: &mut [u8]) -> io::Result<()> {
     File::open("/dev/urandom")?.read_exact(bytes)
 }
