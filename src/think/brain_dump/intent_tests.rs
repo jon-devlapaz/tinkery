@@ -321,7 +321,7 @@ fn a_command_in_done_when_keeps_every_byte() {
     let command = "B=$(git merge-base HEAD origin/main) && git diff --quiet \"$B\" -- src && ! git diff --name-only \"$B\" | grep -Eiq '\\.(mp3|wav)$'";
     for done_when in [
         format!("the scope guard passes: {command}"),
-        format!("the scope guard passes: `find . -name x && ! true`"),
+        "the scope guard passes: `find . -name x && ! true`".to_owned(),
     ] {
         let p = GoalParts {
             who: Some("I".into()),
