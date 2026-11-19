@@ -76,7 +76,7 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   `tinkery seed status --json DIR` and `tinkery seed checks DIR` expose read-only intake JSON.
   Without a screen, `tinkery seed new GOAL_FILE` saves a goal's exact words and
   `tinkery seed step DIR look|delegate|answer WORDS|confirm DRAFT_SHA256` takes one explicit step.
-  `tinkery seed show DIR` also lists what was decided without you: agent answers and assumed defaults;
+  `tinkery seed show DIR` also lists what was decided without you: answers not recorded as yours, and assumed defaults;
   see [Shape without a screen](docs/design/shape-and-handoff.md#without-a-screen).
   Its draft guidance and artifact reference are bundled; no external skill is needed.
   The agent's step reads the repository where the goal was made, else the one named by

@@ -547,3 +547,40 @@ fn invalid_node_fields_report_the_validation_error_even_when_they_name_a_conflic
     );
     assert_eq!(fs::read(path).unwrap(), bytes);
 }
+
+#[test]
+fn a_draft_lists_its_defaults_and_never_brings_back_an_objected_one() {
+    // #931: a Tink that asked nothing must still show each choice made without the operator.
+    let root = temp();
+    let session = session_with_goal(root.path(), "TEST defaults goal");
+    let prose =
+        ledger::fixtures::prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt"));
+    let checks = json!([{"statement":"TEST", "kind":"judge", "source":"TEST", "how_to_judge":"Inspect the TEST result." }]);
+    let defaults = [Assumption {
+        text: "TEST plain text refusals".into(),
+        why: "TEST either format reads the same".into(),
+    }];
+    let draft = |version, assumed: &[Assumption]| {
+        let reported = Reported {
+            found: &[],
+            assumed,
+            resolves: None,
+        };
+        draft_seed(&session, version, &prose, &checks, reported, root.path()).unwrap();
+        fs::read_to_string(session.join("seed-contract.md")).unwrap()
+    };
+    let listed = "- TEST plain text refusals (why: TEST either format reads the same)";
+    // Only defaults are new: the draft must still save them, not only print them.
+    assert!(draft(1, &defaults).contains(listed));
+    let version = read(&session).unwrap().version();
+    assert_eq!(version, 2, "Defaults alone were not saved");
+    let version = object(&session, version, &defaults[0].text, None).unwrap();
+    let id = read(&session).unwrap().open()[0].clone();
+    let version = answer(&session, version, &id, "TEST structured refusals", None).unwrap();
+    let seed = draft(version, &defaults);
+    assert!(
+        !seed.contains(listed),
+        "An objected default came back: {seed}"
+    );
+    assert!(seed.contains("TEST structured refusals"));
+}

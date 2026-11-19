@@ -763,14 +763,24 @@ pub struct Reported<'a> {
 }
 
 /// Add each new non-blank default to the ledger's `assumed` list, once by its text. Returns
-/// whether the list changed. A default is never an answer and never the operator's.
+/// whether the list changed. A default is never an answer and never the operator's, and a default
+/// the operator objected to never comes back: their decision replaces it.
 fn assume(state: &mut Value, defaults: &[Assumption]) -> bool {
+    let objected: Vec<String> = nodes(state)
+        .iter()
+        .filter(|n| n["label"] == OBJECTION)
+        .filter_map(|n| {
+            n["gate"]
+                .as_str()?
+                .strip_prefix(OBJECTED)
+                .map(str::to_owned)
+        })
+        .collect();
     let mut assumed = state["assumed"].as_array().cloned().unwrap_or_default();
     let before = assumed.len();
-    for a in defaults
-        .iter()
-        .filter(|a| !a.text.trim().is_empty() && !a.why.trim().is_empty())
-    {
+    for a in defaults.iter().filter(|a| {
+        !a.text.trim().is_empty() && !a.why.trim().is_empty() && !objected.contains(&a.text)
+    }) {
         if !assumed.iter().any(|known| known["text"] == a.text.as_str()) {
             assumed.push(json!({"text": a.text, "why": a.why}));
         }
@@ -812,7 +822,7 @@ pub fn object(
     let id = unique_id(&format!("instead-of-{text}"), &taken);
     let node = json!({
         "id": id, "kind": "decision", "status": "unresolved", "prerequisites": [],
-        "evidence": [], "owner": "User", "gate": format!("Choose instead of assuming: {text}"),
+        "evidence": [], "owner": "User", "gate": format!("{OBJECTED}{text}"),
         "label": OBJECTION, "question": format!("You objected to assuming: {text}. What should it be instead?"),
     });
     ledger.state["nodes"]
@@ -882,6 +892,9 @@ pub const CHANGE: &str = "Change to Tink Contract draft";
 
 /// The label of a decision recorded from an objection to an assumption.
 pub const OBJECTION: &str = "Instead of assuming";
+
+/// The gate of an objection decision, followed by the assumption's exact text.
+const OBJECTED: &str = "Choose instead of assuming: ";
 
 /// With no current question, make the first open decision whose prerequisites are settled
 /// current, from `expected`, so a decision already recorded is asked before any new one.
