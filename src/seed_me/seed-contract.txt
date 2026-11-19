@@ -146,6 +146,8 @@ All fields are non-empty strings (no NUL); no coercion.
 Unknown kinds and fields are refused. Exact schema (required fields unless marked optional):
 
 - Every record: `statement`, `kind`, `source`.
+- Every record: optional `failure_case`, the case that must not pass this check. Shape copies it
+  verbatim from the drafting review, so a reviewer can probe the check with that fault.
 - `kind: "cmd"`: also `cmd`, `expect`, `cwd`. Copy the exact command and expected output from the settled check.
 - `kind: "provisional"`: also `expect`, `cwd`, `missing`; optional `cmd` is a proposed command.
   Record what must exist before it can run. This does not block confirmation and is not verification.

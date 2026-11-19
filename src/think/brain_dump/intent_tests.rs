@@ -316,6 +316,27 @@ fn combined_clauses_keep_names_acronyms_decimals_and_quotes() {
     );
 }
 #[test]
+fn a_command_in_done_when_keeps_every_byte() {
+    // Socratink sound run 2026-11-19: "&& ! git diff" was composed as "&&; git diff".
+    let command = "B=$(git merge-base HEAD origin/main) && git diff --quiet \"$B\" -- src && ! git diff --name-only \"$B\" | grep -Eiq '\\.(mp3|wav)$'";
+    for done_when in [
+        format!("the scope guard passes: {command}"),
+        "the scope guard passes: `find . -name x && ! true`".to_owned(),
+        "the build passes: `make. make test; make lint`".to_owned(),
+    ] {
+        let p = GoalParts {
+            who: Some("I".into()),
+            outcome: Some("guard scope".into()),
+            done_when: Some(done_when.clone()),
+            ..Default::default()
+        };
+        assert_eq!(
+            p.compose().unwrap(),
+            format!("I guard scope.\nDone when: {done_when}.")
+        );
+    }
+}
+#[test]
 fn timing_is_emitted_once_beside_normalized_constraints() {
     let a = app(
         serde_json::json!({"parts":{"who":"My mom","outcome":"spots a fake text before tapping anything","when":"before tapping anything","must_not":["must not need an app"]}}),

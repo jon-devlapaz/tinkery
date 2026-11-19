@@ -26,6 +26,15 @@ fn valid_reply() -> Value {
                 json!("TEST wrong output must fail")).collect::<Vec<_>>()}})
 }
 
+/// The checks as Shape saves them: each keeps its own failure case.
+fn with_cases(checks: &Value, cases: &[Value]) -> Value {
+    let mut saved = checks.clone();
+    for (check, case) in saved.as_array_mut().unwrap().iter_mut().zip(cases) {
+        check["failure_case"] = case.clone();
+    }
+    saved
+}
+
 fn ordered_reply(raw: &str) -> Value {
     let mut reply: Value = serde_json::from_str(raw).unwrap();
     reply["review"]["failure_cases"] = reply["review"]["failure_cases"]
@@ -323,7 +332,7 @@ fn ordered_cases_pair_exact_statements_without_rewriting_and_keep_coverage_stric
             let checks: Value =
                 serde_json::from_slice(&fs::read(session.join("seed-checks.json")).unwrap())
                     .unwrap();
-            assert_eq!(checks, reply["checks"]);
+            assert_eq!(checks, with_cases(&reply["checks"], cases));
             // Drafting never rewrites the saved goal or fills its previously open outcome.
             assert_eq!(state["draft"]["outcome"], "");
             let old: Value = serde_json::from_str(before).unwrap();
@@ -499,7 +508,13 @@ fn recoverable_361_extra_closing_brace_drafts_in_one_call_without_rewriting_cont
     }
     let checks: Value =
         serde_json::from_slice(&fs::read(session.join("seed-checks.json")).unwrap()).unwrap();
-    assert_eq!(checks, reply["checks"]);
+    assert_eq!(
+        checks,
+        with_cases(
+            &reply["checks"],
+            reply["review"]["failure_cases"].as_array().unwrap()
+        )
+    );
     assert_eq!(
         fs::read_to_string(root.path().join("TEST-reply.json")).unwrap(),
         raw
@@ -666,7 +681,11 @@ fn a_done_when_line_changed_only_in_letter_case_is_saved_in_the_operator_words()
         serde_json::from_slice(&fs::read(session.join("seed-checks.json")).unwrap()).unwrap();
     assert_eq!(checks[0]["statement"], criterion);
     assert_eq!(
-        checks[1], reply["checks"][1],
+        checks[1],
+        with_cases(
+            &reply["checks"],
+            &reply["review"]["failure_cases"].as_array().unwrap().clone()
+        )[1],
         "other checks keep the model's words"
     );
 
@@ -949,7 +968,7 @@ fn a_provisional_proposing_another_checks_command_is_refused_with_a_plain_reason
 }
 
 #[test]
-fn each_check_keeps_its_case_when_statements_repeat_without_changing_saved_formats() {
+fn each_saved_check_keeps_its_own_case_when_statements_repeat() {
     for attached in [false, true] {
         let root = tempfile::Builder::new()
             .prefix("TEST-469-paired-")
@@ -961,6 +980,7 @@ fn each_check_keeps_its_case_when_statements_repeat_without_changing_saved_forma
         fs::write(session.join("ledger.json"), before).unwrap();
         let mut reply = attached_reply();
         reply["checks"][1]["statement"] = reply["checks"][0]["statement"].clone();
+        let paired = reply["checks"].clone();
         let mut canonical = reply["checks"].clone();
         let cases: Vec<_> = canonical
             .as_array_mut()
@@ -982,10 +1002,7 @@ fn each_check_keeps_its_case_when_statements_repeat_without_changing_saved_forma
         assert_eq!(look_again(&session, root.path(), &agent), Ok(Done::Drafted));
         let saved: Value =
             serde_json::from_slice(&fs::read(session.join("seed-checks.json")).unwrap()).unwrap();
-        assert_eq!(
-            saved, canonical,
-            "model-only cases never reach canonical check records"
-        );
+        assert_eq!(saved, paired, "each saved check keeps its own case");
         let state: Value =
             serde_json::from_slice(&fs::read(session.join("ledger.json")).unwrap()).unwrap();
         let old: Value = serde_json::from_str(before).unwrap();

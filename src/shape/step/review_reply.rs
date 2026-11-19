@@ -1,4 +1,4 @@
-//! Pair model failure cases with their checks; saved checks and reviews keep the ledger's formats.
+//! Pair model failure cases with their checks; each saved check and the review keep its case verbatim.
 
 use crate::seed_me::ledger::CompletionReview;
 use serde::Deserialize;
@@ -13,7 +13,8 @@ struct Review {
     failure_cases: Option<Vec<String>>,
 }
 
-/// Consume each check's model-only case; strictly accept older ordered cases, never both formats.
+/// Pair each check's case with its statement and keep it on the check; strictly accept older
+/// ordered cases, never both formats.
 pub(super) fn decode(value: Value, checks: &mut [Value]) -> Result<Box<CompletionReview>, String> {
     let cases: Vec<_> = checks
         .iter_mut()
@@ -42,6 +43,11 @@ pub(super) fn decode(value: Value, checks: &mut [Value]) -> Result<Box<Completio
             .collect::<Result<_, _>>()?,
     };
     let failure_cases = CompletionReview::pair_cases(cases, &Value::Array(checks.to_vec()).into())?;
+    for (check, failure) in checks.iter_mut().zip(&failure_cases) {
+        if let Some(check) = check.as_object_mut() {
+            check.insert("failure_case".into(), failure.case.clone().into());
+        }
+    }
     Ok(Box::new(CompletionReview {
         contradictions: wire.contradictions,
         decided: wire.decided,

@@ -69,6 +69,11 @@ def completion_review(checks):
             'failure_cases': ['TEST wrong output must fail' for _ in checks]}
 
 
+def saved_checks(checks):
+    """Checks as Shape saves them from `completion_review` replies: each keeps its case (#913)."""
+    return [{**check, 'failure_case': 'TEST wrong output must fail'} for check in checks]
+
+
 def seed_fields(body):
     """Replay historical Markdown fixtures as prose fields; production never parses model headings."""
     fields = {}
@@ -408,7 +413,7 @@ def full_journey(width, height):
             answered = next(n for n in ledger['nodes'] if n['id'] == 'storage')
             assert answered['answer'] == answer and answered['authority'] == 'user', answered
             seed = (session / 'seed-contract.md').read_text()
-            assert helper.read_checks(session) == SEED['checks']
+            assert helper.read_checks(session) == saved_checks(SEED['checks'])
             assert helper.checks_block(SEED['checks']) in seed
             assert helper.decisions_block(ledger) in seed, seed
             assert seed.index('## Decisions (from the ledger)') < seed.index('## Knowledge map')
@@ -1670,7 +1675,7 @@ def complete_scenario_recovery(width, height):
             assert files(run.sessions) == before
             assert len(run.calls()) == 1, 'Refusal retried automatically'
             run.send(F2, 'Tink Contract r1')
-            assert helper.read_checks(session) == complete
+            assert helper.read_checks(session) == saved_checks(complete)
             assert helper.load(session)['goal'] == goal
             assert scenario in (session / 'seed-contract.md').read_text()
             assert len(run.calls()) == 2

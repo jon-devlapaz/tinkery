@@ -25,13 +25,16 @@ pub fn validate_checks(records: &Value) -> Result<()> {
         let (required, optional): (&[&str], &[&str]) = match record["kind"].string() {
             Some("cmd") => (
                 &["statement", "kind", "source", "cmd", "expect", "cwd"],
-                &[],
+                &["failure_case"],
             ),
             Some("provisional") => (
                 &["statement", "kind", "source", "expect", "cwd", "missing"],
-                &["cmd"],
+                &["cmd", "failure_case"],
             ),
-            Some("judge") => (&["statement", "kind", "source"], &["how_to_judge"]),
+            Some("judge") => (
+                &["statement", "kind", "source"],
+                &["how_to_judge", "failure_case"],
+            ),
             _ => return Err(format!("{prefix} has unknown kind")),
         };
         let mut missing: Vec<_> = required
@@ -172,12 +175,16 @@ impl DraftCheck {
                 method == CheckMethod::Manual && self.gap() == Some(CheckMethod::Command),
                 "Only a provisional without a command can become a human judgment here.",
             )?;
-            *record = super::value::object(&[
+            let mut judged = super::value::object(&[
                 ("statement", record["statement"].clone()),
                 ("kind", "judge".into()),
                 ("source", record["source"].clone()),
                 (method.field(), words.into()),
             ]);
+            if let Some(case) = record.get("failure_case") {
+                judged.set("failure_case", case.clone());
+            }
+            *record = judged;
         }
         Ok(())
     }
