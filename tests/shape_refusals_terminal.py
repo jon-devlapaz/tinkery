@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import tempfile
 
-from shape_answer_terminal import Run, make, helper, REPO, SEED, GOAL, F1, F2
+from shape_answer_terminal import Run, make, helper, REPO, SEED, GOAL, F1, F2, saved_checks
 
 
 def journey(width, height, case):
@@ -23,7 +23,7 @@ def journey(width, height, case):
                 run.wait('enter look into the next question')
                 before = helper.load(session)
                 run.send(F2, 'Tink Contract r1')
-                assert helper.read_checks(session) == SEED['checks']
+                assert helper.read_checks(session) == saved_checks(SEED['checks'])
                 assert helper.load(session)['nodes'][1]['answer'] == before['nodes'][1]['answer']
                 assert (session / 'seed-contract.md').exists()
             else:

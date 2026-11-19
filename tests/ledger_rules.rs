@@ -265,7 +265,8 @@ fn long_ordinary_and_rejected_candidate_receipts_finish_promptly() {
 #[test]
 fn bundled_guidance_keeps_the_pinned_source_bytes() {
     use sha2::{Digest, Sha256};
-    // Seed Me c9d766760dbeac0c05c92108165f9e968bec0a66; extraction boundary is in drafting.rs.
+    // Seed Me c9d766760dbeac0c05c92108165f9e968bec0a66, plus the optional failure_case (#913);
+    // extraction boundary is in drafting.rs.
     for (text, expected) in [
         (
             include_str!("../src/think/working-draft.txt"),
@@ -273,7 +274,7 @@ fn bundled_guidance_keeps_the_pinned_source_bytes() {
         ),
         (
             include_str!("../src/seed_me/seed-contract.txt"),
-            "6d52c8771f935e89420680d0c97ef62d45939ce13175ef937aa5a298bd678199",
+            "961a228f621eb2ec711f9010a9215cef82fb1fdd2eba6d85c38962b2d09ba7d0",
         ),
     ] {
         assert_eq!(format!("{:x}", Sha256::digest(text.as_bytes())), expected);

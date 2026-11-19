@@ -174,7 +174,8 @@ def draft_and_redraft():
             run.wait('Manual steps: In guest chat A, type exactly Draft check: explain fractions.')
             run.read_until('the cleared text returns.')
             run.read_until('Must fail: Fail if the period is missing')
-            assert helper.read_checks(session) == draft['checks']
+            # Each saved check keeps its own failure case (#913).
+            assert helper.read_checks(session) == [{**draft['checks'][0], 'failure_case': draft['review']['failure_cases'][0]}]
             run.choose('Revise the draft', 'your change')
             run.type('TEST revisit the steps.')
             run.send(F2, 'Tink Contract r2')
@@ -226,7 +227,7 @@ def objective_browser_check():
             run.type('confirm')
             run.send(F2, 'Tink ready:')
             assert helper.status(session)['handoff']['verified']
-            assert helper.read_checks(session) == [record]
+            assert helper.read_checks(session) == reply['checks']
             assert not (root / 'check-ran').exists(), 'Shape ran the command without run authorization'
             request, = run.calls()
             origin = request['input']['ledger']['nodes'][0]

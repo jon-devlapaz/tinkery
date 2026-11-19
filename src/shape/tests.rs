@@ -959,7 +959,7 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
         Next::Seed {
             confirming: serde_json::json!(" Build it. "),
             review: Ok(serde_json::from_value(serde_json::json!({"contradictions":[],"decided":[],"done":[],"failure_cases":[{"statement":"TEST","case":"TEST wrong result must fail"}]})).unwrap()),
-            checks: serde_json::json!([{"statement":"TEST","kind":"judge","source":"TEST"}]),
+            checks: serde_json::json!([{"statement":"TEST","kind":"judge","source":"TEST","failure_case":"TEST wrong result must fail"}]),
             found: vec![],
             resolves: None,
         }
@@ -1699,10 +1699,11 @@ print(json.dumps({{'next': 'seed', 'confirming': json.loads({confirming_json:?})
     let records: serde_json::Value =
         serde_json::from_slice(&fs::read(receipt.session.join("seed-checks.json")).unwrap())
             .unwrap();
-    assert_eq!(
-        records,
-        serde_json::from_str::<serde_json::Value>(checks).unwrap()
-    );
+    let mut expected: serde_json::Value = serde_json::from_str(checks).unwrap();
+    for check in expected.as_array_mut().unwrap() {
+        check["failure_case"] = "TEST wrong result must fail".into();
+    }
+    assert_eq!(records, expected, "each saved check keeps its failure case");
     let decisions = crate::seed_me::ledger::decisions_block(
         &crate::seed_me::ledger::load(&receipt.session).unwrap(),
     )
