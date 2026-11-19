@@ -36,7 +36,7 @@ REPOS = ('jon-devlapaz/tinkery', 'jon-devlapaz/tink-sdlc')
 LONG = 45
 RERUN = re.compile(r're-?r[au]n (the |a )?failed', re.I)
 FIFO = re.compile(r'fifo|named pipe|non-?regular|blocking (read|open)|o_nonblock', re.I)
-CODEX_SHELL = {'shell', 'shell_command', 'exec_command', 'local_shell'}
+CODEX_SHELL = {'exec', 'shell', 'shell_command', 'exec_command', 'local_shell'}
 PYC = re.compile(r'^(FAIL|ERROR): test_untracked_python_cache_does_not_fail_passing_suite \(',
                  re.M)
 WALL = re.compile(r'Wall time:? ([\d.]+) seconds|"wall_time_seconds":\s*([\d.]+)')

@@ -87,7 +87,7 @@ class BaselineTests(unittest.TestCase):
                    output=PYC_FAIL)
             claude(project / 'TEST-main/subagents/agent-bbbb2222.jsonl', 'i', '10:00', 600)
             session = home / '.codex/sessions/2026/11/10/rollout-dddd4444.jsonl'
-            codex(session, 'j', '10:00', 'exec_command', 120, PYC_FAIL)
+            codex(session, 'j', '10:00', 'exec', 120, PYC_FAIL)
             codex(session, 'k', '11:00', 'mcp__browser__wait', 600)
             env = subprocess.environment(home=home)
             env['PATH'] = str(tools)
