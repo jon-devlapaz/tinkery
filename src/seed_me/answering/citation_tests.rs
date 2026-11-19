@@ -97,9 +97,12 @@ fn journey(checked: &str, warning: Option<&str>, paths: &[&str]) {
             "../../../tests/fixtures/shape-seed-reply.txt"
         )),
         &checks,
-        &[],
+        Reported {
+            found: &[],
+            assumed: &[],
+            resolves: None,
+        },
         &folder,
-        None,
     )
     .unwrap();
     let shown = shaping::read(&session).unwrap();

@@ -58,7 +58,9 @@ class Run:
 
 def journey(agent):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-seed-command-') as directory:
-        run = Run(directory, [QUESTION, SEED], agent=agent)
+        # #931: the draft chose a default instead of asking, so the operator must see it listed.
+        assumed = {'text': 'TEST refusals use plain text', 'why': 'TEST either format shows the same refusal'}
+        run = Run(directory, [QUESTION, {**SEED, 'assumed': [assumed]}], agent=agent)
         session = run.ok('new', 'goal.txt', 'TEST issue 845', drafting=False).strip()
         ledger = helper.load(Path(session))
         goal = next(node for node in ledger['nodes'] if node['id'] == 'goal')
@@ -88,7 +90,15 @@ def journey(agent):
         assert draft['stage'] == 'draft' and draft['revision'] == 'r1'
         seed = (Path(session) / 'seed-contract.md').read_text()
         assert draft['text'] == seed and draft['sha256'] == hashlib.sha256(seed.encode()).hexdigest()
-        shown = json.loads(run.ok('show', session, drafting=False))['now']
+        assert f"- {assumed['text']} (why: {assumed['why']})" in seed, 'The drafted default is not in the Tink'
+        listed = json.loads(run.ok('show', session, drafting=False))
+        assert listed['open'] == [], 'A draft still has a gray item open'
+        decided = listed['decided_without_you']
+        assert {'what': assumed['text'], 'why': assumed['why'], 'authority': 'assumed'} in decided, decided
+        delegated = [d for d in decided if d['what'] == QUESTION['label']]
+        assert delegated and delegated[0]['authority'] == 'delegated', decided
+        assert all(d['authority'] != 'user' for d in decided), 'An operator answer was listed as decided without them'
+        shown = listed['now']
         assert shown['risks'] == draft['risks']
         cases = ['Drafting step guess:', 'Must fail: TEST wrong output must fail',
                  '  Check: Refusals never show private text.']
@@ -109,7 +119,7 @@ def journey(agent):
         assert confirmed['source'] == f'tinkery seed step confirm {draft["sha256"]}', confirmed
         assert helper.status(Path(session))['handoff']['verified']
         assert len(run.calls()) == 2, 'Confirming called a model'
-        print(f'seed command journey passed: {"agent" if agent else "human"}, 6 commands, 2 stub calls, verified seed')
+        print(f'seed command journey passed: {"agent" if agent else "human"}, 6 commands, 2 stub calls, decided-without-you listed, verified seed')
 
 
 def refusals():

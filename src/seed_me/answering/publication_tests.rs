@@ -130,8 +130,19 @@ fn unasked_probe_answers_cannot_be_smuggled_into_seed_prose() {
     for field in ["Risks and verification", "Knowledge map"] {
         let mut forged = prose.clone();
         forged[field] = "Probe: What would an expert ask? — answer: TEST invented operator answer — changed: nothing".into();
-        let error =
-            draft_seed(&session, version, &forged, &checks, &[], root.path(), None).unwrap_err();
+        let error = draft_seed(
+            &session,
+            version,
+            &forged,
+            &checks,
+            Reported {
+                found: &[],
+                assumed: &[],
+                resolves: None,
+            },
+            root.path(),
+        )
+        .unwrap_err();
         assert!(
             error
                 .to_string()
@@ -141,7 +152,19 @@ fn unasked_probe_answers_cannot_be_smuggled_into_seed_prose() {
         assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
         assert!(!session.join("seed-contract.md").exists());
     }
-    draft_seed(&session, version, &prose, &checks, &[], root.path(), None).unwrap();
+    draft_seed(
+        &session,
+        version,
+        &prose,
+        &checks,
+        Reported {
+            found: &[],
+            assumed: &[],
+            resolves: None,
+        },
+        root.path(),
+    )
+    .unwrap();
     let seed = fs::read_to_string(session.join("seed-contract.md")).unwrap();
     assert!(seed.contains("probe-pre-mortem [user] TEST my actual answer"));
     assert!(!seed.contains("TEST invented operator answer"));
@@ -161,9 +184,12 @@ fn seed_drafting_confirmation_status_and_ending_need_no_installed_helper() {
             "../../../tests/fixtures/shape-seed-reply.txt"
         )),
         &checks,
-        &[],
+        Reported {
+            found: &[],
+            assumed: &[],
+            resolves: None,
+        },
         root.path(),
-        None,
     )
     .unwrap();
     confirm_seed(
@@ -306,8 +332,19 @@ fn issue_298_split_checks_cannot_replace_the_complete_success_scenario() {
             "I can lend two books, return one, restart, and see books still out."
         )]),
     ] {
-        let error =
-            draft_seed(&session, version, &prose, &weakened, &[], root.path(), None).unwrap_err();
+        let error = draft_seed(
+            &session,
+            version,
+            &prose,
+            &weakened,
+            Reported {
+                found: &[],
+                assumed: &[],
+                resolves: None,
+            },
+            root.path(),
+        )
+        .unwrap_err();
         assert!(error.to_string().contains(scenario), "{error}");
         assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
         assert!(!session.join("seed-checks.json").exists());
@@ -315,7 +352,19 @@ fn issue_298_split_checks_cannot_replace_the_complete_success_scenario() {
     }
 
     let complete = json!([check(scenario)]);
-    draft_seed(&session, version, &prose, &complete, &[], root.path(), None).unwrap();
+    draft_seed(
+        &session,
+        version,
+        &prose,
+        &complete,
+        Reported {
+            found: &[],
+            assumed: &[],
+            resolves: None,
+        },
+        root.path(),
+    )
+    .unwrap();
     let stored: Value =
         serde_json::from_slice(&fs::read(session.join("seed-checks.json")).unwrap()).unwrap();
     assert_eq!(stored, complete);
@@ -409,7 +458,19 @@ fn literal_goal_round_trip(goal: &str) {
     let prose =
         ledger::fixtures::prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt"));
     let checks = json!([{"statement":"TEST", "kind":"judge", "source":"TEST", "how_to_judge":"Inspect the TEST result." }]);
-    let revision = draft_seed(&session, 1, &prose, &checks, &[], root.path(), None).unwrap();
+    let revision = draft_seed(
+        &session,
+        1,
+        &prose,
+        &checks,
+        Reported {
+            found: &[],
+            assumed: &[],
+            resolves: None,
+        },
+        root.path(),
+    )
+    .unwrap();
     let path = session.join("seed-contract.md");
     let seed = fs::read_to_string(&path).unwrap();
     assert_eq!(read(&session).unwrap().goal(), Some(goal));
@@ -485,4 +546,41 @@ fn invalid_node_fields_report_the_validation_error_even_when_they_name_a_conflic
         "{error:?}"
     );
     assert_eq!(fs::read(path).unwrap(), bytes);
+}
+
+#[test]
+fn a_draft_lists_its_defaults_and_never_brings_back_an_objected_one() {
+    // #931: a Tink that asked nothing must still show each choice made without the operator.
+    let root = temp();
+    let session = session_with_goal(root.path(), "TEST defaults goal");
+    let prose =
+        ledger::fixtures::prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt"));
+    let checks = json!([{"statement":"TEST", "kind":"judge", "source":"TEST", "how_to_judge":"Inspect the TEST result." }]);
+    let defaults = [Assumption {
+        text: "TEST plain text refusals".into(),
+        why: "TEST either format reads the same".into(),
+    }];
+    let draft = |version, assumed: &[Assumption]| {
+        let reported = Reported {
+            found: &[],
+            assumed,
+            resolves: None,
+        };
+        draft_seed(&session, version, &prose, &checks, reported, root.path()).unwrap();
+        fs::read_to_string(session.join("seed-contract.md")).unwrap()
+    };
+    let listed = "- TEST plain text refusals (why: TEST either format reads the same)";
+    // Only defaults are new: the draft must still save them, not only print them.
+    assert!(draft(1, &defaults).contains(listed));
+    let version = read(&session).unwrap().version();
+    assert_eq!(version, 2, "Defaults alone were not saved");
+    let version = object(&session, version, &defaults[0].text, None).unwrap();
+    let id = read(&session).unwrap().open()[0].clone();
+    let version = answer(&session, version, &id, "TEST structured refusals", None).unwrap();
+    let seed = draft(version, &defaults);
+    assert!(
+        !seed.contains(listed),
+        "An objected default came back: {seed}"
+    );
+    assert!(seed.contains("TEST structured refusals"));
 }

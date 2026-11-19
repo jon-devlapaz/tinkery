@@ -168,9 +168,12 @@ mod tests {
             1,
             &reply(),
             &serde_json::json!([{"statement":"TEST","kind":"judge","source":"TEST"}]),
-            &[],
+            super::super::Reported {
+                found: &[],
+                assumed: &[],
+                resolves: None,
+            },
             root.path(),
-            None,
         )
         .unwrap();
         // A valid Full artifact supplies every heading described by the attached old contract,
@@ -249,9 +252,12 @@ mod tests {
                 1,
                 &value,
                 &serde_json::json!([{"statement":"TEST","kind":"judge","source":"TEST"}]),
-                &[],
+                super::super::Reported {
+                    found: &[],
+                    assumed: &[],
+                    resolves: None,
+                },
                 root.path(),
-                None,
             )
             .unwrap_err()
             .to_string();

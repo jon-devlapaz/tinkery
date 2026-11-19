@@ -136,9 +136,12 @@ fn ledger_refuses_bad_facts_and_support_without_saving_any_part_of_a_reply() {
                         "../../../tests/fixtures/shape-seed-reply.txt"
                     )),
                     &checks,
-                    &question.found,
-                    root.path(),
-                    None,
+                    Reported {
+                        found: &question.found,
+                        assumed: &[],
+                        resolves: None
+                    },
+                    root.path()
                 )
                 .is_err()
             );
@@ -226,9 +229,12 @@ fn a_contradicted_session_cannot_confirm_until_the_operator_keeps_it_with_a_reas
             "../../../tests/fixtures/shape-seed-reply.txt"
         )),
         &checks,
-        &[conflict],
+        Reported {
+            found: &[conflict],
+            assumed: &[],
+            resolves: None,
+        },
         root.path(),
-        None,
     )
     .unwrap();
     let before = fs::read(session.join("ledger.json")).unwrap();

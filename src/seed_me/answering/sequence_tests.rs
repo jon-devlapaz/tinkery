@@ -69,9 +69,12 @@ fn draft(session: &Path, folder: &Path) -> String {
             "../../../tests/fixtures/shape-seed-reply.txt"
         )),
         &serde_json::from_str(include_str!("../../../tests/fixtures/shape-checks.json")).unwrap(),
-        &[],
+        Reported {
+            found: &[],
+            assumed: &[],
+            resolves: None,
+        },
         folder,
-        None,
     )
     .unwrap()
 }
@@ -311,9 +314,12 @@ fn s4_decision_changed_after_confirmation_cannot_complete_and_keeps_the_goal() {
             )),
             &serde_json::from_str(include_str!("../../../tests/fixtures/shape-checks.json"))
                 .unwrap(),
-            &[],
+            Reported {
+                found: &[],
+                assumed: &[],
+                resolves: None,
+            },
             root.path(),
-            None,
         )
     });
     assert_eq!(

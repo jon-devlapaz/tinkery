@@ -80,8 +80,10 @@ pub fn new_goal(
 }
 
 /// What Shape would show for `session`, as JSON for a caller without a screen: the goal exactly as
-/// recorded, the ledger version, and the one current thing (question, draft with the SHA-256
-/// that `Action::Confirm` names, ready seed, or a plain other state). Read-only.
+/// recorded, the ledger version, the open questions, the one current thing (question, draft with
+/// the SHA-256 that `Action::Confirm` names, ready seed, or a plain other state), and
+/// `decided_without_you`: every settled answer not in the operator's own words and every assumed
+/// default, so the operator can overrule any of them. Read-only.
 pub fn show(session: &Path) -> Result<serde_json::Value, String> {
     let shaping = shaping::read(session)?;
     let now = match &shaping.stage {
@@ -121,8 +123,23 @@ pub fn show(session: &Path) -> Result<serde_json::Value, String> {
         }
         other => serde_json::json!({"stage": "other", "what": format!("{other:?}")}),
     };
+    let ledger: serde_json::Value =
+        serde_json::from_str(&seed_me::ledger::load(session)?.pretty()?)
+            .map_err(|e| e.to_string())?;
+    let decided_without_you = shaping
+        .decided
+        .iter()
+        .filter(|d| d.authority != "user")
+        .map(
+            |d| serde_json::json!({"what": d.title, "decided": d.answer, "authority": d.authority}),
+        )
+        .chain(ledger["assumed"].as_array().into_iter().flatten().map(
+            |a| serde_json::json!({"what": a["text"], "why": a["why"], "authority": "assumed"}),
+        ))
+        .collect::<Vec<_>>();
     Ok(serde_json::json!({
         "goal": shaping.goal, "version": shaping.version, "open": shaping.open, "now": now,
+        "decided_without_you": decided_without_you,
     }))
 }
 
