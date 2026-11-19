@@ -855,8 +855,16 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
                         .to_owned()
                 })?;
             // #931: an optional list was left out in 2 of 2 real drafts, so a draft must say "none".
-            if !value["assumed"].is_array() {
-                return Err("Tink draft reply field assumed must be a list of the defaults the draft chose instead of asking; use [] only when it chose none.".to_owned());
+            let listed = value["assumed"].as_array().map_or(0, Vec::len);
+            if !value["assumed"].is_array()
+                || listed > 5
+                || assumptions(&value["assumed"]).len() != listed
+            {
+                return Err(concat!(
+                    "Tink draft reply field assumed must be a list of at most five defaults the draft ",
+                    "chose instead of asking, each with text and why; use [] only when it chose none."
+                )
+                .to_owned());
             }
             restore_case(goal, &mut checks);
             let review = review_reply::decode(value["review"].clone(), &mut checks);

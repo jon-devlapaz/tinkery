@@ -135,7 +135,17 @@ def no_gray():
         assert draft['now']['stage'] == 'draft', draft['now']
         assert draft['gray'] == [], draft['gray']
         assert len(draft['decided_without_you']) == 2, 'The two probe answers are not listed'
-        print('seed command no-gray passed: probes only, 1 stub call, empty gray')
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-seed-command-') as directory:
+        # A question the operator answered in their own words is settled, so it is not gray.
+        run = Run(directory, [QUESTION, SEED])
+        session = run.ok('new', 'goal.txt', drafting=False).strip()
+        run.ok('step', session, 'look')
+        run.ok('step', session, 'answer', 'TEST no sample: fixture')
+        assert json.loads(run.ok('step', session, 'answer', 'TEST skip'))['now']['stage'] == 'question'
+        draft = json.loads(run.ok('step', session, 'answer', 'TEST plain text refusals'))
+        assert draft['now']['stage'] == 'draft', draft['now']
+        assert draft['gray'] == [], draft['gray']
+        print('seed command no-gray passed: probes only and an operator answer, 1 and 2 stub calls, empty gray')
 
 
 def refusals():

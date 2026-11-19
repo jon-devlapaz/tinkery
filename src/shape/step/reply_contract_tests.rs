@@ -1163,5 +1163,10 @@ fn a_draft_reply_without_assumed_is_refused_so_defaults_are_never_silently_dropp
         "{refused}"
     );
     assert!(reply(Some(serde_json::json!("none"))).is_err());
+    assert!(reply(Some(serde_json::json!([{"text": "output is CSV"}]))).is_err());
+    assert!(reply(Some(serde_json::json!(["output is CSV"]))).is_err());
+    let one = serde_json::json!({"text": "TEST default", "why": "TEST routine"});
+    assert!(reply(Some(serde_json::json!(vec![one.clone(); 6]))).is_err());
+    assert!(reply(Some(serde_json::json!(vec![one; 5]))).is_ok());
     assert!(reply(Some(serde_json::json!([]))).is_ok());
 }
