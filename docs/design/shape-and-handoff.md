@@ -927,7 +927,9 @@ work, risk, cost, reversibility and behavior about the same. Tinkery adds them t
 - With no current question, a step first makes the first ready open decision current, without a
   model call or budget, so an objection (or any recorded open decision) is asked before a new one.
 - A draft step lists its defaults the same way ([#931](https://github.com/jon-devlapaz/tinkery/issues/931)),
-  so a Tink that asked nothing still shows every choice made without the operator. They appear
+  so a Tink that asked nothing still shows every choice made without the operator. A draft
+  reply is refused unless `assumed` lists at most five defaults, each with text and why; `[]` says the draft chose none. An optional list
+  was left out in 2 of 2 real drafts. They appear
   in the seed's Assumed block. The draft has no question to show them under. A default the
   operator objected to never returns, because their decision replaces it.
 
@@ -966,8 +968,11 @@ tinkery [options] seed step DIR look|delegate|answer WORDS|confirm DRAFT_SHA256
 - `show` prints the goal, the ledger version, the open questions and the one current thing as JSON:
   a question with its findings and suggestion, a draft with its text and SHA-256, or a ready seed.
   `decided_without_you` lists each settled answer whose authority is not `user`, with that
-  authority, then each assumed default as `assumed`. Nothing yet marks an item gray: a draft
-  always has an empty `open`, so an empty `open` is not a gray-item signal. Read-only.
+  authority, then each assumed default as `assumed`. `gray` lists each decision in the ledger,
+  asked or added by a change to the draft, that the operator has not answered in their own words: open, or settled or deferred with any
+  authority but `user`, including an operator's own Delegate. The two fixed probes never count.
+  An empty `gray` means only that no asked question was settled without the operator. A gray
+  choice Shape never asked is not detected. Read-only.
 - `step` takes one action from a fresh read, then prints `show`. `look`, `answer` and `delegate`
   need `--shape-pi` with a model and name the folder the model reads. `--shape-budget` bounds one
   command, not the session: each command is a new launch with a fresh allowance. `confirm` calls no

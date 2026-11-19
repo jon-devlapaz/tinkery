@@ -19,7 +19,7 @@ const SHARED_SUITE: &str =
 fn valid_reply() -> Value {
     let checks: Value =
         serde_json::from_str(include_str!("../../../tests/fixtures/shape-checks.json")).unwrap();
-    json!({"next":"seed", "found":[], "checks":checks,
+    json!({"next":"seed", "assumed": [], "found":[], "checks":checks,
         "confirming":prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt")),
         "review":{"contradictions":[], "decided":[], "done":[],
             "failure_cases":checks.as_array().unwrap().iter().map(|_|
@@ -1143,4 +1143,30 @@ fn a_goal_past_32_kib_still_reaches_the_model() {
         sent > 60_000 && sent <= crate::pi::REQUEST_LIMIT,
         "{sent} bytes sent"
     );
+}
+
+#[test]
+fn a_draft_reply_without_assumed_is_refused_so_defaults_are_never_silently_dropped() {
+    // #931: 2 of 2 real drafts left the optional list out while choosing routine details.
+    let reply = |assumed: Option<serde_json::Value>| {
+        let mut reply = serde_json::json!({"next":"seed", "found":[], "confirming":{},
+            "checks":[{"statement":"TEST", "kind":"judge", "source":"TEST"}],
+            "review":{"contradictions":[],"decided":[],"done":[],"failure_cases":["TEST wrong output must fail"]}});
+        if let Some(assumed) = assumed {
+            reply["assumed"] = assumed;
+        }
+        decode(&reply.to_string(), "")
+    };
+    let refused = reply(None).unwrap_err();
+    assert!(
+        refused.contains("field assumed must be a list"),
+        "{refused}"
+    );
+    assert!(reply(Some(serde_json::json!("none"))).is_err());
+    assert!(reply(Some(serde_json::json!([{"text": "output is CSV"}]))).is_err());
+    assert!(reply(Some(serde_json::json!(["output is CSV"]))).is_err());
+    let one = serde_json::json!({"text": "TEST default", "why": "TEST routine"});
+    assert!(reply(Some(serde_json::json!(vec![one.clone(); 6]))).is_err());
+    assert!(reply(Some(serde_json::json!(vec![one; 5]))).is_ok());
+    assert!(reply(Some(serde_json::json!([]))).is_ok());
 }
