@@ -854,6 +854,10 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
                     "Tink draft reply field checks must be a non-empty list of check records."
                         .to_owned()
                 })?;
+            // #931: an optional list was left out in 2 of 2 real drafts, so a draft must say "none".
+            if !value["assumed"].is_array() {
+                return Err("Tink draft reply field assumed must be a list of the defaults the draft chose instead of asking; use [] only when it chose none.".to_owned());
+            }
             restore_case(goal, &mut checks);
             let review = review_reply::decode(value["review"].clone(), &mut checks);
             let checks = Value::Array(checks);

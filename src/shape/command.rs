@@ -83,7 +83,10 @@ pub fn new_goal(
 /// recorded, the ledger version, the open questions, the one current thing (question, draft with
 /// the SHA-256 that `Action::Confirm` names, ready seed, or a plain other state), and
 /// `decided_without_you`: every settled answer not in the operator's own words and every assumed
-/// default, so the operator can overrule any of them. Read-only.
+/// default, so the operator can overrule any of them. `gray` lists each question Shape asked that
+/// the operator has not answered in their own words: open, or settled or deferred by anyone
+/// else. The fixed probes are not counted. An empty `gray` promises only that no asked question
+/// was settled without the operator; a gray item Shape never asked is not detected. Read-only.
 pub fn show(session: &Path) -> Result<serde_json::Value, String> {
     let shaping = shaping::read(session)?;
     let now = match &shaping.stage {
@@ -137,9 +140,19 @@ pub fn show(session: &Path) -> Result<serde_json::Value, String> {
             |a| serde_json::json!({"what": a["text"], "why": a["why"], "authority": "assumed"}),
         ))
         .collect::<Vec<_>>();
+    let probes = [answering::PROBE.0, answering::SAMPLE.0];
+    let gray = ledger["nodes"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|n| n["kind"] == "decision" && n["id"] != "goal")
+        .filter(|n| !probes.iter().any(|p| n["id"] == *p))
+        .filter(|n| n["status"] == "unresolved" || n["authority"] != "user")
+        .map(|n| serde_json::json!({"id": n["id"], "label": n["label"], "status": n["status"], "authority": n["authority"]}))
+        .collect::<Vec<_>>();
     Ok(serde_json::json!({
         "goal": shaping.goal, "version": shaping.version, "open": shaping.open, "now": now,
-        "decided_without_you": decided_without_you,
+        "decided_without_you": decided_without_you, "gray": gray,
     }))
 }
 

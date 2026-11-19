@@ -1,5 +1,6 @@
 {
   "next": "seed",
+  "assumed": [],
   "confirming": {
     "Affected users and systems": "The personal Mac user and the new local book-loan tool. The repository currently contains only README.md; no application, persistence module, or test suite exists.",
     "Constraints and boundaries": "Build a small single-purpose local tool with a simple local file for persistence. It must record title, borrower, and date; preserve the list across close and reopen; show outstanding books; and mark a book returned. It must not use accounts, cloud sync, reminders, or contact access. The user should operate the tool rather than edit its data file by hand.",

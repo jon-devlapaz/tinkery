@@ -98,6 +98,8 @@ def journey(agent):
         delegated = [d for d in decided if d['what'] == QUESTION['label']]
         assert delegated and delegated[0]['authority'] == 'delegated', decided
         assert all(d['authority'] != 'user' for d in decided), 'An operator answer was listed as decided without them'
+        # #931: a question Shape asked and nobody but the operator may settle stays gray.
+        assert [g['label'] for g in listed['gray']] == [QUESTION['label']], listed['gray']
         shown = listed['now']
         assert shown['risks'] == draft['risks']
         cases = ['Drafting step guess:', 'Must fail: TEST wrong output must fail',
@@ -120,6 +122,20 @@ def journey(agent):
         assert helper.status(Path(session))['handoff']['verified']
         assert len(run.calls()) == 2, 'Confirming called a model'
         print(f'seed command journey passed: {"agent" if agent else "human"}, 6 commands, 2 stub calls, decided-without-you listed, verified seed')
+
+
+def no_gray():
+    """A draft that asked no model question has nothing gray; the fixed probes never count."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-seed-command-') as directory:
+        run = Run(directory, [SEED], agent=True)
+        session = run.ok('new', 'goal.txt', drafting=False).strip()
+        run.ok('step', session, 'look')
+        run.ok('step', session, 'answer', 'TEST no sample: fixture')
+        draft = json.loads(run.ok('step', session, 'answer', 'TEST skip'))
+        assert draft['now']['stage'] == 'draft', draft['now']
+        assert draft['gray'] == [], draft['gray']
+        assert len(draft['decided_without_you']) == 2, 'The two probe answers are not listed'
+        print('seed command no-gray passed: probes only, 1 stub call, empty gray')
 
 
 def refusals():
@@ -155,4 +171,5 @@ def refusals():
 if __name__ == '__main__':
     for agent in [False, True]:
         journey(agent)
+    no_gray()
     refusals()
