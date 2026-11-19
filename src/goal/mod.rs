@@ -107,7 +107,8 @@ fn constraint_identity(text: &str) -> String {
     })
 }
 /// Clauses of prose (why, done when, the goal line, when). Constraint items are never
-/// split: each is one line as the model gave it.
+/// split: each is one line as the model gave it. Quoted and backticked text is never split,
+/// and a stray mark between spaces is a word, so commands keep their bytes.
 fn clauses(text: &str) -> Vec<String> {
     let chars = text
         .trim()
@@ -139,6 +140,7 @@ fn clauses(text: &str) -> Vec<String> {
         } else if quote.is_none()
             && (c == '"'
                 || c == '“'
+                || c == '`'
                 || (matches!(c, '\'' | '‘') && !previous.is_some_and(char::is_alphanumeric)))
         {
             quote = Some(match c {
@@ -175,6 +177,8 @@ fn clauses(text: &str) -> Vec<String> {
                 || (matches!(c, '.' | '!' | '?')
                     && !decimal
                     && !initial
+                    // A mark after a space ends no sentence: `&& ! git diff`, `find . -name`.
+                    && previous.is_some_and(|c| !c.is_whitespace())
                     && next.is_some_and(char::is_whitespace)))
         {
             parts.push(current.trim().to_owned());
