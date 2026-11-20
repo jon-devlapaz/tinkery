@@ -28,7 +28,7 @@ sys.dont_write_bytecode = True
 
 GUIDE = 'docs/first-task.md'
 SETUP_BIN = Path(__file__).resolve().parents[1] / '.cloud-tools/node/bin'
-AGENT_DRAFTING = 'agents name the model at launch: --shape-pi --model MODEL --shape-budget CALLS'
+AGENT_DRAFTING = 'agents name the model at launch: --shape-pi --model MODEL --shape-budget RESPONSES'
 UNCHECKED = "Pi's model and login are checked once the workflow is connected."
 
 
@@ -110,9 +110,9 @@ def without_setup(root, agent):
         return False, f'Log in to Pi: run `pi`, then /login ({GUIDE}, step 3).'
     if agent:
         return True, f'Pi has a login; {AGENT_DRAFTING}'
-    return False, (f'Press m on the menu, choose a model and calls, then s to save ({GUIDE}, step 3). '
+    return False, (f'Press m on the menu, choose a model and responses, then s to save ({GUIDE}, step 3). '
                    'An agent never uses a saved setup: the operator launches it with '
-                   '--shape-pi --model MODEL --shape-budget CALLS.')
+                   '--shape-pi --model MODEL --shape-budget RESPONSES.')
 
 
 def drafting(root, agent):

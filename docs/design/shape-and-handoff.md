@@ -689,11 +689,11 @@ line, F1 numbers the rest. The session list keeps Enter to open a session.
   it never reconstructs missing fields or chooses between multiple objects. Invalid
   JSON, a missing question and an unsupported reply kind have specific reasons.
   The step finds the blast radius and the ways to meet the goal before choosing to ask or draft.
-- The launch allowance (saved calls or `--shape-budget CALLS`) defaults to zero; each step counts one before the model starts.
-  With a current question and one run remaining, show `Drafting runs left this launch: 1 of M.`
+- The launch allowance (saved or `--shape-budget RESPONSES`) defaults to zero and counts model responses; each step holds what is left before the model starts.
+  With a current question and one response remaining, show `Drafting responses left this launch: 1 of M.`
   beside the answer editor before Enter spends it, using Think's shared budget wording.
   Budget policy stays behind Agent; Shape owns presentation (architecture diagnostics 3 and 6).
-  Exhaustion refuses answer, defer, delegate, revision and teach-back before saving anything and explains how to allow calls.
+  Exhaustion refuses answer, defer, delegate, revision and teach-back before saving anything and explains how to allow responses.
 - Tinkery, never the model, publishes answers and questions with the displayed version
   or the version at step start. Stale versions refuse, retain
   typed words and trigger a fresh read, never overwrite.
@@ -844,9 +844,9 @@ line, F1 numbers the rest. The session list keeps Enter to open a session.
   Tinkery owns validation and confirmation.
   Confirming is not approval to build.
 - Failures name what happened and one `Next:`. A model failure, refusal or stop also
-  says `Drafting runs left this launch: N of M.`, Think's wording, so a retry is chosen knowing
+  says `Drafting responses left this launch: N of M.`, Think's wording, so a retry is chosen knowing
   its cost (#435). Budget exhaustion points to
-  F1's Model and runs row, which adds runs for this launch; a model error or stop offers Enter retry, or F1's teach-back again
+  F1's Model and responses row, which adds responses for this launch; a model error or stop offers Enter retry, or F1's teach-back again
   (saved words stay saved);
   a stale version offers the fresh stage action; a ledger refusal shows Tinkery's first line.
   Review refusals name the mismatched check or case/check counts; a reply that also splits a

@@ -1,4 +1,4 @@
-//! The header's model label and the Model panel it opens. The label shows real state: runs left
+//! The header's model label and the Model panel it opens. The label shows real state: responses left
 //! when this launch drafts with a model, else `practice`. The panel names this launch's recipient
 //! and edits settings for later launches; `s` saves them, `esc` drops them.
 //! `enter` on Model picks the next model the harness offers:
@@ -21,11 +21,10 @@ use ratatui::{
 use super::{CALLS, Harness, Setup};
 use crate::{Palette, pi::CallBudget};
 
-/// Drafting runs one `enter` on the Now row adds.
-const TOP_UP: usize = 5;
+/// Drafting responses one `enter` on the Now row adds.
+const TOP_UP: usize = 10;
 /// Why an agent's panel only shows, and where its runs come from instead.
-const AGENT: &str =
-    "An agent can't save a setup or add runs; the operator grants them with --shape-budget CALLS.";
+const AGENT: &str = "An agent can't save a setup or add responses; the operator grants them with --shape-budget RESPONSES.";
 /// The note while Pi lists its models.
 const LISTING: &str = "Listing Pi's models…";
 
@@ -84,11 +83,11 @@ impl Controls {
         self
     }
 
-    /// The header label: runs left when this launch drafts, else `practice`.
+    /// The header label: responses left when this launch drafts, else `practice`.
     pub fn label(&self) -> String {
         match &self.active {
-            Some((_, budget)) if budget.remaining() == 1 => "1 run left".into(),
-            Some((_, budget)) => format!("{} runs left", budget.remaining()),
+            Some((_, budget)) if budget.remaining() == 1 => "1 response left".into(),
+            Some((_, budget)) => format!("{} responses left", budget.remaining()),
             None => "practice".into(),
         }
     }
@@ -281,7 +280,7 @@ impl Controls {
             row(0, "Harness", panel.draft.harness.label().into()),
             row(1, "Model", model),
             row(2, "Thinking", panel.draft.thinking.clone()),
-            row(3, "Runs", format!("{} each launch", panel.draft.calls)),
+            row(3, "Responses", format!("{} each launch", panel.draft.calls)),
         ];
         if let Some((_, budget)) = &self.active {
             lines.push(row(
@@ -293,11 +292,11 @@ impl Controls {
         lines.extend([
             Line::default(),
             Line::styled(
-                "Runs count drafting attempts, including failures and cancellations.",
+                "Each model response counts, including failures and cancellations.",
                 palette.ink,
             ),
             Line::styled(
-                "One run may make several model responses; nothing caps responses or spending.",
+                "A step that reads files may use several; nothing caps spending.",
                 palette.ink,
             ),
             Line::styled(self.note(panel), palette.muted),

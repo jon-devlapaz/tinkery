@@ -192,7 +192,7 @@ def main():
         (agent / 'auth.json').write_text(json.dumps({'test-provider': {'type': 'oauth', 'refresh': 'TEST'}}))
         out = shell(readiness, env, root, waiting=True)
         assert out.splitlines()[-1].startswith('Next: Press m on the menu'), out
-        assert '--shape-budget CALLS' in out.splitlines()[-1], out
+        assert '--shape-budget RESPONSES' in out.splitlines()[-1], out
         # An agent operator names its model at launch, so no saved setup is needed.
         out = shell(readiness + ' --operator agent', env, root, waiting=True)
         assert 'ready: Drafting is set up; the first real send proves it. Pi has a login' in out, out

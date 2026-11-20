@@ -62,8 +62,8 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   when its saved record verifies.
 - **Shape:** press `s` in goal detail or choose menu place 3 to see the current question,
   draft Tink or verified Tink. With real drafting set up
-  ([terminal setup](docs/terminal-setup.md#launch)), the saved calls or `--shape-budget CALLS` (default zero)
-  set the launch allowance shared by Think, Tend connections and Shape. Enter saves an answer and lets an agent investigate the next with
+  ([terminal setup](docs/terminal-setup.md#launch)), the saved allowance or `--shape-budget RESPONSES` (default zero)
+  sets the launch allowance, in model responses, shared by Think, Tend connections and Shape. Enter saves an answer and lets an agent investigate the next with
   read-only tools, and confirms the Tink when you type `confirm` after reading it to the end; F1 Revise the draft
   sends a correction back for a new draft.
   Agents operate Think and Shape with `--operator agent`; their saves are
@@ -167,12 +167,12 @@ After the first send, Enter sends directly. Shift+Enter adds a line when support
 Tend writes needs only when you explicitly link or unlink.
 Add `--snapshot` for text output.
 
-Real drafting needs a model and an explicitly authorized call allowance; provider
+Real drafting needs a model and an explicitly authorized allowance of model responses; provider
 charges may apply. Press `m` on the menu, or click the `practice` label, to choose the
-harness (Pi or Claude Code), model, thinking level and calls each launch: `s` saves them in
+harness (Pi or Claude Code), model, thinking level and responses each launch: `s` saves them in
 `~/.config/tinkery/model.json` and later launches draft with them. `--shape-pi --model
-provider/model-id` and `--shape-budget CALLS` override them for one launch and save
-nothing. Out of calls, F1's Model and calls row adds more for this launch only.
+provider/model-id` and `--shape-budget RESPONSES` override them for one launch and save
+nothing. Out of responses, F1's Model and responses row adds more for this launch only.
 `--help` lists options. See [the Model panel](docs/design/menu.md#model-setup).
 [Terminal setup](docs/terminal-setup.md#launch) gives an isolated trial.
 [First task](docs/first-task.md) is the one path from install to a running build worker, with a

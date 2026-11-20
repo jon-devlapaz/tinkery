@@ -653,14 +653,14 @@ fn typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_st
     );
     let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
     assert!(
-        flat.contains("No drafting runs are left: this launch's allowance is 0."),
+        flat.contains("No drafting responses are left: this launch's allowance is 0."),
         "{text}"
     );
     assert!(
-        flat.contains("Next: add runs from F1, Model and runs, then send again."),
+        flat.contains("Next: add responses from F1, Model and responses, then send again."),
         "{text}"
     );
-    choose(&mut shape, "Model and runs");
+    choose(&mut shape, "Model and responses");
     assert!(
         shape.take_model_request() && !shape.take_model_request(),
         "the row asks the launch for the panel once"

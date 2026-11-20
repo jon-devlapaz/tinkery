@@ -262,7 +262,7 @@ pub fn step(
             match failure.why {
                 Why::Stale => STALE.into(),
                 Why::Budget(limit) => format!(
-                    "No drafting runs are left: this launch's allowance is {limit}. Relaunch with --shape-budget."
+                    "No drafting responses are left: this launch's allowance is {limit}. Relaunch with --shape-budget."
                 ),
                 Why::Model(reason) => format!("The model step failed: {reason}"),
                 Why::Refused(reason) => reason,

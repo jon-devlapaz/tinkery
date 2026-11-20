@@ -352,7 +352,7 @@ def full_journey(width, height):
             run.send(b'\r', 'The step reads files in TEST-targetfolder.')
             # Opening, scrolling and help write nothing and call no model.
             run.send(b'\x1b[B', 'enter look into the next question')
-            run.send(F1, 'Drafting runs left this launch: 2 of 6.')
+            run.send(F1, 'Drafting responses left this launch: 2 of 6.')
             run.send(b'\x1b', 'enter look into the next question')
             assert files(run.sessions) == before and run.calls() == [], 'Shape wrote or called before Enter'
             # #740: a real sample comes first, so checks are drafted against real input, not invented fixtures.
@@ -396,7 +396,7 @@ def full_journey(width, height):
             answer = 'Local? Yes, Keep it local.\nOnly on this machine.\rTEST CR\r\nTEST CRLF'
             # Kitty repeat events must not act, even with nonempty edited words.
             run.send(b'\x1b[1;1:2Q' * 3 + F1, 'Type your answer. ^J adds a line.')
-            run.wait('Drafting runs left this launch: 1 of 6.')
+            run.wait('Drafting responses left this launch: 1 of 6.')
             run.send(b'\x1b', 'TEST CRLF')
             assert files(run.sessions) == before and files(cwd) == before_all and len(run.calls()) == 1, 'Typing, paste, editing or held Enter wrote or called'
             if width == 100:
@@ -736,7 +736,7 @@ def case(name, width=100, height=30):
                     run.wait("Shape hasn't asked its next question yet.")
                 before = files(sessions)
                 expected = {
-                    'zero budget': "No drafting runs are left: this launch's allowance is 0.",
+                    'zero budget': "No drafting responses are left: this launch's allowance is 0.",
                     'model failure': 'Your answer is saved. Looking into the next question failed: Pi exited',
                     'helper refusal': "Your answer is saved. The model's reply was refused, so nothing from it was saved: receipt appears to contain a secret",
                     'model tries to confirm': "Looking into the next question failed: Reply field next must be question or seed; a model reply cannot confirm a Tink.",
@@ -747,7 +747,7 @@ def case(name, width=100, height=30):
                 assert run.flat().count('Next:') == 1, run.screen.text()
                 ledger = helper.load(session)
                 if name == 'zero budget':
-                    run.wait('Next: add runs from F1, Model and runs')
+                    run.wait('Next: add responses from F1, Model and responses')
                     run.wait('your answer Local.')
                     assert files(sessions) == before and run.calls() == [], 'Zero budget wrote or called'
                 elif name in ('model writes decisions', 'seed secret'):
@@ -781,14 +781,14 @@ def real_sample_last_run(width, height):
         try:
             run.open_shape()
             run.wait('enter look into the next question')
-            assert 'Drafting runs left this launch: 1 of 2.' not in run.flat()
+            assert 'Drafting responses left this launch: 1 of 2.' not in run.flat()
             run.send(F2, question['question'])
-            run.wait('Drafting runs left this launch: 1 of 2.')
+            run.wait('Drafting responses left this launch: 1 of 2.')
             run.wait('enter save + look')
             assert len(run.calls()) == 1
             before = files(run.sessions)
             run.send(b'\x1b[200~' + answer.encode() + b'\x1b[201~', 'Ignore links inside code.')
-            run.wait('Drafting runs left this launch: 1 of 2.')
+            run.wait('Drafting responses left this launch: 1 of 2.')
             assert files(run.sessions) == before and len(run.calls()) == 1
             run.send(F2, 'Tink Contract r1')
             ledger = helper.load(session)
@@ -800,7 +800,7 @@ def real_sample_last_run(width, height):
             run.choose('Revise the draft', 'your change')
             run.type('TEST improve readability')
             before = files(run.sessions)
-            run.send(F2, "No drafting runs are left: this launch's allowance is 2.")
+            run.send(F2, "No drafting responses are left: this launch's allowance is 2.")
             assert files(run.sessions) == before and len(run.calls()) == 2
             print(f'Shape #740 sample and last-run warning passed at {width}x{height}: '
                   '2 stub calls; exact sample in seed; exhausted revision saves nothing')
@@ -878,7 +878,7 @@ def supported_question_options(width, height, kind):
             assert saved['goal'] == GOAL
             assert not (session / 'seed-contract.md').exists()
             assert not (session / 'seed-confirmation.json').exists()
-            run.send(F2, "No drafting runs are left: this launch's allowance is 2.")
+            run.send(F2, "No drafting responses are left: this launch's allowance is 2.")
             assert len(run.calls()) == 2, 'Exhausted budget called the model'
             print(f'Shape #297 {kind} passed at {width}x{height}: prompt sent, exact answer, 2 stub calls')
         finally:
@@ -1081,7 +1081,7 @@ def answer_actions(width, height):
                     run.choose('Revise', 'enter save revision and look')
                     run.type('TEST revised synced only with permission')
                     if action == 'revise zero budget':
-                        run.send(F2, 'No drafting runs are left')
+                        run.send(F2, 'No drafting responses are left')
                         run.wait('TEST revised synced only with permission')
                         assert files(run.sessions) == before and run.calls() == []
                     else:
@@ -1467,11 +1467,11 @@ def teach_back(width, height, exhausted=False):
             words = 'TEST build sync.\r\nNo deletes.  '
             # Select the prefill and replace it; the separate confirmation editor stays intact.
             run.send(b'\x01\x1b[1;2F\x1b[200~' + words.encode() + b'\x1b[201~', 'No deletes.')
-            run.send(F1, 'Enter saves and compares (one drafting run)')
+            run.send(F1, 'Enter saves and compares (one model response)')
             run.send(b'\x1b', 'your teach-back')
             assert files(run.sessions) == before and len(run.calls()) == 1
             if exhausted:
-                run.send(F2, 'No drafting runs are left')
+                run.send(F2, 'No drafting responses are left')
                 assert files(run.sessions) == before and len(run.calls()) == 1
                 run.send(b'\x1b', 'Teach-back cancelled.')
             else:
@@ -1562,7 +1562,7 @@ def teach_back_retry(width, height):
             for parser_text in ['invalid type', 'integer', 'line 1 column']:
                 assert parser_text not in run.flat(), run.screen.text()
             run.send(F1, 'Right now')
-            run.read_until('Drafting runs left this launch: 1 of 3.')
+            run.read_until('Drafting responses left this launch: 1 of 3.')
             run.send(b'\x1b', 'F1 more')
             assert len(run.calls()) == 2, 'A failed comparison retried on its own'
             run.choose('Teach back', 'your teach-back')

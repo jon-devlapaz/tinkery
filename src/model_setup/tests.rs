@@ -255,7 +255,7 @@ fn only_s_writes_the_file_and_esc_leaves_it_alone() {
     let shown = screen(&controls);
     assert!(shown.contains("anthropic/claude-test"), "{shown}");
     assert!(
-        shown.contains("medium") && shown.contains("10 each launch"),
+        shown.contains("medium") && shown.contains("25 each launch"),
         "{shown}"
     );
     press(&mut controls, KeyCode::Esc);
@@ -277,7 +277,7 @@ fn only_s_writes_the_file_and_esc_leaves_it_alone() {
     press(&mut controls, KeyCode::Char('s'));
     assert_eq!(
         load(&file),
-        Ok(Some(setup("anthropic/claude-test", "low", 5)))
+        Ok(Some(setup("anthropic/claude-test", "low", 10)))
     );
     let shown = screen(&controls);
     assert!(
@@ -334,9 +334,9 @@ fn active_recipient_survives_editing_and_saving_later_settings() {
                     .collect::<Vec<_>>()
                     .join(" ");
                 for definition in [
-                    "Runs count drafting attempts, including failures and cancellations.",
-                    "One run may make several model responses;",
-                    "nothing caps responses or spending.",
+                    "Each model response counts, including failures and cancellations.",
+                    "A step that reads files may use several;",
+                    "nothing caps spending.",
                 ] {
                     assert!(words.contains(definition), "Missing {definition}:\n{shown}");
                 }
@@ -349,7 +349,7 @@ fn active_recipient_survives_editing_and_saving_later_settings() {
                 ] {
                     assert!(shown.contains(text), "Missing {text}:\n{shown}");
                 }
-                assert_eq!(controls.label(), "0 runs left");
+                assert_eq!(controls.label(), "0 responses left");
             }
         }
     }
@@ -406,7 +406,15 @@ fn saving_refuses_calls_without_a_model_and_typing_refuses_a_loose_model() {
     press(&mut controls, KeyCode::Down);
     press(&mut controls, KeyCode::Enter);
     press(&mut controls, KeyCode::Char('s'));
-    assert!(screen(&controls).contains("Choose a model before allowing drafting runs."));
+    let words = screen(&controls)
+        .replace('│', " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(
+        words.contains("Choose a model before allowing drafting responses."),
+        "{words}"
+    );
     assert!(!file.exists());
 }
 
@@ -424,9 +432,14 @@ fn an_invalid_file_is_explained_in_the_panel_and_saving_replaces_it() {
 #[test]
 fn adding_calls_raises_this_launch_only_and_a_launch_never_exceeds_its_cap() {
     let budget = CallBudget::new(1);
-    assert!(budget.reserve(Request::Shaping).is_ok());
+    let (slot, cap) = budget.reserve(Request::Shaping).unwrap();
+    assert_eq!(cap, 1);
+    budget.finish(slot, &Ok::<(), String>(()), 1);
     let refused = budget.reserve(Request::Shaping).unwrap_err();
-    assert!(refused.contains("Add runs to keep going."), "{refused}");
+    assert!(
+        refused.contains("Add responses to keep going."),
+        "{refused}"
+    );
     let home = tempfile::tempdir().unwrap();
     let file = path(Some(home.path().as_os_str())).unwrap();
     let mut controls = Controls::new(
@@ -434,22 +447,39 @@ fn adding_calls_raises_this_launch_only_and_a_launch_never_exceeds_its_cap() {
         Ok(None),
         Some((setup("p/active", "low", 1), budget.clone())),
     );
-    assert_eq!(controls.label(), "0 runs left");
+    assert_eq!(controls.label(), "0 responses left");
     controls.open();
     for _ in 0..4 {
         press(&mut controls, KeyCode::Down);
     }
     press(&mut controls, KeyCode::Enter);
-    assert_eq!(budget.remaining(), 5);
-    assert_eq!(controls.label(), "5 runs left");
-    assert!(screen(&controls).contains("5 left · enter adds 5"));
+    assert_eq!(budget.remaining(), 10);
+    assert_eq!(controls.label(), "10 responses left");
+    assert!(screen(&controls).contains("10 left · enter adds 10"));
     press(&mut controls, KeyCode::Esc);
     assert!(!file.exists(), "adding calls saved nothing");
-    for _ in 0..5 {
-        assert!(budget.reserve(Request::SeedStep).is_ok());
-    }
-    assert!(budget.reserve(Request::SeedStep).is_err(), "cap exceeded");
-    assert_eq!(budget.used(), 6);
+    // A request may use every response left, and it holds them all while it runs.
+    let (slot, cap) = budget.reserve(Request::SeedStep).unwrap();
+    assert_eq!(
+        (cap, budget.remaining()),
+        (10, 10),
+        "held responses are not shown as used"
+    );
+    let held = budget.reserve(Request::SeedStep).unwrap_err();
+    assert!(
+        held.starts_with("Another drafting request holds the responses left"),
+        "{held}"
+    );
+    budget.finish(slot, &Ok::<(), String>(()), 7);
+    assert_eq!(budget.remaining(), 3);
+    let (slot, cap) = budget.reserve(Request::SeedStep).unwrap();
+    assert_eq!(cap, 3);
+    budget.finish(slot, &Err::<(), String>("TEST".into()), 0);
+    assert_eq!(
+        budget.used(),
+        9,
+        "a failed request counts at least one response"
+    );
 }
 
 #[test]
@@ -469,7 +499,7 @@ fn an_agent_sees_the_setup_but_cannot_save_it_or_add_calls() {
         "agent panel names the grant"
     );
     press(&mut controls, KeyCode::Char('s'));
-    assert!(screen(&controls).contains("An agent can't save a setup or add runs"));
+    assert!(screen(&controls).contains("An agent can't save a setup or add responses"));
     for _ in 0..4 {
         press(&mut controls, KeyCode::Down);
     }

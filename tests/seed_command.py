@@ -246,7 +246,7 @@ def refusals():
         # The probes need no model, so a zero allowance still asks them, then stops at the first call.
         run.ok('step', session, 'look')
         before = run.files()
-        run.refused('No drafting runs are left', 'step', session, 'answer', 'TEST no sample')
+        run.refused('No drafting responses are left', 'step', session, 'answer', 'TEST no sample')
         run.refused('The answer is empty', 'step', session, 'answer', ' ')
         assert run.files() == before and run.calls() == [], 'A refused step wrote or called a model'
         print('seed command refusals passed: empty goal, undeclared operator, no drafting, zero budget, empty answer; zero stub calls')

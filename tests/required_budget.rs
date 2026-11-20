@@ -67,7 +67,7 @@ else:
     assert!(
         result
             .unwrap_err()
-            .contains("Drafting run limit of 0 reached")
+            .contains("Drafting response limit of 0 reached")
     );
     assert_eq!(budget.used(), 0);
     let attempts = budget.attempts();
@@ -75,6 +75,6 @@ else:
     assert_eq!(attempts[0].outcome, "refused");
     assert_eq!(
         host.calls_left().as_deref(),
-        Some("Drafting runs left this launch: 0 of 0.")
+        Some("Drafting responses left this launch: 0 of 0.")
     );
 }

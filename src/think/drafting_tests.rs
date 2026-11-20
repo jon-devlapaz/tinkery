@@ -27,7 +27,7 @@ fn host(script: &str, budget: Arc<CallBudget>) -> (tempfile::TempDir, ModelHost)
 fn pi_process_receives_only_bounded_inputs_and_disabled_resources() {
     let script = r#"
 import json, os, sys
-required = ['--print', '--no-session', '--no-tools', '--no-extensions', '--no-mcp', '--no-skills', '--no-prompt-templates', '--no-themes', '--no-context-files', '--no-approve', '--offline']
+required = ['--print', '--session-dir', '--no-tools', '--no-extensions', '--no-mcp', '--no-skills', '--no-prompt-templates', '--no-themes', '--no-context-files', '--no-approve', '--offline']
 assert all(flag in sys.argv for flag in required)
 assert 'PI_SESSION_FILE' not in os.environ
 assert 'PI_SESSION_ID' not in os.environ
@@ -174,7 +174,7 @@ fn a_budget_refuses_before_pi_starts_and_counts_failures_and_retries() {
     assert!(
         call(&pi, Request::Shaping)
             .unwrap_err()
-            .contains("Drafting run limit of 1 reached")
+            .contains("Drafting response limit of 1 reached")
     );
     assert_eq!(started(&starts), 1);
     assert_eq!(budget.attempts()[0].outcome, "failure");
