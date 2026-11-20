@@ -934,6 +934,12 @@ work, risk, cost, reversibility and behavior about the same. Tinkery adds them t
   was left out in 2 of 2 real drafts. They appear
   in the seed's Assumed block. The draft has no question to show them under. A default the
   operator objected to never returns, because their decision replaces it.
+- A draft reply must also list `readings`: each place the goal reads two ways that build different
+  things, as `chosen`, `other` and `why` ([#942](https://github.com/jon-devlapaz/tinkery/issues/942)).
+  `[]` says the goal settles them all; a reply without the list is refused. If the list is not
+  empty, Tinkery saves no draft and records the first reading as an open question with no
+  suggestion, so it is gray until the operator answers. Two real drafts picked confirm-first over
+  undo-after without asking, and a standing grant started a worker on it.
 
 ### Ending a session
 
@@ -974,7 +980,7 @@ tinkery [options] seed step DIR look|delegate|answer WORDS|answer --relayed FILE
   asked or added by a change to the draft, that the operator has not answered in their own words: open, or settled or deferred with any
   authority but `user`, including an operator's own Delegate. The two fixed probes never count.
   An empty `gray` means only that no asked question was settled without the operator. A gray
-  choice Shape never asked is not detected. Read-only.
+  choice that Shape neither asked nor listed in a draft's `readings` is not detected. Read-only.
 - `step` takes one action from a fresh read, then prints `show`. `look`, `answer` and `delegate`
   need `--shape-pi` with a model and name the folder the model reads. `--shape-budget` bounds one
   command, not the session: each command is a new launch with a fresh allowance. `confirm` calls no

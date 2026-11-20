@@ -194,7 +194,7 @@ fn settled_probe_step() {
     let body = prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt"));
     let checks: Value =
         serde_json::from_str(include_str!("../../../tests/fixtures/shape-checks.json")).unwrap();
-    let reply = json!({"next":"seed", "assumed": [], "confirming":body, "checks":checks, "found":[],
+    let reply = json!({"next":"seed", "readings": [], "assumed": [], "confirming":body, "checks":checks, "found":[],
         "review":{"contradictions":[], "decided":[], "done":[],
         "failure_cases":checks.as_array().unwrap().iter().map(|_| json!("TEST wrong output must fail")).collect::<Vec<_>>()}});
     let program = root.path().join("TEST-pi");
@@ -342,7 +342,7 @@ fn teach_back_zero_budget_refuses_before_capture_or_any_read() {
 
 #[test]
 fn a_seed_reply_requires_a_typed_completion_review_without_parser_diagnostics() {
-    let mut reply = json!({"next":"seed", "assumed": [], "found":[], "confirming":{},
+    let mut reply = json!({"next":"seed", "readings": [], "assumed": [], "found":[], "confirming":{},
         "checks":[{"statement":"TEST exact", "kind":"judge", "source":"TEST"}]});
     for review in [
         Value::Null,

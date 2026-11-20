@@ -19,7 +19,7 @@ const SHARED_SUITE: &str =
 fn valid_reply() -> Value {
     let checks: Value =
         serde_json::from_str(include_str!("../../../tests/fixtures/shape-checks.json")).unwrap();
-    json!({"next":"seed", "assumed": [], "found":[], "checks":checks,
+    json!({"next":"seed", "readings": [], "assumed": [], "found":[], "checks":checks,
         "confirming":prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt")),
         "review":{"contradictions":[], "decided":[], "done":[],
             "failure_cases":checks.as_array().unwrap().iter().map(|_|
@@ -1155,7 +1155,7 @@ fn a_goal_past_32_kib_still_reaches_the_model() {
 fn a_draft_reply_without_assumed_is_refused_so_defaults_are_never_silently_dropped() {
     // #931: 2 of 2 real drafts left the optional list out while choosing routine details.
     let reply = |assumed: Option<serde_json::Value>| {
-        let mut reply = serde_json::json!({"next":"seed", "found":[], "confirming":{},
+        let mut reply = serde_json::json!({"next":"seed", "readings": [], "found":[], "confirming":{},
             "checks":[{"statement":"TEST", "kind":"judge", "source":"TEST"}],
             "review":{"contradictions":[],"decided":[],"done":[],"failure_cases":["TEST wrong output must fail"]}});
         if let Some(assumed) = assumed {
@@ -1175,4 +1175,77 @@ fn a_draft_reply_without_assumed_is_refused_so_defaults_are_never_silently_dropp
     assert!(reply(Some(serde_json::json!(vec![one.clone(); 6]))).is_err());
     assert!(reply(Some(serde_json::json!(vec![one; 5]))).is_ok());
     assert!(reply(Some(serde_json::json!([]))).is_ok());
+}
+
+#[test]
+fn a_draft_that_picks_one_of_two_readings_asks_it_instead_and_stays_gray() {
+    // #942: two real drafts chose confirm-first over undo-after without asking, and a grant started.
+    let root = tempfile::Builder::new()
+        .prefix("TEST-942-reading-")
+        .tempdir()
+        .unwrap();
+    let session = root.path().join("TEST-session");
+    fs::create_dir_all(&session).unwrap();
+    fs::write(
+        session.join("ledger.json"),
+        include_str!("../../../tests/fixtures/shape-296/ledger.json"),
+    )
+    .unwrap();
+    let saved = || -> Value {
+        serde_json::from_slice(&fs::read(session.join("ledger.json")).unwrap()).unwrap()
+    };
+    let gray_before = answering::gray(&saved());
+    let mut reply = valid_reply();
+    reply["readings"] = json!([{"chosen": "TEST ask before erasing", "other": "TEST erase and offer undo",
+        "why": "TEST a confirm step and an undo build different things"}]);
+    let agent = provider(root.path(), &reply.to_string(), 1);
+    assert!(matches!(
+        look_again(&session, root.path(), &agent),
+        Ok(Done::Asked(_))
+    ));
+    assert!(
+        !session.join("seed-checks.json").exists(),
+        "the draft is not saved"
+    );
+    let ledger = saved();
+    let gray = answering::gray(&ledger);
+    assert_eq!(gray.len(), gray_before.len() + 1, "{gray:?}");
+    let asked = gray.last().unwrap();
+    assert_eq!(
+        asked["label"],
+        "TEST ask before erasing, or TEST erase and offer undo"
+    );
+    assert_eq!(asked["status"], "unresolved");
+    let node = ledger["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == asked["id"])
+        .unwrap()
+        .clone();
+    assert!(
+        node["question"]
+            .as_str()
+            .unwrap()
+            .contains("TEST ask before erasing, or TEST erase and offer undo"),
+        "{node}"
+    );
+    assert!(
+        node.get("suggestion").is_none_or(Value::is_null),
+        "the operator chooses: {node}"
+    );
+
+    // A draft that leaves readings out is refused, so a reading is never silently picked.
+    let missing = valid_reply()
+        .as_object()
+        .unwrap()
+        .iter()
+        .filter(|(k, _)| *k != "readings")
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect::<serde_json::Map<_, _>>();
+    let refused = decode(&Value::Object(missing).to_string(), "").unwrap_err();
+    assert!(refused.contains("field readings must list"), "{refused}");
+    let mut half = valid_reply();
+    half["readings"] = json!([{"chosen": "TEST one way"}]);
+    assert!(decode(&half.to_string(), "").is_err());
 }

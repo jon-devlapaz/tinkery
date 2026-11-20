@@ -1,5 +1,5 @@
 {
-  "next": "seed",
+  "next": "seed", "readings": [],
   "assumed": [],
   "confirming": {
     "Affected users and systems": "The personal Mac user and the new local book-loan tool. The repository currently contains only README.md; no application, persistence module, or test suite exists.",

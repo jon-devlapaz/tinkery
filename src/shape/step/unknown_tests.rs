@@ -73,7 +73,7 @@ pub(super) fn resolved_read_only_step(question_first: bool) {
     let body = prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt"));
     let checks: Value =
         serde_json::from_str(include_str!("../../../tests/fixtures/shape-checks.json")).unwrap();
-    let seed_reply = json!({"next":"seed", "assumed": [], "confirming":body, "checks":checks, "found":[],
+    let seed_reply = json!({"next":"seed", "readings": [], "assumed": [], "confirming":body, "checks":checks, "found":[],
         "review":{"contradictions":[], "decided":["Strictly read-only: never modify input files."], "done":[],
         "failure_cases":checks.as_array().unwrap().iter().map(|_| json!("TEST wrong output must fail")).collect::<Vec<_>>()}});
     let program = root.path().join("TEST-pi");
@@ -202,7 +202,7 @@ print(json.dumps(reply))
 #[test]
 fn resolution_reply_field_is_optional_but_never_silently_coerced() {
     for next in ["question", "seed"] {
-        let mut reply = json!({"next":next, "question":"TEST next?", "found":[], "assumed":[], "confirming":{},
+        let mut reply = json!({"next":next, "question":"TEST next?", "found":[], "readings":[], "assumed":[], "confirming":{},
             "checks":[{"statement":"TEST", "kind":"judge", "source":"TEST"}],
             "review":{"contradictions":[],"decided":[],"done":[],"failure_cases":["TEST wrong output must fail"]}});
         for links in [

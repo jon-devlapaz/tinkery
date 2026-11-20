@@ -132,7 +132,7 @@ The operator judges refusal output; implementation checks privacy.
 ## Downstream handoff
 Carry seed-contract.md, ledger.json and seed-confirmation.json together; check session.py status for handoff.verified. This is not implementation approval.
 '''
-SEED = {'next': 'seed', 'assumed': [], 'confirming': seed_fields(SEED_BODY),
+SEED = {'next': 'seed', 'readings': [], 'assumed': [], 'confirming': seed_fields(SEED_BODY),
         'checks': [{'statement': 'Refusals never show private text.', 'kind': 'judge',
                     'source': 'TEST goal', 'how_to_judge': 'Inspect refusal output for private text.'}],
         'found': [{'id': 'read-refusal', 'claim': {'type': 'observation', 'scope': 'src/main.rs:12'},

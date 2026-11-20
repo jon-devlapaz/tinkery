@@ -113,6 +113,9 @@ pub(super) const FIELDS: &[&str] = &[
     "assumed",
     "text",
     "why",
+    "readings",
+    "chosen",
+    "other",
     "options",
     "choice",
     "tradeoff",
@@ -852,6 +855,43 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
             })))
         }
         Some("seed") => {
+            // #942: in 2 of 2 real drafts the model picked one of two readings that build different
+            // things without asking, so a draft must name each such reading, and one becomes the question.
+            let readings = value["readings"].as_array().filter(|r| {
+                r.iter().all(|r| {
+                    ["chosen", "other", "why"]
+                        .iter()
+                        .all(|k| r[*k].as_str().is_some_and(|s| !s.trim().is_empty()))
+                })
+            });
+            let Some(readings) = readings else {
+                return Err(concat!(
+                    "Tink draft reply field readings must list each place the goal reads two ways that build ",
+                    "different things, each with chosen, other and why; use [] only when the goal settles them all."
+                )
+                .to_owned());
+            };
+            if let Some(reading) = readings.first() {
+                let part = |k: &str| reading[k].as_str().unwrap_or_default().trim().to_owned();
+                let (chosen, other) = (part("chosen"), part("other"));
+                return Ok(Next::Question(Box::new(Ask {
+                    id: "reading".into(),
+                    label: format!("{chosen}, or {other}"),
+                    question: format!(
+                        "The goal reads two ways that build different things: {chosen}, or {other}. Which one?"
+                    ),
+                    gate: part("why"),
+                    found,
+                    resolves: value.get("resolves").cloned(),
+                    supported_by: None,
+                    prerequisites: None,
+                    suggestion: None,
+                    assumed: assumptions(&value["assumed"]),
+                    options: Vec::new(),
+                    against: None,
+                    confidence: None,
+                })));
+            }
             let mut checks = value["checks"]
                 .as_array()
                 .filter(|checks| !checks.is_empty())
