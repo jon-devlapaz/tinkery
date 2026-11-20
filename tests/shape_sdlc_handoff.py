@@ -158,17 +158,7 @@ def shape(root, env):
         send(b'\x1bOQ', "PgDn or Down to 'End of Tink Contract' first. Nothing was confirmed.")
         os.write(master, b'\x1b[6~' * 40)
         wait('enter confirm Tink r1')
-        # #739: the recorded r1 has two commandless provisionals; each needs a TEST command first.
-        for i, name in enumerate(('sounds', 'mechanics'), 2):
-            send(b'\x1bOQ', f'Cannot confirm: check {i}. Missing command.')
-            send(b'\x1bOP', 'Right now')
-            wait(f'Edit check {i}')
-            send(screen.pick(f'Edit check {i}'), 'your check command')
-            typed = f'python3 -m unittest tests.test_TEST_stacker_{name}'
-            send(b'\x1b[200~' + typed.encode() + b'\x1b[201~', typed)
-            send(b'\x1bOQ', 'Check saved. Read the changed draft, then confirm. No model ran.')
-            os.write(master, b'\x1b[6~' * 40)
-            wait('enter confirm Tink r1')
+        # #936: the recorded r1 drafted two commandless provisionals; the fixture now names each cmd.
         send(b'\x1bOQ', 'Tink ready: you confirmed r1, and it still matches.')
         status = helper.status(session)
         assert status['handoff']['verified'] is True
