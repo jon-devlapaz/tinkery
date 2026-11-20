@@ -162,6 +162,8 @@ def relayed():
         assert json.loads(run.ok('step', session, 'answer', 'TEST skip'))['now']['stage'] == 'question'
         before = run.files()
         run.refused('--relayed must name', 'step', session, 'answer', '--relayed', str(bad))
+        # A missing FILE is a usage error, never the answer "--relayed".
+        run.refused('usage:', 'step', session, 'answer', '--relayed')
         assert run.files() == before, 'A malformed relay wrote to the session'
         draft = json.loads(run.ok('step', session, 'answer', '--relayed', str(relay)))
         assert draft['now']['stage'] == 'draft', draft['now']
@@ -172,7 +174,8 @@ def relayed():
         assert 'relayed by the agent from TEST project thread' in node['authority_source'], node
         assert 'origin unverified' in node['authority_source'], node
         digest = hashlib.sha256(relay.read_bytes()).hexdigest()
-        assert any(digest in e.get('observed', '') for e in node['evidence']), 'The relay file is not named'
+        assert any(digest in e.get('observed', '') and 'typed at TEST project thread' in e['observed']
+                   for e in node['evidence']), 'The relay file or its place is not named'
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-seed-command-') as directory:
         # A human at the terminal types their own words; a relay is only for an agent.
         run = Run(directory, [QUESTION, SEED])

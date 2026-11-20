@@ -215,7 +215,7 @@ pub fn step(
         }
         (Action::Relayed(relay), Shaped::Question { id, .. }) => Work::Answer {
             id,
-            words: String::new(),
+            words: relay.words().to_owned(),
             relay: Some(relay),
             expected,
             folder,

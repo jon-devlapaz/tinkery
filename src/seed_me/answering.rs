@@ -609,6 +609,11 @@ pub struct Relay {
 }
 
 impl Relay {
+    /// The operator's exact words.
+    pub fn words(&self) -> &str {
+        &self.words
+    }
+
     /// Read a small JSON file `{"words", "where"}` with both fields non-blank, as tink-sdlc's
     /// `--relayed FILE` does. Creates and repairs nothing.
     pub fn read(path: &Path) -> Result<Self, String> {
@@ -711,7 +716,7 @@ fn settle(
         let at = publication_time(SystemTime::now())?;
         evidence.push(match relay {
             Some(relay) => json!({"checked":"Relayed operator words, origin unverified",
-                "at":at, "observed":format!("relay file sha256 {}; relayed by {}", relay.sha256, context.details())}),
+                "at":at, "observed":format!("relay file sha256 {}; typed at {}; relayed by {}", relay.sha256, relay.place, context.details())}),
             None => json!({"checked":"Caller-declared authorization, not authenticated identity",
                 "at":at, "observed":context.details()}),
         });
