@@ -68,11 +68,13 @@ one. Drafting responses need a model. The panel names this launch's actual harne
 flag overrides, or says it is practice with no model requests. Editable settings are marked
 for later launches; editing or saving them does not change the displayed recipient.
 The allowance counts completed model responses (#937), as the worker cap does
-(`--worker-responses`). A request may use every response left, and holds them while it runs.
-A step that looks with read-only tools makes one response per look. Pi records them in a
+(`--worker-responses`). A request may use every response left, and holds them while it runs: another request
+is refused until it ends, and the label still shows them as left.
+A step that reads files with read-only tools may use several responses. Pi records them in a
 throwaway session folder; Claude Code reports `num_turns` and gets `--max-turns`. At the
-limit Pi gets two seconds to finish its reply, so one response may be in flight, then it is
-stopped and the refusal names the responses used. Each started request counts at least one,
+limit Pi gets two seconds to finish its reply, so a response or two may still finish, then it is
+stopped and the refusal names the responses used. Claude Code stopped before it reports
+counts every response it held. Each started request counts at least one,
 including failures and cancellations. It caps responses, not spending.
 Input too large to send, or cancellation before Tinkery accepts the request, uses none. Tinkery does not automatically
 retry a failed request. The stored key stays `calls`. Nothing in the panel starts a request.

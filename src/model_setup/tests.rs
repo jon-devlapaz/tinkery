@@ -335,7 +335,7 @@ fn active_recipient_survives_editing_and_saving_later_settings() {
                     .join(" ");
                 for definition in [
                     "Each model response counts, including failures and cancellations.",
-                    "A step that reads files makes one per look;",
+                    "A step that reads files may use several;",
                     "nothing caps spending.",
                 ] {
                     assert!(words.contains(definition), "Missing {definition}:\n{shown}");
@@ -460,10 +460,15 @@ fn adding_calls_raises_this_launch_only_and_a_launch_never_exceeds_its_cap() {
     assert!(!file.exists(), "adding calls saved nothing");
     // A request may use every response left, and it holds them all while it runs.
     let (slot, cap) = budget.reserve(Request::SeedStep).unwrap();
-    assert_eq!((cap, budget.remaining()), (10, 0));
+    assert_eq!(
+        (cap, budget.remaining()),
+        (10, 10),
+        "held responses are not shown as used"
+    );
+    let held = budget.reserve(Request::SeedStep).unwrap_err();
     assert!(
-        budget.reserve(Request::SeedStep).is_err(),
-        "held responses are not spent twice"
+        held.starts_with("Another drafting request holds the responses left"),
+        "{held}"
     );
     budget.finish(slot, &Ok::<(), String>(()), 7);
     assert_eq!(budget.remaining(), 3);

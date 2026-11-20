@@ -38,7 +38,7 @@ impl Shape {
                         let step = if open.offers_teach_back() {
                             "Each teach-back comparison uses one model response, without repository access."
                         } else {
-                            "Asking the model uses one response per look with read-only tools; manual actions use none."
+                            "Each model response counts; a step that reads files may use several. Manual actions use none."
                         };
                         format!(
                             "{} {step}\n\
@@ -106,7 +106,7 @@ impl Shape {
                         }),
                     ) => {
                         concat!(
-                            "Type your answer. ^J adds a line. Enter saves it and looks into the next question. Each model look uses one response. ",
+                            "Type your answer. ^J adds a line. Enter saves it and looks into the next question. A step may use several responses. ",
                             "PgUp/PgDn scroll the reading."
                         )
                     }

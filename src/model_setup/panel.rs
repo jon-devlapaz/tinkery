@@ -296,7 +296,7 @@ impl Controls {
                 palette.ink,
             ),
             Line::styled(
-                "A step that reads files makes one per look; nothing caps spending.",
+                "A step that reads files may use several; nothing caps spending.",
                 palette.ink,
             ),
             Line::styled(self.note(panel), palette.muted),

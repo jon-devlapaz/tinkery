@@ -202,9 +202,16 @@ impl CallBudget {
     pub fn attempts(&self) -> Vec<Attempt> {
         self.attempts.lock().unwrap().clone()
     }
-    /// Model responses that counted against the limit.
+    /// Model responses that counted against the limit, by finished requests. Responses a
+    /// running request holds are not shown as used.
     pub fn used(&self) -> usize {
-        used(&self.attempts.lock().unwrap())
+        self.attempts
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|a| a.outcome != "started")
+            .map(|a| a.responses)
+            .sum()
     }
     /// Model responses still allowed.
     pub fn remaining(&self) -> usize {
@@ -225,9 +232,13 @@ impl CallBudget {
         let limit = self.limit();
         let left = limit.saturating_sub(used(&attempts));
         if left == 0 {
-            let error = format!(
-                "Drafting response limit of {limit} reached; the next drafting request was refused before it started. Add responses to keep going."
-            );
+            let error = if attempts.iter().any(|a| a.outcome == "started") {
+                "Another drafting request holds the responses left; this one was refused before it started. Send again when it ends.".to_owned()
+            } else {
+                format!(
+                    "Drafting response limit of {limit} reached; the next drafting request was refused before it started. Add responses to keep going."
+                )
+            };
             attempts.push(Attempt {
                 kind,
                 outcome: "refused",
@@ -411,6 +422,10 @@ impl Call {
         let mut responses = 0;
         let result = sessions
             .and_then(|dir| self.run(input, prompt, cancelled, cap, dir.path(), &mut responses));
+        // Claude Code reports its turns only when it ends; a request stopped first may have used all it held.
+        if self.harness == Harness::ClaudeCode && result.is_err() && responses == 0 {
+            responses = cap;
+        }
         budget.finish(slot, &result, responses);
         result
     }
@@ -464,9 +479,14 @@ impl Call {
         let started = Instant::now();
         let mut status = None;
         let mut capped: Option<Instant> = None;
+        let mut polled: Option<Instant> = None;
         let result = loop {
-            if self.harness == Harness::Pi && status.is_none() {
-                *responses = pi_responses(sessions);
+            if self.harness == Harness::Pi
+                && status.is_none()
+                && polled.is_none_or(|at| at.elapsed() >= POLL)
+            {
+                polled = Some(Instant::now());
+                *responses = (*responses).max(pi_responses(sessions));
                 if *responses >= cap && capped.is_none() {
                     capped = Some(Instant::now());
                 }
@@ -519,7 +539,7 @@ impl Call {
         let diagnostics = String::from_utf8_lossy(&diagnostics);
         let text = match self.harness {
             Harness::Pi => {
-                *responses = pi_responses(sessions);
+                *responses = (*responses).max(pi_responses(sessions));
                 pi_reply(status, &output, &diagnostics)?
             }
             Harness::ClaudeCode => {
@@ -629,11 +649,18 @@ impl Call {
 
 /// How long Pi may take to exit after its last allowed response before it is stopped.
 const CAP_GRACE: Duration = Duration::from_secs(2);
+/// How often a running Pi's session folder is counted.
+const POLL: Duration = Duration::from_millis(200);
 
 /// Why a request was stopped at the drafting response limit.
 fn cap_reached(host: &str, responses: usize) -> String {
     format!(
-        "{host} was stopped at the drafting response limit after {responses} model responses. No reply was kept. Add responses to keep going."
+        "{host} was stopped at the drafting response limit after {responses} model {}. No reply was kept. Add responses to keep going.",
+        if responses == 1 {
+            "response"
+        } else {
+            "responses"
+        }
     )
 }
 
@@ -646,9 +673,11 @@ fn pi_responses(sessions: &Path) -> usize {
         .flatten()
         .map(|file| file.path())
         .filter(|path| path.extension().is_some_and(|x| x == "jsonl"))
-        .filter_map(|path| crate::regular_file::read_text(&path, "a Pi session").ok())
-        .map(|text| {
-            text.lines()
+        .filter_map(|path| crate::regular_file::read(&path, "a Pi session").ok())
+        .map(|bytes| {
+            // A line Pi is still writing may end mid-character; it is skipped, not the file.
+            String::from_utf8_lossy(&bytes)
+                .lines()
                 .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
                 .filter(|entry| {
                     entry["type"] == "message" && entry["message"]["role"] == "assistant"
@@ -960,7 +989,7 @@ mod tests {
         let program = dir.path().join("claude");
         std::fs::write(
             &program,
-            "#!/usr/bin/env python3\nimport json, sys\nsys.stdin.read()\nturns = int(sys.argv[sys.argv.index('--max-turns') + 1])\nif turns == 4:\n    print(json.dumps({'type': 'result', 'is_error': False, 'result': 'TEST reply', 'num_turns': 3}))\nelse:\n    print(json.dumps({'type': 'result', 'subtype': 'error_max_turns', 'is_error': True, 'num_turns': turns}))\n",
+            "#!/usr/bin/env python3\nimport json, sys\nsys.stdin.read()\nturns = int(sys.argv[sys.argv.index('--max-turns') + 1])\nif turns == 4:\n    print(json.dumps({'type': 'result', 'is_error': False, 'result': 'TEST reply', 'num_turns': 3}))\nelif turns == 5:\n    sys.exit(1)\nelse:\n    print(json.dumps({'type': 'result', 'subtype': 'error_max_turns', 'is_error': True, 'num_turns': turns}))\n",
         )
         .unwrap();
         std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
@@ -987,9 +1016,13 @@ mod tests {
         assert_eq!(budget.used(), 3);
         assert_eq!(
             request().unwrap_err(),
-            "Claude Code was stopped at the drafting response limit after 1 model responses. No reply was kept. Add responses to keep going."
+            "Claude Code was stopped at the drafting response limit after 1 model response. No reply was kept. Add responses to keep going."
         );
         assert_eq!(budget.remaining(), 0);
+        // Claude Code that stops before it reports turns counts every response it held.
+        budget.add(5);
+        assert!(request().is_err());
+        assert_eq!((budget.used(), budget.remaining()), (9, 0));
     }
 
     #[test]

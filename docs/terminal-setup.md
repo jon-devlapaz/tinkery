@@ -172,7 +172,7 @@ HOME so they never read or write the operator's saved setup.
 Think and Shape share `--shape-budget RESPONSES` (or the saved allowance) for the whole launch;
 the default is zero. F1's Model and responses row adds responses for this launch only.
 The allowance counts model responses. Each Think shaping request and decision review uses
-one. A Shape agent step uses one per look with read-only tools. Each started request counts
+one. A Shape agent step that reads files may use several. Each started request counts
 at least one, including failures. Opening another goal does not reset it. Shape uses
 read-only tools in the displayed folder (F1 picks another); paths outside it refuse.
 This allowance counts requests, not cost or tool-driven provider turns: a Shape
