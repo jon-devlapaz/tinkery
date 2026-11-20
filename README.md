@@ -75,7 +75,8 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   confirmation, verification and ending; no viewer or network read is involved.
   `tinkery seed status --json DIR` and `tinkery seed checks DIR` expose read-only intake JSON.
   Without a screen, `tinkery seed new GOAL_FILE` saves a goal's exact words and
-  `tinkery seed step DIR look|delegate|answer WORDS|confirm DRAFT_SHA256` takes one explicit step.
+  `tinkery seed step DIR look|delegate|answer WORDS|answer --relayed FILE|confirm DRAFT_SHA256` takes one explicit step.
+  With `--operator agent`, `answer --relayed FILE` records the operator's relayed words as their own answer, origin unverified.
   `tinkery seed show DIR` also lists what was decided without you (answers not recorded as yours, and assumed defaults) and `gray`, the questions it asked that you have not answered;
   see [Shape without a screen](docs/design/shape-and-handoff.md#without-a-screen).
   Its draft guidance and artifact reference are bundled; no external skill is needed.

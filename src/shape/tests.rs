@@ -2189,6 +2189,7 @@ else:
     );
     let work = match words {
         Some(words) => step::Work::Answer {
+            relay: None,
             id: "storage".into(),
             words: words.into(),
             expected: version,

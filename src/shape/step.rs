@@ -258,6 +258,8 @@ pub(super) enum Work {
     Answer {
         id: String,
         words: String,
+        /// The operator's relayed words and their origin, recorded as the operator's own answer.
+        relay: Option<answering::Relay>,
         expected: u64,
         folder: PathBuf,
     },
@@ -458,6 +460,7 @@ pub(super) fn run(
         Work::Answer {
             id,
             words,
+            relay,
             expected,
             folder,
         } => {
@@ -468,8 +471,11 @@ pub(super) fn run(
                     feedback: None,
                 });
             }
-            let version =
-                answering::answer(session, *expected, id, words, actor).map_err(refused(false))?;
+            let version = match relay {
+                Some(relay) => answering::answer_relayed(session, *expected, id, relay, actor),
+                None => answering::answer(session, *expected, id, words, actor),
+            }
+            .map_err(refused(false))?;
             saved.store(true, Ordering::Relaxed);
             look(session, version, folder, agent, cancelled, true, None)
         }

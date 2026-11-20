@@ -29,6 +29,8 @@ pub enum Action {
     Look,
     /// Save these words as the answer to the current question, then look.
     Answer(String),
+    /// Save the operator's relayed words as their own answer to the current question, then look.
+    Relayed(answering::Relay),
     /// Accept the current question's recorded suggestion, then look.
     Delegate,
     /// Confirm the draft whose exact bytes have this SHA-256.
@@ -206,10 +208,18 @@ pub fn step(
             Work::Answer {
                 id,
                 words,
+                relay: None,
                 expected,
                 folder,
             }
         }
+        (Action::Relayed(relay), Shaped::Question { id, .. }) => Work::Answer {
+            id,
+            words: String::new(),
+            relay: Some(relay),
+            expected,
+            folder,
+        },
         (Action::Delegate, Shaped::Question { id, .. }) => Work::Respond {
             id,
             action: AnswerAction::Delegate,

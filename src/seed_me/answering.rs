@@ -599,6 +599,50 @@ mod sequence_tests;
 #[cfg(test)]
 mod typed_tests;
 
+/// The operator's own words, as an agent relays them, and where the operator typed them. The origin
+/// is a caller's claim, never verified; the file's SHA-256 is kept so the record names its bytes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Relay {
+    words: String,
+    place: String,
+    sha256: String,
+}
+
+impl Relay {
+    /// Read a small JSON file `{"words", "where"}` with both fields non-blank, as tink-sdlc's
+    /// `--relayed FILE` does. Creates and repairs nothing.
+    pub fn read(path: &Path) -> Result<Self, String> {
+        #[derive(serde::Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct File {
+            words: String,
+            #[serde(rename = "where")]
+            place: String,
+        }
+        let bad = || {
+            "--relayed must name a JSON file {\"words\": the operator's exact words, \"where\": \
+             where they typed them}, at most 16 KiB; nothing was saved."
+                .to_string()
+        };
+        // The caller names this file on the command line; reading it blocks only that command.
+        #[allow(clippy::disallowed_methods)]
+        let bytes = std::fs::read(path).map_err(|_| bad())?;
+        if bytes.len() > 16 * 1024 {
+            return Err(bad());
+        }
+        let file: File = serde_json::from_slice(&bytes).map_err(|_| bad())?;
+        if file.words.trim().is_empty() || file.place.trim().is_empty() {
+            return Err(bad());
+        }
+        use sha2::Digest;
+        Ok(Self {
+            words: file.words,
+            place: file.place,
+            sha256: format!("{:x}", sha2::Sha256::digest(&bytes)),
+        })
+    }
+}
+
 /// Settle the open question `id` with the operator's `words`, exactly as typed, from the version
 /// the operator saw (`expected`). Clears the current question. Returns the new version.
 /// Refuses a question that isn't open or a stale version.
@@ -609,7 +653,36 @@ pub fn answer(
     words: &str,
     actor: Option<&crate::think_record::GoalConfirmation>,
 ) -> Result<u64, Refusal> {
+    settle(session, expected, id, words, actor, None)
+}
+
+/// Settle the open question `id` with the operator's relayed words, as the operator's own
+/// answer: authority `user`, with a source that says an agent relayed them from where the
+/// operator typed them and that the origin is unverified. Only a declared agent can relay.
+pub fn answer_relayed(
+    session: &Path,
+    expected: u64,
+    id: &str,
+    relay: &Relay,
+    actor: Option<&crate::think_record::GoalConfirmation>,
+) -> Result<u64, Refusal> {
+    settle(session, expected, id, &relay.words, actor, Some(relay))
+}
+
+fn settle(
+    session: &Path,
+    expected: u64,
+    id: &str,
+    words: &str,
+    actor: Option<&crate::think_record::GoalConfirmation>,
+    relay: Option<&Relay>,
+) -> Result<u64, Refusal> {
     let actor = crate::think_record::Actor::authorize(actor).map_err(Refusal::Refused)?;
+    if relay.is_some() && actor.authority() != "delegated" {
+        return Err(Refusal::Refused(
+            "--relayed is for an agent relaying the operator's words; launch with --operator agent. Nothing was saved.".into(),
+        ));
+    }
     if ledger::leaves_open(id, words) {
         return Err(Refusal::Refused(ledger::LEAVES_OPEN.into()));
     }
@@ -621,26 +694,36 @@ pub fn answer(
         .ok_or_else(|| Refusal::Refused(format!("The question {id} is no longer open.")))?;
     node["status"] = "settled".into();
     node["answer"] = words.into();
-    node["authority"] = actor.authority().into();
-    node["authority_source"] = actor
-        .reason("answered with these words in Tinkery Shape.")
-        .into();
+    // The operator decided (2026-11-20, #914) that their relayed words are their own answer.
+    node["authority"] = relay.map_or(actor.authority(), |_| "user").into();
+    node["authority_source"] = match relay {
+        Some(relay) => format!(
+            "The operator's own words, relayed by the agent from {}; origin unverified.",
+            relay.place.escape_debug()
+        ),
+        None => actor.reason("answered with these words in Tinkery Shape."),
+    }
+    .into();
     if let Some(context) = actor.context() {
         let evidence = node["evidence"]
             .as_array_mut()
             .ok_or_else(|| Refusal::Refused("Invalid answer evidence.".into()))?;
-        evidence.push(
-            json!({"checked":"Caller-declared authorization, not authenticated identity",
-            "at":publication_time(SystemTime::now())?, "observed":context.details()}),
-        );
+        let at = publication_time(SystemTime::now())?;
+        evidence.push(match relay {
+            Some(relay) => json!({"checked":"Relayed operator words, origin unverified",
+                "at":at, "observed":format!("relay file sha256 {}; relayed by {}", relay.sha256, context.details())}),
+            None => json!({"checked":"Caller-declared authorization, not authenticated identity",
+                "at":at, "observed":context.details()}),
+        });
     }
     ledger.state["current_question"] = Value::Null;
-    publish(
-        session,
-        expected,
-        &actor.reason(&format!("answered {id} in Tinkery Shape.")),
-        &ledger.state,
-    )
+    let reason = match relay {
+        Some(_) => actor.reason(&format!(
+            "relayed the operator's answer to {id} in Tinkery Shape."
+        )),
+        None => actor.reason(&format!("answered {id} in Tinkery Shape.")),
+    };
+    publish(session, expected, &reason, &ledger.state)
 }
 
 /// Publish an explicit deferral, delegation or replacement answer. Eligibility, required fields

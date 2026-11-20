@@ -118,6 +118,7 @@ print(json.dumps(reply))
     let cancelled = AtomicBool::new(false);
     let result = run(
         &Work::Answer {
+            relay: None,
             id: answering::PROBE.0.into(),
             words: ANSWER.into(),
             expected: version,
@@ -145,6 +146,7 @@ print(json.dumps(reply))
         assert_eq!(
             run(
                 &Work::Answer {
+                    relay: None,
                     id: "output-order".into(),
                     words: "TEST path order".into(),
                     expected: read.version(),

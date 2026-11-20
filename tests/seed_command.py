@@ -148,6 +148,46 @@ def no_gray():
         print('seed command no-gray passed: probes only and an operator answer, 1 and 2 stub calls, empty gray')
 
 
+def relayed():
+    """#914: the operator's words relayed by an agent are their own answer, so nothing stays gray."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-seed-command-') as directory:
+        run = Run(directory, [QUESTION, SEED], agent=True)
+        relay = run.cwd / 'TEST-relay.json'
+        relay.write_text(json.dumps({'words': 'TEST plain text refusals', 'where': 'TEST project thread'}))
+        bad = run.cwd / 'TEST-bad-relay.json'
+        bad.write_text(json.dumps({'words': 'TEST plain text refusals'}))
+        session = run.ok('new', 'goal.txt', drafting=False).strip()
+        run.ok('step', session, 'look')
+        run.ok('step', session, 'answer', 'TEST no sample: fixture')
+        assert json.loads(run.ok('step', session, 'answer', 'TEST skip'))['now']['stage'] == 'question'
+        before = run.files()
+        run.refused('--relayed must name', 'step', session, 'answer', '--relayed', str(bad))
+        assert run.files() == before, 'A malformed relay wrote to the session'
+        draft = json.loads(run.ok('step', session, 'answer', '--relayed', str(relay)))
+        assert draft['now']['stage'] == 'draft', draft['now']
+        assert draft['gray'] == [], draft['gray']
+        assert all(d['what'] != QUESTION['label'] for d in draft['decided_without_you']), draft['decided_without_you']
+        node = next(n for n in helper.load(Path(session))['nodes'] if n.get('label') == QUESTION['label'])
+        assert node['answer'] == 'TEST plain text refusals' and node['authority'] == 'user', node
+        assert 'relayed by the agent from TEST project thread' in node['authority_source'], node
+        assert 'origin unverified' in node['authority_source'], node
+        digest = hashlib.sha256(relay.read_bytes()).hexdigest()
+        assert any(digest in e.get('observed', '') for e in node['evidence']), 'The relay file is not named'
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-seed-command-') as directory:
+        # A human at the terminal types their own words; a relay is only for an agent.
+        run = Run(directory, [QUESTION, SEED])
+        relay = run.cwd / 'TEST-relay.json'
+        relay.write_text(json.dumps({'words': 'TEST words', 'where': 'TEST thread'}))
+        session = run.ok('new', 'goal.txt', drafting=False).strip()
+        run.ok('step', session, 'look')
+        run.ok('step', session, 'answer', 'TEST no sample: fixture')
+        run.ok('step', session, 'answer', 'TEST skip')
+        before = run.files()
+        run.refused('launch with --operator agent', 'step', session, 'answer', '--relayed', str(relay))
+        assert run.files() == before, 'A human relay wrote to the session'
+    print('seed command relayed passed: relayed words settle as the operator, clear gray, name the file; human and malformed relays refused')
+
+
 def refusals():
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-seed-command-') as directory:
         run = Run(directory, [QUESTION], budget=0)
@@ -182,4 +222,5 @@ if __name__ == '__main__':
     for agent in [False, True]:
         journey(agent)
     no_gray()
+    relayed()
     refusals()

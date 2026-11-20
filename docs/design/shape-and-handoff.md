@@ -957,7 +957,7 @@ pressing keys). The same ledger and step run from commands. Options go before `s
 ```text
 tinkery [options] seed new GOAL_FILE [ORIGIN]
 tinkery seed show DIR
-tinkery [options] seed step DIR look|delegate|answer WORDS|confirm DRAFT_SHA256
+tinkery [options] seed step DIR look|delegate|answer WORDS|answer --relayed FILE|confirm DRAFT_SHA256
 ```
 
 - `new` and `step` refuse without `--operator human|agent`: no screen shows who is acting.
@@ -978,6 +978,14 @@ tinkery [options] seed step DIR look|delegate|answer WORDS|confirm DRAFT_SHA256
   command, not the session: each command is a new launch with a fresh allowance. `confirm` calls no
   model and needs no drafting options. It names the SHA-256 of the draft bytes the caller read, and
   the ledger records the command as the source; any other value confirms nothing.
+- `answer --relayed FILE` is for an agent that relays the operator's own words
+  ([#914](https://github.com/jon-devlapaz/tinkery/issues/914)). FILE is JSON
+  `{"words": the operator's exact words, "where": where they typed them}`, at most 16 KiB, as in
+  tink-sdlc's `--relayed`. The operator decided on 2026-11-20 that these words are their answer, so
+  the ledger stores authority `user`, a source that says an agent relayed them from that place with
+  origin unverified, and the file's SHA-256 in the evidence. A relayed answer is therefore neither
+  gray nor decided without the operator. Without `--operator agent` it is refused, and a malformed
+  file saves nothing.
 - Each command is one explicit action. Nothing loops, retries or confirms on its own. An action
   that does not fit where the seed stands changes nothing and says so. The ledger refuses what
   it refuses on screen. Flagged answers, deferral, revision and teach-back stay on the screen.
