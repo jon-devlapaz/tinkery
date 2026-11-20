@@ -813,9 +813,8 @@ line, F1 numbers the rest. The session list keeps Enter to open a session.
   that check with its current method text. Enter saves the exact words without a model
   call. The same check stays editable, even if others still need work.
   A provisional without a command also offers **Make check N a judgment**.
-  A new model draft never holds such a check: every check except a judge check needs
-  `cmd`, or the draft is refused before it is saved (#936). So `tinkery seed step` can
-  confirm what Shape drafts, with no screen.
+  A new model draft never holds a check with either gap: the draft is refused before it
+  is saved (#936). So `tinkery seed step` can confirm what Shape drafts, with no screen.
   A proposal with a command can still need a test before it can run.
   Read the changed draft before confirming. The editor, draft and ready seed say a person
   signs off on judgments after seeing the built result. Shape records no such sign-off (#790).

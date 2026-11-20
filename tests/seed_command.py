@@ -203,14 +203,23 @@ def commandless():
         run.ok('step', session, 'look')
         run.ok('step', session, 'answer', 'TEST no sample: fixture')
         before = run.files()
-        run.refused('check 1 has no cmd', 'step', session, 'answer', 'TEST skip')
+        run.refused('check 1: Missing command', 'step', session, 'answer', 'TEST skip')
         assert not (Path(session) / 'seed-contract.md').exists(), 'A commandless check was saved as a draft'
         draft = json.loads(run.ok('step', session, 'look'))['now']
         assert draft['stage'] == 'draft', draft
         ready = json.loads(run.ok('step', session, 'confirm', draft['sha256'], drafting=False))['now']
         assert ready['stage'] == 'ready', ready
         assert before != run.files() and len(run.calls()) == 2
-        print('seed command commandless passed: a provisional without cmd refused when drafted, retried, confirmed; 2 stub calls')
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-seed-command-') as directory:
+        # A judge check without how_to_judge would stop confirmation the same way.
+        judge = {k: v for k, v in SEED['checks'][0].items() if k != 'how_to_judge'}
+        run = Run(directory, [{**SEED, 'checks': [judge]}], agent=True)
+        session = run.ok('new', 'goal.txt', drafting=False).strip()
+        run.ok('step', session, 'look')
+        run.ok('step', session, 'answer', 'TEST no sample: fixture')
+        run.refused('check 1: Missing manual steps', 'step', session, 'answer', 'TEST skip')
+        assert not (Path(session) / 'seed-contract.md').exists(), 'A judge check without steps was saved'
+    print('seed command commandless passed: checks confirmation would refuse are refused when drafted; a fixed retry confirms; 3 stub calls')
 
 
 def refusals():

@@ -123,7 +123,7 @@ fn unasked_probe_answers_cannot_be_smuggled_into_seed_prose() {
     let version = answer(&session, version, SAMPLE.0, "TEST no sample", None).unwrap();
     let version = probe(&session, version).unwrap().unwrap();
     let version = answer(&session, version, PROBE.0, "TEST my actual answer", None).unwrap();
-    let checks = json!([{"statement":"TEST", "kind":"judge", "source":"TEST"}]);
+    let checks = json!([{"statement":"TEST", "kind":"judge", "source":"TEST", "how_to_judge": "TEST inspect"}]);
     let prose =
         ledger::fixtures::prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt"));
     let before = fs::read(session.join("ledger.json")).unwrap();
@@ -381,7 +381,9 @@ fn a_success_line_in_the_clause_form_the_goal_block_joined_keeps_its_words() {
     // #381: the clinic-tycoon slice 3 goal, and the statement Shape's model returned three times.
     let goal = "Strategically run and improve several clinics over time, balancing staffing, budget, and MAP/MAP Basic coverage.\nWhy: Make the experience closer to a game than a dashboard.\nDone when: Several clinics can be managed and improved over time; Staffing, budget, and MAP/MAP Basic coverage create strategic tradeoffs.";
     let check = |statement: &str| {
-        ledger::Value::from(json!([{"statement": statement, "kind": "judge", "source": "TEST"}]))
+        ledger::Value::from(
+            json!([{"statement": statement, "kind": "judge", "source": "TEST", "how_to_judge": "TEST inspect"}]),
+        )
     };
     ledger::validate_new_draft_checks(
         goal,
@@ -401,8 +403,8 @@ fn a_success_line_in_the_clause_form_the_goal_block_joined_keeps_its_words() {
         );
     }
     let split = ledger::Value::from(json!([
-        {"statement": "Several clinics can be managed and improved over time.", "kind": "judge", "source": "TEST"},
-        {"statement": "Staffing, budget, and MAP/MAP Basic coverage create strategic tradeoffs.", "kind": "judge", "source": "TEST"}
+        {"statement": "Several clinics can be managed and improved over time.", "kind": "judge", "source": "TEST", "how_to_judge": "TEST inspect"},
+        {"statement": "Staffing, budget, and MAP/MAP Basic coverage create strategic tradeoffs.", "kind": "judge", "source": "TEST", "how_to_judge": "TEST inspect"}
     ]));
     assert!(ledger::validate_new_draft_checks(goal, &split).is_err());
 }
@@ -411,13 +413,13 @@ fn a_success_line_in_the_clause_form_the_goal_block_joined_keeps_its_words() {
 fn success_lines_preserve_unicode_and_bullets_without_inventing_missing_requirements() {
     let goal = "I keep notes.\nDone when: Café notes survive restart; only mine remain.\n- 空の一覧 stays empty.\nMust: Keep originals.\n- This is a constraint, not another success criterion.";
     let checks = ledger::Value::from(json!([
-        {"statement":"Café notes survive restart; only mine remain.","kind":"judge","source":"TEST"},
-        {"statement":"空の一覧 stays empty.","kind":"judge","source":"TEST"},
-        {"statement":"Additional regression.","kind":"judge","source":"TEST"}
+        {"statement":"Café notes survive restart; only mine remain.","kind":"judge","source":"TEST", "how_to_judge": "TEST inspect"},
+        {"statement":"空の一覧 stays empty.","kind":"judge","source":"TEST", "how_to_judge": "TEST inspect"},
+        {"statement":"Additional regression.","kind":"judge","source":"TEST", "how_to_judge": "TEST inspect"}
     ]));
     ledger::validate_new_draft_checks(goal, &checks).unwrap();
     let only_first = ledger::Value::from(json!([
-        {"statement":"Café notes survive restart; only mine remain.","kind":"judge","source":"TEST"}
+        {"statement":"Café notes survive restart; only mine remain.","kind":"judge","source":"TEST", "how_to_judge": "TEST inspect"}
     ]));
     assert!(
         ledger::validate_new_draft_checks(goal, &only_first)

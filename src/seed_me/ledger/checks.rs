@@ -303,17 +303,17 @@ pub(crate) fn validate_goal_checks(goal: &str, records: &Value) -> Result<()> {
     Ok(())
 }
 
-/// A new model draft also gives every check except a judge check a cmd, so confirmation can
-/// accept it (#936). An operator repairing a stored draft is not held to this.
+/// A new model draft also has no check that confirmation would refuse as missing its command
+/// or manual steps (#936). An operator repairing a stored draft is not held to this.
 pub(crate) fn validate_new_draft_checks(goal: &str, records: &Value) -> Result<()> {
     validate_goal_checks(goal, records)?;
-    if let Some(index) = records.items().iter().position(|record| {
-        !record["kind"].is("judge") && record.get("cmd").and_then(Value::string).is_none()
-    }) {
+    if let Some(check) = draft_checks(records).find(|check| check.gap().is_some()) {
         return Err(format!(
-            "No Tink was drafted: check {} has no cmd, so it could never be confirmed. \
-             Every check except a judge check needs cmd; with no command known to fail, make it a judge check.",
-            index + 1
+            "No Tink was drafted: check {}: {}, so it could never be confirmed. \
+             A judge check needs how_to_judge and every other check needs cmd; \
+             with no command known to fail, make it a judge check.",
+            check.index + 1,
+            check.gap().unwrap().missing()
         ));
     }
     Ok(())
