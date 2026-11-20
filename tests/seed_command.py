@@ -252,10 +252,39 @@ def refusals():
         print('seed command refusals passed: empty goal, undeclared operator, no drafting, zero budget, empty answer; zero stub calls')
 
 
+def readings():
+    """#942: a draft that would pick one of two readings asks it instead; only the operator clears it."""
+    reading = {'chosen': 'TEST ask before erasing.', 'other': 'TEST erase and offer undo',
+               'why': 'TEST a confirm step and an undo build different things'}
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-seed-command-') as directory:
+        # The redraft cites the finding already saved, so it adds none; a reused id would be refused.
+        run = Run(directory, [{**SEED, 'readings': [reading]}, {**SEED, 'found': []}], agent=True)
+        relay = run.cwd / 'TEST-relay.json'
+        relay.write_text(json.dumps({'words': 'TEST erase and offer undo', 'where': 'TEST project thread'}))
+        session = run.ok('new', 'goal.txt', drafting=False).strip()
+        run.ok('step', session, 'look')
+        run.ok('step', session, 'answer', 'TEST no sample: fixture')
+        asked = json.loads(run.ok('step', session, 'answer', 'TEST skip'))
+        now = asked['now']
+        assert now['stage'] == 'question', now
+        assert now['question'] == ('The goal reads two ways that build different things: '
+                                   'TEST ask before erasing, or TEST erase and offer undo. Which one?'), now
+        assert now['suggestion'] is None, 'The draft chose for the operator'
+        assert [g['label'] for g in asked['gray']] == ['TEST ask before erasing, or TEST erase and offer undo']
+        assert not (Path(session) / 'seed-contract.md').exists(), 'The draft that picked a reading was saved'
+        run.refused('no suggestion to delegate', 'step', session, 'delegate')
+        draft = json.loads(run.ok('step', session, 'answer', '--relayed', str(relay)))
+        assert draft['now']['stage'] == 'draft', draft['now']
+        assert draft['gray'] == [], draft['gray']
+        assert len(run.calls()) == 2
+    print('seed command readings passed: a listed reading is asked with no suggestion, stays gray, clears on the operator\'s words; 2 stub calls')
+
+
 if __name__ == '__main__':
     for agent in [False, True]:
         journey(agent)
     no_gray()
     commandless()
     relayed()
+    readings()
     refusals()
