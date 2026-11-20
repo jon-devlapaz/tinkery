@@ -422,10 +422,6 @@ impl Call {
         let mut responses = 0;
         let result = sessions
             .and_then(|dir| self.run(input, prompt, cancelled, cap, dir.path(), &mut responses));
-        // Claude Code reports its turns only when it ends; a request stopped first may have used all it held.
-        if self.harness == Harness::ClaudeCode && result.is_err() && responses == 0 {
-            responses = cap;
-        }
         budget.finish(slot, &result, responses);
         result
     }
@@ -461,6 +457,11 @@ impl Call {
             }
             _ => format!("Cannot start {host}: {error}"),
         })?;
+        // Claude Code reports its turns only when it ends; once started, a request stopped first
+        // may have used every response it held.
+        if self.harness == Harness::ClaudeCode {
+            *responses = cap;
+        }
         let mut stdin = child.stdin.take().unwrap();
         let writer = thread::spawn(move || stdin.write_all(&input));
         let overflow = Arc::new(AtomicBool::new(false));
@@ -543,7 +544,7 @@ impl Call {
                 pi_reply(status, &output, &diagnostics)?
             }
             Harness::ClaudeCode => {
-                *responses = claude_turns(&output);
+                *responses = claude_turns(&output).unwrap_or(*responses);
                 claude_reply(status, &output, &diagnostics, &self.model, *responses)?
             }
         };
@@ -735,10 +736,10 @@ fn claude_result(output: &[u8]) -> Option<serde_json::Value> {
 }
 
 /// The model responses Claude Code reports (`num_turns`), else zero.
-fn claude_turns(output: &[u8]) -> usize {
+fn claude_turns(output: &[u8]) -> Option<usize> {
     claude_result(output)
         .and_then(|r| r["num_turns"].as_u64())
-        .map_or(0, |turns| turns as usize)
+        .map(|turns| turns as usize)
 }
 
 /// Claude Code's reply text from its JSON result, or why there isn't one. A result whose only
@@ -1023,6 +1024,25 @@ mod tests {
         budget.add(5);
         assert!(request().is_err());
         assert_eq!((budget.used(), budget.remaining()), (9, 0));
+        // Claude Code that never starts reached no model, so it counts one response.
+        let missing = Call {
+            program: dir.path().join("TEST-no-claude"),
+            ..call.clone()
+        };
+        budget.add(5);
+        assert!(
+            missing
+                .complete(
+                    &budget,
+                    Request::SeedStep,
+                    b"TEST".to_vec(),
+                    "TEST instructions".into(),
+                    &AtomicBool::new(false),
+                )
+                .unwrap_err()
+                .starts_with("Cannot start Claude Code")
+        );
+        assert_eq!(budget.remaining(), 4);
     }
 
     #[test]
