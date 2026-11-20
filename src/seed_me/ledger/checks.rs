@@ -293,12 +293,28 @@ pub(crate) fn validate_goal_checks(goal: &str, records: &Value) -> Result<()> {
         {
             return Err(format!(
                 "No Tink was drafted: check {} proposes `{cmd}`, which check {} also uses in cwd `{}`. \
-                 A provisional's proposed command must select its missing regression by name; otherwise leave cmd out.",
+                 A provisional's proposed command must select its missing regression by name; otherwise make it a judge check.",
                 index + 1,
                 other + 1,
                 cwd.unwrap_or(".")
             ));
         }
+    }
+    Ok(())
+}
+
+/// A new model draft also has no check that confirmation would refuse as missing its command
+/// or manual steps (#936). An operator repairing a stored draft is not held to this.
+pub(crate) fn validate_new_draft_checks(goal: &str, records: &Value) -> Result<()> {
+    validate_goal_checks(goal, records)?;
+    if let Some(check) = draft_checks(records).find(|check| check.gap().is_some()) {
+        return Err(format!(
+            "No Tink was drafted: check {}: {}, so it could never be confirmed. \
+             A judge check needs how_to_judge and every other check needs cmd; \
+             with no command known to fail, make it a judge check.",
+            check.index + 1,
+            check.gap().unwrap().missing()
+        ));
     }
     Ok(())
 }

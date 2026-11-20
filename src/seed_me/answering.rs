@@ -1095,7 +1095,7 @@ pub fn draft_seed(
         None => 1,
     };
     let records = ledger::Value::from(checks.clone());
-    ledger::validate_goal_checks(ledger.goal().unwrap_or(""), &records).map_err(rejected)?;
+    ledger::validate_new_draft_checks(ledger.goal().unwrap_or(""), &records).map_err(rejected)?;
     let rendered = ledger::checks_block(&records).map_err(not_saved)?;
     let version = if found.is_empty() && resolves.is_none() && !defaults {
         expected

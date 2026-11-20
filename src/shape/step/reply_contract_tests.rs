@@ -944,7 +944,9 @@ fn a_provisional_proposing_another_checks_command_is_refused_with_a_plain_reason
         };
         assert!(reason.contains(expected), "{reason}");
         assert!(
-            reason.contains("must select its missing regression by name; otherwise leave cmd out"),
+            reason.contains(
+                "must select its missing regression by name; otherwise make it a judge check"
+            ),
             "{reason}"
         );
         assert!(error.feedback.is_some(), "a retry hears the refusal");

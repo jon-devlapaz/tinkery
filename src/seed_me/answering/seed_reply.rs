@@ -167,7 +167,7 @@ mod tests {
             &session,
             1,
             &reply(),
-            &serde_json::json!([{"statement":"TEST","kind":"judge","source":"TEST"}]),
+            &serde_json::json!([{"statement":"TEST","kind":"judge","source":"TEST", "how_to_judge": "TEST inspect"}]),
             super::super::Reported {
                 found: &[],
                 assumed: &[],
@@ -251,7 +251,7 @@ mod tests {
                 &session,
                 1,
                 &value,
-                &serde_json::json!([{"statement":"TEST","kind":"judge","source":"TEST"}]),
+                &serde_json::json!([{"statement":"TEST","kind":"judge","source":"TEST", "how_to_judge": "TEST inspect"}]),
                 super::super::Reported {
                     found: &[],
                     assumed: &[],

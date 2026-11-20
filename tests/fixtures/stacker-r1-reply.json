@@ -69,6 +69,7 @@
       "source": "Stacker r1 recorded draft; Follow DESIGN.md:147-164,194-200: verify rendered-signal advancement and levels, then listen on the intended output device. Listening is necessary but does not replace code-checkable audio assertions.",
       "missing": "Stacker-specific event-to-sound assertions and a repeat-playback verification invocation must be identified or added before this criterion is executable.",
       "expect": "successful Stacker actions produce the intended audible feedback; repeated playback remains audible, mute works, and audio failure does not prevent play.",
+      "cmd": "node --test tests/stacker-sound.test.mjs",
       "cwd": "."
     },
     {
@@ -77,6 +78,7 @@
       "source": "Stacker r1 recorded draft; Proposed behavior-specific regression: a partially overlapping placement retains exactly the overlapping blocks, while zero overlap ends the round. A targeted reversion retaining nonoverlapping blocks should fail the overlap-width assertion. This assertion does not exist in the inspected evidence; neither red nor green has been observed.",
       "missing": "read the linked source rules, document their mapping to the settled choices, and add Stacker-specific deterministic rule assertions; no Stacker regression invocation is established yet.",
       "expect": "the source-grounded stacking, alignment loss, progression, loss and top-win rules pass deterministic assertions; correct timing can win, and play aims for the top without a collect-or-continue checkpoint.",
+      "cmd": "node --test tests/stacker-rules.test.mjs",
       "cwd": "."
     }
   ]
