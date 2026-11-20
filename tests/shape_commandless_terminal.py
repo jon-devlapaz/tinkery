@@ -178,16 +178,14 @@ def draft_and_redraft():
             assert helper.read_checks(session) == [{**draft['checks'][0], 'failure_case': draft['review']['failure_cases'][0]}]
             run.choose('Revise the draft', 'your change')
             run.type('TEST revisit the steps.')
-            run.send(F2, 'Tink Contract r2')
-            run.wait('Missing manual steps. F1: Edit check 1.')
-            run.read_until('End of Tink Contract', whole_line=True)
-            run.type('confirm')
-            before = files(session)
-            run.send(F2, 'Cannot confirm: check 1. Missing manual steps. Nothing was confirmed.')
-            assert files(session) == before
+            # #936: a redraft that confirmation would refuse is refused before it is saved.
+            checks, seed_text = helper.read_checks(session), (session / 'seed-contract.md').read_text()
+            run.send(F2, 'check 1: Missing manual steps, so it could never be confirmed')
+            assert helper.read_checks(session) == checks, 'A refused redraft changed the checks'
+            assert (session / 'seed-contract.md').read_text() == seed_text, 'A refused redraft replaced r1'
             assert len(run.calls()) == 2
             assert helper.load(session)['goal'] == goal
-            print('Tink Contract draft and redraft passed 100x30: 2 stub calls, no provider calls')
+            print('Tink Contract draft and refused redraft passed 100x30: 2 stub calls, no provider calls')
         finally:
             run.close()
 

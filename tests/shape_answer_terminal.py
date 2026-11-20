@@ -1657,7 +1657,7 @@ def complete_scenario_recovery(width, height):
     goal = f'I track loans.\nWhy: I need to know what is out.\nDone when: {scenario}'
     def check(statement):
         return dict(statement=statement, kind='provisional', source='TEST confirmed goal',
-                    expect='The complete scenario passes.', cwd='.', missing='No scenario test exists yet.')
+                    cmd='./TEST-scenario', expect='The complete scenario passes.', cwd='.', missing='No scenario test exists yet.')
     def reply(checks):
         return {**SEED, 'found': [], 'checks': checks, 'review': completion_review(checks)}
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-298-') as directory:
