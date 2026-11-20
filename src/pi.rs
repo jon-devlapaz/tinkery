@@ -735,7 +735,7 @@ fn claude_result(output: &[u8]) -> Option<serde_json::Value> {
     }
 }
 
-/// The model responses Claude Code reports (`num_turns`), else zero.
+/// The model responses Claude Code reports (`num_turns`), if it reported them.
 fn claude_turns(output: &[u8]) -> Option<usize> {
     claude_result(output)
         .and_then(|r| r["num_turns"].as_u64())
