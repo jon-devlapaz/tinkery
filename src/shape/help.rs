@@ -36,9 +36,9 @@ impl Shape {
                     },
                     |a| {
                         let step = if open.offers_teach_back() {
-                            "Each teach-back comparison uses one drafting run, without repository access."
+                            "Each teach-back comparison uses one model response, without repository access."
                         } else {
-                            "Asking the model uses one drafting run. Read-only tools may need several provider requests; manual actions may use none."
+                            "Asking the model uses one response per look with read-only tools; manual actions use none."
                         };
                         format!(
                             "{} {step}\n\
@@ -78,7 +78,7 @@ impl Shape {
                             ..
                         }),
                     ) => {
-                        "Say what will and won't be built in your own words. Enter saves and compares (one drafting run); Esc cancels. Mismatches are guesses and never block confirming."
+                        "Say what will and won't be built in your own words. Enter saves and compares (one model response); Esc cancels. Mismatches are guesses and never block confirming."
                     }
                     (
                         Some(_),
@@ -87,7 +87,7 @@ impl Shape {
                             ..
                         }),
                     ) => {
-                        "Say what should change in the draft. Enter saves your words as your decision and redrafts (one drafting run); Esc cancels. Nothing is confirmed."
+                        "Say what should change in the draft. Enter saves your words as your decision and redrafts (one or more model responses); Esc cancels. Nothing is confirmed."
                     }
                     (
                         Some(_),
@@ -106,7 +106,7 @@ impl Shape {
                         }),
                     ) => {
                         concat!(
-                            "Type your answer. ^J adds a line. Enter saves it and looks into the next question. A model step uses one drafting run. ",
+                            "Type your answer. ^J adds a line. Enter saves it and looks into the next question. Each model look uses one response. ",
                             "PgUp/PgDn scroll the reading."
                         )
                     }
@@ -161,7 +161,7 @@ impl Shape {
                 .to_owned()
         } else {
             "Shape reads and calls no model; its only write is ending a session, from F1, which asks once more first. \
-                 To set up Shape, press Esc until the menu, then m: choose a model and runs, and s saves them. \
+                 To set up Shape, press Esc until the menu, then m: choose a model and responses, and s saves them. \
                  Then q quits; start Tinkery again, keeping the same --seed-session-root if you supplied one. \
                  Open Tend (2), select this saved goal, press Enter, then s to reopen Shape."
                 .to_owned()

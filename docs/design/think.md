@@ -126,17 +126,17 @@ separately. The prior goal remains unchanged; no suggestion confirms a goal or s
 
 ### Drafting runs
 
-Each live send uses at most two drafting runs: shaping, then decision review. While a run
+Each live send uses at most two drafting runs, one model response each: shaping, then decision review. While a run
 is in flight, the initial reading or refinement status says `Thinking… (run 1 of up
 to 2)`, then `Reviewing decisions… (run 2 of up to 2)`. These name phases, not a
 claim that both runs ran; unreadable shaping skips review. Practice claims no
-drafting runs: its status says `Simulating… (practice: no model)` (#614). Scope questions may use none. No runs follow display, and nothing
+drafting responses: its status says `Simulating… (practice: no model)` (#614). Scope questions may use none. No runs follow display, and nothing
 retries automatically. With a model, Right now help and a failed reading say
-`Drafting runs left this launch: N of M.`, the launch allowance Shape shares (#435). The
-header label shows the runs left; F1's Model and runs row opens the
-[Model panel](menu.md#model-setup), where Now adds runs for this launch only. Exhaustion
-keeps the words and starts nothing; the refusal says to add runs. The
-[Model panel contract](menu.md#model-setup) defines what a run counts and why it does
+`Drafting responses left this launch: N of M.`, the launch allowance Shape shares (#435, #937). The
+header label shows the responses left; F1's Model and responses row opens the
+[Model panel](menu.md#model-setup), where Now adds responses for this launch only. Exhaustion
+keeps the words and starts nothing; the refusal says to add responses. The
+[Model panel contract](menu.md#model-setup) defines what a response counts and why it does
 not cap spending.
 Practice and verification use fakes; [historical evals](#decision-review-evidence-34)
 promise no general quality.

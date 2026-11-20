@@ -83,7 +83,7 @@ pub struct Shape {
     agent: Option<Arc<Agent>>,
     /// An agent launch without --shape-pi: Shape only reads.
     held: bool,
-    /// F1's Model and runs row asked for the Model panel, which the launch owns.
+    /// F1's Model and responses row asked for the Model panel, which the launch owns.
     model: bool,
     approve: Option<crate::seed_me::ready::SeedTarget>,
 }
@@ -261,7 +261,7 @@ impl Shape {
         self
     }
 
-    /// Whether F1's Model and runs row was picked since the last ask. Asking clears it.
+    /// Whether F1's Model and responses row was picked since the last ask. Asking clears it.
     pub fn take_model_request(&mut self) -> bool {
         std::mem::take(&mut self.model)
     }
@@ -2153,10 +2153,10 @@ fn said(
         ),
         Why::Budget(limit) => (
             format!(
-                "{saved}No drafting runs are left: this launch's allowance is {limit}. Nothing {}was saved.",
+                "{saved}No drafting responses are left: this launch's allowance is {limit}. Nothing {}was saved.",
                 if answer_saved { "more " } else { "" }
             ),
-            Some("Next: add runs from F1, Model and runs, then send again.".into()),
+            Some("Next: add responses from F1, Model and responses, then send again.".into()),
         ),
         Why::Model(error) => (
             format!(

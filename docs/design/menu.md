@@ -31,7 +31,7 @@ Digits and aliases still work without bar clutter. Open places and help hide thi
 Help overlays the upper-right (38×14), leaving place choices visible. At 80 columns
 it may cover part of the inline purposes; closing help restores them. It has a thin muted border, jade title, bold ink headings and
 keys, and muted action labels. A blank row follows the title. Key and action columns
-align, with `Esc Close help` separate below; `m Model and runs` sits under `q`, then with colour `Ctrl-T Dark or light`. There is no ambiguous Leave heading,
+align, with `Esc Close help` separate below; `m Model and responses` sits under `q`, then with colour `Ctrl-T Dark or light`. There is no ambiguous Leave heading,
 new colour or background. NO_COLOR keeps the hierarchy. Help blocks underlying
 digits, Enter, movement and row clicks; paste still does nothing. Esc closes help;
 ?, F1 or the corner click toggles it. q, Ctrl-C and F10 retain quit routes.
@@ -49,8 +49,8 @@ Digits or arrows followed by Enter open a place; home `q` quits.
 ## Model setup
 
 The header's muted label, left of the light/dark switch (or `?` without colour), shows real
-state: `practice`, or the drafting runs this launch has left. Clicking it, `m` on the menu, or the
-Model and runs row in Think's or Shape's F1 list (offered when the launch drafts) opens the
+state: `practice`, or the drafting model responses this launch has left. Clicking it, `m` on the menu, or the
+Model and responses row in Think's or Shape's F1 list (offered when the launch drafts) opens the
 Model panel in Help's upper-right spot and frame. [model_setup.rs](../../src/model_setup.rs)
 owns the file, parser, label and panel; the terminal loop draws them over every screen.
 
@@ -59,31 +59,34 @@ owns the file, parser, label and panel; the terminal loop draws them over every 
 | Harness | Cycles Pi and Claude Code. Changing it resets Model and any level the new one lacks. |
 | Model | Picks the next model. Pi: the first `enter` lists Pi's models once with `pi --list-models --offline` (no model request), then each `enter` picks the next; if Pi can't list, it types. Claude Code: cycles `claude-sonnet-5-5`, `claude-opus-5-5`, `claude-haiku-5-5`. `t` types any model, such as one an extension adds that Pi doesn't list. Tinkery can't confirm the account may use it. |
 | Thinking | Cycles the harness's levels: Pi `off` to `max`, Claude Code's effort `low` to `max`. |
-| Runs | Cycles 0, 5, 10, 25 drafting runs each launch, shared by Think and Shape; 0 is practice. |
-| Now | Only when this launch drafts: adds 5 runs at once, for this launch only. |
+| Responses | Cycles 0, 10, 25, 50 drafting model responses each launch, shared by Think and Shape; 0 is practice. |
+| Now | Only when this launch drafts: adds 10 responses at once, for this launch only. |
 
-`s` saves Harness, Model, Thinking and Runs to `~/.config/tinkery/model.json`; `esc` closes and drops
+`s` saves Harness, Model, Thinking and Responses to `~/.config/tinkery/model.json`; `esc` closes and drops
 unsaved changes. Nothing else writes the file, and saving changes later launches, not this
-one. Drafting runs need a model. The panel names this launch's actual harness and model, including
+one. Drafting responses need a model. The panel names this launch's actual harness and model, including
 flag overrides, or says it is practice with no model requests. Editable settings are marked
 for later launches; editing or saving them does not change the displayed recipient.
-A run counts a drafting attempt, including failures and cancellations. Tools or retries
-may make several model responses within one run; this allowance caps runs, not responses or
-spending, and no Tinkery setting caps a build worker's responses
-([#651](https://github.com/jon-devlapaz/tinkery/issues/651)).
-Input too large to send, or cancellation before Tinkery accepts the run, uses none. Tinkery does not automatically
-retry a failed run. Stored `calls` and CLI names remain unchanged. Nothing in the panel starts a request.
+The allowance counts completed model responses (#937), as the worker cap does
+(`--worker-responses`). A request may use every response left, and holds them while it runs.
+A step that looks with read-only tools makes one response per look. Pi records them in a
+throwaway session folder; Claude Code reports `num_turns` and gets `--max-turns`. At the
+limit Pi gets two seconds to finish its reply, so one response may be in flight, then it is
+stopped and the refusal names the responses used. Each started request counts at least one,
+including failures and cancellations. It caps responses, not spending.
+Input too large to send, or cancellation before Tinkery accepts the request, uses none. Tinkery does not automatically
+retry a failed request. The stored key stays `calls`. Nothing in the panel starts a request.
 
 One parser checks the file and the `--harness`, `--model`, `--thinking` and `--shape-budget`
 flags. A file without a harness is Pi. Claude Code takes only full `claude-` ids, never an alias
 whose meaning changes, so records name the model used. A launch's saved model and thinking
-apply only to the saved harness. A later plain launch drafts when the saved setup allows drafting runs;
+apply only to the saved harness. A later plain launch drafts when the saved setup allows drafting responses;
 `--shape-budget 0` alone selects practice without changing that file. `--shape-pi` drafts for one
 launch, each flag replacing its saved value, and writes nothing. A missing file supplies no saved defaults.
 An unreadable or invalid file is refused with its path in the panel; explicit launch flags
 still apply. The panel describes this launch separately from saved-file errors.
-An `--operator agent` launch never inherits saved runs,
-and its panel refuses to save or add runs: an agent's allowance is `--shape-budget` alone,
+An `--operator agent` launch never inherits saved responses,
+and its panel refuses to save or add responses: an agent's allowance is `--shape-budget` alone,
 given by the operator, and the agent's panel says so. No credentials and no Pi config are read; Claude Code uses its own
 login. [pi.rs](../../src/pi.rs) starts either harness with the same isolation, caps and budget
 ([#449](https://github.com/jon-devlapaz/tinkery/issues/449)). There is no build harness row:

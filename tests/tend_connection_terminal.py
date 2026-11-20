@@ -278,7 +278,7 @@ if __name__=='__main__':
         subprocess.run(['cargo','+stable','build','--locked','--quiet'],cwd=REPO,env=subprocess.environment(),check=True)
     for size in [(80,24),(100,30)]: journey(*size)
     refusal('bad','invalid or conflicts')
-    refusal('good','run limit of 0 reached',budget=0)
+    refusal('good','response limit of 0 reached',budget=0)
     refusal('good','unknown or invalid',unknown=True)
     refusal('none','No useful connection found')
     input_refusals()

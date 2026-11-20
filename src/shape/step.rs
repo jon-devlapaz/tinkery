@@ -351,7 +351,7 @@ impl Failure {
 pub(super) enum Why {
     /// Another writer changed the session first; nothing more was written.
     Stale,
-    /// No drafting runs are left.
+    /// No drafting responses are left.
     Budget(usize),
     /// The model call failed or its reply couldn't be used.
     Model(String),

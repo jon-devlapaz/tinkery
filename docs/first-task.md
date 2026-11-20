@@ -73,7 +73,7 @@ step 4 is the proof. If it fails, choose another model with `m`.
 One run can make several model responses; nothing caps responses or spending.
 An agent operator never uses a saved setup: add `--operator agent` to the check, which then
 needs only Pi with a login, because the agent's launch names the model.
-Saved: the model setup. Allowed: that many drafting runs each launch. Running: nothing.
+Saved: the model setup. Allowed: that many drafting model responses each launch. Running: nothing.
 
 ## 4. Think: say what you want
 

@@ -169,10 +169,11 @@ Instead of flags, `m` on the menu opens the [Model panel](design/menu.md#model-s
 flags still override it for one launch and write nothing. Trials should keep a temporary
 HOME so they never read or write the operator's saved setup.
 
-Think and Shape share `--shape-budget CALLS` (or the saved calls) for the whole launch;
-the default is zero. F1's Model and calls row adds calls for this launch only.
-Each Think shaping request, decision review, and Shape agent step uses one slot before
-the model starts, including failures. Opening another goal does not reset it. Shape uses
+Think and Shape share `--shape-budget RESPONSES` (or the saved allowance) for the whole launch;
+the default is zero. F1's Model and responses row adds responses for this launch only.
+The allowance counts model responses. Each Think shaping request and decision review uses
+one. A Shape agent step uses one per look with read-only tools. Each started request counts
+at least one, including failures. Opening another goal does not reset it. Shape uses
 read-only tools in the displayed folder (F1 picks another); paths outside it refuse.
 This allowance counts requests, not cost or tool-driven provider turns: a Shape
 step may make several provider requests. Authorize that work and its spending separately.

@@ -92,7 +92,7 @@ struct Fake {
 impl Fake {
     fn request(&self, kind: Request) -> Result<String, String> {
         // The same budget as Pi: charged before the scripted reply is read.
-        let slot = self.budget.reserve(kind)?;
+        let (slot, _) = self.budget.reserve(kind)?;
         let result = match self.replies.lock().unwrap().pop_front() {
             Some(reply) if reply.kind == kind => match reply.result {
                 ReplyResult::Text(text) => Ok(text),
@@ -101,7 +101,7 @@ impl Fake {
             Some(_) => Err("Fake reply kind does not match the next request.".into()),
             None => Err("No scripted fake reply remains.".into()),
         };
-        self.budget.finish(slot, &result);
+        self.budget.finish(slot, &result, 1);
         result
     }
 }

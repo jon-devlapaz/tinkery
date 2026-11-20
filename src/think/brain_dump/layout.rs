@@ -491,7 +491,7 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         "Type your answer.\nEnter sends."
     };
     let left = app.host.calls_left().map_or_else(String::new, |left| {
-        format!("\n{left}\nOne send may use two drafting runs: reading and decision review.")
+        format!("\n{left}\nOne send may use two model responses: reading and decision review.")
     });
     let voice = if app.voice_available() {
         "\nF6 or Ctrl+Alt+Z (⌃⌥Z) speaks; your voice stays on this machine."

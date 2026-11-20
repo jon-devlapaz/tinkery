@@ -86,7 +86,7 @@ fn eleven_actions_keep_model_and_calls_reachable_without_spending_calls() {
             )
         }
         fn calls_left(&self) -> Option<String> {
-            Some("0 runs left".into())
+            Some("0 responses left".into())
         }
     }
     for (width, height) in [(80, 24), (100, 30)] {
@@ -157,10 +157,10 @@ fn eleven_actions_keep_model_and_calls_reachable_without_spending_calls() {
             key(&mut app, KeyCode::Right);
             let next = snapshot(width, height, &mut app, mono).unwrap();
             assert!(
-                next.contains("Actions 2/2") && next.contains("2  Model and runs"),
+                next.contains("Actions 2/2") && next.contains("2  Model and responses"),
                 "{next}"
             );
-            assert!(next.contains("0 runs left"), "{next}");
+            assert!(next.contains("0 responses left"), "{next}");
             for event in [
                 KeyEvent::new(KeyCode::Char('2'), KeyModifiers::CONTROL),
                 KeyEvent::new_with_kind(

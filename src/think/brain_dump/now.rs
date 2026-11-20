@@ -70,7 +70,7 @@ impl BrainDump {
             }
         }
         if self.host.calls_left().is_some() {
-            rows.push(Row::new("Model and runs", Act::Model));
+            rows.push(Row::new("Model and responses", Act::Model));
         }
         rows
     }

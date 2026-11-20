@@ -477,7 +477,7 @@ impl Home {
         }
     }
 
-    /// Whether `m` on the menu, or F1's Model and runs row in Think or Shape, asked for the
+    /// Whether `m` on the menu, or F1's Model and responses row in Think or Shape, asked for the
     /// Model panel since the last ask. Asking clears it.
     pub fn take_model_request(&mut self) -> bool {
         let place = match &mut self.view {
@@ -1391,7 +1391,7 @@ fn render_menu_help(frame: &mut Frame, palette: Palette) {
         action("1–7", "Open directly"),
         Line::default(),
         action("q", "Quit Tinkery"),
-        action("m", "Model and runs"),
+        action("m", "Model and responses"),
         if palette.theme.is_some() {
             action("Ctrl-T", "Dark or light")
         } else {
@@ -1564,7 +1564,7 @@ mod tests {
                     Some(width as usize - 40)
                 );
                 assert!(rows[16].starts_with("  7  measure") && rows[16].contains('└'));
-                assert!(panel_content(rows[12]).starts_with("m       Model and runs"));
+                assert!(panel_content(rows[12]).starts_with("m       Model and responses"));
                 assert!(!screen.contains("↑↓ move   enter open"));
                 assert!(!screen.contains("Inside think"));
                 h.handle_key(key(KeyCode::Esc));

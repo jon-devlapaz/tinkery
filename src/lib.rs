@@ -261,7 +261,7 @@ pub(crate) fn switch_area(area: Rect) -> Rect {
 }
 
 /// Room on header row 1 for the model label, which ends two columns before the switch's place.
-const LABEL_ROOM: u16 = 14;
+const LABEL_ROOM: u16 = 18;
 
 /// Where the model label may sit on header row 1; its text is right-aligned inside. It keeps
 /// its place without colour, so the hidden switch's place stays empty.
