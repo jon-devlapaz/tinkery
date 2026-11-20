@@ -1196,7 +1196,7 @@ fn a_draft_that_picks_one_of_two_readings_asks_it_instead_and_stays_gray() {
     };
     let gray_before = answering::gray(&saved());
     let mut reply = valid_reply();
-    reply["readings"] = json!([{"chosen": "TEST ask before erasing", "other": "TEST erase and offer undo",
+    reply["readings"] = json!([{"chosen": "TEST ask before erasing.", "other": "TEST erase and offer undo",
         "why": "TEST a confirm step and an undo build different things"}]);
     let agent = provider(root.path(), &reply.to_string(), 1);
     assert!(matches!(

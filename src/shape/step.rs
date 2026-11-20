@@ -872,7 +872,10 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
                 .to_owned());
             };
             if let Some(reading) = readings.first() {
-                let part = |k: &str| reading[k].as_str().unwrap_or_default().trim().to_owned();
+                let part = |k: &str| {
+                    let words = reading[k].as_str().unwrap_or_default().trim();
+                    words.trim_end_matches(['.', '?', '!', ';', ',']).to_owned()
+                };
                 let (chosen, other) = (part("chosen"), part("other"));
                 return Ok(Next::Question(Box::new(Ask {
                     id: "reading".into(),
