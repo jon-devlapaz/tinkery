@@ -311,7 +311,7 @@ fn issue_298_split_checks_cannot_replace_the_complete_success_scenario() {
         ledger::fixtures::prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt"));
     let check = |statement: &str| {
         json!({"statement":statement,"kind":"provisional",
-        "source":"confirmed goal","expect":"The complete scenario passes.","cwd":".",
+        "source":"confirmed goal","expect":"The complete scenario passes.","cwd":".","cmd":"./TEST-scenario",
         "missing":"No behavior-specific test exists yet."})
     };
     // Captured #298 statements: each can pass while a returned loan reappears after restart.
@@ -383,7 +383,7 @@ fn a_success_line_in_the_clause_form_the_goal_block_joined_keeps_its_words() {
     let check = |statement: &str| {
         ledger::Value::from(json!([{"statement": statement, "kind": "judge", "source": "TEST"}]))
     };
-    ledger::validate_goal_checks(
+    ledger::validate_new_draft_checks(
         goal,
         &check("Several clinics can be managed and improved over time.\nStaffing, budget, and MAP/MAP Basic coverage create strategic tradeoffs."),
     )
@@ -394,7 +394,7 @@ fn a_success_line_in_the_clause_form_the_goal_block_joined_keeps_its_words() {
         "Several clinics can be managed over time.\nStaffing, budget, and MAP/MAP Basic coverage create strategic tradeoffs.",
     ] {
         assert!(
-            ledger::validate_goal_checks(goal, &check(weaker))
+            ledger::validate_new_draft_checks(goal, &check(weaker))
                 .unwrap_err()
                 .contains("keep this complete Done when line unchanged"),
             "{weaker}"
@@ -404,7 +404,7 @@ fn a_success_line_in_the_clause_form_the_goal_block_joined_keeps_its_words() {
         {"statement": "Several clinics can be managed and improved over time.", "kind": "judge", "source": "TEST"},
         {"statement": "Staffing, budget, and MAP/MAP Basic coverage create strategic tradeoffs.", "kind": "judge", "source": "TEST"}
     ]));
-    assert!(ledger::validate_goal_checks(goal, &split).is_err());
+    assert!(ledger::validate_new_draft_checks(goal, &split).is_err());
 }
 
 #[test]
@@ -415,17 +415,17 @@ fn success_lines_preserve_unicode_and_bullets_without_inventing_missing_requirem
         {"statement":"空の一覧 stays empty.","kind":"judge","source":"TEST"},
         {"statement":"Additional regression.","kind":"judge","source":"TEST"}
     ]));
-    ledger::validate_goal_checks(goal, &checks).unwrap();
+    ledger::validate_new_draft_checks(goal, &checks).unwrap();
     let only_first = ledger::Value::from(json!([
         {"statement":"Café notes survive restart; only mine remain.","kind":"judge","source":"TEST"}
     ]));
     assert!(
-        ledger::validate_goal_checks(goal, &only_first)
+        ledger::validate_new_draft_checks(goal, &only_first)
             .unwrap_err()
             .contains("空の一覧 stays empty.")
     );
-    ledger::validate_goal_checks("An older unstructured goal.", &only_first).unwrap();
-    ledger::validate_goal_checks(
+    ledger::validate_new_draft_checks("An older unstructured goal.", &only_first).unwrap();
+    ledger::validate_new_draft_checks(
         "I keep notes.\nDone when: \nMust: Keep originals.",
         &only_first,
     )

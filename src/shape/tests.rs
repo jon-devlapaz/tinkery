@@ -1180,20 +1180,22 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
     assert!(
         draft.contains("You are confirming the goal: create a software version of Stacker.\r\n")
     );
-    while let Some(check) = crate::seed_me::shaping::read(&receipt.session)
-        .unwrap()
-        .checks
-        .into_iter()
-        .find(|check| check.gap().is_some())
+    // #936: recorded drafts now carry cmd, so the operator edits one command instead.
     {
+        let check = crate::seed_me::shaping::read(&receipt.session)
+            .unwrap()
+            .checks
+            .into_iter()
+            .find(|check| check.statement() == "Has working sounds.")
+            .unwrap();
         crate::seed_me::ledger::repair_check(
             &receipt.session,
             version,
             &std::fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap(),
             (
                 &check,
-                CheckMethod::Manual,
-                "TEST operator inspects this requirement.",
+                CheckMethod::Command,
+                "node --test tests/TEST-edited.test.mjs",
             ),
             None,
         )
@@ -1203,10 +1205,9 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         serde_json::from_slice(&std::fs::read(receipt.session.join("seed-checks.json")).unwrap())
             .unwrap();
     let repaired = repaired.as_array().unwrap();
-    assert!(
-        repaired.iter().any(|c| c["kind"] == "judge"
-            && c["how_to_judge"] == "TEST operator inspects this requirement.")
-    );
+    assert!(repaired.iter().any(
+        |c| c["kind"] == "provisional" && c["cmd"] == "node --test tests/TEST-edited.test.mjs"
+    ));
     assert!(
         repaired
             .iter()
@@ -1894,7 +1895,7 @@ checks = [
     dict(statement='The result feels calm.', kind='judge', source='TEST goal', how_to_judge='The operator inspects calmness.'),
     dict(statement='The missing boundary assertion detects the defect.', kind='provisional', source='tests/runner_only.py:1',
          missing='The boundary assertion must be built; an existing runner is not that assertion.',
-         expect='boundary checked after its assertion exists', cwd='.')]
+         cmd='python3 tests/test_boundary.py', expect='boundary checked after its assertion exists', cwd='.')]
 if can_propose:
     checks[0].update(cmd=command, expect=expected, cwd=cwd)
     if 'not provisional merely because setup' not in prompt:
@@ -1963,7 +1964,7 @@ print(json.dumps({{'next': 'seed', 'assumed': [], 'confirming': body, 'checks': 
         checks[3]["kind"], "provisional",
         "a runner without the assertion is not a check"
     );
-    assert!(checks[3].get("cmd").is_none());
+    assert_eq!(checks[3]["cmd"], "python3 tests/test_boundary.py");
     assert!(seed.starts_with("status: draft\n"));
     assert!(!receipt.session.join("seed-confirmation.json").exists());
     assert_eq!(
@@ -1982,10 +1983,10 @@ print(json.dumps({{'next': 'seed', 'assumed': [], 'confirming': body, 'checks': 
         "TEST yes to proposed checks, not implementation",
         None,
     )
-    .unwrap_err();
+    .unwrap();
     assert!(matches!(
         shaping::read(&receipt.session).unwrap().stage,
-        Shaped::Drafted { .. }
+        Shaped::Ready { .. }
     ));
     assert_eq!(agent.remaining(), 0);
     assert!(!temp.path().join("TEST-CHECK-WAS-RUN").exists());

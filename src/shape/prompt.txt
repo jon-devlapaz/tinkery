@@ -80,7 +80,7 @@ Prefer a new behavior-named test file whose path doesn't exist yet (tests/test_<
 Propose cmd running only that file with the repository's runner; cite configuration paths and lines in source, and name the test and assertion in missing.
 An exact new test id is fine if the runner fails on unknown ids.
 Filters by name pattern can pass on no match, so don't rely on them.
-Use only forms known to fail when absent; otherwise omit cmd and explain why in missing.
+Use only forms known to fail when absent; otherwise make it a judge check and explain why in how_to_judge. Every check except a judge check needs cmd, or the Tink cannot be confirmed.
 Keep suite runs as separate cmd checks; never duplicate another check's command in the same cwd.
 For an objective browser check, use cmd for an existing targeted test or provisional for a test that needs to be added. The authorized delivery agent owns setup and execution.
 Write the complete procedure in expect for an objective check: starting state, exact sample input including punctuation, ordered actions and observable pass results. Keep linked actions together, and put what must fail in failure_case.

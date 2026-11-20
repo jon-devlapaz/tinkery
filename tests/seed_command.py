@@ -191,6 +191,28 @@ def relayed():
     print('seed command relayed passed: relayed words settle as the operator, clear gray, name the file; human and malformed relays refused')
 
 
+def commandless():
+    """#936: a draft check that confirmation would refuse is refused when drafted, never saved."""
+    provisional = {'statement': 'Refusals never show private text.', 'kind': 'provisional', 'source': 'TEST goal',
+                   'expect': 'no private text in refusals', 'cwd': '.', 'missing': 'tests/test_refusal.py does not exist yet'}
+    broken = {**SEED, 'checks': [provisional]}
+    fixed = {**SEED, 'checks': [{**provisional, 'cmd': 'python3 tests/test_refusal.py'}]}
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-seed-command-') as directory:
+        run = Run(directory, [broken, fixed], agent=True)
+        session = run.ok('new', 'goal.txt', drafting=False).strip()
+        run.ok('step', session, 'look')
+        run.ok('step', session, 'answer', 'TEST no sample: fixture')
+        before = run.files()
+        run.refused('check 1 has no cmd', 'step', session, 'answer', 'TEST skip')
+        assert not (Path(session) / 'seed-contract.md').exists(), 'A commandless check was saved as a draft'
+        draft = json.loads(run.ok('step', session, 'look'))['now']
+        assert draft['stage'] == 'draft', draft
+        ready = json.loads(run.ok('step', session, 'confirm', draft['sha256'], drafting=False))['now']
+        assert ready['stage'] == 'ready', ready
+        assert before != run.files() and len(run.calls()) == 2
+        print('seed command commandless passed: a provisional without cmd refused when drafted, retried, confirmed; 2 stub calls')
+
+
 def refusals():
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-seed-command-') as directory:
         run = Run(directory, [QUESTION], budget=0)
@@ -225,5 +247,6 @@ if __name__ == '__main__':
     for agent in [False, True]:
         journey(agent)
     no_gray()
+    commandless()
     relayed()
     refusals()

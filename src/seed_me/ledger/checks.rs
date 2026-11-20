@@ -293,12 +293,28 @@ pub(crate) fn validate_goal_checks(goal: &str, records: &Value) -> Result<()> {
         {
             return Err(format!(
                 "No Tink was drafted: check {} proposes `{cmd}`, which check {} also uses in cwd `{}`. \
-                 A provisional's proposed command must select its missing regression by name; otherwise leave cmd out.",
+                 A provisional's proposed command must select its missing regression by name; otherwise make it a judge check.",
                 index + 1,
                 other + 1,
                 cwd.unwrap_or(".")
             ));
         }
+    }
+    Ok(())
+}
+
+/// A new model draft also gives every check except a judge check a cmd, so confirmation can
+/// accept it (#936). An operator repairing a stored draft is not held to this.
+pub(crate) fn validate_new_draft_checks(goal: &str, records: &Value) -> Result<()> {
+    validate_goal_checks(goal, records)?;
+    if let Some(index) = records.items().iter().position(|record| {
+        !record["kind"].is("judge") && record.get("cmd").and_then(Value::string).is_none()
+    }) {
+        return Err(format!(
+            "No Tink was drafted: check {} has no cmd, so it could never be confirmed. \
+             Every check except a judge check needs cmd; with no command known to fail, make it a judge check.",
+            index + 1
+        ));
     }
     Ok(())
 }

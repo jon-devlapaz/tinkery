@@ -24,7 +24,7 @@ mod seed;
 mod storage;
 pub(crate) use checks::{
     CheckMethod, DraftCheck, draft_checks, goal_criteria, human_signoff, keeps_criterion,
-    validate_goal_checks,
+    validate_new_draft_checks,
 };
 pub(crate) use checks::{FULL, prose_headings};
 pub use checks::{checks_block, read_checks, readable_acceptance, validate_checks};

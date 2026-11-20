@@ -631,7 +631,7 @@ fn look(
             // #432: a reply breaking a check rule and its review hears both, so a retry can't
             // trade one fault for the other. Only pure reply checks become retry feedback.
             let review = review.and_then(|r| r.validate(&records).map(|()| r));
-            let review = match (ledger::validate_goal_checks(&goal, &records), review) {
+            let review = match (ledger::validate_new_draft_checks(&goal, &records), review) {
                 (Ok(()), review) => review.map_err(|why| rejected(fail(Why::Model(why))))?,
                 (Err(rule), review) => {
                     let also = review
