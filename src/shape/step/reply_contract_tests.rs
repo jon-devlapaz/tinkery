@@ -147,6 +147,7 @@ fn captured_missing_source_preserves_the_answer_and_recovers_on_next_look() {
     let saved = AtomicBool::new(false);
     let error = run(
         &Work::Answer {
+            relay: None,
             id: answering::PROBE.0.into(),
             words: "TEST keep my exact answer\r\n  ".into(),
             expected: version,
@@ -440,6 +441,7 @@ fn recorded_361_refusals_name_unsafe_coverage_and_preserve_saved_answers() {
         let saved = AtomicBool::new(false);
         let error = run(
             &Work::Answer {
+                relay: None,
                 id: answering::PROBE.0.into(),
                 words: words.into(),
                 expected: version,
@@ -862,6 +864,7 @@ fn a_claude_code_step_reads_only_the_shown_folder_and_drafts_from_its_json_resul
     .unwrap();
     let done = run(
         &Work::Answer {
+            relay: None,
             id: answering::PROBE.0.into(),
             words: "TEST answer".into(),
             expected: version,
@@ -1124,6 +1127,7 @@ fn a_goal_past_32_kib_still_reaches_the_model() {
     let version = answering::probe(&session, version).unwrap().unwrap();
     let step = run(
         &Work::Answer {
+            relay: None,
             id: answering::PROBE.0.into(),
             words: "TEST the answer".into(),
             expected: version,

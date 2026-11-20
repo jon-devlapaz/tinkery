@@ -198,6 +198,12 @@ Tinkery's confirmation never grants implementation permission: tink-sdlc's human
 gates and the operator's merge hold that line. Goal confirmation, seed confirmation and
 implementation approval remain separate.
 
+One exception: a Shape answer relayed with `seed step DIR answer --relayed FILE` is the
+operator's own answer, by the operator's decision of 2026-11-20
+([#914](https://github.com/jon-devlapaz/tinkery/issues/914)). It is stored as `user`, and its
+source names the relay and its unverified origin. See
+[Shape without a screen](shape-and-handoff.md#without-a-screen).
+
 `BrainDump::set_goal_confirmation` supplies caller-declared attribution before review.
 Refused updates preserve the current words, review and attribution. Neither keypresses,
 login names nor the model producing the reading identify the confirmer. Without explicit

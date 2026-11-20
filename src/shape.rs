@@ -1437,6 +1437,7 @@ impl Opened {
             }
             Act::Answer { id, expected } => (
                 Work::Answer {
+                    relay: None,
                     id,
                     words,
                     expected,
