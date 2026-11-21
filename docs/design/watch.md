@@ -69,8 +69,8 @@ An agent saying it is done is never verification or acceptance evidence.
 
 When the runtime supplies a cap-stop checkpoint, Watch shows the stop, the saved list of
 local changes and the last completed shell result. The shell result is not Verify evidence.
-An unrecorded cap stop needs you. SDLC names the next action. Watch does not record the
-stop, resume the worker or sign a human check.
+An unrecorded cap stop needs you. Its detail puts the evidence and SDLC next action
+before the full goal. Watch does not record the stop, resume the worker or sign a human check.
 
 ## Codex observation
 

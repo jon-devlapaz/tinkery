@@ -903,12 +903,19 @@ fn detail_text<'a>(slug: &str, detail: &Load<Detail>, palette: Palette) -> Text<
             ));
         }
         Load::Done(Ok(d), _) => {
-            lines.extend(goal_lines(goal_text(&d.goal), palette));
-            lines.push(Line::default());
+            let mut goal = goal_lines(goal_text(&d.goal), palette);
+            if d.attention.worker != Some(Worker::AtCap) {
+                lines.append(&mut goal);
+                lines.push(Line::default());
+            }
             lines.push(Line::styled(d.state.words(), palette.ink.bold()));
             lines.push(Line::styled(format!("SDLC next: {}", d.next), palette.ink));
             for step in d.steps.iter().flatten() {
                 lines.push(Line::styled(step.clone(), palette.ink));
+            }
+            if !goal.is_empty() {
+                lines.push(Line::default());
+                lines.extend(goal);
             }
             lines.push(Line::default());
             for (stage, status) in &d.gates {
