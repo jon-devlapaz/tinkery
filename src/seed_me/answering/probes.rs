@@ -22,8 +22,7 @@ pub const SAMPLE: (&str, &str) = (
 );
 
 /// The decision Shape records after a "no sample" answer, so a seed never treats an unobserved need
-/// as a fact (#952): its ledger id and wording. Unlike the probes, it is gray unless the operator
-/// answers it in their own words.
+/// as a fact (#952): its ledger id and wording.
 pub const UNOBSERVED: (&str, &str) = (
     "unobserved-need",
     "You gave no sample, so nothing shows that anyone needs this. Who asked for it? If nobody did, say why to build it anyway.",
@@ -31,9 +30,9 @@ pub const UNOBSERVED: (&str, &str) = (
 
 /// With no current question, put the first probe never asked to the operator, from `expected`:
 /// the real sample, the unobserved need after a "no sample" answer, then the pre-mortem. Each must
-/// be answered in the operator's words before any seed. The pre-mortem says so plainly when findings were already shown, since the answer is then
-/// not independent of them. Returns the new version, or `None` when both were asked or a question
-/// is current.
+/// be answered in the operator's words before any seed. The pre-mortem says so plainly when
+/// findings were already shown, since the answer is then not independent of them. Returns the new
+/// version, or `None` when all were asked or a question is current.
 pub fn probe(session: &Path, expected: u64) -> Result<Option<u64>, Refusal> {
     let mut ledger = read(session)?;
     if ledger.version != expected {

@@ -209,8 +209,7 @@ fn decisions_lines(ledger: &Value) -> Result<Vec<(String, String)>> {
         if id == crate::seed_me::answering::UNOBSERVED.0 {
             rows.push((
                 id.into(),
-                "  Unknown: nobody has observed this need. The real-sample answer gave no sample."
-                    .into(),
+                "  Unknown: nobody has observed this need.".into(),
             ));
         }
     }

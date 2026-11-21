@@ -2322,7 +2322,7 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                 }
                 if id == UNOBSERVED.0 {
                     lines.push(Line::styled(
-                        "Name who asked, or say why to build it anyway. F1 can stop this session instead.",
+                        "F1 can stop this session instead.",
                         palette.ink,
                     ));
                 }

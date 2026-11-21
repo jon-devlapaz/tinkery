@@ -1622,7 +1622,7 @@ def exit_hint(width, height, stage):
                 run.type('no sample')
                 # #952: nobody observed the need, so Shape asks who needs it before the seed.
                 run.send(F2, 'Unobserved need')
-                assert 'Name who asked, or say why to build it anyway.' in run.flat(), run.screen.text()
+                assert 'F1 can stop this session instead.' in run.flat(), run.screen.text()
                 run.type('TEST nobody; build it to learn')
                 run.send(F2, 'Probe: pre-mortem')
                 # The skip the screen names is a settled answer, not a deferral (#625).

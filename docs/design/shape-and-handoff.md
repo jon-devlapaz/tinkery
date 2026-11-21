@@ -905,10 +905,8 @@ itself, in that order.
 - If that answer contains `no sample`, nobody has observed the need. The next step records
   `Unobserved need` (`You gave no sample, so nothing shows that anyone needs this. Who asked for it?
   If nobody did, say why to build it anyway.`) as the current question, before the pre-mortem and
-  without a model call or budget. The screen says `Name who asked, or say why to build it anyway. F1
-  can stop this session instead.` Unlike the probes, it is gray unless the operator answers it in
-  their own words. The seed's Decisions show its answer and, under it, `Unknown: nobody has observed
-  this need.` ([#952](https://github.com/jon-devlapaz/tinkery/issues/952): a seed whose need an agent
+  without a model call or budget. The screen adds `F1 can stop this session instead.` The seed's
+  Decisions show its answer and, under it, `Unknown: nobody has observed this need.` ([#952](https://github.com/jon-devlapaz/tinkery/issues/952): a seed whose need an agent
   wrote went to a PR, and the operator then said "No one" wanted it). Other wording of "none" is
   not detected.
 - With no current question and no `probe-pre-mortem` node, a step records `Probe: pre-mortem`

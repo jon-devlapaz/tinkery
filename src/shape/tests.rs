@@ -3643,7 +3643,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
         .unwrap_or_default();
     assert!(
         decisions.contains(&format!(
-            "- unobserved-need [user] {choice} (source: The operator answered with these words in Tinkery Shape.)\n  Unknown: nobody has observed this need. The real-sample answer gave no sample.\n"
+            "- unobserved-need [user] {choice} (source: The operator answered with these words in Tinkery Shape.)\n  Unknown: nobody has observed this need.\n"
         )),
         "the seed does not show the unobserved need:\n{text}"
     );
