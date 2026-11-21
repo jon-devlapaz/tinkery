@@ -172,8 +172,8 @@ pub struct Attempt {
 
 /// A hard limit on drafting model responses, shared by every host that holds it. A request holds
 /// every response left before preparing or starting the harness, and is stopped once it has used
-/// them, unless the last one ended the host's turn; one response may be in flight then. It then counts what it used, at least one, whatever
-/// happened. Once the limit is reached the next request is refused unstarted. The count never
+/// them, unless Pi's last one ended its turn; one response may be in flight then. It then counts
+/// what it used, at least one, whatever happened. Once the limit is reached the next request is refused unstarted. The count never
 /// resets, so a new session on the same budget can't spend it twice. Only an explicit
 /// [`CallBudget::add`] raises the limit, for this launch alone.
 #[derive(Debug)]
@@ -652,7 +652,8 @@ impl Call {
     }
 }
 
-/// How long Pi may take to exit after a last allowed response that calls tools before it is stopped.
+/// How long Pi may keep going after a last allowed response that calls tools, or one past the
+/// limit, before it is stopped.
 const CAP_GRACE: Duration = Duration::from_secs(2);
 /// How often a running Pi's session folder is counted.
 const POLL: Duration = Duration::from_millis(200);

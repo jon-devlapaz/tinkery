@@ -72,7 +72,8 @@ The allowance counts completed model responses (#937), as the worker cap does
 is refused until it ends, and the label still shows them as left.
 A step that reads files with read-only tools may use several responses. Pi records them in a
 throwaway session folder; Claude Code reports `num_turns` and gets `--max-turns`. At the
-limit Pi gets two seconds to finish its reply, so a response or two may still finish, then it is
+limit, a response that ends Pi's turn is the reply: Pi may print it and exit within the timeout.
+A last response that calls tools gets two seconds, so one more may still finish, then Pi is
 stopped and the refusal names the responses used. Claude Code stopped before it reports
 counts every response it held. Each started request counts at least one,
 including failures and cancellations. It caps responses, not spending.
