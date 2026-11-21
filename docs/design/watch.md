@@ -71,6 +71,8 @@ When the runtime supplies a cap-stop checkpoint, Watch shows the stop, the saved
 local changes and the last completed shell result. The shell result is not Verify evidence.
 An unrecorded cap stop needs you. Its detail puts the evidence and SDLC next action
 before the full goal. Watch does not record the stop, resume the worker or sign a human check.
+If the runtime reports the cap before the evidence is available, Watch shows that gap
+instead of calling the worker active or showing proof it does not have.
 
 ## Codex observation
 

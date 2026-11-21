@@ -15,6 +15,16 @@ pub(super) fn render(run: &sdlc::Run) -> Result<Option<(Vec<String>, Worker)>, S
     for step in run.steps.as_ref().ok_or_else(refuse)? {
         let name = step.data["name"].as_str().ok_or_else(refuse)?;
         let state = step.state.as_str().ok_or_else(refuse)?;
+        let cap_reached = match step.data.get("response_cap_reached") {
+            Some(value) => value.as_bool().ok_or_else(refuse)?,
+            None => false,
+        };
+        if cap_reached {
+            if !step.state.is(S::Active) || !step.turn.is(T::Running) || step.stopped_by.present() {
+                return Err(refuse().into());
+            }
+            worker = Worker::AtCap;
+        }
         if let Some(stop) = step.data.get("cap_stop") {
             match (step.state.known(), step.stopped_by.known()) {
                 (Some(S::Active), None) if step.turn.is(T::Running) => worker = Worker::AtCap,
@@ -57,6 +67,12 @@ pub(super) fn render(run: &sdlc::Run) -> Result<Option<(Vec<String>, Worker)>, S
                 ));
                 lines.push(output.into());
             }
+            continue;
+        }
+        if cap_reached {
+            lines.push(format!(
+                "Worker step {name}: reached its response cap. Saved evidence is not available yet."
+            ));
             continue;
         }
         let seen = match (step.state.known(), step.turn.present()) {

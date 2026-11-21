@@ -84,7 +84,7 @@ impl Worker {
             Self::Idle => "no active worker step",
             Self::Running => "worker running",
             Self::Ended => "worker's turn ended",
-            Self::AtCap => "worker stopped at its response cap",
+            Self::AtCap => "worker reached its response cap",
             Self::Unknown => "worker state unknown",
             Self::Uncertain => "launch unconfirmed; inspect it before starting another",
         }

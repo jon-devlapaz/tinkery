@@ -980,3 +980,21 @@ fn cap_stop_shows_saved_shell_result_without_calling_it_verification() {
     assert_eq!(parsed.attention.owed, 1);
     assert!(parsed.next.contains("record the stop"));
 }
+
+#[test]
+fn cap_reached_without_a_checkpoint_needs_attention_and_never_claims_proof() {
+    let mut report = detail(vec![item("pending", true, false)]);
+    report["run"]["verification_status"] = "not-run".into();
+    report["run"]["next_action"] = "Record the cap stop.".into();
+    report["run"]["steps"] = serde_json::json!([{
+        "name": "build", "state": "active", "turn": "not-ended",
+        "observed_turn": "TEST provider wording", "response_cap_reached": true
+    }]);
+    let parsed = parse_detail(&report.to_string()).unwrap();
+    assert_eq!(parsed.attention.worker, Some(Worker::AtCap));
+    let shown = parsed.steps.unwrap().join("\n");
+    assert!(shown.contains("reached its response cap"));
+    assert!(shown.contains("Saved evidence is not available yet"));
+    assert!(!shown.contains("Last shell result"));
+    assert_eq!(parsed.next, "Record the cap stop.");
+}
