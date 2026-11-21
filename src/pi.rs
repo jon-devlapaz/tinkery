@@ -172,8 +172,8 @@ pub struct Attempt {
 
 /// A hard limit on drafting model responses, shared by every host that holds it. A request holds
 /// every response left before preparing or starting the harness, and is stopped once it has used
-/// them; one response may be in flight then. It then counts what it used, at least one, whatever
-/// happened. Once the limit is reached the next request is refused unstarted. The count never
+/// them, unless Pi's last one ended its turn; one response may be in flight then. It then counts
+/// what it used, at least one, whatever happened. Once the limit is reached the next request is refused unstarted. The count never
 /// resets, so a new session on the same budget can't spend it twice. Only an explicit
 /// [`CallBudget::add`] raises the limit, for this launch alone.
 #[derive(Debug)]
@@ -487,8 +487,12 @@ impl Call {
                 && polled.is_none_or(|at| at.elapsed() >= POLL)
             {
                 polled = Some(Instant::now());
-                *responses = (*responses).max(pi_responses(sessions));
-                if *responses >= cap && capped.is_none() {
+                let (counted, ended) = pi_responses(sessions);
+                *responses = (*responses).max(counted);
+                // A cap-th response that ends Pi's turn is the reply: Pi is left to print it and
+                // exit, bounded by the timeout. One that calls tools would start another response.
+                let over = *responses > cap || (*responses == cap && !ended);
+                if over && capped.is_none() {
                     capped = Some(Instant::now());
                 }
             }
@@ -540,7 +544,7 @@ impl Call {
         let diagnostics = String::from_utf8_lossy(&diagnostics);
         let text = match self.harness {
             Harness::Pi => {
-                *responses = (*responses).max(pi_responses(sessions));
+                *responses = (*responses).max(pi_responses(sessions).0);
                 pi_reply(status, &output, &diagnostics)?
             }
             Harness::ClaudeCode => {
@@ -648,7 +652,8 @@ impl Call {
     }
 }
 
-/// How long Pi may take to exit after its last allowed response before it is stopped.
+/// How long Pi may keep going after a last allowed response that calls tools, or one past the
+/// limit, before it is stopped.
 const CAP_GRACE: Duration = Duration::from_secs(2);
 /// How often a running Pi's session folder is counted.
 const POLL: Duration = Duration::from_millis(200);
@@ -665,17 +670,18 @@ fn cap_reached(host: &str, responses: usize) -> String {
     )
 }
 
-/// Completed assistant responses in the Pi sessions under `sessions`.
-fn pi_responses(sessions: &Path) -> usize {
+/// Completed assistant responses in the Pi sessions under `sessions`, and whether the last one
+/// ended Pi's turn (`stopReason` `stop`) rather than calling tools or failing.
+fn pi_responses(sessions: &Path) -> (usize, bool) {
     let Ok(files) = std::fs::read_dir(sessions) else {
-        return 0;
+        return (0, false);
     };
-    files
+    let assistant: Vec<serde_json::Value> = files
         .flatten()
         .map(|file| file.path())
         .filter(|path| path.extension().is_some_and(|x| x == "jsonl"))
         .filter_map(|path| crate::regular_file::read(&path, "a Pi session").ok())
-        .map(|bytes| {
+        .flat_map(|bytes| {
             // A line Pi is still writing may end mid-character; it is skipped, not the file.
             String::from_utf8_lossy(&bytes)
                 .lines()
@@ -683,9 +689,13 @@ fn pi_responses(sessions: &Path) -> usize {
                 .filter(|entry| {
                     entry["type"] == "message" && entry["message"]["role"] == "assistant"
                 })
-                .count()
+                .collect::<Vec<_>>()
         })
-        .sum()
+        .collect();
+    let ended = assistant
+        .last()
+        .is_some_and(|entry| entry["message"]["stopReason"] == "stop");
+    (assistant.len(), ended)
 }
 
 /// What a running host needs kept until it exits: Pi's folder guard or Claude Code's empty folder.
@@ -908,15 +918,16 @@ mod tests {
         }
     }
 
-    /// A fake Pi that records `responses` assistant messages in its session folder, then prints
-    /// a reply and exits, or with `hang` keeps working as if one more response were in flight.
-    fn counting_pi(dir: &Path, responses: usize, hang: bool) -> Call {
+    /// A fake Pi that records `responses` assistant messages in its session folder, the last one
+    /// ending its turn when `last_final` and every other one calling tools, then waits `linger`
+    /// seconds as if still working or slow to exit, prints a reply and exits.
+    fn counting_pi(dir: &Path, responses: usize, last_final: bool, linger: u64) -> Call {
         let program = dir.join("pi");
         std::fs::write(
             &program,
             format!(
-                "#!/usr/bin/env python3\nimport json, pathlib, sys, time\nsys.stdin.read()\nfolder = pathlib.Path(sys.argv[sys.argv.index('--session-dir') + 1])\nassert '--no-session' not in sys.argv\nwith open(folder / 'TEST.jsonl', 'w') as session:\n    session.write(json.dumps({{'type': 'session'}}) + '\\n')\n    session.write(json.dumps({{'type': 'message', 'message': {{'role': 'user'}}}}) + '\\n')\n    for _ in range({responses}):\n        session.write(json.dumps({{'type': 'message', 'message': {{'role': 'assistant'}}}}) + '\\n')\n        session.flush()\nif {hang}:\n    time.sleep(30)\nprint('TEST reply')\n",
-                hang = if hang { "True" } else { "False" }
+                "#!/usr/bin/env python3\nimport json, pathlib, sys, time\nsys.stdin.read()\nfolder = pathlib.Path(sys.argv[sys.argv.index('--session-dir') + 1])\nassert '--no-session' not in sys.argv\nwith open(folder / 'TEST.jsonl', 'w') as session:\n    session.write(json.dumps({{'type': 'session'}}) + '\\n')\n    session.write(json.dumps({{'type': 'message', 'message': {{'role': 'user'}}}}) + '\\n')\n    for n in range({responses}):\n        stop = 'stop' if {last_final} and n == {responses} - 1 else 'toolUse'\n        session.write(json.dumps({{'type': 'message', 'message': {{'role': 'assistant', 'stopReason': stop}}}}) + '\\n')\n        session.flush()\ntime.sleep({linger})\nprint('TEST reply')\n",
+                last_final = if last_final { "True" } else { "False" }
             ),
         )
         .unwrap();
@@ -933,10 +944,28 @@ mod tests {
     }
 
     #[test]
+    fn a_final_reply_on_the_last_allowed_response_is_kept_even_when_pi_exits_slowly() {
+        // #950: Pi wrote its final reply as the cap-th response, then took longer than the
+        // grace to exit; the reply was thrown away and every response was lost.
+        let dir = tempfile::tempdir().unwrap();
+        let budget = CallBudget::new(3);
+        let reply = counting_pi(dir.path(), 3, true, 4).complete(
+            &budget,
+            Request::SeedStep,
+            b"TEST".to_vec(),
+            "TEST instructions".into(),
+            &AtomicBool::new(false),
+        );
+        assert_eq!(reply.unwrap(), "TEST reply\n");
+        assert_eq!((budget.used(), budget.remaining()), (3, 0));
+        assert_eq!(budget.attempts()[0].outcome, "reply");
+    }
+
+    #[test]
     fn the_budget_counts_each_pi_response_and_stops_a_request_at_the_limit() {
         let dir = tempfile::tempdir().unwrap();
         let budget = CallBudget::new(5);
-        let reply = counting_pi(dir.path(), 2, false).complete(
+        let reply = counting_pi(dir.path(), 2, true, 0).complete(
             &budget,
             Request::SeedStep,
             b"TEST".to_vec(),
@@ -951,7 +980,7 @@ mod tests {
         );
 
         let started = Instant::now();
-        let error = counting_pi(dir.path(), 3, true)
+        let error = counting_pi(dir.path(), 3, false, 30)
             .complete(
                 &budget,
                 Request::SeedStep,
@@ -969,7 +998,7 @@ mod tests {
             "Pi was stopped at the drafting response limit after 3 model responses. No reply was kept. Add responses to keep going."
         );
         assert_eq!((budget.used(), budget.remaining()), (5, 0));
-        let refused = counting_pi(dir.path(), 1, false)
+        let refused = counting_pi(dir.path(), 1, true, 0)
             .complete(
                 &budget,
                 Request::SeedStep,
