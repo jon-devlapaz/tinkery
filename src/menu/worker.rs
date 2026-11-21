@@ -362,19 +362,7 @@ impl Panel {
         let mut lines = Vec::new();
         let mut add = |text: &str| {
             for line in text.lines() {
-                let safe: String = line
-                    .chars()
-                    .flat_map(|c| {
-                        if c.is_control()
-                            || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
-                        {
-                            c.escape_default().collect::<Vec<_>>()
-                        } else {
-                            vec![c]
-                        }
-                    })
-                    .collect();
-                lines.push(Line::raw(safe));
+                lines.push(Line::raw(crate::shown_line(line)));
             }
         };
         if self.help {
