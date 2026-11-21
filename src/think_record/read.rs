@@ -9,8 +9,7 @@ use super::{Event, GoalConfirmation, MAX_RECORD_BYTES, SCHEMA, context, session_
 use crate::seed_me;
 use serde::Deserialize;
 use std::{
-    fs::{self, File},
-    io::Read,
+    fs,
     path::{Component, Path, PathBuf},
 };
 
@@ -498,29 +497,14 @@ fn current_session(session: &Path, goal: &str) -> Result<(PathBuf, String), Unav
 fn read_file(path: &Path) -> Result<SavedRecord, Unavailable> {
     #[cfg(test)]
     counts::file(path);
-    let metadata =
-        fs::symlink_metadata(path).map_err(|error| Unavailable::unreadable(path, error))?;
-    if !metadata.is_file() {
-        return Err(Unavailable::unreadable(
-            path,
-            "expected a regular JSON file",
-        ));
-    }
-    let mut bytes = Vec::new();
-    crate::regular_file::open(
-        File::options().read(true),
-        0,
-        path,
-        "expected a regular JSON file",
-    )
-    .and_then(|file| file.take(MAX_RECORD_BYTES + 1).read_to_end(&mut bytes))
-    .map_err(|error| Unavailable::unreadable(path, error))?;
-    if bytes.len() as u64 > MAX_RECORD_BYTES {
-        return Err(Unavailable::unreadable(
-            path,
-            "the record exceeds the 16 MiB reading limit",
-        ));
-    }
+    let bytes =
+        crate::regular_file::read_bounded(path, MAX_RECORD_BYTES, "expected a regular JSON file")
+            .map_err(|error| match error.kind() {
+            std::io::ErrorKind::FileTooLarge => {
+                Unavailable::unreadable(path, "the record exceeds the 16 MiB reading limit")
+            }
+            _ => Unavailable::unreadable(path, error),
+        })?;
     let value: serde_json::Value =
         serde_json::from_slice(&bytes).map_err(|error| Unavailable::unreadable(path, error))?;
     match value.get("schema").and_then(serde_json::Value::as_u64) {

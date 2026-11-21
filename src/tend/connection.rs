@@ -17,7 +17,6 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     fs,
-    io::{Read, Write},
     path::PathBuf,
     sync::{Arc, atomic::AtomicBool},
 };
@@ -252,28 +251,15 @@ impl Context {
     fn read(&self) -> Result<Option<Record>, String> {
         let path = self.file();
         let regular = "The exploration is not a regular local file.";
-        let file =
-            match crate::regular_file::open(fs::OpenOptions::new().read(true), 0, &path, regular) {
-                Ok(file) => file,
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-                Err(e) if e.kind() == std::io::ErrorKind::InvalidInput => {
-                    return Err(regular.into());
-                }
-                Err(e) => return Err(format!("The latest exploration is unreadable: {e}")),
-            };
-        if fs::symlink_metadata(&path)
-            .map_err(|e| e.to_string())?
-            .is_symlink()
-        {
-            return Err("The exploration is not a regular local file.".into());
-        }
-        let mut bytes = Vec::new();
-        file.take(RECORD_LIMIT as u64 + 1)
-            .read_to_end(&mut bytes)
-            .map_err(|e| e.to_string())?;
-        if bytes.len() > RECORD_LIMIT {
-            return Err("The saved exploration is oversized.".into());
-        }
+        let bytes = match crate::regular_file::read_bounded(&path, RECORD_LIMIT as u64, regular) {
+            Ok(bytes) => bytes,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) if e.kind() == std::io::ErrorKind::InvalidInput => return Err(regular.into()),
+            Err(e) if e.kind() == std::io::ErrorKind::FileTooLarge => {
+                return Err("The saved exploration is oversized.".into());
+            }
+            Err(e) => return Err(format!("The latest exploration is unreadable: {e}")),
+        };
         let record: Record = serde_json::from_slice(&bytes)
             .map_err(|_| "The latest exploration is malformed. Preserve it for inspection.")?;
         if record.input.repo != self.repo {
@@ -333,11 +319,9 @@ impl Context {
         if bytes.len() > RECORD_LIMIT {
             return Err("These edited words exceed the saved exploration limit. Shorten them and retry; the previous result is intact.".into());
         }
-        let mut file = tempfile::NamedTempFile::new_in(&self.store).map_err(|e| e.to_string())?;
-        file.write_all(&bytes).map_err(|e| e.to_string())?;
-        file.as_file().sync_all().map_err(|e| e.to_string())?;
-        file.persist(self.file()).map_err(|e| e.to_string())?;
-        crate::regular_file::sync_directory(&self.store).map_err(|e| e.to_string())
+        crate::regular_file::publish(&self.file(), &bytes, crate::regular_file::Existing::Replace)
+            .and_then(|synced| synced)
+            .map_err(|e| e.to_string())
     }
     fn explore(&self, input: &Input, stop: &AtomicBool) -> Result<Record, String> {
         let _lock = self.lock()?;

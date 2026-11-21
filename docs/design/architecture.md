@@ -48,7 +48,7 @@ unconfirmed sessions or complete factory telemetry. The read-only
 | `calendar.rs` | Converts epoch days to the calendar date used by Think records and ledger writers. Each writer owns its timestamp format. |
 | `model_setup.rs`, `model_setup/panel.rs` | The saved model setup's one parser (file and flags), atomic save, header label and Model panel; the terminal loop owns when it shows (shared). |
 | `pi.rs` | The one place a model host starts, Pi or Claude Code: which models and levels each accepts, a bounded, cancellable request with or without read-only tools held inside one folder ([`pi/folder.mjs`](../../pi/folder.mjs) for Pi, `dontAsk` for Claude Code), the call budget and prompt-file assembly (shared). |
-| `regular_file.rs` | The one door for opening files on disk: nonblocking opens that refuse anything but a regular file, directory syncs and random bytes. `clippy.toml` forbids `std::fs` opens and reads elsewhere (shared). |
+| `regular_file.rs` | The one door for opening files on disk: nonblocking opens that refuse anything but a regular file, bounded reads that never follow a link, whole-or-nothing publishes with directory syncs, and random bytes. `clippy.toml` forbids `std::fs` opens and reads elsewhere (shared). |
 | `repo.rs` | Finding the Git repository Tinkery was started in, by looking for `.git` only (shared). |
 | `menu.rs`, `menu/worker.rs`, `menu/retry.rs` | Navigation through the seven place variants, plus the explicit worker-action screen and its retained finite request, and the hand-off of one reviewed Taste rejection to a saved Shape attempt. |
 | `menu/place.rs` | The seven-place enum, display names and purposes, and ordered navigation list; no routing or actions. |

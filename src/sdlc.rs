@@ -74,24 +74,12 @@ impl Seed {
 
 /// Read only the expected detached retry's intake record; never invoke its runtime or steps.
 pub(crate) fn retry_seed(directory: &Path, slug: &str) -> Option<Seed> {
-    use std::{fs::OpenOptions, io::Read as _};
-    let file = crate::regular_file::open(
-        OpenOptions::new().read(true),
-        libc::O_NOFOLLOW,
+    let bytes = crate::regular_file::read_bounded(
         &directory.join("run.json"),
+        4 * 1024 * 1024,
         "run.json is not a regular file",
     )
     .ok()?;
-    let limit = 4 * 1024 * 1024;
-    let metadata = file.metadata().ok()?;
-    if metadata.len() > limit {
-        return None;
-    }
-    let mut bytes = Vec::new();
-    file.take(limit + 1).read_to_end(&mut bytes).ok()?;
-    if bytes.len() as u64 > limit {
-        return None;
-    }
     let run: Value = serde_json::from_slice(&bytes).ok()?;
     let bound = &run["seed_contract"];
     if run["schema"] != 1
