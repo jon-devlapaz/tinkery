@@ -1,7 +1,6 @@
 """The shared terminal owner releases only its fake process and descriptors on failure."""
 import errno
 import fcntl
-import importlib.util
 import io
 import os
 from pathlib import Path
