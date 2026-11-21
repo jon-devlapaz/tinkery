@@ -15,6 +15,50 @@ pub(super) fn render(run: &sdlc::Run) -> Result<Option<(Vec<String>, Worker)>, S
     for step in run.steps.as_ref().ok_or_else(refuse)? {
         let name = step.data["name"].as_str().ok_or_else(refuse)?;
         let state = step.state.as_str().ok_or_else(refuse)?;
+        if let Some(stop) = step.data.get("cap_stop") {
+            match (step.state.known(), step.stopped_by.known()) {
+                (Some(S::Active), None) if step.turn.is(T::Running) => worker = Worker::AtCap,
+                (Some(S::Stopped), Some(R::Cap)) if !step.turn.present() => (),
+                _ => return Err(refuse().into()),
+            }
+            let cap = stop["cap"]
+                .as_u64()
+                .filter(|cap| *cap > 0)
+                .ok_or_else(refuse)?;
+            lines.push(format!(
+                "Worker step {name}: stopped at its response cap ({cap})."
+            ));
+            let files = match &stop["changed_files"] {
+                serde_json::Value::Null => "unavailable".into(),
+                serde_json::Value::Array(files) if files.is_empty() => "none".into(),
+                serde_json::Value::Array(files) if files.len() <= 12 => files
+                    .iter()
+                    .map(|path| excerpt(path, 180).ok_or_else(refuse))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .join(", "),
+                _ => return Err(refuse().into()),
+            };
+            let omitted = stop["omitted_files"].as_u64().ok_or_else(refuse)?;
+            let more = if omitted > 0 {
+                format!(" (+{omitted} more)")
+            } else {
+                String::new()
+            };
+            lines.push(format!("Local changes at stop: {files}{more}"));
+            if let Some(shell) = stop.get("shell").filter(|value| !value.is_null()) {
+                let result = match shell["error"].as_bool().ok_or_else(refuse)? {
+                    true => "error",
+                    false => "no error reported",
+                };
+                let command = excerpt(&shell["command"], 240).ok_or_else(refuse)?;
+                let output = excerpt(&shell["output"], 600).ok_or_else(refuse)?;
+                lines.push(format!(
+                    "Last shell result ({result}, not Verify): {command}"
+                ));
+                lines.push(output.into());
+            }
+            continue;
+        }
         let seen = match (step.state.known(), step.turn.present()) {
             (Some(S::Active), true) => {
                 let now = match step.turn.known() {
@@ -56,4 +100,10 @@ pub(super) fn render(run: &sdlc::Run) -> Result<Option<(Vec<String>, Worker)>, S
         lines.push("No worker step has been started for this run.".into());
     }
     Ok(Some((lines, worker)))
+}
+
+fn excerpt(value: &serde_json::Value, limit: usize) -> Option<&str> {
+    value
+        .as_str()
+        .filter(|text| text.chars().count() <= limit && !text.chars().any(char::is_control))
 }

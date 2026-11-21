@@ -67,6 +67,11 @@ requesting the unsupported per-run status or inventing gates and checklist count
 stay invalid. Watch neither migrates nor edits run files; tink-sdlc is unchanged.
 An agent saying it is done is never verification or acceptance evidence.
 
+When the runtime supplies a cap-stop checkpoint, Watch shows the stop, the saved list of
+local changes and the last completed shell result. The shell result is not Verify evidence.
+An unrecorded cap stop needs you. SDLC names the next action. Watch does not record the
+stop, resume the worker or sign a human check.
+
 ## Codex observation
 
 `--codex-report RUN_UUID:CHAT_ID:PATH` binds one saved observation to one run and chat for

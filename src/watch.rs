@@ -71,6 +71,8 @@ enum Worker {
     Running,
     /// Its turn ended: someone has to read the report and complete the step.
     Ended,
+    /// The launcher stopped the worker and saved evidence; someone must record the stop.
+    AtCap,
     Unknown,
     /// A launch tink-sdlc couldn't confirm: someone has to inspect it before another starts.
     Uncertain,
@@ -82,6 +84,7 @@ impl Worker {
             Self::Idle => "no active worker step",
             Self::Running => "worker running",
             Self::Ended => "worker's turn ended",
+            Self::AtCap => "worker stopped at its response cap",
             Self::Unknown => "worker state unknown",
             Self::Uncertain => "launch unconfirmed; inspect it before starting another",
         }
@@ -99,7 +102,10 @@ impl Run {
                 a.gate
                     || a.owed > 0
                     || a.recheck > 0
-                    || matches!(a.worker, Some(Worker::Ended | Worker::Uncertain))
+                    || matches!(
+                        a.worker,
+                        Some(Worker::Ended | Worker::AtCap | Worker::Uncertain)
+                    )
             })
     }
 
