@@ -37,6 +37,15 @@ if 'ledger' in r or r.get('kind') == 'teach-back':
     if reply == 'SLOW':
         import time
         time.sleep(60)
+    if isinstance(reply, dict) and 'TEST_SESSION' in reply:
+        # Pi's own record: one assistant line per response, then a pause before the reply prints.
+        import time
+        folder = pathlib.Path(sys.argv[sys.argv.index('--session-dir') + 1])
+        with (folder / 'TEST.jsonl').open('w') as session:
+            for stop in reply['TEST_SESSION']:
+                session.write(json.dumps({'type': 'message', 'message': {'role': 'assistant', 'stopReason': stop}}) + '\n')
+        time.sleep(reply['linger'])
+        reply = reply['reply']
     print(reply if isinstance(reply, str) else json.dumps(reply))
     sys.exit(0)
 with (home / 'think-calls.jsonl').open('a') as f:
