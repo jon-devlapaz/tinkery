@@ -1,7 +1,0 @@
-{
-  "item": "done-2",
-  "result": "passed",
-  "evidence": "Terminal refusal matrix: zero budget, one goal, 21 goals, oversized input, unreadable session and duplicate identities made zero calls.",
-  "candidate": "0eae082814d58c13e4f2f06b2fa1614382b4e5d6529d1e2a39434630da989b62",
-  "time_ns": 1794709785871390000
-}

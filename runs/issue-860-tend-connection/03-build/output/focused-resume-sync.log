@@ -1,9 +1,0 @@
-   Compiling tinkery v0.1.0 (/Users/jondev/dev/worktrees/tinkery/codex/issue-860-tend-connection)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.31s
-     Running unittests src/lib.rs (target/debug/deps/tinkery-457973c1358b1e14)
-
-running 1 test
-test seed_me::connection_save::tests::published_resume_retries_both_parent_syncs_before_reporting_success ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 947 filtered out; finished in 0.16s
-

@@ -54,7 +54,8 @@ Each reply spends the operator's attention, so it must earn its place ([Yohaku](
 Write in plain technical English, modelled on
 [simple-english](https://github.com/arekhalpern/simple-english) (ASD-STE100):
 
-- Lead with what the operator must decide or do, then the result. Ask at most one question.
+- Lead with what the operator must decide or do, then the result (BLUF). Ask at most one question.
+- Use SBAR (situation, background, assessment, recommendation) for handovers and status updates.
 - Cut each line that does not change what the operator does next.
 - Name the state of each claim: proposed, attempted, observed, checked or accepted.
   Say unknowns and failures plainly, with the next step.
@@ -157,7 +158,3 @@ stubs prove mechanics, not real-dump goal quality.
 - Stage skills: see the Skills section of the current stage's CONTEXT.md.
 - Need a specialised skill mid-task? `tink-route --receipt runs/<slug>/skills.jsonl "<what you need>"` prints it on stdout; exit 1 means none fits, so continue without one.
 <!-- End AI-Native SDLC Router -->
-
-## Response style
-
-Only respond to the user using ASD-STE100 Simplified Technical English and the Bottom Line Up Front (BLUF) approach. Use SBAR for handovers and status updates. These do not apply to code or when the user asks otherwise

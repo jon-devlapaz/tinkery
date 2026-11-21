@@ -83,7 +83,7 @@ keeps the current reading and switches the writing box to add words, not answer 
 Sending refines the same conversation, even with a ready reading. Skips persist; F1 brings the last one back. Separate
 goals stay aside, not in each other's constraints; deferred items remain seed context.
 Constraint-polarity errors remain possible; decision coverage is a model
-judgment, not proof that choices mean the same thing. See [#64 evidence](../../findings/README.md#goal-history-and-review-regression-check-64).
+judgment, not proof that choices mean the same thing.
 Originals are plain ink. Exact cited spans validate invisibly; uncited words are
 not implicitly rejected. Decimal-string source IDs are decoded as numeric IDs and
 noted in Why; the source must still exist and the quote and occurrence must match
@@ -138,8 +138,7 @@ header label shows the responses left; F1's Model and responses row opens the
 keeps the words and starts nothing; the refusal says to add responses. The
 [Model panel contract](menu.md#model-setup) defines what a response counts and why it does
 not cap spending.
-Practice and verification use fakes; [historical evals](#decision-review-evidence-34)
-promise no general quality.
+Practice and verification use fakes; past evals promise no general quality.
 
 `src/think/brain_dump/prompts/` holds one rule per line and a finding or eval note
 per tuned rule. Notes never reach models. Tests pin sent Pi bytes and decoder
@@ -451,15 +450,3 @@ Published proposal scope and current permission live in the linked GitHub issues
 [multiple-choice answer research](https://github.com/jon-devlapaz/tinkery/issues/426)
 and [evidence on demand](https://github.com/jon-devlapaz/tinkery/issues/428).
 Neither issue authorizes implementation.
-
-## Decision-review evidence (#34)
-
-See [historical evidence](../../findings/README.md#decision-review-evidence-34).
-
-## Evidence-note regression check (#58)
-
-See [historical evidence](../../findings/README.md#evidence-note-regression-check-58).
-
-## Goal-history and review regression check (#64)
-
-See [historical evidence](../../findings/README.md#goal-history-and-review-regression-check-64).

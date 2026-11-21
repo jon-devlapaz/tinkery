@@ -1,7 +1,0 @@
-{
-  "item": "done-5",
-  "result": "passed",
-  "evidence": "runs/issue-874-thought-feedback/04-test/output/thought-journeys.txt verifies reader/menu clearing; departure-pass.txt verifies new and duplicate notice clearing after Shape at both sizes. No goal confirmed wording checked.",
-  "candidate": "a66f2f91ea796d69fdc4f94c67cbbc643630d0d60a42f57dac005139bdd0ded3",
-  "time_ns": 1794774169410232000
-}

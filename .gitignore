@@ -2,3 +2,5 @@
 __pycache__/
 /.cloud-tools/
 .DS_Store
+# Raw Pi launch logs stay local; run records are committed.
+runs/*/steps/*.pi.log

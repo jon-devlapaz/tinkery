@@ -1,1 +1,0 @@
-{"consent": "local", "kind": "accepted", "prev": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "reviewer": "jon-devlapaz", "source": "operator chat: explicit merge authorization after isolated trial", "time_ns": 1794716269099605000, "words": "okay merge #861 if the checks are still green. keep #862 as needs-approval and don't start building it yet."}

@@ -1,7 +1,0 @@
-{
-  "item": "done-3",
-  "result": "passed",
-  "evidence": "runs/issue-862-tend-correction/03-build/output/: screens show exact multiline correction once. The public disclosure test compares the displayed current guidance with the fake provider request; response schema and supporting quotation checks remain unchanged.",
-  "candidate": "f2bd606d7224b0e8550ca103335f1a984ca5f80da3ed06687ef63e8b7bb3db88",
-  "time_ns": 1794717787768234000
-}

@@ -54,9 +54,8 @@ class ScopeTests(unittest.TestCase):
             file.write_text("# Page\n\nExisting prose.\n")
         return self.commit()
 
-    def test_constitution_design_and_research_prose_is_lightweight(self):
-        names = ["docs/yohaku.md", "docs/design/menu.md",
-                 "docs/research/shared/baseline.md"]
+    def test_constitution_and_design_prose_is_lightweight(self):
+        names = ["docs/yohaku.md", "docs/design/menu.md"]
         base = self.rebase_with(names)
         for name in names:
             with self.subTest(path=name):
@@ -66,7 +65,7 @@ class ScopeTests(unittest.TestCase):
 
     def test_prose_outside_the_allowlist_requires_full_checks(self):
         names = ["docs/terminal-setup.md", "docs/design/nested/page.md",
-                 "docs/research/page.md", "docs/design/menu.txt"]
+                 "docs/research/shared/page.md", "docs/design/menu.txt"]
         base = self.rebase_with(names)
         for name in names:
             with self.subTest(path=name):

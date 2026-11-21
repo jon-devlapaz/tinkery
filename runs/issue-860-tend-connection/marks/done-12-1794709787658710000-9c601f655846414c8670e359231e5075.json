@@ -1,7 +1,0 @@
-{
-  "item": "done-12",
-  "result": "passed",
-  "evidence": "Eight shared saver tests reconstruct receipt-only, partial/full staging and published states. PTYs restart real processes; final-update-loss is explicitly simulated. See handoff limits.",
-  "candidate": "0eae082814d58c13e4f2f06b2fa1614382b4e5d6529d1e2a39434630da989b62",
-  "time_ns": 1794709787658710000
-}

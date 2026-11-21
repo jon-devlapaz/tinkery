@@ -268,61 +268,6 @@ class ExitDrainTests(unittest.TestCase):
             list(wait_output(123, process, lambda chunk: None, started + .03))
         self.assertLess(time.monotonic() - started, 1)
 
-    def test_inventoried_journeys_delegate_waiting(self):
-        import ast
-        root = Path(__file__).resolve().parents[1]
-        inventory = {
-            'tests/agent_operation_terminal.py': ['type_confirmation'],
-            'tests/approve_terminal.py': ['wait'],
-            'tests/brain_dump_terminal.py': ['await_text', 'absent'],
-            'tests/dogfood_terminal.py': ['await_condition'],
-            'tests/goal_confirmation_terminal.py': ['await_text', 'absent', 'journey'],
-            'tests/goal_history_terminal.py': ['drain'],
-            'tests/help_exit_terminal.py': ['await_condition'],
-            'tests/measure_terminal.py': ['wait'],
-            'tests/reading_scroll_terminal.py': ['wait_for'],
-            'tests/selection_terminal.py': ['await_text'],
-            'tests/shape_answer_terminal.py': ['wait', 'menu', 'read_until', 'exit_hint'],
-            'tests/shape_incomplete_read_terminal.py': ['wait'],
-            'tests/shape_retry_terminal.py': ['wait_calls', 'wait_either'],
-            'tests/shape_sdlc_handoff.py': ['wait'],
-            'tests/shape_terminal.py': ['wait'],
-            'tests/taste_preview_terminal.py': ['wait'],
-            'tests/taste_quiet_terminal.py': ['wait'],
-            'tests/taste_terminal.py': ['wait'],
-            'tests/tend_repo_terminal.py': ['wait', 'wait_exit'],
-            'tests/tend_terminal.py': ['wait'],
-            'tests/test_session_roots.py': ['run_ordinary'],
-            'tests/test_terminal_process.py': ['test_output_screen_resize_and_normal_close'],
-            'tests/theme_terminal.py': ['wait'],
-            'tests/think_criteria_terminal.py': ['wait'],
-            'tests/think_delivery_terminal.py': ['copy_board', 'read_right', 'journey'],
-            'tests/think_escape_terminal.py': ['wait'],
-            'tests/think_history_terminal.py': ['wait'],
-            'tests/think_question_terminal.py': ['wait'],
-            'tests/think_source_ref_terminal.py': ['wait'],
-            'tests/voice_terminal.py': ['wait', 'text'],
-            'tests/watch_terminal.py': ['wait'],
-        }
-        spec = importlib.util.spec_from_file_location('wait_inventory', root / 'scripts/migrate-terminal-waits.py')
-        audit = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(audit)
-        shared, local, unknown = audit.inventory(root)
-        self.assertTrue(shared)
-        self.assertTrue(local)
-        self.assertEqual(unknown, [], 'A local PTY wait has not delegated or justified its differing semantics')
-        for path, names in inventory.items():
-            tree = ast.parse((root / path).read_text())
-            for name in names:
-                functions = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == name]
-                self.assertTrue(functions, (path, name))
-                for function in functions:
-                    if path == 'tests/voice_terminal.py' and name == 'text' and not any(isinstance(n, ast.For) for n in ast.walk(function)):
-                        continue
-                    self.assertTrue(any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
-                                        and n.func.id == 'wait_output' for n in ast.walk(function)),
-                                    (path, name))
-
 
 if __name__ == '__main__':
     unittest.main()

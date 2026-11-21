@@ -1,9 +1,0 @@
-{
-  "assertion_count": 54,
-  "variant_count": 68,
-  "assertions_unchanged": true,
-  "post_setup_behavior_unchanged": true,
-  "matrix_unchanged": true,
-  "baseline_sha256": "dbc99f26adeb43f6327b359bbd8ea003504ff286e2321640fe4ab886b3170e8d",
-  "candidate_sha256": "c73da56af131691fb03699871e7afd5e8b6bea07c50f73db2bb819e7cb2a808a"
-}
