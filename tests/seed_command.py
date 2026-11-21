@@ -293,7 +293,7 @@ def capped():
             run = Run(directory, [{'TEST_SESSION': stops, 'linger': linger, 'reply': QUESTION}], budget=3, agent=True)
             session = run.ok('new', 'goal.txt', drafting=False).strip()
             run.ok('step', session, 'look')
-            run.ok('step', session, 'answer', 'TEST no sample: fixture')
+            run.ok('step', session, 'answer', 'TEST sample: one fixture line')
             if kept:
                 now = json.loads(run.ok('step', session, 'answer', 'TEST skip'))['now']
                 assert now['question'] == QUESTION['question'], now
