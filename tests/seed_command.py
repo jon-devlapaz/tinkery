@@ -280,6 +280,24 @@ def readings():
     print('seed command readings passed: a listed reading is asked with no suggestion, stays gray, clears on the operator\'s words; 2 stub calls')
 
 
+def capped():
+    """#950: a reply on the last allowed response is kept even when Pi exits slowly; tool calls are not."""
+    for stops, linger, kept in [(['toolUse', 'toolUse', 'stop'], 4, True), (['toolUse'] * 3, 30, False)]:
+        with tempfile.TemporaryDirectory(prefix='tinkery-TEST-seed-command-') as directory:
+            run = Run(directory, [{'TEST_SESSION': stops, 'linger': linger, 'reply': QUESTION}], budget=3, agent=True)
+            session = run.ok('new', 'goal.txt', drafting=False).strip()
+            run.ok('step', session, 'look')
+            run.ok('step', session, 'answer', 'TEST no sample: fixture')
+            if kept:
+                now = json.loads(run.ok('step', session, 'answer', 'TEST skip'))['now']
+                assert now['question'] == QUESTION['question'], now
+            else:
+                run.refused('Pi was stopped at the drafting response limit after 3 model responses. No reply was kept.',
+                            'step', session, 'answer', 'TEST skip')
+                assert json.loads(run.ok('show', session, drafting=False))['now']['stage'] == 'waiting'
+    print('seed command cap passed: a final reply on the 3rd of 3 responses is kept after a 4 s exit; 3 tool calls are stopped')
+
+
 if __name__ == '__main__':
     for agent in [False, True]:
         journey(agent)
@@ -287,4 +305,5 @@ if __name__ == '__main__':
     commandless()
     relayed()
     readings()
+    capped()
     refusals()
