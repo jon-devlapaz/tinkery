@@ -203,6 +203,15 @@ fn decisions_lines(ledger: &Value) -> Result<Vec<(String, String)>> {
                     one_line(node["revisit_condition"].string().unwrap())
                 ),
             ));
+        } else {
+            continue;
+        }
+        if id == crate::seed_me::answering::UNOBSERVED.0 {
+            rows.push((
+                id.into(),
+                "  Unknown: nobody has observed this need. The real-sample answer gave no sample."
+                    .into(),
+            ));
         }
     }
     if let Some(base) = crate::seed_me::retry::base(ledger)? {

@@ -126,7 +126,7 @@ def journey(width, height):
             run.open_shape()
             run.wait('enter look into the next question')
             run.send(F2, 'Probe: real sample')
-            run.type('no sample: TEST nothing real yet')
+            run.type('TEST sample: one pasted line')
             run.send(F2, 'Probe: pre-mortem')
             run.type('TEST private text could appear.')
             run.send(F2, 'Keep records local or synced?')

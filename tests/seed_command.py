@@ -78,7 +78,10 @@ def journey(agent):
         asked = json.loads(run.ok('step', session, 'look'))['now']
         assert asked['stage'] == 'question' and asked['id'] == 'probe-real-sample' and asked['suggestion'] is None
         run.refused('no suggestion to delegate', 'step', session, 'delegate')
-        asked = json.loads(run.ok('step', session, 'answer', 'TEST no sample: fixture'))['now']
+        # #952: "no sample" means nobody observed the need, so Shape asks who needs it, still without a model.
+        asked = json.loads(run.ok('step', session, 'answer', 'TEST eval: no sample'))['now']
+        assert asked['id'] == 'unobserved-need' and asked['suggestion'] is None, asked
+        asked = json.loads(run.ok('step', session, 'answer', 'TEST nobody asked; build it to learn'))['now']
         assert asked['id'] == 'probe-pre-mortem'
         assert run.calls() == [], 'A probe called a model'
 
@@ -99,7 +102,10 @@ def journey(agent):
         assert delegated and delegated[0]['authority'] == 'delegated', decided
         assert all(d['authority'] != 'user' for d in decided), 'An operator answer was listed as decided without them'
         # #931: a question Shape asked and nobody but the operator may settle stays gray.
-        assert [g['label'] for g in listed['gray']] == [QUESTION['label']], listed['gray']
+        # An agent's answer to who needs it is not the operator's, so it stays gray too.
+        unobserved = ['Unobserved need'] if agent else []
+        assert [g['label'] for g in listed['gray']] == unobserved + [QUESTION['label']], listed['gray']
+        assert 'Unknown: nobody has observed this need.' in seed, 'The Tink states the unobserved need as fact'
         shown = listed['now']
         assert shown['risks'] == draft['risks']
         cases = ['Drafting step guess:', 'Must fail: TEST wrong output must fail',
@@ -130,7 +136,7 @@ def no_gray():
         run = Run(directory, [SEED], agent=True)
         session = run.ok('new', 'goal.txt', drafting=False).strip()
         run.ok('step', session, 'look')
-        run.ok('step', session, 'answer', 'TEST no sample: fixture')
+        run.ok('step', session, 'answer', 'TEST sample: one fixture line')
         draft = json.loads(run.ok('step', session, 'answer', 'TEST skip'))
         assert draft['now']['stage'] == 'draft', draft['now']
         assert draft['gray'] == [], draft['gray']
@@ -140,7 +146,7 @@ def no_gray():
         run = Run(directory, [QUESTION, SEED])
         session = run.ok('new', 'goal.txt', drafting=False).strip()
         run.ok('step', session, 'look')
-        run.ok('step', session, 'answer', 'TEST no sample: fixture')
+        run.ok('step', session, 'answer', 'TEST sample: one fixture line')
         assert json.loads(run.ok('step', session, 'answer', 'TEST skip'))['now']['stage'] == 'question'
         draft = json.loads(run.ok('step', session, 'answer', 'TEST plain text refusals'))
         assert draft['now']['stage'] == 'draft', draft['now']
@@ -158,7 +164,7 @@ def relayed():
         bad.write_text(json.dumps({'words': 'TEST plain text refusals'}))
         session = run.ok('new', 'goal.txt', drafting=False).strip()
         run.ok('step', session, 'look')
-        run.ok('step', session, 'answer', 'TEST no sample: fixture')
+        run.ok('step', session, 'answer', 'TEST sample: one fixture line')
         assert json.loads(run.ok('step', session, 'answer', 'TEST skip'))['now']['stage'] == 'question'
         before = run.files()
         run.refused('--relayed must name', 'step', session, 'answer', '--relayed', str(bad))
@@ -183,7 +189,7 @@ def relayed():
         relay.write_text(json.dumps({'words': 'TEST words', 'where': 'TEST thread'}))
         session = run.ok('new', 'goal.txt', drafting=False).strip()
         run.ok('step', session, 'look')
-        run.ok('step', session, 'answer', 'TEST no sample: fixture')
+        run.ok('step', session, 'answer', 'TEST sample: one fixture line')
         run.ok('step', session, 'answer', 'TEST skip')
         before = run.files()
         run.refused('launch with --operator agent', 'step', session, 'answer', '--relayed', str(relay))
@@ -201,7 +207,7 @@ def commandless():
         run = Run(directory, [broken, fixed], agent=True)
         session = run.ok('new', 'goal.txt', drafting=False).strip()
         run.ok('step', session, 'look')
-        run.ok('step', session, 'answer', 'TEST no sample: fixture')
+        run.ok('step', session, 'answer', 'TEST sample: one fixture line')
         before = run.files()
         run.refused('check 1: Missing command', 'step', session, 'answer', 'TEST skip')
         assert not (Path(session) / 'seed-contract.md').exists(), 'A commandless check was saved as a draft'
@@ -216,7 +222,7 @@ def commandless():
         run = Run(directory, [{**SEED, 'checks': [judge]}], agent=True)
         session = run.ok('new', 'goal.txt', drafting=False).strip()
         run.ok('step', session, 'look')
-        run.ok('step', session, 'answer', 'TEST no sample: fixture')
+        run.ok('step', session, 'answer', 'TEST sample: one fixture line')
         run.refused('check 1: Missing manual steps', 'step', session, 'answer', 'TEST skip')
         assert not (Path(session) / 'seed-contract.md').exists(), 'A judge check without steps was saved'
     print('seed command commandless passed: checks confirmation would refuse are refused when drafted; a fixed retry confirms; 3 stub calls')
@@ -246,7 +252,7 @@ def refusals():
         # The probes need no model, so a zero allowance still asks them, then stops at the first call.
         run.ok('step', session, 'look')
         before = run.files()
-        run.refused('No drafting responses are left', 'step', session, 'answer', 'TEST no sample')
+        run.refused('No drafting responses are left', 'step', session, 'answer', 'TEST sample: one fixture line')
         run.refused('The answer is empty', 'step', session, 'answer', ' ')
         assert run.files() == before and run.calls() == [], 'A refused step wrote or called a model'
         print('seed command refusals passed: empty goal, undeclared operator, no drafting, zero budget, empty answer; zero stub calls')
@@ -263,7 +269,7 @@ def readings():
         relay.write_text(json.dumps({'words': 'TEST erase and offer undo', 'where': 'TEST project thread'}))
         session = run.ok('new', 'goal.txt', drafting=False).strip()
         run.ok('step', session, 'look')
-        run.ok('step', session, 'answer', 'TEST no sample: fixture')
+        run.ok('step', session, 'answer', 'TEST sample: one fixture line')
         asked = json.loads(run.ok('step', session, 'answer', 'TEST skip'))
         now = asked['now']
         assert now['stage'] == 'question', now

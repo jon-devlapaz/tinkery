@@ -902,6 +902,15 @@ itself, in that order.
   ([#740](https://github.com/jon-devlapaz/tinkery/issues/740): a seed verified 5/5 against invented
   fixtures and failed on the operator's real vault). The answer is saved verbatim and reaches
   drafting as a settled decision; the model is not told to treat it specially, so no prompt changed.
+- If that answer contains `no sample`, nobody has observed the need. The next step records
+  `Unobserved need` (`You gave no sample, so nothing shows that anyone needs this. Who asked for it?
+  If nobody did, say why to build it anyway.`) as the current question, before the pre-mortem and
+  without a model call or budget. The screen says `Name who asked, or say why to build it anyway. F1
+  can stop this session instead.` Unlike the probes, it is gray unless the operator answers it in
+  their own words. The seed's Decisions show its answer and, under it, `Unknown: nobody has observed
+  this need.` ([#952](https://github.com/jon-devlapaz/tinkery/issues/952): a seed whose need an agent
+  wrote went to a PR, and the operator then said "No one" wanted it). Other wording of "none" is
+  not detected.
 - With no current question and no `probe-pre-mortem` node, a step records `Probe: pre-mortem`
   (`Imagine this shipped and turned out wrong. What is the most likely reason?`) as the current
   question, without a model call or budget. The operator answers it with Enter like any question,
@@ -978,7 +987,8 @@ tinkery [options] seed step DIR look|delegate|answer WORDS|answer --relayed FILE
   `decided_without_you` lists each settled answer whose authority is not `user`, with that
   authority, then each assumed default as `assumed`. `gray` lists each decision in the ledger,
   asked or added by a change to the draft, that the operator has not answered in their own words: open, or settled or deferred with any
-  authority but `user`, including an operator's own Delegate. The two fixed probes never count.
+  authority but `user`, including an operator's own Delegate. The two fixed probes never count;
+  the unobserved need does.
   An empty `gray` means only that no asked question was settled without the operator. A gray
   choice that Shape neither asked nor listed in a draft's `readings` is not detected. Read-only.
 - `step` takes one action from a fresh read, then prints `show`. `look`, `answer` and `delegate`

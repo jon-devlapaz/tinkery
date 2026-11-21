@@ -43,7 +43,7 @@ pub(super) fn resolved_read_only_step(question_first: bool) {
         &session,
         version,
         answering::SAMPLE.0,
-        "TEST no sample",
+        "TEST sample: one pasted line",
         None,
     )
     .unwrap();

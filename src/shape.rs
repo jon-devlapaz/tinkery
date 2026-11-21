@@ -31,7 +31,9 @@ use crate::{
     Palette,
     seed_me::{
         Session, Stage,
-        answering::{self, Assumption, Ending, NOTHING_FOUND, OBJECTION, PROBE, Refusal, SAMPLE},
+        answering::{
+            self, Assumption, Ending, NOTHING_FOUND, OBJECTION, PROBE, Refusal, SAMPLE, UNOBSERVED,
+        },
         shaping::{self, Shaped, Shaping},
     },
 };
@@ -2290,20 +2292,17 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                 if calm { palette.muted } else { palette.jade },
             ));
             if !calm {
-                if id != PROBE.0
-                    && id != SAMPLE.0
-                    && title != OBJECTION
-                    && !gate.is_empty()
-                    && gate != ask
-                {
+                // Tinkery's own probe and objection questions ask for the operator's words, not evidence.
+                let own =
+                    [PROBE.0, SAMPLE.0, UNOBSERVED.0].contains(&id.as_str()) || title == OBJECTION;
+                if !own && !gate.is_empty() && gate != ask {
                     lines.push(Line::styled(
                         format!("What your answer changes: {gate}"),
                         palette.ink,
                     ));
                 }
                 lines.push(Line::default());
-                // Tinkery's own probe and objection questions ask for the operator's words, not evidence.
-                if found.is_empty() && id != PROBE.0 && id != SAMPLE.0 && title != OBJECTION {
+                if found.is_empty() && !own {
                     lines.push(Line::styled(
                         "Nothing found: this question records nothing checked in the repository.",
                         palette.ink,
@@ -2318,6 +2317,12 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                 if id == SAMPLE.0 {
                     lines.push(Line::styled(
                         "Checks are drafted against this. Paste an excerpt, or type no sample and why.",
+                        palette.ink,
+                    ));
+                }
+                if id == UNOBSERVED.0 {
+                    lines.push(Line::styled(
+                        "Name who asked, or say why to build it anyway. F1 can stop this session instead.",
                         palette.ink,
                     ));
                 }

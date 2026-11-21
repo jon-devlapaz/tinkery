@@ -175,7 +175,7 @@ fn settled_probe_step() {
         &session,
         version,
         answering::SAMPLE.0,
-        "TEST no sample",
+        "TEST sample: one pasted line",
         None,
     )
     .unwrap();
