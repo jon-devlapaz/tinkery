@@ -138,7 +138,7 @@ fn captured_missing_source_preserves_the_answer_and_recovers_on_next_look() {
         &session,
         version,
         answering::SAMPLE.0,
-        "TEST no sample",
+        "TEST sample: one pasted line",
         None,
     )
     .unwrap();
@@ -431,7 +431,7 @@ fn recorded_361_refusals_name_unsafe_coverage_and_preserve_saved_answers() {
             &session,
             version,
             answering::SAMPLE.0,
-            "TEST no sample",
+            "TEST sample: one pasted line",
             None,
         )
         .unwrap();
@@ -830,7 +830,7 @@ fn a_claude_code_step_reads_only_the_shown_folder_and_drafts_from_its_json_resul
         &session,
         version,
         answering::SAMPLE.0,
-        "TEST no sample",
+        "TEST sample: one pasted line",
         None,
     )
     .unwrap();
@@ -1122,7 +1122,7 @@ fn a_goal_past_32_kib_still_reaches_the_model() {
         &session,
         version,
         answering::SAMPLE.0,
-        "TEST no sample",
+        "TEST sample: one pasted line",
         None,
     )
     .unwrap();

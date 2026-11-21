@@ -148,7 +148,7 @@ def shape(root, env):
         send(b'\r', 'enter look into the next question')
         # A real sample, then Seed Me's pre-mortem, come first, without a model call (#740).
         send(b'\x1bOQ', 'Paste one real example of what this will work on')
-        send(b'no sample: TEST new game', 'no sample: TEST new game')
+        send(b'TEST sample: a new game', 'TEST sample: a new game')
         send(b'\x1bOQ', 'Imagine this shipped and turned out wrong. What is the most likely reason?')
         send(b'TEST The sounds were missing.', 'TEST The sounds were missing.')
         send(b'\x1bOQ', 'Tink Contract r1')

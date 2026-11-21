@@ -24,7 +24,7 @@ mod citations;
 mod probes;
 mod seed_reply;
 
-pub use probes::{PROBE, SAMPLE, probe};
+pub use probes::{PROBE, SAMPLE, UNOBSERVED, probe};
 
 use citations::unfound;
 
@@ -483,8 +483,9 @@ fn json(text: &str) -> Result<Value, Refusal> {
 
 /// Each decision in a parsed `ledger` that the operator has not answered in their own words: open,
 /// or settled or deferred by anyone else, including a decision a draft change added. The fixed
-/// probes never count. An empty list promises only that no recorded decision was settled without
-/// the operator; a gray choice Shape neither asked nor listed as a draft reading is not detected.
+/// probes never count; the unobserved need does. An empty list promises only that no recorded
+/// decision was settled without the operator; a gray choice Shape neither asked nor listed as a
+/// draft reading is not detected.
 pub fn gray(ledger: &Value) -> Vec<Value> {
     let probes = [PROBE.0, SAMPLE.0];
     ledger["nodes"]

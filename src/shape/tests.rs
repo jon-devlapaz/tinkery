@@ -3351,7 +3351,7 @@ fn answered_probe(session: &Path) -> u64 {
     use crate::seed_me::answering;
     let mut version = answering::read(session).unwrap().version();
     for (id, words) in [
-        (answering::SAMPLE.0, "TEST no sample: nothing real yet"),
+        (answering::SAMPLE.0, "TEST sample: one pasted line"),
         (answering::PROBE.0, "TEST pre-mortem answer"),
     ] {
         version = answering::probe(session, version).unwrap().unwrap();
@@ -3440,7 +3440,7 @@ fn the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model
         &session,
         version,
         answering::SAMPLE.0,
-        "TEST no sample",
+        "TEST sample: one pasted line",
         None,
     )
     .unwrap();
@@ -3491,7 +3491,7 @@ fn the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model
         &session,
         version,
         answering::SAMPLE.0,
-        "TEST no sample",
+        "TEST sample: one pasted line",
         None,
     )
     .unwrap();
@@ -3502,6 +3502,150 @@ fn the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model
     assert!(
         ask.ends_with("NOT independent: asked after findings were shown."),
         "{ask}"
+    );
+}
+
+/// #952: a "no sample" answer means nobody observed the need. Shape asks who needs it, without a
+/// model, before any seed, and the seed shows the need as unknown beside the operator's choice.
+#[cfg(unix)]
+#[test]
+fn a_no_sample_answer_stops_the_seed_until_the_operator_names_who_needs_it() {
+    use crate::{
+        pi::CallBudget,
+        seed_me::{Affirmed, Config, answering, ledger, shaping},
+    };
+    use std::{
+        fs,
+        os::unix::fs::PermissionsExt,
+        time::{Duration, Instant},
+    };
+
+    let temp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-952-")
+        .tempdir()
+        .unwrap();
+    let goal = "TEST I can check a seed.\nWhy: Intake needs an eval.\nDone when: Existing output is correct.\n- New output is correct.\n- The result feels calm.\nMust: Keep my words; existing check is ./TEST-check with expected output TEST existing output in cwd .\nMust not: Build without approval.";
+    let session = Config::new(Some(temp.path().join("TEST-sessions")))
+        .confirm(Affirmed {
+            goal: goal.into(),
+            outcome: "TEST checks".into(),
+            options: vec![],
+            originals: vec![],
+            context: "{}".into(),
+            source: "TEST fixture, not real approval".into(),
+        })
+        .unwrap()
+        .session;
+    let confirming = serde_json::to_string(&prose_reply(include_str!(
+        "../../tests/fixtures/shape-seed-reply.txt"
+    )))
+    .unwrap();
+    let checks = include_str!("../../tests/fixtures/shape-checks.json");
+    let program = temp.path().join("TEST-pi");
+    fs::write(
+        &program,
+        format!(
+            r##"#!/usr/bin/env python3
+import json, pathlib, sys
+sys.stdin.read()
+pathlib.Path('TEST-MODEL-WAS-CALLED').touch()
+print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': json.loads({confirming:?}), 'checks': json.loads({checks:?}), 'review': {{'contradictions': [], 'decided': [], 'done': [], 'failure_cases': ['TEST wrong result must fail' for _ in json.loads({checks:?})]}}, 'found': []}}))
+"##
+        ),
+    )
+    .unwrap();
+    fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
+    let agent = Arc::new(
+        step::Agent::new(
+            crate::pi::Harness::Pi,
+            program,
+            "test/stub".into(),
+            String::new(),
+            Some(temp.path().into()),
+            CallBudget::new(1),
+            None,
+        )
+        .unwrap(),
+    );
+    let step = |work| {
+        let running = step::Running::start(work, session.clone(), agent.clone());
+        let deadline = Instant::now() + Duration::from_secs(20);
+        loop {
+            if let Some(result) = running.poll() {
+                break result;
+            }
+            assert!(Instant::now() < deadline, "step timed out");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    };
+    let version = || answering::read(&session).unwrap().version();
+    let answer = |id: &str, words: &str| {
+        step(step::Work::Answer {
+            id: id.into(),
+            words: words.into(),
+            relay: None,
+            expected: version(),
+            folder: temp.path().into(),
+        })
+    };
+    let current = || match shaping::read(&session).unwrap().stage {
+        Shaped::Question { id, ask, .. } => (id, ask),
+        stage => panic!("no current question: {stage:?}"),
+    };
+    let gray = || {
+        let saved: serde_json::Value =
+            serde_json::from_str(&ledger::load(&session).unwrap().pretty().unwrap()).unwrap();
+        answering::gray(&saved)
+            .iter()
+            .map(|g| g["id"].as_str().unwrap().to_owned())
+            .collect::<Vec<_>>()
+    };
+    let asked = Ok(step::Done::Asked(step::Asked::default()));
+
+    assert_eq!(
+        step(step::Work::Look {
+            feedback: None,
+            expected: version(),
+            folder: temp.path().into(),
+        }),
+        asked
+    );
+    assert_eq!(current().0, answering::SAMPLE.0);
+    // The answer the dogfood-932 run gave.
+    assert_eq!(answer(answering::SAMPLE.0, "TEST eval: no sample"), asked);
+    let (id, ask) = current();
+    assert_eq!((id.as_str(), ask.as_str()), answering::UNOBSERVED);
+    assert_eq!(gray(), [answering::UNOBSERVED.0]);
+    assert!(!temp.path().join("TEST-MODEL-WAS-CALLED").exists());
+    assert_eq!(
+        agent.remaining(),
+        1,
+        "the unobserved need used a model call"
+    );
+
+    let choice = "TEST nobody asked; build it to learn whether anyone copies";
+    assert_eq!(answer(answering::UNOBSERVED.0, choice), asked);
+    assert_eq!(current().0, answering::PROBE.0);
+    assert_eq!(
+        answer(answering::PROBE.0, "TEST skip"),
+        Ok(step::Done::Drafted)
+    );
+    assert!(gray().is_empty(), "the operator's own answer is not gray");
+    let Shaped::Drafted {
+        text: Some(text), ..
+    } = shaping::read(&session).unwrap().stage
+    else {
+        panic!("not a draft")
+    };
+    let decisions = text
+        .split("## Decisions (from the ledger)")
+        .nth(1)
+        .unwrap_or_default();
+    assert!(
+        decisions.contains(&format!(
+            "- unobserved-need [user] {choice} (source: The operator answered with these words in Tinkery Shape.)\n  Unknown: nobody has observed this need.\n"
+        )),
+        "the seed does not show the unobserved need:\n{text}"
     );
 }
 

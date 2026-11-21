@@ -91,7 +91,7 @@
       "reviewed_version": 6
     },
     {
-      "answer": "no sample: TEST toy CLI with no real input yet",
+      "answer": "TEST sample: toy CLI input line",
       "authority": "user",
       "authority_source": "The operator answered with these words in Tinkery Shape.",
       "evidence": [],

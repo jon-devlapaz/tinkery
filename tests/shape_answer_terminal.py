@@ -169,7 +169,7 @@ def make(root, question=True, operator='human', goal=GOAL):
         nodes.append(node('storage', status='unresolved', label='Where records live',
                           question='Keep records local or synced?'))
     # Most cases are about later steps, so both probes are already answered.
-    nodes.append(node('probe-real-sample', status='settled', answer='TEST no sample', authority=authority,
+    nodes.append(node('probe-real-sample', status='settled', answer='TEST sample: one pasted line', authority=authority,
                       authority_source='TEST fixture, not real approval', label='Probe: real sample',
                       question='Paste one real example of what this will work on, or say where one lives. '
                                'If there is none, type no sample and say why.'))
@@ -1620,6 +1620,10 @@ def exit_hint(width, height, stage):
                 run.wait('enter look into the next question')
                 run.send(F2, 'Probe: real sample')
                 run.type('no sample')
+                # #952: nobody observed the need, so Shape asks who needs it before the seed.
+                run.send(F2, 'Unobserved need')
+                assert 'F1 can stop this session instead.' in run.flat(), run.screen.text()
+                run.type('TEST nobody; build it to learn')
                 run.send(F2, 'Probe: pre-mortem')
                 # The skip the screen names is a settled answer, not a deferral (#625).
                 run.type('skip')
