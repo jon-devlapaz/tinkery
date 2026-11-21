@@ -5,8 +5,7 @@ use serde_json::Value;
 use std::path::{Path, PathBuf};
 
 fn clean_path(s: &str) -> bool {
-    !s.chars()
-        .any(|c| c.is_control() || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'))
+    !s.chars().any(crate::steers_terminal)
 }
 
 fn resolve(root: &Path, relative: &str) -> Result<PathBuf, String> {
@@ -267,6 +266,7 @@ mod tests {
             "src\n",
             "src\t",
             "src\u{202e}",
+            "src\u{200f}",
         ] {
             assert!(
                 checking_directory(Path::new("/TEST"), source).is_err(),

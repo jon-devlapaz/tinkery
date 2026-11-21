@@ -299,14 +299,7 @@ impl Garden {
                 "Thought {} of {}\n{}",
                 self.selected + 1,
                 entries.len(),
-                entries[self.selected]
-                    .chars()
-                    .map(|c| if c.is_control() && c != '\n' {
-                        '�'
-                    } else {
-                        c
-                    })
-                    .collect::<String>()
+                crate::shown(&entries[self.selected])
             ),
             Err(reason) => format!("Thoughts could not be read: {reason}"),
         };

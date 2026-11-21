@@ -6,7 +6,6 @@ mod records;
 #[cfg(test)]
 mod tests;
 
-use super::visible;
 use crate::{Palette, clipped, sdlc};
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
@@ -222,7 +221,7 @@ fn render_list(
             held_word(&run.held)
         );
         let name = clipped(
-            &visible(&run.slug),
+            &crate::shown_line(&run.slug),
             usize::from(area.width).saturating_sub(numbers.len() + 2),
         );
         let line = Line::from(vec![
@@ -243,7 +242,7 @@ fn render_list(
 }
 
 fn details(run: &Closed) -> String {
-    let mut lines = vec![visible(&run.slug)];
+    let mut lines = vec![crate::shown_line(&run.slug)];
     lines.push(match &run.merge {
         Some(commit) => format!("Merged as {commit}"),
         None => "Abandoned".into(),
@@ -256,7 +255,9 @@ fn details(run: &Closed) -> String {
     );
     lines.push(format!(
         "PR: {}",
-        run.pr.as_deref().map_or("not recorded".into(), visible)
+        run.pr
+            .as_deref()
+            .map_or("not recorded".into(), crate::shown_line)
     ));
     lines.push(match &run.held {
         Hold::Abandoned => "Held: no merge to hold".into(),
@@ -265,7 +266,7 @@ fn details(run: &Closed) -> String {
         Hold::TooRecent => {
             format!("Held: too recent; not reverted yet, closed under {HOLD_DAYS} days ago")
         }
-        Hold::Unknown(why) => format!("Held: unknown; {}", visible(why)),
+        Hold::Unknown(why) => format!("Held: unknown; {}", crate::shown_line(why)),
     });
     lines.push(String::new());
     lines.push(format!("Gates: {} by you", run.gates()));
@@ -278,8 +279,8 @@ fn details(run: &Closed) -> String {
         lines.push(format!(
             "  stage {} {} · {}{by}",
             d.stage,
-            visible(&d.decision),
-            visible(&d.reviewer)
+            crate::shown_line(&d.decision),
+            crate::shown_line(&d.reviewer)
         ));
     }
     lines.push(String::new());
@@ -290,7 +291,11 @@ fn details(run: &Closed) -> String {
                 count(run.corrections())
             ));
             for label in labels.iter().rev() {
-                lines.push(format!("  {}: {}", label.kind, visible(&label.words)));
+                lines.push(format!(
+                    "  {}: {}",
+                    label.kind,
+                    crate::shown_line(&label.words)
+                ));
             }
         }
         Err(why) => lines.push(format!("Corrections: unknown; {why}")),
@@ -303,7 +308,7 @@ fn details(run: &Closed) -> String {
     for (step, n) in &run.steps {
         lines.push(format!(
             "  {}: {}",
-            visible(step),
+            crate::shown_line(step),
             n.map_or("unknown, no readable launch log".into(), |n| n.to_string())
         ));
     }

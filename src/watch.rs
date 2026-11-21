@@ -839,21 +839,7 @@ fn clip_line(line: &mut Line<'_>, mut remaining: usize) {
 
 fn goal_lines(goal: &str, palette: Palette) -> Vec<Line<'static>> {
     goal.split('\n')
-        .map(|line| {
-            let safe: String = line
-                .chars()
-                .flat_map(|c| {
-                    if c.is_control()
-                        || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
-                    {
-                        c.escape_default().collect::<Vec<_>>()
-                    } else {
-                        vec![c]
-                    }
-                })
-                .collect();
-            Line::styled(safe, palette.ink)
-        })
+        .map(|line| Line::styled(crate::shown_line(line), palette.ink))
         .collect()
 }
 
