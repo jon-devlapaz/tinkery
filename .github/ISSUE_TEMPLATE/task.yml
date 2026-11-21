@@ -12,7 +12,7 @@ body:
     id: area
     attributes:
       label: Primary area
-      options: [think, tend, shape, approve, watch, taste, measure, menu, shared]
+      options: [think, tend, shape, approve, watch, taste, measure, menu, worker, shared]
     validations:
       required: true
   - type: dropdown

@@ -5,6 +5,7 @@ Keeps the existing installed compiler/cache locations; never installs tools or u
 operator application roots. No external skill checkout is needed.
 """
 import argparse
+import importlib.util
 import os
 from pathlib import Path
 import re
@@ -14,6 +15,10 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tests'))
 import test_launch
+
+_spec = importlib.util.spec_from_file_location('bundled_sdlc', ROOT / '_system/scripts/sdlc.py')
+sdlc = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(sdlc)
 
 
 GROUPS = {
@@ -74,9 +79,11 @@ def main(argv=()):
         installed_home = Path(env['HOME'])
         env.setdefault('CARGO_HOME', str(installed_home / '.cargo'))
         env.setdefault('RUSTUP_HOME', str(installed_home / '.rustup'))
-        env.pop('SEED_ME_TEST_SKILL', None)
         # A tink-sdlc build step marks its worker env; label tests run outside that session.
         env.pop('TINK_SDLC_STEP_SESSION', None)
+        # The bundled verify refuses runner options from the caller (#197); cloud shells set some.
+        for name in sdlc.RUNNER_ENV:
+            env.pop(name, None)
         env.update(HOME=str(home), PYTHONDONTWRITEBYTECODE='1', TINKERY_NODE='/tinkery-TEST-no-node')
         script = Path(directory) / 'full-check.sh'
         script.write_text(command)
