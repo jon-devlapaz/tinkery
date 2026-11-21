@@ -1,7 +1,0 @@
-{
-  "item": "done-10",
-  "result": "passed",
-  "evidence": "Public journeys pass. Original correction-input and freshness reversion evidence remains valid. New compiled reversions detect lost final newline and missing capture proposal. See 03-build/output/reversion-exact-correction-end.log, reversion-capture-context.log and review-repair-focused.log.",
-  "candidate": "33e015eaa500ca3973ca9232d3a4621e0000659f962bd54ef7a45e6bbc0f05d2",
-  "time_ns": 1794718805962515000
-}

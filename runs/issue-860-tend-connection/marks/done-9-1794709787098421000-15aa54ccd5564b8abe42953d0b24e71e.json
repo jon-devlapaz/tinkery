@@ -1,7 +1,0 @@
-{
-  "item": "done-9",
-  "result": "passed",
-  "evidence": "Terminal restart returns the new goal to its repository and resumes one destination. Approve ready-seed origin tests retain mismatch protection.",
-  "candidate": "0eae082814d58c13e4f2f06b2fa1614382b4e5d6529d1e2a39434630da989b62",
-  "time_ns": 1794709787098421000
-}

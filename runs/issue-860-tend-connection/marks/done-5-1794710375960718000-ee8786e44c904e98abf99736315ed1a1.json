@@ -1,7 +1,0 @@
-{
-  "item": "done-5",
-  "result": "passed",
-  "evidence": "Expanded terminal journey rejects oversized edited confirmation without changing previous result or creating staging, retains the same draft, and retries corrected exact words without another request. Invalid quotes and request cancellation also pass.",
-  "candidate": "689ee3c817f273b66798f7bbbde5eb8f04547721b4751a6fed40b49b1cebfcd0",
-  "time_ns": 1794710375960718000
-}

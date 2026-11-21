@@ -1,7 +1,0 @@
-{
-  "item": "done-3",
-  "result": "passed",
-  "evidence": "runs/issue-874-thought-feedback/04-test/output/screens/: saving Z selects third thought, then duplicate B selects second. Reader v retains selected thought in all four feedback journeys.",
-  "candidate": "a66f2f91ea796d69fdc4f94c67cbbc643630d0d60a42f57dac005139bdd0ded3",
-  "time_ns": 1794774169058096000
-}

@@ -1,7 +1,0 @@
-{
-  "item": "done-3",
-  "result": "passed",
-  "evidence": "All three focused tests passed. Replacing copytree with a symlink failed the alias assertion for both families; restoring copytree passed. See runs/issue-905/03-build/output/isolation-probe.log and local-full-check.log.",
-  "candidate": "50d5b2cf07128e77197de1ab547c791d156979f5027bde3ad5ff27fac6da0600",
-  "time_ns": 1794892947868685000
-}

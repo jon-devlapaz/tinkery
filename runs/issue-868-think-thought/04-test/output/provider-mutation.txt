@@ -1,3 +1,0 @@
-                if let Ok(preview) = self.preview_send(&self.input.text) {
-                    let _ = self.host.reshape(preview.request, &AtomicBool::new(false));
-                }

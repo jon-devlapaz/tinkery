@@ -1,7 +1,0 @@
-{
-  "item": "done-10",
-  "result": "passed",
-  "evidence": "runs/issue-862-tend-correction/03-build/output/: Both refreshed reversion logs fail behavioral assertions after successful builds. correction-input detects failed invalidation; correction-freshness detects stale publication. The committed public terminal suite covers stale disclosure without private-state access.",
-  "candidate": "f2bd606d7224b0e8550ca103335f1a984ca5f80da3ed06687ef63e8b7bb3db88",
-  "time_ns": 1794717787892130000
-}

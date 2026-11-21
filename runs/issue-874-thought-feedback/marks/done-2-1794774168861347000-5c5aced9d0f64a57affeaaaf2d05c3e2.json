@@ -1,7 +1,0 @@
-{
-  "item": "done-2",
-  "result": "passed",
-  "evidence": "runs/issue-874-thought-feedback/04-test/output/thought-journeys.txt: duplicate saves compare all thought-record paths and bytes unchanged with three readable records, including warning cases.",
-  "candidate": "a66f2f91ea796d69fdc4f94c67cbbc643630d0d60a42f57dac005139bdd0ded3",
-  "time_ns": 1794774168861347000
-}

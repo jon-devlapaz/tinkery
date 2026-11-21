@@ -1,7 +1,0 @@
-{
-  "item": "done-5",
-  "result": "passed",
-  "evidence": "Independent guard inspection plus Think input and voice tests; full suite passed on cb44a4a. See 04-test/output/supervisor.md and independent review.",
-  "candidate": "6f5bc928fb853797869995504b7eec4ce3d96d48d3da8ee59ee3aa822ed0e314",
-  "time_ns": 1794765928647167000
-}

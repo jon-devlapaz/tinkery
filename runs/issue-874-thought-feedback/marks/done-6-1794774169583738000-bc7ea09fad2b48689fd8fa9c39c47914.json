@@ -1,7 +1,0 @@
-{
-  "item": "done-6",
-  "result": "passed",
-  "evidence": "runs/issue-874-thought-feedback/04-test/output/thought-journeys.txt and departure-pass.txt assert zero provider requests and unchanged synthetic goal/session records. Existing capture guards pass with local stubs.",
-  "candidate": "a66f2f91ea796d69fdc4f94c67cbbc643630d0d60a42f57dac005139bdd0ded3",
-  "time_ns": 1794774169583738000
-}

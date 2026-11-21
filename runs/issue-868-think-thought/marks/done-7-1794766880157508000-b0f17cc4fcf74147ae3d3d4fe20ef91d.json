@@ -1,7 +1,0 @@
-{
-  "item": "done-7",
-  "result": "passed",
-  "evidence": "Existing invalid-input and refusal checks plus unmodified executable trials at 80x24 and 100x30. Forced directory-sync EIO on new and duplicate saves retained input and refused success. Same-process retry recovered without duplication. See 04-test/output/dogfood-869/report.md and results.json.",
-  "candidate": "6f5bc928fb853797869995504b7eec4ce3d96d48d3da8ee59ee3aa822ed0e314",
-  "time_ns": 1794766880157508000
-}

@@ -1,1 +1,0 @@
-Save feedback clears after Shape and failed reads at 80x24 and 100x30. No provider requests.

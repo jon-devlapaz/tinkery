@@ -6,7 +6,7 @@ import re
 import subprocess
 import sys
 
-PROSE_PATHS = re.compile(r"docs/yohaku\.md|docs/design/[^/]+\.md|docs/research/[^/]+/[^/]+\.md")
+PROSE_PATHS = re.compile(r"docs/yohaku\.md|docs/design/[^/]+\.md")
 # Diagrams and sample output are not commands; every other fence keeps full checks.
 INERT_FENCES = re.compile(r"^(`{3,})(?:mermaid|text)[ \t]*\n.*?^\1[ \t]*$", re.M | re.S)
 SETUP_PATHS = re.compile(r"AGENTS\.md|CLAUDE\.md|Cargo\.(?:toml|lock)|rust-toolchain(?:\.toml)?|"

@@ -1,7 +1,0 @@
-{
-  "item": "done-4",
-  "result": "passed",
-  "evidence": "runs/issue-874-thought-feedback/04-test/output/screens shows readable feedback and warnings at both sizes; thought-journeys.txt and departure-pass.txt pass after the failed-refresh repair. refresh-failure.txt proves the old count was stale. The garden now reports the current read error without the stale count.",
-  "candidate": "9077859c11acb89bbda1fea27e032fc9bb13c9b746fc10fa7f51ceca13d82208",
-  "time_ns": 1794774517631165000
-}

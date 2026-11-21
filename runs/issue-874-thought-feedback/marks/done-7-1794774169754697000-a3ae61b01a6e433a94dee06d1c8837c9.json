@@ -1,7 +1,0 @@
-{
-  "item": "done-7",
-  "result": "passed",
-  "evidence": "runs/issue-874-thought-feedback/04-test/output/reversion-failure.txt: dropping save outcome fails Missing Thought saved. Restored feedback journeys passed. full-check.txt records a passing preliminary full suite; final committed candidate is rechecked by SDLC verify.",
-  "candidate": "a66f2f91ea796d69fdc4f94c67cbbc643630d0d60a42f57dac005139bdd0ded3",
-  "time_ns": 1794774169754697000
-}
