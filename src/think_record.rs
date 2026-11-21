@@ -7,15 +7,13 @@
 //! writes or supplies context to a model. The format is this module's alone; [`SCHEMA`] changes
 //! when it does.
 
-mod confirmation;
 mod context;
 pub use context::{ReadingContext, RecordedReading};
 #[cfg(test)]
 mod confirmation_tests;
 mod read;
 
-pub(crate) use confirmation::Actor;
-pub use confirmation::{BlastRadius, ConfirmationClass, Door, GoalConfirmation};
+use crate::confirmation::GoalConfirmation;
 
 #[cfg(test)]
 pub(crate) use read::count_reads;

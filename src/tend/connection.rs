@@ -4,13 +4,14 @@
 mod correction;
 mod panel;
 use crate::{
+    confirmation::GoalConfirmation,
     pi::{Call, CallBudget, Request},
     seed_me::{
         self,
         connection::{Correction, Origin, Source, Support},
         connection_save::Pending,
     },
-    think_record::{self, GoalConfirmation, MadeIn},
+    think_record::{self, MadeIn},
 };
 pub(crate) use panel::Panel;
 use serde::{Deserialize, Serialize};

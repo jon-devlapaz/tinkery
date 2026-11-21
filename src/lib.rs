@@ -2,7 +2,7 @@
 //!
 //! Each place in the menu is a phase with its own module (`think`, `tend`, `shape`, `approve`, `watch`, `taste`, `measure`); the menu
 //! is the only module that knows them all. Phases never use each other: anything two of them
-//! share (`goal`, `model_setup`, `repo`, `seed_me`, `think_record`, `voice`, and the palette and sizes below) is shared code that names
+//! share (`confirmation`, `goal`, `model_setup`, `repo`, `seed_me`, `think_record`, `voice`, and the palette and sizes below) is shared code that names
 //! no phase. `docs/design/architecture.md` has the map and `tests/architecture.rs` enforces it.
 #![deny(missing_docs, unreachable_pub)]
 // Tests and fixtures read files they made; operator paths go through `regular_file`.
@@ -24,6 +24,7 @@ use ratatui::{
 pub mod actions;
 mod approve;
 mod calendar;
+pub mod confirmation;
 pub mod goal;
 pub mod measure;
 pub mod menu;

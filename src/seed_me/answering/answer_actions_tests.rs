@@ -26,7 +26,7 @@ fn fixture() -> (tempfile::TempDir, std::path::PathBuf) {
 
 #[test]
 fn named_agent_answer_actions_and_kept_reasons_never_claim_operator_authorship() {
-    let actor: crate::think_record::GoalConfirmation = serde_json::from_value(json!({
+    let actor: crate::confirmation::GoalConfirmation = serde_json::from_value(json!({
         "by":"agent", "agent":"TEST-agent", "authorizing_operator":"TEST-person",
         "source":"TEST scoped Shape authorization", "class":{"door":"two_way",
         "door_reason":"TEST reversible", "blast_radius":"small", "blast_radius_reason":"TEST isolated"}
@@ -40,7 +40,8 @@ fn named_agent_answer_actions_and_kept_reasons_never_claim_operator_authorship()
     ] {
         let (_root, session) = fixture();
         let version = read(&session).unwrap().version();
-        let version = respond(&session, version, "choice", &action, Some(&actor)).unwrap();
+        let version =
+            respond(&session, version, "choice", &action, actor.actor().unwrap()).unwrap();
         let saved = ledger::load(&session).unwrap().to_json().unwrap();
         let node = &saved["nodes"][2];
         let history = node["history"].as_array().unwrap().last().unwrap();
@@ -63,7 +64,7 @@ fn named_agent_answer_actions_and_kept_reasons_never_claim_operator_authorship()
             version,
             "choice",
             &AnswerAction::Revise("TEST agent replacement".into()),
-            Some(&actor),
+            actor.actor().unwrap(),
         )
         .unwrap();
         let mut flagged = ledger::load(&session).unwrap().to_json().unwrap();
@@ -78,7 +79,7 @@ fn named_agent_answer_actions_and_kept_reasons_never_claim_operator_authorship()
             version,
             "choice",
             "TEST kept\r\nverbatim ",
-            Some(&actor),
+            actor.actor().unwrap(),
         )
         .unwrap();
         let saved = ledger::load(&session).unwrap().to_json().unwrap();
@@ -102,7 +103,7 @@ fn named_agent_answer_actions_and_kept_reasons_never_claim_operator_authorship()
                 read(&session).unwrap().version(),
                 "choice",
                 " ",
-                Some(&actor)
+                actor.actor().unwrap()
             )
             .is_err()
         );
@@ -116,7 +117,7 @@ fn respond_now(session: &Path, action: &AnswerAction) -> Result<u64, Refusal> {
         read(session).unwrap().version(),
         "choice",
         action,
-        None,
+        Actor::OPERATOR,
     )
 }
 
@@ -230,7 +231,7 @@ fn delegation_copies_the_suggestion_without_appending_reply_confidence() {
                 version,
                 "next-choice",
                 &AnswerAction::Delegate,
-                None,
+                Actor::OPERATOR,
             )
             .unwrap();
             let state = read(&session).unwrap().state;
@@ -312,7 +313,14 @@ fn revision_reopens_all_settled_dependents_with_the_changed_answer_named() {
     }
     assert_eq!(state["current_question"], "child");
     let version = read(&session).unwrap().version();
-    let version = answer(&session, version, "child", "TEST reanswered", None).unwrap();
+    let version = answer(
+        &session,
+        version,
+        "child",
+        "TEST reanswered",
+        Actor::OPERATOR,
+    )
+    .unwrap();
     assert!(promote(&session, version).unwrap().is_some());
     assert_eq!(
         read(&session).unwrap().state["current_question"],
@@ -359,7 +367,7 @@ fn answer_action_read_and_lock_failures_use_plain_recovery_words() {
         if path == session {
             fs::write(path.join("ledger.json"), "{ TEST broken JSON").unwrap();
         }
-        let error = respond(&path, 1, "choice", &AnswerAction::Delegate, None)
+        let error = respond(&path, 1, "choice", &AnswerAction::Delegate, Actor::OPERATOR)
             .unwrap_err()
             .to_string();
         assert!(error.contains(expected), "{error}");
@@ -386,7 +394,7 @@ fn revision_refuses_findings_goal_blank_words_and_stale_display() {
                 saved.version,
                 id,
                 &AnswerAction::Revise("TEST replacement".into()),
-                None
+                Actor::OPERATOR
             )
             .is_err()
         );
@@ -398,7 +406,7 @@ fn revision_refuses_findings_goal_blank_words_and_stale_display() {
             saved.version - 1,
             "choice",
             &AnswerAction::Revise("TEST new".into()),
-            None
+            Actor::OPERATOR
         )
         .unwrap_err(),
         Refusal::Stale

@@ -1197,7 +1197,7 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
                 CheckMethod::Command,
                 "node --test tests/TEST-edited.test.mjs",
             ),
-            None,
+            Actor::OPERATOR,
         )
         .unwrap();
     }
@@ -1222,7 +1222,7 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
         "r2",
         &std::fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap(),
         "TEST fixture confirmation only",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     assert!(matches!(
@@ -1299,7 +1299,7 @@ fn issue_299_review_keeps_failure_cases_separate_from_success_criteria() {
         seed,
         &ledger::TeachBackRecord::Review(&review),
         "2026-10-21T00:00:00+00:00",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     let draft = shaping::read(&receipt.session).unwrap();
@@ -1817,7 +1817,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
         "r9",
         &std::fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap(),
         "TEST yes to this seed only",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     assert!(matches!(
@@ -1981,7 +1981,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
         "r1",
         &std::fs::read_to_string(receipt.session.join("seed-contract.md")).unwrap(),
         "TEST yes to proposed checks, not implementation",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     assert!(matches!(
@@ -2797,7 +2797,7 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
 
     // Completing needs a verified seed; Tinkery refuses and the session stays open.
     let session = save();
-    let reason = refused(answering::end(&session, Ending::Completed, None));
+    let reason = refused(answering::end(&session, Ending::Completed, Actor::OPERATOR));
     assert!(reason.starts_with("Tinkery refused:"), "{reason}");
     assert!(matches!(
         shaping::read(&session).unwrap().stage,
@@ -2812,12 +2812,12 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
         &revision,
         &std::fs::read_to_string(session.join("seed-contract.md")).unwrap(),
         "TEST yes to this seed only",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     // Completion needs no viewer record.
     assert!(!session.join("viewer.json").exists());
-    answering::end(&session, Ending::Completed, None).unwrap();
+    answering::end(&session, Ending::Completed, Actor::OPERATOR).unwrap();
     let ended = shaping::read(&session).unwrap();
     assert_eq!(
         ended.stage,
@@ -2839,12 +2839,12 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
     };
     assert_eq!(read.stage, Stage::Completed, "tend counts it ended");
     // Ended is for good: neither ending applies again.
-    let reason = refused(answering::end(&session, Ending::Stopped, None));
+    let reason = refused(answering::end(&session, Ending::Stopped, Actor::OPERATOR));
     assert!(reason.contains("read-only"), "{reason}");
 
     // Stopping keeps what's open, and Shape then says plainly that it ended.
     let session = save();
-    answering::end(&session, Ending::Stopped, None).unwrap();
+    answering::end(&session, Ending::Stopped, Actor::OPERATOR).unwrap();
     assert_eq!(
         shaping::read(&session).unwrap().stage,
         Shaped::Ended {
@@ -3085,12 +3085,12 @@ fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
     };
     assert_eq!(state()["assumed"].as_array().unwrap().len(), 2);
     // An unrecorded assumption refuses; a stale version refuses.
-    assert!(answering::object(&session, version, "TEST never assumed", None).is_err());
+    assert!(answering::object(&session, version, "TEST never assumed", Actor::OPERATOR).is_err());
     assert_eq!(
-        answering::object(&session, version - 1, "TEST Markdown", None),
+        answering::object(&session, version - 1, "TEST Markdown", Actor::OPERATOR),
         Err(answering::Refusal::Stale)
     );
-    let version = answering::object(&session, version, "TEST Markdown", None).unwrap();
+    let version = answering::object(&session, version, "TEST Markdown", Actor::OPERATOR).unwrap();
     let after = state();
     assert_eq!(
         after["assumed"],
@@ -3114,7 +3114,8 @@ fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
     assert_eq!(after["current_question"], "storage");
     assert_eq!(answering::promote(&session, version).unwrap(), None);
     // Once it's answered, the objection is asked next, with no model.
-    let version = answering::answer(&session, version, "storage", "TEST local", None).unwrap();
+    let version =
+        answering::answer(&session, version, "storage", "TEST local", Actor::OPERATOR).unwrap();
     let version = answering::promote(&session, version).unwrap().unwrap();
     let Shaped::Question { id, .. } = shaping::read(&session).unwrap().stage else {
         panic!("the objection isn't the current question")
@@ -3334,7 +3335,7 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
         if undo == "hard" {
             // Seed Me: not recorded until the operator answers or asks to see it.
             assert_eq!(suggestion, None);
-            answering::recommend(&session, version, "storage", "Local.", None).unwrap();
+            answering::recommend(&session, version, "storage", "Local.", Actor::OPERATOR).unwrap();
             let Shaped::Question { suggestion, .. } = shaping::read(&session).unwrap().stage else {
                 panic!("not a question")
             };
@@ -3355,7 +3356,7 @@ fn answered_probe(session: &Path) -> u64 {
         (answering::PROBE.0, "TEST pre-mortem answer"),
     ] {
         version = answering::probe(session, version).unwrap().unwrap();
-        version = answering::answer(session, version, id, words, None).unwrap();
+        version = answering::answer(session, version, id, words, Actor::OPERATOR).unwrap();
     }
     version
 }
@@ -3441,7 +3442,7 @@ fn the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model
         version,
         answering::SAMPLE.0,
         "TEST sample: one pasted line",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     // Then the pre-mortem, still without a model.
@@ -3452,8 +3453,14 @@ fn the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model
     assert_eq!((id.as_str(), ask.as_str()), answering::PROBE);
     assert!(found.is_empty());
     // Asked once: answered, neither comes back.
-    let version =
-        answering::answer(&session, version, answering::PROBE.0, "TEST skipped", None).unwrap();
+    let version = answering::answer(
+        &session,
+        version,
+        answering::PROBE.0,
+        "TEST skipped",
+        Actor::OPERATOR,
+    )
+    .unwrap();
     assert_eq!(answering::probe(&session, version).unwrap(), None);
 
     // Asked after findings were shown, it says its answer isn't independent of them.
@@ -3485,14 +3492,15 @@ fn the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model
     let version = answering::ask(&session, version, &ask, temp.path()).unwrap();
     // A current question is never displaced.
     assert_eq!(answering::probe(&session, version).unwrap(), None);
-    let version = answering::answer(&session, version, "storage", "TEST local", None).unwrap();
+    let version =
+        answering::answer(&session, version, "storage", "TEST local", Actor::OPERATOR).unwrap();
     let version = answering::probe(&session, version).unwrap().unwrap();
     let version = answering::answer(
         &session,
         version,
         answering::SAMPLE.0,
         "TEST sample: one pasted line",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     answering::probe(&session, version).unwrap().unwrap();

@@ -12,13 +12,13 @@ use std::sync::atomic::AtomicBool;
 use sha2::{Digest, Sha256};
 
 use super::step::{self, Agent, Done, Why, Work};
+use crate::confirmation::GoalConfirmation;
 use crate::seed_me::{
     self,
     answering::{self, Refusal},
     ledger::AnswerAction,
     shaping::{self, Shaped},
 };
-use crate::think_record::GoalConfirmation;
 
 const STALE: &str = "Another writer changed this session first; nothing more was saved.";
 
@@ -55,10 +55,8 @@ pub fn new_goal(
         .lines()
         .find_map(|line| line.trim().strip_prefix("Done when:"))
         .map_or("", str::trim);
-    let declared = match confirmation.actor()? {
-        crate::think_record::Actor::Agent(_) => "agent",
-        crate::think_record::Actor::Operator => "human",
-    };
+    let actor = confirmation.actor()?;
+    let declared = actor.session_operator();
     let receipt = seed_me::Config::new(Some(root)).confirm_as(
         seed_me::Affirmed {
             goal: goal.to_owned(),
@@ -76,7 +74,7 @@ pub fn new_goal(
                  displayed and nobody typed confirm. Goal only, not seed or implementation approval."
             ),
         },
-        confirmation,
+        actor,
     )?;
     Ok(receipt.session)
 }
@@ -184,7 +182,7 @@ pub fn step(
             revision,
             seed,
             &source,
-            Some(confirmation),
+            confirmation.actor()?,
         ) {
             Ok(()) => Ok(Vec::new()),
             Err(Refusal::Stale) => Err(STALE.into()),

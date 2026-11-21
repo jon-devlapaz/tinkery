@@ -3,8 +3,8 @@
 //! work and only a Tink with no gray item, and records attribution before worker admission.
 
 use super::{Config, Run};
+use crate::confirmation::{BlastRadius, ConfirmationClass, Door};
 use crate::seed_me::{answering, ledger, ready::SeedTarget};
-use crate::think_record::{BlastRadius, ConfirmationClass, Door};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::OpenOptions,

@@ -230,7 +230,8 @@ fn page_keys_move_a_screen_of_history_less_one_row() {
 
 #[test]
 fn room_to_choose_sequence_is_first_and_numbered_originals_remain_whole() {
-    use crate::think_record::{GoalConfirmation, Origin, ReadingContext, Session, Turn};
+    use crate::confirmation::GoalConfirmation;
+    use crate::think_record::{Origin, ReadingContext, Session, Turn};
     use std::time::{Duration, UNIX_EPOCH};
     let fixture: serde_json::Value = serde_json::from_str(include_str!(
         "../../../tests/fixtures/think-delivery-401.json"

@@ -85,7 +85,7 @@ fn journey(checked: &str, warning: Option<&str>, paths: &[&str]) {
         version,
         "citation-choice",
         "TEST continue unchanged",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     let checks =

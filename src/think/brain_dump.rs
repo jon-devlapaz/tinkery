@@ -192,7 +192,7 @@ struct Handoff {
     thoughts: Option<Result<crate::thought::Store, String>>,
     thought_saved: Option<(String, bool)>,
     /// Visit-scoped named attribution, or the terminal declaration frozen for this session.
-    confirmation: crate::think_record::GoalConfirmation,
+    confirmation: crate::confirmation::GoalConfirmation,
     save: Save,
     /// Where a confirmed session's think record goes; `None` writes none.
     record_root: Option<std::path::PathBuf>,
