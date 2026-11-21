@@ -103,12 +103,6 @@ fn parse(text: &str) -> Result<Report, String> {
     Ok(Report { prs, partial })
 }
 
-fn visible(text: &str) -> String {
-    text.chars()
-        .map(|c| if c.is_control() { ' ' } else { c })
-        .collect()
-}
-
 /// A visit to Measure. No source is read until the operator presses the labelled read key.
 pub(crate) struct Measure {
     repo: Option<Repo>,
@@ -144,7 +138,7 @@ impl Measure {
     pub(crate) fn title(&self) -> String {
         self.repo.as_ref().map_or_else(
             || "measure".into(),
-            |repo| format!("measure · {}", visible(&repo.name())),
+            |repo| format!("measure · {}", crate::shown_line(&repo.name())),
         )
     }
 
@@ -311,9 +305,9 @@ impl Measure {
             let author = pr.author.as_ref().map_or("unknown", |a| &a.login);
             let mut lines = vec![
                 format!("#{} · {}", pr.number, pr.state.label()),
-                visible(&pr.title),
+                crate::shown_line(&pr.title),
                 String::new(),
-                format!("Author: {}", visible(author)),
+                format!("Author: {}", crate::shown_line(author)),
                 format!("Opened: {}", pr.created_at),
                 format!("Updated: {}", pr.updated_at),
                 format!(
@@ -324,9 +318,12 @@ impl Measure {
                     "Merged: {}",
                     pr.merged_at.as_deref().unwrap_or("not merged")
                 ),
-                visible(&pr.url),
+                crate::shown_line(&pr.url),
                 String::new(),
-                format!("Reported PR-head checks · {}", visible(&pr.head_ref_oid)),
+                format!(
+                    "Reported PR-head checks · {}",
+                    crate::shown_line(&pr.head_ref_oid)
+                ),
                 "Not merge-commit checks or operator acceptance.".into(),
             ];
             match &pr.status_check_rollup {
@@ -342,7 +339,11 @@ impl Measure {
                             .or(check["status"].as_str())
                             .or(check["state"].as_str())
                             .unwrap_or("unknown");
-                        lines.push(format!("{}: {}", visible(name), visible(status)));
+                        lines.push(format!(
+                            "{}: {}",
+                            crate::shown_line(name),
+                            crate::shown_line(status)
+                        ));
                     }
                 }
                 _ => lines.push("Checks unavailable or not recorded; no pass is inferred.".into()),
@@ -436,7 +437,8 @@ fn render_list(
         .max(4);
     let prefix_width = (number_width + 12) as u16;
     let title_width = area.width.saturating_sub(prefix_width);
-    let title = Paragraph::new(visible(&report.prs[selected].title)).wrap(Wrap { trim: false });
+    let title =
+        Paragraph::new(crate::shown_line(&report.prs[selected].title)).wrap(Wrap { trim: false });
     let title_lines = title.line_count(title_width);
     // A short list, a bounded title viewport and a blank row below them leave space at every size.
     let title_height = TITLE_ROWS
@@ -468,7 +470,7 @@ fn render_list(
             Paragraph::new(metadata),
             Rect::new(area.x, y, prefix_width.min(area.width), 1),
         );
-        let text = visible(&pr.title);
+        let text = crate::shown_line(&pr.title);
         let paragraph = if chosen {
             Paragraph::new(text)
                 .style(palette.ink.bold())

@@ -74,18 +74,7 @@ impl CodexReport {
         if raw.next_step.trim().is_empty() || raw.next_step.len() > 512 {
             return Err("next step must contain 1 to 512 bytes of text".into());
         }
-        raw.next_step = raw
-            .next_step
-            .chars()
-            .flat_map(|c| {
-                if c.is_control() || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
-                {
-                    c.escape_default().collect::<Vec<_>>()
-                } else {
-                    vec![c]
-                }
-            })
-            .collect();
+        raw.next_step = crate::shown_line(&raw.next_step);
         Ok(Report { raw, at })
     }
 }

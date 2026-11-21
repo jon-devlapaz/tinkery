@@ -25,8 +25,8 @@ impl Shape {
         for failure in &self.failures {
             text.push_str(&format!(
                 "\n{}\n{}\n",
-                display_line(&failure.path.to_string_lossy()),
-                display_line(&failure.reason)
+                crate::shown_line(&failure.path.to_string_lossy()),
+                crate::shown_line(&failure.reason)
             ));
         }
         let more = self.unreadable.saturating_sub(self.failures.len());
@@ -78,14 +78,6 @@ impl Shape {
             Rect::new(area.x, area.bottom().saturating_sub(1), area.width, 1),
         );
     }
-}
-
-fn display_line(text: &str) -> String {
-    text.chars().flat_map(|c| {
-        if c.is_control() || matches!(c, '\u{061c}' | '\u{200e}' | '\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}') {
-            c.escape_default().collect::<Vec<_>>()
-        } else { vec![c] }
-    }).collect()
 }
 
 #[cfg(test)]
