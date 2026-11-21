@@ -131,9 +131,6 @@ cues. [Terminal setup](docs/terminal-setup.md#launch) has isolated real-drafting
 
 ## Work intake
 
-The board is [tinkery](https://github.com/users/jon-devlapaz/projects/2); its automations add
-tinkery issues and set Done on close. Cloud sessions can't reach it; use `gh` on the operator's Mac.
-
 File an issue only for work that serves Tinkery, after searching for an open duplicate, using the
 [task template](.github/ISSUE_TEMPLATE/task.yml) with one `area:` and one kind label. Show the draft
 and publish only on the operator's word; publication is not approval. Parallel work needs approved,
