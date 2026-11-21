@@ -297,6 +297,8 @@ def handoff(root, env, session):
     check.write_text('#!/bin/sh\necho "TEST existing output"\nexec python3 -m unittest -v TEST_natural_check 2>&1\n')
     check.chmod(0o755)
     (project / 'TEST_natural_check.py').write_text(ASSERTIONS)
+    worker = {'argv': [sys.executable, '-c', 'print("TEST worker check passes")'], 'timeout_seconds': 5}
+    (project / '_system/verification.json').write_text(json.dumps({'require_tink': False, 'checks': [worker]}))
     command(['git', 'add', '-A'], project, env)
     command(['git', 'commit', '-qm', 'TEST isolated baseline'], project, env)
     runtime = project / '_system/scripts/sdlc.py'
@@ -343,8 +345,6 @@ def handoff(root, env, session):
     helper.confirm_seed(session, 'r1', CONFIRMATION)
     sdlc('new', 'test-handoff')
     run = project / 'runs/test-handoff'
-    worker = {'argv': [sys.executable, '-c', 'print("TEST worker check passes")'], 'timeout_seconds': 5}
-    (project / '_system/verification.json').write_text(json.dumps({'require_tink': False, 'checks': [worker]}))
     (run / 'checklist.json').write_text(json.dumps({'schema': 1, 'items': [{
         'id': 'worker', 'description': 'TEST worker-written check', 'verify': 'TEST success', 'check': worker}]}))
     seed = session / 'seed-contract.md'
@@ -441,7 +441,7 @@ def handoff(root, env, session):
     failing_seed_blocks()
     print('Revert probe RESTORED: failing seed blocks again')
     natural.write_text(WORKING)
-    command(['git', 'add', 'TEST_natural.py', '_system/verification.json'], project, env)
+    command(['git', 'add', 'TEST_natural.py'], project, env)
     command(['git', 'commit', '-qm', 'TEST accepted candidate'], project, env)
     result = sdlc('verify', 'test-handoff')
     assert 'Seed checks (operator-confirmed)' in result.stdout and 'Worker-written checks:' in result.stdout
