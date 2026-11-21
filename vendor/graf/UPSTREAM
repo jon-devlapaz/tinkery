@@ -60,3 +60,6 @@ src/physics.rs, src/theme.rs, src/viewport.rs.
 All upstream tests in the kept modules are retained. None of the omitted
 modules is required by the kept library. The workspace includes graf-rs for
 build/test/lint checks; Tinkery now depends on it for Tend's static graph.
+
+Modified for Tinkery on 2026-11-21:
+- Cargo.toml: remove `homepage`, which equals `repository` and made Cargo warn on every build.
