@@ -9,7 +9,6 @@ use std::{
     collections::BTreeSet,
     ffi::OsStr,
     fs,
-    io::Write,
     path::{Path, PathBuf},
 };
 
@@ -308,15 +307,14 @@ impl Store {
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
                 Err(error) => return Err(error.to_string()),
             }
-            let mut temp =
-                tempfile::NamedTempFile::new_in(root).map_err(|error| error.to_string())?;
-            temp.write_all(&bytes).map_err(|error| error.to_string())?;
-            temp.as_file()
-                .sync_all()
-                .map_err(|error| error.to_string())?;
-            temp.persist(root.join("needs.json"))
-                .map_err(|error| error.to_string())?;
-            Ok(())
+            crate::regular_file::publish(
+                &root.join("needs.json"),
+                &bytes,
+                crate::regular_file::Existing::Replace,
+            )
+            // A file in place is saved; this store never reported directory durability.
+            .map(|_| ())
+            .map_err(|error| error.to_string())
         };
         write().map_err(|error| format!("Cannot save needs.json: {error}"))?;
         self.populated.set(!links.entries.is_empty());

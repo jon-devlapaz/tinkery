@@ -34,13 +34,11 @@ impl Context {
 
     pub(super) fn correction(&self) -> Result<Snapshot, String> {
         let regular = "The correction is not a regular local file.";
-        let file = crate::regular_file::open(
-            fs::OpenOptions::new().read(true),
-            libc::O_NOFOLLOW,
+        let read = match crate::regular_file::read_bounded(
             &self.correction_file(),
+            FILE_LIMIT as u64,
             regular,
-        );
-        let file = match file {
+        ) {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 return Ok(Snapshot {
                     digest: None,
@@ -49,16 +47,12 @@ impl Context {
             }
             Err(e) if e.kind() == std::io::ErrorKind::InvalidInput => return Err(regular.into()),
             Err(e) => return Err(format!("The correction cannot be read safely: {e}")),
-            Ok(file) => file,
+            Ok(read) => read,
         };
         // Oversized records remain clearable, without reading an unbounded file.
-        let meta = file.metadata().map_err(|e| e.to_string())?;
+        let (bytes, meta) = (read.bytes, read.metadata);
         let mut digest = Sha256::new();
-        let mut bytes = Vec::new();
-        file.take(FILE_LIMIT as u64 + 1)
-            .read_to_end(&mut bytes)
-            .map_err(|e| e.to_string())?;
-        digest.update(&bytes);
+        digest.update(bytes.as_deref().unwrap_or_default());
         for part in [
             meta.dev(),
             meta.ino(),
@@ -71,11 +65,8 @@ impl Context {
             digest.update(part.to_le_bytes());
         }
         let value = (|| {
-            if bytes.len() > FILE_LIMIT {
-                return Err(
-                    "The correction file is oversized. Clear it explicitly or restore it.".into(),
-                );
-            }
+            let bytes = bytes
+                .ok_or("The correction file is oversized. Clear it explicitly or restore it.")?;
             let stored: Stored = serde_json::from_slice(&bytes)
                 .map_err(|_| "The correction is malformed. Clear it explicitly or restore it.")?;
             if stored.schema != 1 || stored.repo != self.repo {
@@ -143,11 +134,17 @@ impl Context {
             correction: serde_json::to_value(correction).map_err(|e| e.to_string())?,
         };
         let bytes = serde_json::to_vec(&stored).map_err(|e| e.to_string())?;
-        let mut file = tempfile::NamedTempFile::new_in(&self.store).map_err(|e| e.to_string())?;
-        file.write_all(&bytes).map_err(|e| e.to_string())?;
-        file.as_file().sync_all().map_err(|e| e.to_string())?;
-        file.persist(self.correction_file())
-            .map_err(|e| e.to_string())?;
-        crate::regular_file::sync_directory(&self.store).map_err(|e| format!("Correction replaced, but persistence is uncertain. Reopen before another change: {e}"))
+        match crate::regular_file::publish(
+            &self.correction_file(),
+            &bytes,
+            crate::regular_file::Existing::Replace,
+        )
+        .map_err(|e| e.to_string())?
+        {
+            crate::regular_file::Published::Durable => Ok(()),
+            crate::regular_file::Published::Uncertain(e) => Err(format!(
+                "Correction replaced, but persistence is uncertain. Reopen before another change: {e}"
+            )),
+        }
     }
 }

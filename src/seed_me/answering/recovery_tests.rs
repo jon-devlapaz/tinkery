@@ -38,7 +38,7 @@ fn refuse(session: &Path, expected: u64, id: &str, words: &str) {
             expected,
             id,
             &ledger::AnswerAction::Revisit(words.into()),
-            None
+            Actor::OPERATOR
         )
         .is_err()
     );
@@ -65,7 +65,7 @@ fn deferred_recovery_preserves_originals_and_asks_the_unanswered_dependent() {
         before.version(),
         "a",
         &ledger::AnswerAction::Revisit(words.into()),
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     let after = read(&session).unwrap();
@@ -107,7 +107,7 @@ fn deferred_recovery_refuses_wrong_goal_stale_empty_seed_and_ended_targets() {
     fs::write(session.join("seed-contract.md"), "status: draft\n").unwrap();
     refuse(&session, version, "a", "TEST");
     fs::remove_file(session.join("seed-contract.md")).unwrap();
-    end(&session, Ending::Stopped, None).unwrap();
+    end(&session, Ending::Stopped, Actor::OPERATOR).unwrap();
     refuse(&session, read(&session).unwrap().version(), "a", "TEST");
 }
 
@@ -148,7 +148,7 @@ fn deferred_recovery_uses_existing_order_and_never_bypasses_own_readiness() {
                 version,
                 "a",
                 &ledger::AnswerAction::Revisit("TEST A".into()),
-                None,
+                Actor::OPERATOR,
             )
             .unwrap();
             let shown = super::super::shaping::read(&session).unwrap();
@@ -178,22 +178,14 @@ fn deferred_recovery_uses_existing_order_and_never_bypasses_own_readiness() {
 fn deferred_recovery_keeps_existing_agent_authorization_and_writer_lock() {
     use std::os::fd::AsRawFd;
     let (_root, session) = fixture();
-    let actor: crate::think_record::GoalConfirmation = serde_json::from_value(json!({
+    let actor: crate::confirmation::GoalConfirmation = serde_json::from_value(json!({
         "by":"agent","agent":"TEST-agent","authorizing_operator":"", "source":"TEST",
         "class":{"door":"two_way","door_reason":"TEST","blast_radius":"small","blast_radius_reason":"TEST"}
     })).unwrap();
     let version = read(&session).unwrap().version();
     let before = files(&session);
-    assert!(
-        respond(
-            &session,
-            version,
-            "a",
-            &ledger::AnswerAction::Revisit("TEST".into()),
-            Some(&actor)
-        )
-        .is_err()
-    );
+    // Incomplete agent context refuses where it comes in, so no write can receive it.
+    assert!(actor.actor().is_err());
     assert_eq!(files(&session), before);
     let lock = fs::File::open(session.join(".writer.lock")).unwrap();
     assert_eq!(
@@ -215,7 +207,7 @@ fn a_deferred_prerequisite_is_not_answered_with_words_that_leave_it_open() {
             version,
             "a",
             &ledger::AnswerAction::Revisit(words.into()),
-            None,
+            Actor::OPERATOR,
         )
         .unwrap_err();
         assert!(

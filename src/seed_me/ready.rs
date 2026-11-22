@@ -516,7 +516,7 @@ mod tests {
             .join("\n")
             + "\n";
         fs::write(&seed_path, draft).unwrap();
-        let actor: crate::think_record::GoalConfirmation = serde_json::from_value(serde_json::json!({
+        let actor: crate::confirmation::GoalConfirmation = serde_json::from_value(serde_json::json!({
             "by":"agent", "agent":"TEST-agent", "authorizing_operator":"TEST-person",
             "source":"TEST explicit permission", "class":{"door":"two_way", "door_reason":"TEST reversible",
             "blast_radius":"small", "blast_radius_reason":"TEST isolated"}
@@ -526,7 +526,7 @@ mod tests {
             "r1",
             "TEST seed only",
             "2026-10-21T00:00:00Z",
-            Some(&actor),
+            actor.actor().unwrap(),
         )
         .unwrap();
         let receipt: serde_json::Value =

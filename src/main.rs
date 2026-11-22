@@ -64,7 +64,7 @@ fn seed_write(
     args: &[String],
     sessions_root: Result<PathBuf, String>,
     agent: Option<&tinkery::shape::Agent>,
-    confirmation: &tinkery::think_record::GoalConfirmation,
+    confirmation: &tinkery::confirmation::GoalConfirmation,
     declared: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use tinkery::shape::command::{self, Action};
@@ -173,7 +173,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     return Err("--operator may be declared only once".into());
                 }
                 let value = args.next().ok_or("--operator needs human or agent")?;
-                tinkery::think_record::GoalConfirmation::terminal(Some(&value))?;
+                tinkery::confirmation::GoalConfirmation::terminal(Some(&value))?;
                 operator = Some(value);
             }
             "--snapshot" => snapshot = true,
@@ -296,7 +296,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         root => root,
     };
     let declared = operator.is_some();
-    let confirmation = tinkery::think_record::GoalConfirmation::terminal(operator.as_deref())?;
+    let confirmation = tinkery::confirmation::GoalConfirmation::terminal(operator.as_deref())?;
     let record_root = match record_root {
         Some(root) if root.is_absolute() => Ok(root),
         Some(root) => Ok(std::env::current_dir()?.join(root)),

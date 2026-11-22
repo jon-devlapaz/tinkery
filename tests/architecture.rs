@@ -47,6 +47,7 @@ const MODULES: &[(&str, &str)] = &[
     ("actions", "shared"),
     ("approve", "approve"),
     ("calendar", "shared"),
+    ("confirmation", "shared"),
     ("goal", "shared"),
     ("measure", "measure"),
     ("menu", "menu"),

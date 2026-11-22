@@ -8,7 +8,7 @@ use crate::process::{self, Limits};
 use crate::sdlc::{self, DEADLINE};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use serde_json::Value;
-use std::{fs, io::Read, path::Path, process::Command, sync::atomic::AtomicBool};
+use std::{path::Path, process::Command, sync::atomic::AtomicBool};
 
 /// The operator's answer, on keys 1 and 2. Taste offers only these two of tink-sdlc's kinds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -83,19 +83,15 @@ pub(super) fn read(
     if path.canonicalize().ok().as_ref() != Some(&path) {
         return Err("Cannot read this run's verdict words in its checkout.".into());
     }
-    let file = crate::regular_file::open(
-        fs::OpenOptions::new().read(true),
-        libc::O_NOFOLLOW,
+    let bytes = crate::regular_file::read_bounded(
         &path,
+        4 * 1024 * 1024,
         "The verdict words are not in a regular file.",
     )
-    .map_err(|error| error.to_string())?;
-    const LIMIT: u64 = 4 * 1024 * 1024;
-    let mut bytes = Vec::new();
-    file.take(LIMIT + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|e| e.to_string())?;
-    if bytes.len() as u64 > LIMIT || !bytes.ends_with(b"\n") {
+    .map_err(|error| error.to_string())?
+    .bytes
+    .ok_or("The verdict record is too large or incomplete.")?;
+    if !bytes.ends_with(b"\n") {
         return Err("The verdict record is too large or incomplete.".into());
     }
     let mut status = Check::Stale;
@@ -284,6 +280,7 @@ pub(super) fn write(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     fn press(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::NONE)

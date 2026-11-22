@@ -139,7 +139,7 @@ fn captured_missing_source_preserves_the_answer_and_recovers_on_next_look() {
         version,
         answering::SAMPLE.0,
         "TEST sample: one pasted line",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     let version = answering::probe(&session, version).unwrap().unwrap();
@@ -432,7 +432,7 @@ fn recorded_361_refusals_name_unsafe_coverage_and_preserve_saved_answers() {
             version,
             answering::SAMPLE.0,
             "TEST sample: one pasted line",
-            None,
+            Actor::OPERATOR,
         )
         .unwrap();
         let version = answering::probe(&session, version).unwrap().unwrap();
@@ -831,7 +831,7 @@ fn a_claude_code_step_reads_only_the_shown_folder_and_drafts_from_its_json_resul
         version,
         answering::SAMPLE.0,
         "TEST sample: one pasted line",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     let version = answering::probe(&session, version).unwrap().unwrap();
@@ -1123,7 +1123,7 @@ fn a_goal_past_32_kib_still_reaches_the_model() {
         version,
         answering::SAMPLE.0,
         "TEST sample: one pasted line",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     let version = answering::probe(&session, version).unwrap().unwrap();
