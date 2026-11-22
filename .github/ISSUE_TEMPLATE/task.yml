@@ -1,13 +1,11 @@
 name: Bounded task
 description: Propose one task with evidence, scope, completion checks and explicit permissions.
-labels: [needs-approval]
 body:
   - type: markdown
     attributes:
       value: |
-        Publication is not implementation approval. Follow [AGENTS.md](https://github.com/jon-devlapaz/tinkery/blob/main/AGENTS.md).
-        Triage applies one area label, one kind label, the release milestone where relevant, and native blocking links.
-        Dropdown choices do not apply labels automatically. Priorities require triage; no budget or private-data access is implied.
+        Publication is not implementation approval: work goes through Tinkery. Follow [AGENTS.md](https://github.com/jon-devlapaz/tinkery/blob/main/AGENTS.md).
+        No budget or private-data access is implied.
   - type: dropdown
     id: area
     attributes:
