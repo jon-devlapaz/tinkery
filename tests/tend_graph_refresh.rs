@@ -8,6 +8,7 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
+use tinkery::data_roots::DataRoots;
 use tinkery::{
     Palette,
     menu::{Home, render},
@@ -68,10 +69,12 @@ fn public_refresh_updates_labels_and_links_but_keeps_an_unchanged_view() {
     let links = dir.path().join("TEST-links");
     let mut home = Home::new(
         Box::new(Default::default),
-        Ok(dir.path().join("sessions")),
-        Ok(links.clone()),
+        DataRoots {
+            sessions: Ok(dir.path().join("sessions")),
+            records: Ok(dir.path().join("records")),
+            tend: Ok(links.clone()),
+        },
     )
-    .with_record_root(dir.path().join("records"))
     .with_discovery_source(Arc::new(move |_| Ok(source.lock().unwrap().clone())));
     home.open(tinkery::menu::Place::Tend);
     refresh(&mut home);

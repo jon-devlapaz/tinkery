@@ -10,7 +10,7 @@ use std::{
 
 use crate::{
     Palette,
-    think_record::{self, Event, History, MadeIn, Unavailable},
+    think_record::{self, DraftSuggestion, Event, History, MadeIn, Unavailable},
 };
 use crossterm::event::KeyCode;
 use ratatui::{Frame, layout::Rect, text::Line, widgets::Paragraph};
@@ -128,7 +128,7 @@ impl View {
                 for turn in history.turns {
                     let label = turn.event.source_label();
                     match turn.event {
-                        Event::DraftSuggested { text, provenance } => add(
+                        Event::DraftSuggested(DraftSuggestion { text, provenance }) => add(
                             &mut blocks,
                             "Tinkery's draft guess (not submitted words)",
                             format!("{text}\nSource: {provenance}"),

@@ -101,17 +101,14 @@ impl Conversation {
         &self.turns
     }
     pub(super) fn offer_draft(&mut self, draft: crate::think_record::DraftSuggestion) {
-        self.note(Event::DraftSuggested {
-            text: draft.text,
-            provenance: draft.provenance,
-        });
+        self.note(Event::DraftSuggested(draft));
     }
     pub(super) fn has_draft_suggestion(&self) -> bool {
         self.sources.is_empty()
             && self
                 .turns
                 .iter()
-                .any(|t| matches!(t.event, Event::DraftSuggested { .. }))
+                .any(|t| matches!(t.event, Event::DraftSuggested(_)))
     }
     pub(super) fn reading_context(&self) -> &crate::think_record::ReadingContext {
         &self.context

@@ -102,8 +102,9 @@ impl Tend {
         self.repo_paths.is_some() && !self.show_all
     }
 
-    /// A pending view with a captured links destination or refusal; reads no links and writes nothing.
-    pub(super) fn new(link_root: Result<PathBuf, String>) -> Self {
+    /// A pending view with a captured Tend store folder or refusal. Reads only the saved thoughts
+    /// of `repo`, when Tinkery started in one, and no links; writes nothing.
+    pub(super) fn new(link_root: Result<PathBuf, String>, repo: Option<&Path>) -> Self {
         Self {
             sessions: vec![],
             error: None,
@@ -122,10 +123,10 @@ impl Tend {
             help_scroll: 0,
             notice: String::new(),
             history: None,
-            thoughts: None,
             graph: graph::GraphView::default(),
             last_press: None,
             hidden_thought: None,
+            thoughts: repo.map(|repo| thought::Garden::open(link_root.clone(), repo.to_path_buf())),
             needs: needs::Store::new(link_root),
             links: Ok(needs::Links::default()),
             all_sessions: vec![],
@@ -611,7 +612,7 @@ mod tests {
     fn detail_footer_names_f10_for_copyable_and_noncopyable_goals() {
         use ratatui::{Terminal, backend::TestBackend};
         for stage in [Stage::GoalSaved, Stage::Unknown] {
-            let mut tend = Tend::new(Err("TEST no links".into()));
+            let mut tend = Tend::new(Err("TEST no links".into()), None);
             tend.pending = false;
             tend.current = true;
             tend.detail = true;

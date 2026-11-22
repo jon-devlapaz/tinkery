@@ -11,7 +11,7 @@ use ratatui::{
 use unicode_width::UnicodeWidthStr;
 
 fn tend(count: usize) -> Tend {
-    let mut tend = Tend::new(Err("TEST links unavailable".into()));
+    let mut tend = Tend::new(Err("TEST links unavailable".into()), None);
     tend.pending = false;
     tend.current = true;
     tend.sessions = (0..count)

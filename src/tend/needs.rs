@@ -4,35 +4,19 @@
 
 use crate::seed_me::{Session, Stage};
 use serde::{Deserialize, Serialize};
-use std::{
-    cell::Cell,
-    collections::BTreeSet,
-    ffi::OsStr,
-    fs,
-    path::{Path, PathBuf},
-};
+use std::{cell::Cell, collections::BTreeSet, fs, path::PathBuf};
 
-/// The links folder under an absolute HOME. Creates nothing; refuses an unsafe default.
-pub fn default_root(home: Option<&OsStr>) -> Result<PathBuf, String> {
-    match home.map(Path::new) {
-        Some(home) if home.is_absolute() => Ok(home.join(".local/share/tinkery/tend")),
-        _ => Err(
-            "HOME is unset or not absolute, so linking is unavailable; pass --link-root PATH."
-                .into(),
-        ),
-    }
-}
-
-/// Capture an explicit links folder against the launch directory, or use the checked HOME.
-/// Empty explicit roots are refused; this never reads or creates a links file.
-pub fn resolve_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
-    match explicit {
-        Some(root) if root.as_os_str().is_empty() => Err("--link-root needs a folder".into()),
-        Some(root) if root.is_absolute() => Ok(root),
-        Some(root) => std::env::current_dir()
-            .map(|cwd| cwd.join(root))
-            .map_err(|error| format!("Cannot resolve --link-root PATH: {error}")),
-        None => default_root(std::env::var_os("HOME").as_deref()),
+/// Capture an explicit links folder against the launch directory. Empty roots are refused;
+/// this never reads or creates a links file.
+pub fn resolve_root(explicit: PathBuf) -> Result<PathBuf, String> {
+    if explicit.as_os_str().is_empty() {
+        Err("--link-root needs a folder".into())
+    } else if explicit.is_absolute() {
+        Ok(explicit)
+    } else {
+        std::env::current_dir()
+            .map(|cwd| cwd.join(explicit))
+            .map_err(|error| format!("Cannot resolve --link-root PATH: {error}"))
     }
 }
 
@@ -643,25 +627,20 @@ mod tests {
 
     #[test]
     fn roots_are_checked_without_creating_folders() {
-        let (tmp, _, _) = fixture();
-        assert_eq!(
-            default_root(Some(tmp.path().as_os_str())).unwrap(),
-            tmp.path().join(".local/share/tinkery/tend")
-        );
-        assert!(!tmp.path().join(".local").exists());
         for home in [None, Some(""), Some("relative"), Some(".")] {
-            let reason = default_root(home.map(OsStr::new)).unwrap_err();
-            assert!(reason.contains("linking is unavailable; pass --link-root PATH"));
+            let reason = crate::data_roots::DataRoots::from_home(home.map(std::ffi::OsStr::new))
+                .tend
+                .unwrap_err();
             let store = Store::new(Err(reason.clone()));
             assert_eq!(store.read(), Read::Unreadable(reason.clone()));
             assert_eq!(store.toggle("a", "b").unwrap_err(), reason);
         }
         assert_eq!(
-            resolve_root(Some(PathBuf::new())).unwrap_err(),
+            resolve_root(PathBuf::new()).unwrap_err(),
             "--link-root needs a folder"
         );
         assert_eq!(
-            resolve_root(Some("TEST-relative-links".into())).unwrap(),
+            resolve_root("TEST-relative-links".into()).unwrap(),
             std::env::current_dir().unwrap().join("TEST-relative-links")
         );
         assert_eq!(
