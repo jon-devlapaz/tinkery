@@ -53,6 +53,7 @@ const MODULES: &[(&str, &str)] = &[
     ("menu", "menu"),
     ("model_setup", "shared"),
     ("pi", "shared"),
+    ("process", "shared"),
     ("regular_file", "shared"),
     ("repo", "shared"),
     ("sdlc", "shared"),

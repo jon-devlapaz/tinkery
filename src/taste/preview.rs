@@ -1,13 +1,13 @@
 //! Explicit repo declarations and one cancellable exact-head preview. No command inference,
 //! public URL, operator checkout, agent or durable preview record is supported.
 
-use crate::sdlc::{self, DEADLINE, Read};
+use crate::process::{self, Task};
+use crate::sdlc::{self, DEADLINE};
 use serde::Deserialize;
 use serde_json::Value;
 use std::{
     io::{Read as _, Write as _},
     net::{SocketAddr, TcpStream},
-    os::unix::process::CommandExt,
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     sync::{
@@ -264,13 +264,18 @@ pub(super) fn declaration(
         "Accept: application/vnd.github.raw+json",
         &format!("repos/{repo}/contents/tinkery.preview?ref={head}"),
     ]);
-    match sdlc::execute(root, command, "gh", stop, DEADLINE) {
-        Ok(source) => Spec::parse(&source).map(Some),
-        Err(why) if why.contains("HTTP 404") => Ok(None),
-        Err(_) => {
-            Err("Couldn't read tinkery.preview at this commit. Check gh access and press r.".into())
-        }
+    command.current_dir(root);
+    let unread = || "Couldn't read tinkery.preview at this commit. Check gh access and press r.";
+    let output =
+        process::run(command, process::Limits::text(DEADLINE), stop).map_err(|_| unread())?;
+    if output.status.success() {
+        let source = String::from_utf8(output.stdout).map_err(|_| unread())?;
+        return Spec::parse(&source).map(Some);
     }
+    if output.said().contains("HTTP 404") {
+        return Ok(None);
+    }
+    Err(unread().into())
 }
 
 fn repository(url: &str) -> Result<&str, String> {
@@ -281,7 +286,7 @@ fn repository(url: &str) -> Result<&str, String> {
 
 /// Own the preview through readiness and browser navigation; dropping stops and reaps it.
 pub(super) struct Preview {
-    _worker: Read<()>,
+    _worker: Task<()>,
     status: Arc<Mutex<String>>,
 }
 
@@ -292,7 +297,7 @@ impl Preview {
             "Preparing temporary exact-commit checkout… Esc stops.".into(),
         ));
         let progress = status.clone();
-        let worker = Read::task(move |stop| {
+        let worker = Task::start(move |stop| {
             if let Err(why) = run(&source, &spec, stop, &progress) {
                 *progress.lock().unwrap() =
                     format!("Preview stopped: {why} Press Esc, then v to retry.");
@@ -314,12 +319,7 @@ impl Preview {
 struct Process(Child);
 impl Drop for Process {
     fn drop(&mut self) {
-        // SAFETY: this child owns a new process group; no operator process is targeted.
-        unsafe {
-            libc::kill(-(self.0.id() as libc::pid_t), libc::SIGKILL);
-        }
-        let _ = self.0.kill();
-        let _ = self.0.wait();
+        process::stop(&mut self.0);
     }
 }
 
@@ -355,7 +355,7 @@ pub(super) fn git(
     ] {
         command.env_remove(key);
     }
-    sdlc::execute(root, command, "git", stop, DEADLINE)
+    process::text(root, command, "git", stop, DEADLINE)
 }
 
 fn run(
@@ -412,19 +412,19 @@ fn run(
     if stop.load(Ordering::SeqCst) {
         return Err("Cancelled.".into());
     }
-    let child = Command::new("sh")
-        .args(["-c", &spec.command])
-        .current_dir(root)
-        .env("HOME", &home)
-        .env("XDG_CACHE_HOME", home.join("cache"))
-        .env("XDG_CONFIG_HOME", home.join("config"))
-        .env("XDG_DATA_HOME", home.join("data"))
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .process_group(0)
-        .spawn()
-        .map_err(|e| format!("Couldn't start declared command: {e}"))?;
+    let child = process::spawn(
+        Command::new("sh")
+            .args(["-c", &spec.command])
+            .current_dir(root)
+            .env("HOME", &home)
+            .env("XDG_CACHE_HOME", home.join("cache"))
+            .env("XDG_CONFIG_HOME", home.join("config"))
+            .env("XDG_DATA_HOME", home.join("data"))
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null()),
+    )
+    .map_err(|e| format!("Couldn't start declared command: {e}"))?;
     let mut process = Process(child);
     *progress.lock().unwrap() = format!("Waiting for {}… Esc stops.", spec.url);
     let until = Instant::now() + DEADLINE;
@@ -455,7 +455,7 @@ fn run(
     };
     let mut opener = Command::new(program);
     opener.arg(&spec.url);
-    sdlc::execute(root, opener, program, stop, DEADLINE)
+    process::text(root, opener, program, stop, DEADLINE)
         .map_err(|_| "Couldn't open browser; check the default opener.".to_owned())?;
     *progress.lock().unwrap() = format!("Local URL answered; sent {} to browser.", spec.url);
     while !stop.load(Ordering::SeqCst) {

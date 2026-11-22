@@ -201,7 +201,7 @@ impl Pending {
             fs::remove_file(entry.path()).map_err(|e| e.to_string())?;
         }
         let actor = self.actor.actor()?;
-        ledger::initialize_at(&staging, &self.id, &super::answering::now(), actor)?;
+        ledger::initialize_at(&staging, &self.id, &crate::calendar::now(), actor)?;
         Config::at(self.root.clone(), staging.clone()).confirm_with_origin(
             Affirmed {
                 goal: self.origin.goal.clone(),

@@ -102,7 +102,7 @@ impl Rejected {
             .prefix(".pending-retry-")
             .tempdir_in(sessions)
             .map_err(|e| e.to_string())?;
-        let staged = seed_me::ledger::initialize(pending.path(), &seed_me::answering::now())?;
+        let staged = seed_me::ledger::initialize(pending.path(), &crate::calendar::now())?;
         let id = staged
             .file_name()
             .and_then(|n| n.to_str())

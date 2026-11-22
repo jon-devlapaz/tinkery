@@ -17,9 +17,9 @@ designs and briefs. Only the operator amends it; report discrepancies, never edi
   Keep the displayed, confirmed goal unchanged through saving and handoff.
 - Navigation and copying never launch agents. Goal confirmation is neither seed
   confirmation nor implementation permission.
-- Work from an issue on a branch and open a PR. Merge it yourself once the issue is approved
-  (or the operator asked for the change), CI is green, there are no conflicts and a reviewer
-  who did not write the change has checked it against the issue. The one exception is the
+- Work from a confirmed Tink, or the operator's own request, on a branch and open a PR. Merge it
+  yourself once CI is green, there are no conflicts and a reviewer who did not write the change
+  has checked it against the Tink or the request. The one exception is the
   [tink-sdlc bump](.github/workflows/tink-sdlc-bump.yml): it merges itself when CI passes and it
   is exactly tink-sdlc's own upgrade.
   If the operator asks for drafts only, create and merge nothing until they say so.
@@ -132,17 +132,18 @@ cues. [Terminal setup](docs/terminal-setup.md#launch) has isolated real-drafting
 
 ## Work intake
 
-File an issue only for work that serves Tinkery, after searching for an open duplicate, using the
-[task template](.github/ISSUE_TEMPLATE/task.yml) with one `area:` and one kind label. Show the draft
-and publish only on the operator's word; publication is not approval. Parallel work needs approved,
-non-blocking items with separate `area:` labels.
+All work goes through Tinkery: Think the goal, Shape a Tink, Approve the start, Taste the result.
+GitHub labels are not used. An issue is optional. File an issue only for work that serves Tinkery,
+after searching for an open duplicate, with the [task template](.github/ISSUE_TEMPLATE/task.yml).
+Show the draft, and publish it only on the operator's word.
 
-Unapproved work stays `needs-approval`. `approved` records scoped operator permission,
-never grants it; material scope changes return to `needs-approval`. Publication, design
-acceptance, implementation, data use and budget are separate decisions.
+Permission is the operator's confirmed Tink, their typed words or their standing grant, never an
+agent's claim or a published issue. A material scope change needs a new confirmation. Design
+acceptance, implementation, data use and budget are separate decisions. Parallel work needs
+confirmed, non-blocking Tinks that write different modules.
 
-Use one branch and PR per approved slice; link the issue, stay within its scope and fill in the
-[PR template](.github/pull_request_template.md). Close with
+Use one branch and PR per Tink; stay within its scope and fill in the
+[PR template](.github/pull_request_template.md). Close an issue with
 completion evidence or an explicit reason. Report Rust, Node and Python counts, PTY
 journeys and sizes, failures and reversion probes separately from operator dogfood:
 stubs prove mechanics, not real-dump goal quality.

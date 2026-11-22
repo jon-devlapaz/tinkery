@@ -192,7 +192,7 @@ impl Config {
         }
         let delegation = actor.delegation();
         let root = self.root.as_ref().map_err(Clone::clone)?;
-        let stamp = super::answering::now();
+        let stamp = crate::calendar::now();
         let mut retained = self
             .session
             .lock()

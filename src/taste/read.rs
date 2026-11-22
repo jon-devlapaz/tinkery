@@ -2,6 +2,7 @@
 //! title supplies a PR; missing identities never borrow a goal or old success. No writes or decisions.
 
 use super::{evidence, links};
+use crate::process;
 use crate::sdlc::{self, DEADLINE, Goal};
 use serde_json::Value;
 use std::{
@@ -463,7 +464,7 @@ fn gh(root: &Path, url: &str, stop: &AtomicBool) -> Result<Value, String> {
         "--json",
         "url,title,headRefOid,state,statusCheckRollup",
     ]);
-    let out = sdlc::execute(root, command, "gh", stop, DEADLINE)?;
+    let out = process::text(root, command, "gh", stop, DEADLINE)?;
     serde_json::from_str(&out).map_err(|_| "GitHub report unreadable.".into())
 }
 
