@@ -29,7 +29,7 @@ fn stamp(value: time::OffsetDateTime) -> String {
 }
 
 #[test]
-fn public_order_and_age_preserve_offsets_calendar_boundaries_and_existing_syntax() {
+fn public_order_and_age_preserve_offsets_calendar_boundaries_and_rfc_3339_syntax() {
     let dir = tempfile::Builder::new()
         .prefix("tinkery-TEST-C03-")
         .tempdir()
@@ -51,11 +51,11 @@ fn public_order_and_age_preserve_offsets_calendar_boundaries_and_existing_syntax
             "2026-10-11T10:00:00.12345678901234567890Z".into(),
             true,
         ),
-        ("signed-month", "2026-+1-01T00:00:00Z".into(), true),
-        ("signed-day", "2026-01-+1T00:00:00Z".into(), true),
-        ("signed-clock", "2026-01-01T+1:+1:+1Z".into(), true),
-        ("signed-zero", "2026-01-01T-0:00:-0Z".into(), true),
-        ("signed-offset", "2026-01-01T00:00:00++1:+1".into(), true),
+        ("leap-second", "2016-12-31T23:59:60Z".into(), true),
+        ("lowercase-t", "2026-01-01t00:00:00Z".into(), true),
+        ("lowercase-z", "2026-01-01T00:00:00z".into(), true),
+        ("space-separator", "2026-01-01 00:00:00Z".into(), true),
+        ("other-separator", "2026-01-01X00:00:00Z".into(), true),
         ("offset-limit", "2026-01-01T00:00:00+23:59".into(), true),
         ("epoch", "1970-01-01T00:00:00Z".into(), true),
         ("offset-epoch", "1969-12-31T23:59:00-00:01".into(), true),
@@ -72,11 +72,11 @@ fn public_order_and_age_preserve_offsets_calendar_boundaries_and_existing_syntax
         ("five-digit-year", "10000-01-01T00:00:00Z"),
         ("bad-hour", "2026-01-01T24:00:00Z"),
         ("bad-minute", "2026-01-01T00:60:00Z"),
-        ("leap-second", "2016-12-31T23:59:60Z"),
-        ("lowercase-t", "2026-01-01t00:00:00Z"),
-        ("lowercase-z", "2026-01-01T00:00:00z"),
-        ("space-separator", "2026-01-01 00:00:00Z"),
-        ("other-separator", "2026-01-01X00:00:00Z"),
+        ("signed-month", "2026-+1-01T00:00:00Z"),
+        ("signed-day", "2026-01-+1T00:00:00Z"),
+        ("signed-clock", "2026-01-01T+1:+1:+1Z"),
+        ("signed-zero", "2026-01-01T-0:00:-0Z"),
+        ("signed-offset", "2026-01-01T00:00:00++1:+1"),
         ("empty-fraction", "2026-01-01T00:00:00.Z"),
         ("offset-over-limit", "2026-01-01T00:00:00+24:00"),
     ] {
@@ -112,8 +112,8 @@ fn public_order_and_age_preserve_offsets_calendar_boundaries_and_existing_syntax
     assert_eq!(position("max-year"), 0);
     assert!(position("equivalent-offset") < position("equivalent-utc"));
     assert!(position("equivalent-utc") < position("equivalent-fraction"));
-    assert!(position("equivalent-fraction") < position("signed-month"));
-    assert!(position("signed-month") < position("epoch"));
+    assert!(position("equivalent-fraction") < position("leap-day"));
+    assert!(position("leap-day") < position("epoch"));
     assert!(position("epoch") < position("offset-epoch"));
     let known: HashMap<_, _> = cases
         .iter()

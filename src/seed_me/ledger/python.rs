@@ -74,5 +74,5 @@ pub(super) fn printable(c: char) -> bool {
 }
 
 pub(super) fn timestamp(input: &str) -> bool {
-    time::OffsetDateTime::parse(input, &time::format_description::well_known::Rfc3339).is_ok()
+    crate::calendar::parse(input).is_some()
 }

@@ -7,13 +7,6 @@ fn read_item(item: &serde_json::Value) -> Result<Attestation, String> {
 use serde_json::json;
 use std::fs;
 
-mod descendant {
-    include!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/tests/support/command_descendant.rs"
-    ));
-}
-
 #[test]
 fn awaiting_receipts_keep_pending_ids_out_of_untyped_metadata() {
     let source = json!({"verification_status":"awaiting-attestation", "verification":{
@@ -112,76 +105,6 @@ fn checklist_obligations_fail_closed_only_for_manual_operator_items() {
         item.as_object_mut().unwrap().remove(key);
         assert!(read_item(&item).is_err(), "{key}");
     }
-}
-
-#[test]
-fn successful_commands_stop_descendants_and_preserve_results() {
-    completed_command(0);
-}
-
-#[test]
-fn failed_commands_stop_descendants_and_preserve_results() {
-    completed_command(7);
-}
-
-fn completed_command(exit: u8) {
-    let fixture = descendant::Fixture::new(exit);
-    let result = run::execute(
-        fixture.root(),
-        std::process::Command::new(fixture.program()),
-        fixture.program().to_str().unwrap(),
-        &AtomicBool::new(false),
-        std::time::Duration::from_secs(10),
-    );
-    fixture.assert_stopped();
-    assert!(fixture.input().is_empty(), "status reads receive no input");
-    if exit == 0 {
-        assert_eq!(result.unwrap(), " TEST reply café  \n");
-    } else {
-        let error = result.unwrap_err();
-        assert!(
-            error.starts_with(&fixture.program().to_string_lossy().to_string()),
-            "{error}"
-        );
-        assert!(error.contains("exit status: 7"), "{error}");
-        assert!(error.ends_with("TEST command failed"), "{error}");
-    }
-}
-
-#[test]
-fn completed_reads_wake_their_owner_with_success_or_failure() {
-    for outcome in [Ok("TEST result"), Err("TEST refusal".to_owned())] {
-        std::thread::spawn(move || {
-            let expected = outcome.clone();
-            let read = Read::task(move |_| {
-                std::thread::sleep(std::time::Duration::from_millis(30));
-                outcome
-            });
-            let started = std::time::Instant::now();
-            std::thread::park_timeout(std::time::Duration::from_secs(2));
-            assert!(started.elapsed() < std::time::Duration::from_secs(1));
-            assert_eq!(read.poll(), Some(expected));
-        })
-        .join()
-        .unwrap();
-    }
-}
-
-#[test]
-fn completion_before_parking_retains_the_wakeup() {
-    std::thread::spawn(|| {
-        let read = Read::task(|_| Ok("TEST ready"));
-        let until = std::time::Instant::now() + std::time::Duration::from_secs(2);
-        while read.poll().is_none() {
-            assert!(std::time::Instant::now() < until);
-            std::thread::sleep(std::time::Duration::from_millis(1));
-        }
-        let started = std::time::Instant::now();
-        std::thread::park_timeout(std::time::Duration::from_secs(2));
-        assert!(started.elapsed() < std::time::Duration::from_secs(1));
-    })
-    .join()
-    .unwrap();
 }
 
 fn fixture() -> (tempfile::TempDir, PathBuf, Value) {
@@ -376,43 +299,7 @@ fn a_failed_reader_start_says_what_to_check_without_os_internals() {
 }
 
 #[test]
-fn other_commands_name_themselves_when_they_fail_never_python_or_status() {
-    let root = tempfile::Builder::new()
-        .prefix("tinkery-TEST-command-")
-        .tempdir()
-        .unwrap();
-    let missing = std::process::Command::new("tinkery-TEST-missing-gh");
-    let why = run::execute(
-        root.path(),
-        missing,
-        "tinkery-TEST-missing-gh",
-        &AtomicBool::new(false),
-        DEADLINE,
-    )
-    .unwrap_err();
-    assert_eq!(
-        why,
-        "Couldn't start tinkery-TEST-missing-gh. Check that it is installed and on PATH."
-    );
-    let mut failing = std::process::Command::new("sh");
-    failing.args(["-c", "echo 'fatal: TEST remote ref' >&2; exit 3"]);
-    let why = run::execute(
-        root.path(),
-        failing,
-        "sh",
-        &AtomicBool::new(false),
-        DEADLINE,
-    )
-    .unwrap_err();
-    assert!(
-        why.starts_with("sh exited with") && why.ends_with("fatal: TEST remote ref"),
-        "{why}"
-    );
-    assert!(!why.contains("Python"), "{why}");
-}
-
-#[test]
-fn isolated_label_failure_names_label_not_the_script() {
+fn label_failure_names_label_not_the_script() {
     let root = tempfile::Builder::new()
         .prefix("tinkery-TEST-label-command-")
         .tempdir()
@@ -424,33 +311,32 @@ fn isolated_label_failure_names_label_not_the_script() {
         "import sys\nassert sys.argv[1] == 'label'\nprint('Error: TEST label refused', file=sys.stderr)\nsys.exit(3)\n",
     )
     .unwrap();
-    for isolated in [true, false] {
-        let mut command = std::process::Command::new("python3");
-        if isolated {
-            command.arg("-I");
-        }
-        command.args([SCRIPT, "label"]);
-        let why = run::execute(
-            root.path(),
-            command,
-            "sdlc.py label",
-            &AtomicBool::new(false),
-            DEADLINE,
-        )
-        .unwrap_err();
-        assert_eq!(
-            why, "sdlc.py label exited with exit status: 3: Error: TEST label refused",
-            "isolated: {isolated}"
-        );
-    }
+    let why = run::run(
+        root.path(),
+        &["label".into()],
+        &AtomicBool::new(false),
+        DEADLINE,
+    )
+    .unwrap_err();
+    assert_eq!(
+        why,
+        "sdlc.py label exited with exit status: 3: Error: TEST label refused"
+    );
 }
 
 #[test]
-fn every_command_prefers_json_then_sdlc_error_then_last_stderr_line() {
+fn every_refusal_prefers_json_then_sdlc_error_then_last_stderr_line() {
     let root = tempfile::Builder::new()
         .prefix("tinkery-TEST-command-diagnostics-")
         .tempdir()
         .unwrap();
+    let scripts = root.path().join("_system/scripts");
+    fs::create_dir_all(&scripts).unwrap();
+    fs::write(
+        scripts.join("sdlc.py"),
+        "import sys\nsys.stdout.write(sys.argv[2])\nsys.stderr.write(sys.argv[3])\nsys.exit(3)\n",
+    )
+    .unwrap();
     for (output, stderr, expected) in [
         (
             "",
@@ -468,25 +354,16 @@ fn every_command_prefers_json_then_sdlc_error_then_last_stderr_line() {
             "TEST refusal",
         ),
     ] {
-        let mut command = std::process::Command::new("sh");
-        command.args([
-            "-c",
-            "printf '%s' \"$1\"; printf '%s' \"$2\" >&2; exit 3",
-            "TEST-command",
-            output,
-            stderr,
-        ]);
-        let why = execute(
+        let why = run::run(
             root.path(),
-            command,
-            "TEST command",
+            &["TEST".into(), output.into(), stderr.into()],
             &AtomicBool::new(false),
             DEADLINE,
         )
         .unwrap_err();
         assert_eq!(
             why,
-            format!("TEST command exited with exit status: 3: {expected}")
+            format!("sdlc.py TEST exited with exit status: 3: {expected}")
         );
     }
 }

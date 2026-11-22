@@ -30,6 +30,7 @@ pub mod measure;
 pub mod menu;
 pub mod model_setup;
 pub mod pi;
+mod process;
 mod regular_file;
 pub mod repo;
 mod sdlc;

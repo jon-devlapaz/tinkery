@@ -80,8 +80,7 @@ enum Content<'a> {
 }
 
 fn timestamp(at: &str) -> Result<time::OffsetDateTime, String> {
-    time::OffsetDateTime::parse(at, &time::format_description::well_known::Rfc3339)
-        .ok()
+    crate::calendar::parse(at)
         .and_then(|at| at.checked_to_offset(time::UtcOffset::UTC))
         .ok_or_else(|| "Invalid reading-context timestamp.".into())
 }

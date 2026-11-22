@@ -1,6 +1,7 @@
 # Terminal setup
 
-This page covers terminal-host settings and launch commands. Tinkery uses the
+This page covers terminal-host settings, launch commands and the
+[headless commands](#headless-commands) that need no screen. Tinkery uses the
 host's font; it cannot install or choose one. For key behaviour, use in-app help
 (F1, then h for how it works). Report disagreements with the
 [interaction contract](design/think.md#interaction-contracts), rather than treating
@@ -184,3 +185,56 @@ F1's first row opens the review. Scroll to its end (PgDn), then type `confirm` a
 save the goal and its think record. Saving is not seed confirmation or permission
 to implement, and nothing launches an agent. See [think](design/think.md) and
 [tend and handoff](design/shape-and-handoff.md).
+
+## Headless commands
+
+An agent or a script can run these commands without a screen. Each one runs once and exits.
+A read-only command writes nothing. A command that acts makes one explicit change and needs
+`--operator human|agent` before `seed`. Options always go before `seed`.
+
+| Command | What it does | Model calls |
+| --- | --- | --- |
+| `tinkery --help` | Read-only: prints every option. | None |
+| `tinkery [--home] [--no-color] --snapshot` | Read-only: prints a 100×30 view. | None |
+| `tinkery seed status --json DIR` | Read-only: prints the intake status. | None |
+| `tinkery seed checks DIR` | Read-only: prints the strict check records. Before a draft, it refuses. | None |
+| `tinkery seed show DIR` | Read-only: prints what Shape shows now, as JSON. | None |
+| `tinkery [options] seed new GOAL_FILE [ORIGIN]` | Acts: saves the file's words as a confirmed goal and prints the session folder. | None |
+| `tinkery [options] seed step DIR confirm DRAFT_SHA256` | Acts: confirms only the draft with that SHA-256. | None |
+| `tinkery [options] seed step DIR look\|delegate\|answer WORDS\|answer --relayed FILE` | Acts: takes one Shape step. | Needs `--shape-pi`, `--model` and an approved `--shape-budget` |
+
+[Shape without a screen](design/shape-and-handoff.md#without-a-screen) states what each `seed`
+command promises and refuses. No command starts a worker. A worker starts only from Approve's
+screen with F2, `l` or `u` ([start a worker](design/approve.md#start-a-worker)).
+A headless worker start is proposed in [#956](https://github.com/jon-devlapaz/tinkery/issues/956)
+and is not available.
+
+This example makes no model calls. From the repository root, it builds once, then runs every
+command with a temporary TEST HOME and TEST roots, away from operator data and saved setup:
+
+```sh
+cargo +stable build --locked
+tinkery="$PWD/target/debug/tinkery"
+test_root=$(mktemp -d /tmp/tinkery-TEST-headless-XXXXXX)
+printf 'TEST: list the headless commands.\nDone when: one page lists them.\n' > "$test_root/goal.txt"
+# Read-only.
+HOME="$test_root/home" "$tinkery" --help
+HOME="$test_root/home" "$tinkery" --operator agent --home --snapshot --no-color
+# Acts: saves the TEST goal as the agent's and prints its session folder.
+session=$(HOME="$test_root/home" "$tinkery" --operator agent \
+  --seed-session-root "$test_root/sessions" seed new "$test_root/goal.txt" "TEST example")
+# Read-only.
+HOME="$test_root/home" "$tinkery" seed show "$session"
+HOME="$test_root/home" "$tinkery" seed status --json "$session"
+# Each of these refuses, changes nothing and exits non-zero.
+# No draft exists yet, so there are no checks.
+HOME="$test_root/home" "$tinkery" seed checks "$session"
+# A look needs drafting options.
+HOME="$test_root/home" "$tinkery" --operator agent seed step "$session" look
+# There is no draft to confirm.
+HOME="$test_root/home" "$tinkery" --operator agent seed step "$session" \
+  confirm 0000000000000000000000000000000000000000000000000000000000000000
+```
+
+A real `look`, `answer` or `delegate` sends the goal to a model and can cost money. Run it
+only with an explicit budget from the operator, as in the [trial above](#launch).
