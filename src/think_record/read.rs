@@ -5,16 +5,16 @@
 mod origins;
 pub(crate) use origins::read_origins;
 
-use super::{Event, GoalConfirmation, MAX_RECORD_BYTES, SCHEMA, context, session_id};
+use super::{Event, MAX_RECORD_BYTES, Record, SCHEMA, context, session_id};
 use crate::seed_me;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
     fs,
     path::{Component, Path, PathBuf},
 };
 
 /// One turn as recorded, with the person's words unchanged.
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct RecordedTurn {
     /// The timestamp exactly as recorded, without estimating time spent working.
     pub at: String,
@@ -94,36 +94,6 @@ impl Unavailable {
 // Limit each file before parsing or formatting its checks. A larger record is unavailable,
 // never partially shown. History holds one selected record plus one file; batch attribution
 // keeps only paths, identities, goals and origins after each file is validated.
-
-#[derive(Deserialize)]
-struct SavedRecord {
-    schema: u8,
-    tinkery: String,
-    #[serde(default)]
-    tinkery_source: serde_json::Value,
-    #[serde(default)]
-    reading_context: serde_json::Value,
-    #[serde(default)]
-    reading_context_error: serde_json::Value,
-    origin: String,
-    #[serde(default)]
-    harness: Option<String>,
-    model: Option<String>,
-    thinking: Option<String>,
-    prompt_hash: Option<String>,
-    started: String,
-    confirmed: String,
-    seed_me_session: String,
-    seed_me_session_path: Option<PathBuf>,
-    seed_me_session_id: Option<String>,
-    #[serde(default)]
-    repo: Option<PathBuf>,
-    turns: Vec<RecordedTurn>,
-    checks: Vec<serde_json::Value>,
-    goal: String,
-    #[serde(default)]
-    goal_confirmation: GoalConfirmation,
-}
 
 /// Reads the unique history for `session` and its exact `goal`, without writing or running
 /// commands. Scans JSON files under `root`; missing, unreadable, unsupported, conflicting or
@@ -230,7 +200,7 @@ pub(crate) fn read_for_shape(
 struct VerifiedRecord {
     selected: (PathBuf, String),
     path: PathBuf,
-    record: SavedRecord,
+    record: Record,
 }
 
 fn verified_record(root: &Path, session: &Path, goal: &str) -> Result<VerifiedRecord, Unavailable> {
@@ -291,7 +261,7 @@ fn verified_record(root: &Path, session: &Path, goal: &str) -> Result<VerifiedRe
     })
 }
 
-type RecordEntry = Result<(PathBuf, SavedRecord), Unavailable>;
+type RecordEntry = Result<(PathBuf, Record), Unavailable>;
 
 /// Stream decoded JSON files in directory order. Surface entry and record errors to both readers.
 fn record_files(root: &Path) -> Result<impl Iterator<Item = RecordEntry>, Unavailable> {
@@ -313,7 +283,7 @@ fn record_files(root: &Path) -> Result<impl Iterator<Item = RecordEntry>, Unavai
     }))
 }
 
-fn record_identity(path: &Path, record: &SavedRecord) -> Result<String, Unavailable> {
+fn record_identity(path: &Path, record: &Record) -> Result<String, Unavailable> {
     let stored = record.seed_me_session_path.as_ref();
     if let Some(stored) = stored {
         if !stored.is_absolute()
@@ -474,7 +444,7 @@ fn current_session(session: &Path, goal: &str) -> Result<(PathBuf, String), Unav
     }
 }
 
-fn read_file(path: &Path) -> Result<SavedRecord, Unavailable> {
+fn read_file(path: &Path) -> Result<Record, Unavailable> {
     #[cfg(test)]
     counts::file(path);
     let bytes =
@@ -514,7 +484,7 @@ fn read_file(path: &Path) -> Result<SavedRecord, Unavailable> {
             ));
         }
     }
-    let record: SavedRecord =
+    let record: Record =
         serde_json::from_value(value).map_err(|error| Unavailable::unreadable(path, error))?;
     record
         .goal_confirmation

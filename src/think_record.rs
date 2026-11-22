@@ -23,7 +23,6 @@ pub(crate) use read::{read_for_shape, read_origins};
 use crate::goal::Part;
 use serde::{Deserialize, Serialize};
 use std::{
-    ffi::OsStr,
     path::{Path, PathBuf},
     time::SystemTime,
 };
@@ -33,20 +32,6 @@ pub const SCHEMA: u8 = 3;
 
 // The reader and writer share one complete-record limit; neither truncates originals.
 const MAX_RECORD_BYTES: u64 = 16 * 1024 * 1024;
-
-/// Where records go for a user whose home is `home` (the `HOME` variable). Only a default: the
-/// operator may point Tinkery elsewhere with `--record-root`, and nothing here creates the
-/// folder. Refuses, saying so, when `home` is unset, empty or relative, rather than writing
-/// records under whatever folder Tinkery was started in.
-pub fn default_root(home: Option<&OsStr>) -> Result<PathBuf, String> {
-    match home.map(Path::new) {
-        Some(home) if home.is_absolute() => Ok(home.join(".local/share/tinkery/think")),
-        _ => Err(
-            "HOME is unset or not an absolute path, so think records have no default folder; pass --record-root PATH"
-                .into(),
-        ),
-    }
-}
 
 /// One thing that happened in a think session, and when.
 #[derive(Clone, Debug)]
@@ -59,11 +44,11 @@ pub struct Turn {
 
 /// An offered draft and its separate source attribution, never submitted words or model context.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
-pub(crate) struct DraftSuggestion {
+pub struct DraftSuggestion {
     /// Exact suggestion offered before editing.
-    pub(crate) text: String,
+    pub text: String,
     /// Snapshot relationship and deterministic basis, not an acceptance receipt.
-    pub(crate) provenance: String,
+    pub provenance: String,
 }
 
 /// What happened in one turn. Words and answers carry the person's text verbatim.
@@ -71,12 +56,7 @@ pub(crate) struct DraftSuggestion {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Event {
     /// A deterministic next-dump proposal; separate from any subsequently submitted words.
-    DraftSuggested {
-        /// Exact proposed draft before operator edits.
-        text: String,
-        /// Source snapshot and basis, not an operator verdict or model context.
-        provenance: String,
-    },
+    DraftSuggested(DraftSuggestion),
     /// A model suggestion shown with a question; never an answer submitted by the operator.
     Suggested {
         /// The question this suggestion belongs to.
@@ -180,6 +160,38 @@ impl Origin {
     }
 }
 
+/// One stored record. Writing and reading share this shape, so a field cannot change on one side
+/// only. Optional fields default so that schema-1 and schema-2 records still read.
+#[derive(Deserialize, Serialize)]
+struct Record {
+    schema: u8,
+    tinkery: String,
+    #[serde(default)]
+    tinkery_source: serde_json::Value,
+    #[serde(default)]
+    reading_context: serde_json::Value,
+    #[serde(default)]
+    reading_context_error: serde_json::Value,
+    origin: String,
+    #[serde(default)]
+    harness: Option<String>,
+    model: Option<String>,
+    thinking: Option<String>,
+    prompt_hash: Option<String>,
+    started: String,
+    confirmed: String,
+    seed_me_session: String,
+    seed_me_session_path: Option<PathBuf>,
+    seed_me_session_id: Option<String>,
+    #[serde(default)]
+    repo: Option<PathBuf>,
+    turns: Vec<RecordedTurn>,
+    checks: Vec<serde_json::Value>,
+    goal: String,
+    #[serde(default)]
+    goal_confirmation: GoalConfirmation,
+}
+
 /// Everything a record holds, borrowed from the session that was just confirmed.
 pub struct Session<'a> {
     /// Who produced the readings.
@@ -280,12 +292,6 @@ pub fn write_with_context(
             .err()
     });
     let context = context.filter(|_| reading_context_error.is_none());
-    #[derive(Serialize)]
-    struct TurnOut<'a> {
-        at: String,
-        #[serde(flatten)]
-        event: &'a Event,
-    }
     let session_path = session
         .seed_me_session
         .canonicalize()
@@ -310,30 +316,46 @@ pub fn write_with_context(
         .transpose()?;
     let id = session_id(&session_path);
     let started = session.turns.first().map_or(session.confirmed, |t| t.at);
-    let record = serde_json::json!({
-        "schema": SCHEMA,
-        "tinkery": env!("CARGO_PKG_VERSION"),
-        "tinkery_source": context::build_source(
-            option_env!("TINKERY_BUILD_COMMIT"), option_env!("TINKERY_BUILD_DIRTY")
-        ),
-        "reading_context": context,
-        "reading_context_error": reading_context_error,
-        "origin": session.origin.origin,
-        "harness": session.origin.harness,
-        "model": session.origin.model,
-        "thinking": session.origin.thinking,
-        "prompt_hash": session.origin.prompt_hash,
-        "started": utc(started, ':'),
-        "confirmed": utc(session.confirmed, ':'),
-        "seed_me_session": id,
-        "seed_me_session_path": session_path_text,
-        "seed_me_session_id": saved_id,
-        "repo": repo,
-        "turns": session.turns.iter().map(|t| TurnOut { at: utc(t.at, ':'), event: &t.event }).collect::<Vec<_>>(),
-        "checks": session.checks,
-        "goal": session.goal,
-        "goal_confirmation": confirmation,
-    });
+    let record = Record {
+        schema: SCHEMA,
+        tinkery: env!("CARGO_PKG_VERSION").into(),
+        tinkery_source: context::build_source(
+            option_env!("TINKERY_BUILD_COMMIT"),
+            option_env!("TINKERY_BUILD_DIRTY"),
+        )
+        .into(),
+        reading_context: serde_json::to_value(context).map_err(|e| e.to_string())?,
+        reading_context_error: reading_context_error.clone().into(),
+        origin: session.origin.origin.clone(),
+        harness: session
+            .origin
+            .harness
+            .map(|harness| serde_json::to_value(harness).and_then(serde_json::from_value))
+            .transpose()
+            .map_err(|e| e.to_string())?,
+        model: session.origin.model.clone(),
+        thinking: session.origin.thinking.clone(),
+        prompt_hash: session.origin.prompt_hash.clone(),
+        started: utc(started, ':'),
+        confirmed: utc(session.confirmed, ':'),
+        seed_me_session: id.clone(),
+        seed_me_session_path: Some(session_path_text.into()),
+        seed_me_session_id: Some(saved_id),
+        repo: repo.map(PathBuf::from),
+        turns: session
+            .turns
+            .iter()
+            .map(|t| RecordedTurn {
+                at: utc(t.at, ':'),
+                event: t.event.clone(),
+            })
+            .collect(),
+        checks: session.checks.clone(),
+        goal: session.goal.into(),
+        goal_confirmation: confirmation.clone(),
+    };
+    // Through a JSON value, whose keys keep the order every stored record already has.
+    let record = serde_json::to_value(&record).map_err(|e| e.to_string())?;
     let mut text = serde_json::to_string_pretty(&record).map_err(|e| e.to_string())?;
     text.push('\n');
     if text.len() as u64 > MAX_RECORD_BYTES {
@@ -398,21 +420,6 @@ mod tests {
         assert_eq!(utc(at(0), ':'), "1970-01-01T00:00:00.007Z");
         assert_eq!(utc(at(951_782_400), ':'), "2000-02-29T00:00:00.007Z");
         assert_eq!(utc(at(1_791_844_800), '-'), "2026-10-12T22-40-00.007Z");
-    }
-
-    #[test]
-    fn default_root_is_under_an_absolute_home_and_refuses_any_other() {
-        assert_eq!(
-            default_root(Some(OsStr::new("/TEST/home"))).unwrap(),
-            Path::new("/TEST/home/.local/share/tinkery/think")
-        );
-        for home in [None, Some(""), Some("TEST-relative"), Some(".")] {
-            let refusal = default_root(home.map(OsStr::new)).unwrap_err();
-            assert!(
-                refusal.contains("--record-root PATH"),
-                "{home:?}: {refusal}"
-            );
-        }
     }
 
     #[test]

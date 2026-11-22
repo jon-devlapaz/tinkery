@@ -77,7 +77,7 @@ fn attributed_repo_scope_keeps_unknowns_global_and_readiness_unchanged() {
         std::thread::sleep(Duration::from_millis(1));
     }
     let landed = discovery.landed().unwrap();
-    let mut tend = Tend::new(Ok(dir.path().join("TEST-links")));
+    let mut tend = Tend::new(Ok(dir.path().join("TEST-links")), None);
     tend.repo_paths = landed.repo_paths.clone();
     tend.repo_unknown = landed.repo_unknown;
     assert_eq!(
@@ -155,7 +155,7 @@ fn attributed_repo_scope_keeps_unknowns_global_and_readiness_unchanged() {
 
 #[test]
 fn empty_repo_with_known_non_matches_names_only_recorded_absence_and_retains_ended_note() {
-    let mut tend = Tend::new(Err("TEST unavailable links".into()));
+    let mut tend = Tend::new(Err("TEST unavailable links".into()), None);
     tend.repo_paths = Some([PathBuf::from("/TEST/ended")].into_iter().collect());
     tend.current = true;
     let outcome = Found {
@@ -221,7 +221,7 @@ fn empty_repo_with_known_non_matches_names_only_recorded_absence_and_retains_end
 
 #[test]
 fn outside_repo_a_does_nothing_and_keeps_every_active_goal() {
-    let mut tend = Tend::new(Err("TEST unavailable links".into()));
+    let mut tend = Tend::new(Err("TEST unavailable links".into()), None);
     let outcome = Ok(Found {
         sessions: vec![Session {
             id: Some("TEST-unknown".into()),

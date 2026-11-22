@@ -297,11 +297,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let declared = operator.is_some();
     let confirmation = tinkery::confirmation::GoalConfirmation::terminal(operator.as_deref())?;
-    let record_root = match record_root {
-        Some(root) if root.is_absolute() => Ok(root),
-        Some(root) => Ok(std::env::current_dir()?.join(root)),
-        None => tinkery::think_record::default_root(std::env::var_os("HOME").as_deref()),
-    };
+    let mut roots = tinkery::data_roots::DataRoots::from_env();
+    match record_root {
+        Some(root) if root.is_absolute() => roots.records = Ok(root),
+        Some(root) => roots.records = Ok(std::env::current_dir()?.join(root)),
+        None => {}
+    }
     let setup_path = tinkery::model_setup::path(std::env::var_os("HOME").as_deref());
     let saved = setup_path
         .as_deref()
@@ -335,7 +336,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None => PathBuf::from(harness.program()),
     };
     if live {
-        record_root.as_ref().map_err(Clone::clone)?;
+        roots.records.as_ref().map_err(Clone::clone)?;
     }
     let call_budget = tinkery::pi::CallBudget::new(launch.as_ref().map_or(0, |l| l.calls));
     let controls = tinkery::model_setup::Controls::new(
@@ -366,13 +367,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None => None,
     };
     let default_root_requested = seed_session_root.is_none();
-    let link_root = tinkery::tend::needs::resolve_root(link_root);
-    let sessions_root = match seed_session_root {
-        Some(root) => Ok(tinkery::seed_me::resolve_root(Some(root))?),
-        None => tinkery::seed_me::default_root(std::env::var_os("HOME").as_deref()),
-    };
+    if let Some(root) = link_root {
+        roots.tend = tinkery::tend::needs::resolve_root(root);
+    }
+    if let Some(root) = seed_session_root {
+        roots.sessions = Ok(tinkery::seed_me::resolve_root(Some(root))?);
+    }
     if live && !snapshot {
-        sessions_root.as_ref().map_err(Clone::clone)?;
+        roots.sessions.as_ref().map_err(Clone::clone)?;
     }
     if seed.is_none() && !snapshot && (!io::stdin().is_terminal() || !io::stdout().is_terminal()) {
         return Err("interactive mode needs a terminal; use --snapshot or --help".into());
@@ -402,7 +404,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .map(|r| r.root().to_path_buf())
                     .or_else(|| std::env::current_dir().ok()),
                 call_budget,
-                record_root.clone().ok(),
+                roots.records.clone().ok(),
             )?
             .with_confirmation(Some(confirmation.clone())),
         )),
@@ -411,7 +413,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(seed) = seed {
         return seed_write(
             &seed,
-            sessions_root,
+            roots.sessions,
             shape_agent.as_deref(),
             &confirmation,
             declared,
@@ -421,8 +423,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         !snapshot && crossterm::terminal::supports_keyboard_enhancement().unwrap_or(false);
     if home_menu {
         let make_dump: Box<dyn Fn() -> BrainDump> = if let Some(host) = host.clone() {
-            let root = sessions_root.clone().ok();
-            let records = record_root.clone()?;
+            let root = roots.sessions.clone().ok();
+            let records = roots.records.clone()?;
             let repo = repo.clone();
             let confirmation = confirmation.clone();
             Box::new(move || {
@@ -452,7 +454,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             Box::new(move || make_dump().with_voice(Box::new(tinkery::voice::ProcessHost::new())))
         };
-        let mut menu = Home::new(make_dump, sessions_root, link_root.clone())
+        let mut menu = Home::new(make_dump, roots.clone())
             .with_repo(repo)
             .with_shape_agent(shape_agent)
             .with_shape_held(agent && !live)
@@ -461,9 +463,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_codex_report(codex_report)
             .with_worker(worker_model, worker_responses)?
             .with_worker_authorization(worker_authorization);
-        if let Ok(root) = &record_root {
-            menu = menu.with_record_root(root.clone());
-        }
         if snapshot {
             menu.discover_for_snapshot(std::time::Duration::from_secs(5));
             let mut app = Intake::Home(Box::new(menu));
@@ -480,7 +479,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
             &mut app,
             full_redraw,
-            link_root,
+            roots,
             None,
             migration,
         );
@@ -492,9 +491,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let mut app = if let Some(host) = host {
         let dump = BrainDump::with_host(host)
-            .with_record_root(record_root?)
+            .with_record_root(roots.records.clone()?)
             .with_repo(repo);
-        Intake::Brain(Box::new(match sessions_root {
+        Intake::Brain(Box::new(match roots.sessions.clone() {
             Ok(root) => dump.with_sessions(Some(root)),
             Err(_) => dump,
         }))
@@ -525,7 +524,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         &mut app,
         full_redraw,
-        link_root,
+        roots,
         shape_agent,
         migration,
     );
@@ -549,7 +548,7 @@ impl Intake {
     }
     fn tick(
         &mut self,
-        link_root: &Result<PathBuf, String>,
+        roots: &tinkery::data_roots::DataRoots,
         shape_agent: &Option<Arc<tinkery::shape::Agent>>,
     ) {
         match self {
@@ -570,7 +569,7 @@ impl Intake {
                     *dump,
                     &session,
                     open_tend,
-                    link_root.clone(),
+                    roots.clone(),
                     shape_agent.clone(),
                 )));
             }
@@ -751,7 +750,7 @@ fn run_shape(
     header: Header,
     app: &mut Intake,
     full_redraw: bool,
-    link_root: Result<PathBuf, String>,
+    roots: tinkery::data_roots::DataRoots,
     shape_agent: Option<Arc<tinkery::shape::Agent>>,
     mut migration: Option<String>,
 ) -> io::Result<Option<String>> {
@@ -773,7 +772,7 @@ fn run_shape(
         model: mut controls,
     } = header;
     while !app.quit() {
-        app.tick(&link_root, &shape_agent);
+        app.tick(&roots, &shape_agent);
         execute!(io::stdout(), BeginSynchronizedUpdate)?;
         let mut presentation = None;
         let drawn = (|| {

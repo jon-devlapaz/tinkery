@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn unavailable_root_survives_fresh_dumps_and_refuses_before_writing() {
         let config = Config {
-            root: super::super::default_root(None),
+            root: crate::data_roots::DataRoots::from_home(None).sessions,
             session: Arc::new(Mutex::new(None)),
         };
         for config in [config.clone(), config.fresh()] {

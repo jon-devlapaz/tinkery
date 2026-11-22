@@ -9,7 +9,7 @@ fn fixture() -> (tempfile::TempDir, Tend) {
         .prefix("tinkery-TEST-link-state-")
         .tempdir()
         .unwrap();
-    let mut tend = Tend::new(Ok(tmp.path().join("TEST-links")));
+    let mut tend = Tend::new(Ok(tmp.path().join("TEST-links")), None);
     tend.current = true;
     tend.apply(
         &Ok(Found {

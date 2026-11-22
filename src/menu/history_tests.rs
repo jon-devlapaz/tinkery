@@ -1,6 +1,7 @@
 //! Saved-history navigation stays inside the selected goal and never copies under an overlay.
 
 use super::*;
+use crate::data_roots::DataRoots;
 use crate::think_record::{self, Event, Origin, Session as RecordSession, Turn};
 use std::{fs, time::SystemTime};
 
@@ -34,10 +35,12 @@ fn home() -> (tempfile::TempDir, Home, PathBuf, Vec<u8>) {
     let bytes = fs::read(&path).unwrap();
     let mut home = Home::new(
         Box::new(BrainDump::default),
-        Ok(sessions),
-        Ok(dir.path().join("TEST-links")),
-    )
-    .with_record_root(records);
+        DataRoots {
+            sessions: Ok(sessions),
+            records: Ok(records),
+            tend: Ok(dir.path().join("TEST-links")),
+        },
+    );
     home.discover_for_snapshot(Duration::from_secs(3));
     home.open(Place::Tend);
     (dir, home, path, bytes)
