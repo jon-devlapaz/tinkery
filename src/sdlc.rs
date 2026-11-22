@@ -1,17 +1,17 @@
-//! Read-only status and exact seed identity in one explicitly named checkout. Source paths and
-//! current bytes are the only join; names and goal text confer no identity. No store or discovery.
+//! tink-sdlc's API 1 in one explicitly named checkout: its run reports, parsed once, and its
+//! commands. It knows no Tinkery session or seed rules; it never stores or discovers anything.
 
 mod run;
 pub(crate) mod source;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use run::{DEADLINE, SCRIPT, read, refusal, run as status};
+pub(crate) use run::{DEADLINE, SCRIPT, read, refusal, run as command};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 use std::{
     path::{Path, PathBuf},
     sync::atomic::AtomicBool,
+    time::Duration,
 };
 
 /// Read bounded Git metadata without updating the index, on a background worker.
@@ -57,44 +57,66 @@ impl Seed {
         }))
     }
 
-    /// True only for the canonical source path and the bytes recorded at intake.
-    pub(crate) fn matches(&self, path: &Path) -> Result<bool, String> {
-        crate::seed_me::migration::refuse_old_root(path)?;
-        let path = path
-            .canonicalize()
-            .map_err(|e| format!("Cannot locate the original Tink Contract: {e}"))?;
-        if self.source.as_os_str() != path.as_os_str() {
-            return Ok(false);
-        }
-        let bytes = crate::seed_me::read_seed(&path)
-            .map_err(|e| format!("Cannot read the original Tink Contract: {e}"))?;
-        Ok(self.sha256 == format!("{:x}", Sha256::digest(bytes)))
+    /// The absolute source path recorded at intake.
+    pub(crate) fn source(&self) -> &Path {
+        &self.source
+    }
+
+    /// The lowercase SHA-256 of the source bytes recorded at intake.
+    pub(crate) fn sha256(&self) -> &str {
+        &self.sha256
     }
 }
 
-/// Read only the expected detached retry's intake record; never invoke its runtime or steps.
-pub(crate) fn retry_seed(directory: &Path, slug: &str) -> Option<Seed> {
-    let bytes = crate::regular_file::read_bounded(
-        &directory.join("run.json"),
-        4 * 1024 * 1024,
-        "run.json is not a regular file",
-    )
-    .ok()?
-    .bytes?;
-    let run: Value = serde_json::from_slice(&bytes).ok()?;
-    let bound = &run["seed_contract"];
-    if run["schema"] != 1
-        || !canonical_run_id(run["run_id"].as_str()?)
-        || bound["path"].as_str()? != format!("runs/{slug}/seed-contract.md")
-        || bound.get("definitions_sha256").is_none()
-    {
-        return None;
-    }
-    Seed::parse(&run).ok().flatten()
+/// Whether the named checkout has tink-sdlc's run reader. Callers keep their own refusal words.
+pub(crate) fn installed(root: &Path) -> bool {
+    root.join(SCRIPT).is_file()
+}
+
+/// One run's API 1 status, parsed once; an unsupported envelope refuses.
+pub(crate) fn status(
+    root: &Path,
+    slug: &str,
+    cancel: &AtomicBool,
+    deadline: Duration,
+) -> Result<Run, String> {
+    status_report(&run::run(
+        root,
+        &["status".into(), slug.into(), "--json".into()],
+        cancel,
+        deadline,
+    )?)
+}
+
+/// The status report's run, parsed once; an unsupported envelope refuses.
+pub(crate) fn status_report(output: &str) -> Result<Run, String> {
+    Ok(Run::parse(&envelope(output)?["run"]))
+}
+
+/// Every run summary in tink-sdlc's order, parsed once. `None` means the report has no runs
+/// list, so each caller keeps its own refusal words.
+pub(crate) fn list(
+    root: &Path,
+    cancel: &AtomicBool,
+    deadline: Duration,
+) -> Result<Option<Vec<Run>>, String> {
+    list_report(&run::run(
+        root,
+        &["status".into(), "--json".into()],
+        cancel,
+        deadline,
+    )?)
+}
+
+/// The list report's summaries, parsed once; `None` when the report has no runs list.
+pub(crate) fn list_report(output: &str) -> Result<Option<Vec<Run>>, String> {
+    Ok(envelope(output)?["runs"]
+        .as_array()
+        .map(|runs| runs.iter().map(Run::parse).collect()))
 }
 
 /// Read only API 1's envelope; unknown interfaces never supply facts.
-pub(crate) fn envelope(output: &str) -> Result<Value, String> {
+fn envelope(output: &str) -> Result<Value, String> {
     let value: Value =
         serde_json::from_str(output).map_err(|e| format!("Couldn't read the run report: {e}"))?;
     if value["protocol"].as_str() != Some("tink-sdlc") || value["api_version"].as_u64() != Some(1) {
@@ -392,96 +414,6 @@ impl Attestation {
                 recheck,
             }
         })
-    }
-}
-
-/// Read the named checkout once with the shared deadline and cancellation; missing records or
-/// unreadable runs refuse the whole start classification, never conceal any seed.
-pub(crate) fn seeds(root: &Path, cancel: &AtomicBool) -> Result<Vec<Seed>, String> {
-    if !root.join(SCRIPT).is_file() {
-        return Err("The named checkout has no run reader.".into());
-    }
-    let output = run::run(root, &["status".into(), "--json".into()], cancel, DEADLINE)?;
-    let value = envelope(&output)?;
-    value["runs"]
-        .as_array()
-        .ok_or("The checkout reported no runs list.")?
-        .iter()
-        .map(|run| {
-            let run = Run::parse(run);
-            if run.verification.is(Verification::Invalid) {
-                return Err(
-                    "A run couldn't be read. Check it in tink-sdlc, then reopen this view to read again."
-                        .into(),
-                );
-            }
-            Seed::parse(&run.data)
-        })
-        .collect::<Result<Vec<_>, _>>()
-        .map(|seeds| seeds.into_iter().flatten().collect())
-}
-
-/// A run's seed evidence distinguishes known absence from an unreadable or unmatched original.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum Goal {
-    /// The seed matches and its confirmation verifies, with the exact saved goal.
-    Matched(String),
-    /// The run explicitly records that no confirmed seed was used.
-    NoSeed,
-    /// A missing, malformed or unmatched record cannot supply a goal.
-    Unknown,
-}
-
-/// Read the exact goal only for a still-matching, verified seed, on a worker. An explicit null
-/// record means no seed; missing, changed or unverified original session files stay unknown.
-pub(crate) fn goal(run: &Value) -> Goal {
-    confirmed(run).map_or_else(|gap| gap, |ready| Goal::Matched(ready.goal))
-}
-
-/// A run may supply the goal and retry base only from its own still-matching confirmed seed.
-pub(crate) fn confirmed(run: &Value) -> Result<crate::seed_me::ready::ReadySeed, Goal> {
-    let seed = Seed::parse(run)
-        .map_err(|_| Goal::Unknown)?
-        .ok_or(Goal::NoSeed)?;
-    let matched = || {
-        if !seed.matches(&seed.source).ok()? {
-            return None;
-        }
-        let ready = crate::seed_me::ready::confirmed(&seed.source).ok()?;
-        seed.matches(&seed.source).ok()?.then_some(ready)
-    };
-    matched().ok_or(Goal::Unknown)
-}
-
-/// Whether a session's current seed was recorded by any run. A changed same-path seed is an
-/// error (unknown), not a waiting or started claim. A different path never joins.
-pub(crate) fn started(seeds: &[Seed], path: &Path) -> Result<bool, String> {
-    let path = match path.canonicalize() {
-        Ok(path) => path,
-        Err(error) => {
-            if seeds
-                .iter()
-                .any(|seed| seed.source.as_os_str() == path.as_os_str())
-            {
-                return Err(format!("Cannot locate the Tink Contract: {error}"));
-            }
-            return Ok(false);
-        }
-    };
-    let mut same_source = false;
-    for seed in seeds
-        .iter()
-        .filter(|seed| seed.source.as_os_str() == path.as_os_str())
-    {
-        same_source = true;
-        if seed.matches(&path)? {
-            return Ok(true);
-        }
-    }
-    if same_source {
-        Err("The Tink Contract differs from the run. Check it in Shape.".into())
-    } else {
-        Ok(false)
     }
 }
 

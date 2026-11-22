@@ -19,7 +19,8 @@ mod view;
 use crate::{
     Palette,
     process::{self, Task},
-    sdlc::{DEADLINE, Goal},
+    sdlc::DEADLINE,
+    seed_me::runs::Goal,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{

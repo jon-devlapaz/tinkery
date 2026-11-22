@@ -135,6 +135,28 @@ fn phases_never_reach_each_other() {
     );
 }
 
+/// tink-sdlc's API boundary sits below the session store: `seed_me` joins runs to seeds, so a
+/// change to confirmation rules never changes the API reader.
+#[test]
+fn sdlc_names_no_session_rules() {
+    let mut violations = vec![];
+    for (file, module) in production_files() {
+        if module.first().map(String::as_str) != Some("sdlc") {
+            continue;
+        }
+        for target in references(&file, &module) {
+            if target.first().map(String::as_str) == Some("seed_me") {
+                violations.push(format!("{} uses {}", rel(&file), target.join("::")));
+            }
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "sdlc reaches into seed_me. Put the run-to-seed join in seed_me::runs instead:\n{}",
+        violations.join("\n")
+    );
+}
+
 /// Lints `src/lib.rs` must deny for the whole library. `missing_docs` makes every reachable item
 /// carry an interface comment; `unreachable_pub` makes an item that isn't reachable say so with
 /// `pub(super)` or `pub(crate)` instead of `pub`. Together: every `pub` item is documented.

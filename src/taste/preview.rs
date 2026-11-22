@@ -31,7 +31,7 @@ pub(super) struct Local {
     head: String,
     receipt: sdlc::Receipt,
     seed: Value,
-    goal: sdlc::Goal,
+    goal: crate::seed_me::runs::Goal,
 }
 
 impl Local {
@@ -102,7 +102,7 @@ impl Local {
             head: head.into(),
             receipt: parsed.receipt.clone(),
             seed: run["seed_contract"].clone(),
-            goal: sdlc::goal(run),
+            goal: crate::seed_me::runs::goal(run),
         })
     }
 
@@ -154,14 +154,7 @@ impl Local {
 
     /// Recheck the source run and return the matching status for a preview or retry.
     pub(super) fn recheck(&self, stop: &AtomicBool) -> Result<sdlc::Run, String> {
-        let output = sdlc::status(
-            &self.root,
-            &["status".into(), self.slug.clone(), "--json".into()],
-            stop,
-            DEADLINE,
-        )?;
-        let value = sdlc::envelope(&output)?;
-        let parsed = sdlc::Run::parse(&value["run"]);
+        let parsed = sdlc::status(&self.root, &self.slug, stop, DEADLINE)?;
         if Self::read(&self.root, &parsed, stop)? != *self {
             return Err(
                 "Local result changed since reading. Press r before using this result.".into(),

@@ -17,10 +17,10 @@ use std::{
 use crate::{
     Palette,
     repo::Repo,
-    sdlc,
     seed_me::{
         Session, Stage,
         ready::{self, ReadySeed},
+        runs,
     },
     think_record::MadeIn,
 };
@@ -136,7 +136,7 @@ impl Reader {
                     .collect()
             });
             let runs = match checkout {
-                Some(path) => sdlc::seeds(path, &cancelled),
+                Some(path) => runs::seeds(path, &cancelled),
                 None if root.is_some() => Err("The named checkout could not be resolved.".into()),
                 None => Err("Open Tinkery from a project with tink-sdlc installed.".into()),
             };
@@ -163,7 +163,7 @@ impl Reader {
                     continue;
                 }
                 if let Ok(runs) = &runs {
-                    match sdlc::started(runs, &ready::path(&session.path)) {
+                    match runs::started(runs, &ready::path(&session.path)) {
                         Ok(true) => {
                             target_failure =
                                 "This Tink has already started. Open Watch to inspect its run."

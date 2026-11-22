@@ -107,7 +107,7 @@ fn read_with(
             let title = seed.lines().find_map(|line| line.strip_prefix("# "))?;
             let run = run_name(title, shaped.ready_target.as_ref())?;
             let checkout = retry.map_or(named, |base| base.checkout.as_path());
-            checkout.join(crate::sdlc::SCRIPT).is_file().then_some(())?;
+            crate::sdlc::installed(checkout).then_some(())?;
             intake(
                 session,
                 &std::env::current_exe().ok()?,
@@ -337,8 +337,28 @@ impl Base {
             }
         }
         self.check_build(&self.checkout, slug, &head)?;
-        let recorded = crate::sdlc::retry_seed(&directory, slug).ok_or_else(unknown)?;
-        if !recorded.matches(&path(session))? {
+        // Only the expected detached retry's intake record; never its runtime or steps.
+        let recorded = (|| {
+            let bytes = crate::regular_file::read_bounded(
+                &directory.join("run.json"),
+                4 * 1024 * 1024,
+                "run.json is not a regular file",
+            )
+            .ok()?
+            .bytes?;
+            let run: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+            let bound = &run["seed_contract"];
+            if run["schema"] != 1
+                || !crate::sdlc::canonical_run_id(run["run_id"].as_str()?)
+                || bound["path"].as_str()? != format!("runs/{slug}/seed-contract.md")
+                || bound.get("definitions_sha256").is_none()
+            {
+                return None;
+            }
+            crate::sdlc::Seed::parse(&run).ok().flatten()
+        })()
+        .ok_or_else(unknown)?;
+        if !super::runs::matches(&recorded, &path(session))? {
             return Err(unknown());
         }
         Ok(true)

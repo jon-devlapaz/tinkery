@@ -240,7 +240,12 @@ pub(super) fn write(
     if let Some(local) = row.local() {
         local.recheck(stop)?;
         if local.root() != root {
-            let read = |checkout: &Path| crate::seed_me::read_seed(&checkout.join(sdlc::SCRIPT));
+            let read = |checkout: &Path| {
+                crate::regular_file::read(
+                    &checkout.join(sdlc::SCRIPT),
+                    "The label command is not a regular file.",
+                )
+            };
             let named = read(local.root())
                 .map_err(|_| "Cannot read the named checkout’s label command.")?;
             if !read(root).is_ok_and(|bytes| bytes == named) {

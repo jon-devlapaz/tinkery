@@ -7,7 +7,7 @@ use super::{
     next::Pause,
     read::{Check, Item, ResultRow},
 };
-use crate::{Palette, sdlc::Goal};
+use crate::{Palette, seed_me::runs::Goal};
 use ratatui::{
     style::{Modifier, Style},
     text::{Line, Span},

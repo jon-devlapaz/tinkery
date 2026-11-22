@@ -443,7 +443,7 @@ Only the [selected checkout](watch.md#source) is read. A missing project, unread
 runs or absent/unsupported seed records mean Approve cannot tell which seeds have
 started and hides none ([Evidence](../yohaku.md#3-claims-stop-where-evidence-stops)).
 A readable null record establishes no join.
-The shared `sdlc` boundary owns status reads and matching; `seed_me` alone reads
+The shared `sdlc` boundary owns status reads; `seed_me` owns matching and alone reads
 the session's files. Source files and stores stay read-only during the check.
 
 Goal and seed confirmation, SDLC definition approval and implementation permission

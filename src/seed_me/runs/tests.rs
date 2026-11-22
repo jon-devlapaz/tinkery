@@ -1,0 +1,186 @@
+use super::*;
+use serde_json::json;
+use std::{fs, path::PathBuf};
+
+fn fixture() -> (tempfile::TempDir, PathBuf, Value) {
+    let root = tempfile::Builder::new()
+        .prefix("tinkery-TEST-join-")
+        .tempdir()
+        .unwrap();
+    let source = root
+        .path()
+        .canonicalize()
+        .unwrap()
+        .join("session/seed-contract.md");
+    fs::create_dir(source.parent().unwrap()).unwrap();
+    crate::seed_me::ledger::fixtures::confirmed(
+        source.parent().unwrap(),
+        " TEST café\nexact goal  ",
+        "r1",
+    );
+    let run = json!({"slug":"unrelated-name", "seed_contract":{
+        "path":"runs/other/seed-contract.md", "source":source,
+        "sha256": format!("{:x}", Sha256::digest(fs::read(&source).unwrap()))
+    }});
+    (root, source, run)
+}
+
+#[test]
+fn canonical_source_and_verified_current_bytes_join_the_exact_goal() {
+    let (_root, source, run) = fixture();
+    let seed = Seed::parse(&run).unwrap().unwrap();
+    assert!(started(&[seed], &source).unwrap());
+    assert_eq!(goal(&run), Goal::Matched(" TEST café\nexact goal  ".into()));
+    let symlink = source.with_file_name("TEST-alias.md");
+    std::os::unix::fs::symlink(&source, &symlink).unwrap();
+    assert!(started(&[Seed::parse(&run).unwrap().unwrap()], &symlink).unwrap());
+    let mut alias = run.clone();
+    alias["seed_contract"]["source"] = source
+        .parent()
+        .unwrap()
+        .join("./seed-contract.md")
+        .to_string_lossy()
+        .into_owned()
+        .into();
+    assert_eq!(
+        goal(&alias),
+        Goal::Unknown,
+        "a noncanonical record never joins"
+    );
+}
+
+#[test]
+fn unchanged_seed_bytes_cannot_lend_a_changed_ledger_goal() {
+    let (_root, source, run) = fixture();
+    let ledger_path = source.parent().unwrap().join("ledger.json");
+    let original = fs::read(&ledger_path).unwrap();
+    let seed = Seed::parse(&run).unwrap().unwrap();
+    for matching_origin in [false, true] {
+        let mut ledger: Value = serde_json::from_slice(&original).unwrap();
+        ledger["goal"] = "TEST changed goal".into();
+        if matching_origin {
+            ledger["nodes"][0]["answer"] = ledger["goal"].clone();
+        }
+        fs::write(&ledger_path, ledger.to_string()).unwrap();
+        assert!(
+            matches(&seed, &source).unwrap(),
+            "the seed bytes stayed intact"
+        );
+        assert_eq!(
+            goal(&run),
+            Goal::Unknown,
+            "an edited goal was called original"
+        );
+    }
+    fs::write(ledger_path, original).unwrap();
+    assert_eq!(goal(&run), Goal::Matched(" TEST café\nexact goal  ".into()));
+}
+
+#[test]
+fn missing_or_changed_confirmation_cannot_lend_a_goal() {
+    let (_root, source, run) = fixture();
+    let receipt = source.parent().unwrap().join("seed-confirmation.json");
+    let original = fs::read(&receipt).unwrap();
+    let mut changed: Value = serde_json::from_slice(&original).unwrap();
+    changed["decisions_sha256"] = "0".repeat(64).into();
+    fs::write(&receipt, changed.to_string()).unwrap();
+    assert_eq!(goal(&run), Goal::Unknown);
+    fs::remove_file(&receipt).unwrap();
+    assert_eq!(goal(&run), Goal::Unknown);
+    fs::write(receipt, original).unwrap();
+    assert_eq!(goal(&run), Goal::Matched(" TEST café\nexact goal  ".into()));
+}
+
+#[test]
+fn another_file_beside_a_verified_seed_cannot_lend_its_goal() {
+    let (_root, source, mut run) = fixture();
+    let unrelated = source.with_file_name("unrelated.md");
+    fs::copy(&source, &unrelated).unwrap();
+    run["seed_contract"]["source"] = unrelated.to_string_lossy().into_owned().into();
+    assert!(matches(&Seed::parse(&run).unwrap().unwrap(), &unrelated).unwrap());
+    assert_eq!(goal(&run), Goal::Unknown);
+}
+
+#[test]
+fn edited_seed_is_unknown_not_started_and_never_lends_its_goal() {
+    let (_root, source, run) = fixture();
+    fs::write(&source, "TEST edited seed\n").unwrap();
+    let seed = Seed::parse(&run).unwrap().unwrap();
+    assert!(
+        started(&[seed], &source).is_err(),
+        "changed seed was called started"
+    );
+    assert_eq!(
+        goal(&run),
+        Goal::Unknown,
+        "changed seed lent a goal to the run"
+    );
+}
+
+#[test]
+fn moved_and_missing_originals_never_join_even_with_identical_names_and_bytes() {
+    let (root, source, run) = fixture();
+    let moved = root.path().join("moved/seed-contract.md");
+    fs::create_dir(moved.parent().unwrap()).unwrap();
+    fs::rename(&source, &moved).unwrap();
+    let seed = Seed::parse(&run).unwrap().unwrap();
+    assert!(!started(std::slice::from_ref(&seed), &moved).unwrap());
+    assert_eq!(goal(&run), Goal::Unknown);
+    assert!(started(&[seed], &source).is_err());
+    fs::remove_file(moved).unwrap();
+    assert_eq!(goal(&run), Goal::Unknown);
+    assert!(
+        !started(&[], &source).unwrap(),
+        "an ended session without a recorded seed isn't an unknown start"
+    );
+}
+
+#[test]
+fn missing_or_malformed_seed_records_cannot_establish_a_start() {
+    let (_root, _source, run) = fixture();
+    assert_eq!(goal(&json!({"seed_contract":null})), Goal::NoSeed);
+    assert_eq!(goal(&json!({})), Goal::Unknown);
+    for value in [json!({}), json!({"source":"relative", "sha256":"x"})] {
+        let mut run = run.clone();
+        run["seed_contract"] = value;
+        assert_eq!(goal(&run), Goal::Unknown);
+    }
+    assert!(Seed::parse(&json!({})).is_err());
+}
+
+#[test]
+fn recorded_but_unreadable_originals_stay_unknown_not_unseeded() {
+    let (_root, source, run) = fixture();
+    fs::write(
+        source.parent().unwrap().join("ledger.json"),
+        "TEST malformed ledger",
+    )
+    .unwrap();
+    assert_eq!(goal(&run), Goal::Unknown);
+    fs::remove_file(&source).unwrap();
+    fs::create_dir(&source).unwrap();
+    assert_eq!(goal(&run), Goal::Unknown);
+}
+
+#[test]
+fn unreadable_runs_refuse_all_start_classification() {
+    let (root, _source, run) = fixture();
+    let scripts = root.path().join("_system/scripts");
+    fs::create_dir_all(&scripts).unwrap();
+    let cancel = AtomicBool::new(false);
+    for row in [
+        json!({"verification_status":"invalid", "seed_contract":null}),
+        json!({"slug":"old-report"}),
+    ] {
+        let report =
+            json!({"protocol":"tink-sdlc", "api_version":1, "runs":[run, row]}).to_string();
+        fs::write(scripts.join("sdlc.py"), format!("print({report:?})\n")).unwrap();
+        let why = seeds(root.path(), &cancel).unwrap_err();
+        if row["verification_status"] == "invalid" {
+            assert_eq!(
+                why,
+                "A run couldn't be read. Check it in tink-sdlc, then reopen this view to read again."
+            );
+        }
+    }
+}
