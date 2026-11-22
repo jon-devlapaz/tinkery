@@ -683,7 +683,7 @@ impl Taste {
         frame.render_widget(visible.style(palette.ink).wrap(Wrap { trim: false }), body);
         if !self.notice.is_empty() && self.label.is_none() {
             frame.render_widget(
-                Paragraph::new(safe(&self.notice)).style(palette.muted),
+                Paragraph::new(crate::shown_line(&self.notice)).style(palette.muted),
                 Rect::new(
                     area.x,
                     area.y + area.height.saturating_sub(3),
@@ -701,19 +701,6 @@ fn goal(goal: &Goal) -> &str {
         Goal::NoSeed => "This run has no confirmed Tink.",
         Goal::Unknown => "Goal unknown. Tinkery could not verify the original Tink Contract.",
     }
-}
-
-/// Show untrusted source words on one line, escaping terminal controls.
-pub(crate) fn safe(text: &str) -> String {
-    text.chars()
-        .flat_map(|c| {
-            if c.is_control() || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}') {
-                c.escape_default().collect::<Vec<_>>()
-            } else {
-                vec![c]
-            }
-        })
-        .collect()
 }
 
 #[cfg(test)]

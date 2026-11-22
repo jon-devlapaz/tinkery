@@ -96,7 +96,7 @@ impl Review {
         // Preserve original lines and spaces; never emit terminal controls from source text.
         let lines: Vec<Line> = text
             .split('\n')
-            .map(|s| Line::raw(crate::taste::safe(s)))
+            .map(|s| Line::raw(crate::shown_line(s)))
             .collect();
         let paragraph = Paragraph::new(lines)
             .wrap(Wrap { trim: false })

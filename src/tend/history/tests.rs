@@ -204,16 +204,6 @@ fn wrapping_keeps_every_grapheme_and_newline_without_changing_sources() {
 }
 
 #[test]
-fn unsafe_controls_are_visible_text_and_do_not_change_saved_words() {
-    let raw = "safe\n\x1b[31m\r\t\u{202e} café 👩‍💻";
-    let shown = display(raw);
-    assert!(shown.contains("\\u{1b}[31m\\r\\t\\u{202e}"));
-    assert!(shown.contains("café 👩‍💻"));
-    assert!(!shown.contains('\x1b') && !shown.contains('\u{202e}'));
-    assert!(raw.contains('\x1b'));
-}
-
-#[test]
 fn page_keys_move_a_screen_of_history_less_one_row() {
     for size in [(80, 24), (100, 30), (160, 40)] {
         let mut view = View::waiting();

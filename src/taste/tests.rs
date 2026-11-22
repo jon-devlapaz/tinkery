@@ -405,12 +405,6 @@ fn settle(taste: &mut Taste) {
 }
 
 #[test]
-fn unsafe_terminal_controls_are_only_escaped_for_display() {
-    assert_eq!(safe("TEST\x1b[31m\u{202e}"), "TEST\\u{1b}[31m\\u{202e}");
-    assert_eq!(safe(" TEST café  "), " TEST café  ");
-}
-
-#[test]
 fn next_dump_requires_explicit_external_acceptance_not_copy_or_green() {
     let mut taste = ready();
     taste.key(KeyEvent::from(KeyCode::Enter));

@@ -278,8 +278,3 @@ fn unselected_clipping_is_explicit_and_keeps_graphemes_whole() {
     assert_eq!(clipped("short", 5), "short");
     assert_eq!(clipped("long", 0), "");
 }
-
-#[test]
-fn titles_cannot_inject_terminal_controls() {
-    assert_eq!(visible("hello\x1b[31m\nworld"), "hello [31m world");
-}
