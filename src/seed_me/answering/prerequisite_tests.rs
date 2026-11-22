@@ -59,7 +59,7 @@ fn held_question_waits_for_ready_decisions_in_ledger_order_then_promotes() {
     assert_eq!(saved.state["nodes"][2]["prerequisites"], json!(["a"]));
     let shown = super::super::shaping::read(&session).unwrap();
     assert_eq!(shown.open, ["TEST a", "TEST b — waits for: TEST a"]);
-    let version = answer(&session, version, "a", "TEST A answered", None).unwrap();
+    let version = answer(&session, version, "a", "TEST A answered", Actor::OPERATOR).unwrap();
     promote(&session, version).unwrap().unwrap();
     assert_eq!(read(&session).unwrap().state["current_question"], "b");
     assert_eq!(
@@ -84,7 +84,7 @@ fn deferred_prerequisite_refuses_the_whole_reply_and_allows_a_new_question() {
             reason: "  TEST wait café  ".into(),
             revisit: "TEST revisit 中".into(),
         },
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     fs::write(root.path().join("README.md"), "TEST fact\n").unwrap();
@@ -132,7 +132,14 @@ fn deferred_prerequisite_refuses_the_whole_reply_and_allows_a_new_question() {
     );
     let version = ask(&session, version, &proposal("c", None), root.path()).unwrap();
     assert_eq!(read(&session).unwrap().state["current_question"], "c");
-    answer(&session, version, "c", "TEST independent answer", None).unwrap();
+    answer(
+        &session,
+        version,
+        "c",
+        "TEST independent answer",
+        Actor::OPERATOR,
+    )
+    .unwrap();
     assert_eq!(
         read(&session).unwrap().state["nodes"][1]["status"],
         "deferred"
@@ -252,7 +259,7 @@ fn revising_an_answer_reopens_its_model_proposed_dependent() {
         .unwrap();
     let session = publication_tests::session(root.path());
     let version = ask(&session, 1, &proposal("a", None), root.path()).unwrap();
-    let version = answer(&session, version, "a", "TEST old A", None).unwrap();
+    let version = answer(&session, version, "a", "TEST old A", Actor::OPERATOR).unwrap();
     let version = ask(
         &session,
         version,
@@ -260,13 +267,13 @@ fn revising_an_answer_reopens_its_model_proposed_dependent() {
         root.path(),
     )
     .unwrap();
-    let version = answer(&session, version, "b", "TEST old B", None).unwrap();
+    let version = answer(&session, version, "b", "TEST old B", Actor::OPERATOR).unwrap();
     let version = respond(
         &session,
         version,
         "a",
         &ledger::AnswerAction::Revise("TEST new A".into()),
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     let saved = read(&session).unwrap();
@@ -297,7 +304,7 @@ fn an_answer_that_leaves_the_decision_open_is_refused_and_defer_still_parks_it()
         "  ",
     ] {
         assert!(
-            matches!(answer(&session, version, "retention", words, None),
+            matches!(answer(&session, version, "retention", words, Actor::OPERATOR),
                 Err(Refusal::Refused(ref reason)) if reason.contains("Defer, with a reason")),
             "{words:?}"
         );
@@ -307,7 +314,7 @@ fn an_answer_that_leaves_the_decision_open_is_refused_and_defer_still_parks_it()
         reason: "TEST operator settles retention".into(),
         revisit: "TEST before any destructive cleanup".into(),
     };
-    respond(&session, version, "retention", &defer, None).unwrap();
+    respond(&session, version, "retention", &defer, Actor::OPERATOR).unwrap();
     let saved = read(&session).unwrap();
     assert_eq!(saved.state["nodes"][1]["status"], "deferred");
     assert_eq!(
@@ -329,7 +336,7 @@ fn an_answer_that_only_mentions_undecided_is_saved() {
         version,
         "retention",
         "Keep content; not decided is not an option.",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     assert_eq!(
@@ -347,7 +354,7 @@ fn one_word_choices_that_can_be_real_answers_are_saved() {
             .unwrap();
         let session = publication_tests::session(root.path());
         let version = ask(&session, 1, &proposal("when", None), root.path()).unwrap();
-        answer(&session, version, "when", words, None).unwrap();
+        answer(&session, version, "when", words, Actor::OPERATOR).unwrap();
         assert_eq!(read(&session).unwrap().state["nodes"][1]["answer"], words);
     }
 }

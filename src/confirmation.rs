@@ -1,6 +1,16 @@
-//! Caller-declared confirmation provenance. It records identity claims, not authenticated
-//! identity or new authority; risk classification never replaces scoped operator authorization.
+//! Caller-declared confirmation provenance and the one boundary that turns it into an [`Actor`].
+//! It records identity claims, not authenticated identity or new authority; risk classification
+//! never replaces scoped operator authorization. Shared code: it names no phase, and its serde
+//! words are the stored format, so they never change.
 use serde::{Deserialize, Serialize};
+
+// The terminal declarations and actions `GoalConfirmation::validate` accepts, spelled once.
+const DECLARED_HUMAN: &str = "declared: human";
+const DECLARED_AGENT: &str = "declared: agent";
+const NOT_DECLARED: &str = "not declared";
+const TYPED_CONFIRM: &str = "typed confirm at this terminal";
+const TEND_SAVE: &str = "pressed F2 to save the displayed Tend goal";
+const UNVERIFIED: &str = "declaration is not verified identity";
 
 /// Whether an action is cheap to undo, as the caller classified it.
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -93,9 +103,14 @@ pub enum GoalConfirmation {
     },
 }
 
-/// The actor permitted to write, resolved only from explicit caller context.
+/// Who may write, resolved once from explicit caller context before any durable action. Only
+/// [`Actor::OPERATOR`] and [`GoalConfirmation::actor`] make one, so holding an `Actor` means the
+/// context was validated; an agent is never the operator.
 #[derive(Clone, Copy)]
-pub(crate) enum Actor<'a> {
+pub struct Actor<'a>(Who<'a>);
+
+#[derive(Clone, Copy)]
+enum Who<'a> {
     /// The existing operator path; no named identity is inferred.
     Operator,
     /// An agent declared at launch, or named in an older record; never the operator.
@@ -103,16 +118,19 @@ pub(crate) enum Actor<'a> {
 }
 
 impl<'a> Actor<'a> {
-    /// The one authorization boundary shared by goal saving and every Shape write route.
-    pub(crate) fn authorize(context: Option<&'a GoalConfirmation>) -> Result<Self, String> {
-        context.map_or(Ok(Self::Operator), GoalConfirmation::actor)
+    /// The operator, for paths with no caller-declared context; no named identity is inferred.
+    pub const OPERATOR: Actor<'static> = Actor(Who::Operator);
+
+    /// Resolve optional caller context once at a phase entry: no context is the operator path.
+    pub fn authorize(context: Option<&'a GoalConfirmation>) -> Result<Self, String> {
+        context.map_or(Ok(Actor::OPERATOR), GoalConfirmation::actor)
     }
 
     /// Attribute an action without rewriting operator prose or claiming authenticated identity.
     pub(crate) fn reason(self, action: &str) -> String {
-        match self {
-            Self::Operator => format!("The operator {action}"),
-            Self::Agent(context) => {
+        match self.0 {
+            Who::Operator => format!("The operator {action}"),
+            Who::Agent(context) => {
                 format!("The agent {action}; caller-declared {}", context.details())
             }
         }
@@ -120,24 +138,24 @@ impl<'a> Actor<'a> {
 
     /// The session mode for this actor, never inferred from a terminal declaration alone.
     pub(crate) fn session_operator(self) -> &'static str {
-        match self {
-            Self::Operator => "human",
-            Self::Agent(_) => "agent",
+        match self.0 {
+            Who::Operator => "human",
+            Who::Agent(_) => "agent",
         }
     }
 
     /// The answer authority understood by the ledger.
     pub(crate) fn authority(self) -> &'static str {
-        match self {
-            Self::Operator => "user",
-            Self::Agent(_) => "delegated",
+        match self.0 {
+            Who::Operator => "user",
+            Who::Agent(_) => "delegated",
         }
     }
 
     /// Structured goal-origin delegation: the agent, plus any named context the caller supplied.
     pub(crate) fn delegation(self) -> Option<serde_json::Value> {
-        match self {
-            Self::Agent(GoalConfirmation::Agent {
+        match self.0 {
+            Who::Agent(GoalConfirmation::Agent {
                 agent,
                 authorizing_operator,
                 source,
@@ -146,16 +164,16 @@ impl<'a> Actor<'a> {
                 serde_json::json!({"agent":agent,"authorizing_operator":authorizing_operator,
                     "authorization_source":source,"door":"two-way","blast_radius":"small"}),
             ),
-            Self::Agent(_) => Some(serde_json::json!({"agent":"agent"})),
-            Self::Operator => None,
+            Who::Agent(_) => Some(serde_json::json!({"agent":"agent"})),
+            Who::Operator => None,
         }
     }
 
-    /// The exact named agent context, absent on legacy operator paths.
+    /// The exact agent context; none on the operator path.
     pub(crate) fn context(self) -> Option<&'a GoalConfirmation> {
-        match self {
-            Self::Operator => None,
-            Self::Agent(context) => Some(context),
+        match self.0 {
+            Who::Operator => None,
+            Who::Agent(context) => Some(context),
         }
     }
 }
@@ -171,19 +189,42 @@ impl GoalConfirmation {
     /// declaration makes every write the agent's; it is never verified identity.
     pub fn terminal(operator: Option<&str>) -> Result<Self, String> {
         let declaration = match operator {
-            Some("human") => "declared: human",
-            Some("agent") => "declared: agent",
-            None => "not declared",
+            Some("human") => DECLARED_HUMAN,
+            Some("agent") => DECLARED_AGENT,
+            None => NOT_DECLARED,
             _ => return Err("--operator needs human or agent".into()),
         };
         Ok(Self::terminal_declaration(declaration))
     }
 
+    /// The launch declaration when only whether an agent was declared is known: an agent, or
+    /// not declared. It never claims a human declaration.
+    pub(crate) fn launched(agent: bool) -> Self {
+        Self::terminal_declaration(if agent { DECLARED_AGENT } else { NOT_DECLARED })
+    }
+
     fn terminal_declaration(declaration: &str) -> Self {
         Self::Terminal {
             declaration: declaration.into(),
-            action: "typed confirm at this terminal".into(),
-            identity: "declaration is not verified identity".into(),
+            action: TYPED_CONFIRM.into(),
+            identity: UNVERIFIED.into(),
+        }
+    }
+
+    /// The same declaration, recorded as pressing F2 to save a displayed Tend goal. Named
+    /// context is kept unchanged; only a terminal declaration names a terminal action.
+    pub(crate) fn tend_save(self) -> Self {
+        match self {
+            Self::Terminal {
+                declaration,
+                identity,
+                ..
+            } => Self::Terminal {
+                declaration,
+                action: TEND_SAVE.into(),
+                identity,
+            },
+            named => named,
         }
     }
 
@@ -191,7 +232,7 @@ impl GoalConfirmation {
     pub(crate) fn fresh_declaration(&self) -> Self {
         match self {
             Self::Terminal { .. } => self.clone(),
-            Self::Agent { .. } => Self::terminal_declaration("declared: agent"),
+            Self::Agent { .. } => Self::terminal_declaration(DECLARED_AGENT),
             _ => Self::default(),
         }
     }
@@ -206,14 +247,9 @@ impl GoalConfirmation {
                 action,
                 identity,
             } => {
-                if !["declared: human", "declared: agent", "not declared"]
-                    .contains(&declaration.as_str())
-                    || ![
-                        "typed confirm at this terminal",
-                        "pressed F2 to save the displayed Tend goal",
-                    ]
-                    .contains(&action.as_str())
-                    || identity != "declaration is not verified identity"
+                if ![DECLARED_HUMAN, DECLARED_AGENT, NOT_DECLARED].contains(&declaration.as_str())
+                    || ![TYPED_CONFIRM, TEND_SAVE].contains(&action.as_str())
+                    || identity != UNVERIFIED
                 {
                     return Err("Invalid terminal confirmation declaration or action.".into());
                 }
@@ -253,15 +289,15 @@ impl GoalConfirmation {
     }
 
     /// Resolve who writes before any durable action. An agent declaration writes as the agent,
-    /// never as the operator; no declaration keeps the operator path.
-    pub(crate) fn actor(&self) -> Result<Actor<'_>, String> {
+    /// never as the operator; no declaration keeps the operator path. Invalid context refuses.
+    pub fn actor(&self) -> Result<Actor<'_>, String> {
         self.validate()?;
         match self {
-            Self::Agent { .. } => Ok(Actor::Agent(self)),
-            Self::Terminal { declaration, .. } if declaration == "declared: agent" => {
-                Ok(Actor::Agent(self))
+            Self::Agent { .. } => Ok(Actor(Who::Agent(self))),
+            Self::Terminal { declaration, .. } if declaration == DECLARED_AGENT => {
+                Ok(Actor(Who::Agent(self)))
             }
-            _ => Ok(Actor::Operator),
+            _ => Ok(Actor::OPERATOR),
         }
     }
 
@@ -320,5 +356,39 @@ impl GoalConfirmation {
             "Goal confirmed in Tinkery with typed confirm and Enter; caller-declared attribution: {attribution}; \
              goal only, not seed or implementation approval."
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tend_save_keeps_the_declaration_and_stays_valid_and_never_claims_a_human() {
+        for (agent, declaration, writes_as) in [
+            (true, "declared: agent", "agent"),
+            (false, "not declared", "human"),
+        ] {
+            let saved = GoalConfirmation::launched(agent).tend_save();
+            assert_eq!(
+                serde_json::to_value(&saved).unwrap(),
+                serde_json::json!({"by": "terminal", "declaration": declaration,
+                    "action": "pressed F2 to save the displayed Tend goal",
+                    "identity": "declaration is not verified identity"})
+            );
+            assert_eq!(saved.actor().unwrap().session_operator(), writes_as);
+        }
+        let named = GoalConfirmation::Agent {
+            agent: "TEST-agent".into(),
+            authorizing_operator: "TEST-operator".into(),
+            source: "TEST scoped reference".into(),
+            class: ConfirmationClass {
+                door: Door::TwoWay,
+                door_reason: "TEST reversible".into(),
+                blast_radius: BlastRadius::Small,
+                blast_radius_reason: "TEST isolated".into(),
+            },
+        };
+        assert_eq!(named.clone().tend_save(), named);
     }
 }

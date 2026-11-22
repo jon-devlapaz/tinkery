@@ -75,11 +75,18 @@ fn every_shape_ledger_action_works_without_launching_the_helper() {
         version,
         SAMPLE.0,
         "TEST sample: one pasted line",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     let version = probe(&session, version).unwrap().unwrap();
-    let version = answer(&session, version, PROBE.0, "TEST exact\r\nanswer", None).unwrap();
+    let version = answer(
+        &session,
+        version,
+        PROBE.0,
+        "TEST exact\r\nanswer",
+        Actor::OPERATOR,
+    )
+    .unwrap();
     let version = ask(
         &session,
         version,
@@ -104,9 +111,23 @@ fn every_shape_ledger_action_works_without_launching_the_helper() {
         root.path(),
     )
     .unwrap();
-    let version = recommend(&session, version, "test-question", "TEST suggestion", None).unwrap();
-    let version = object(&session, version, "TEST default", None).unwrap();
-    let version = answer(&session, version, "test-question", "TEST answer", None).unwrap();
+    let version = recommend(
+        &session,
+        version,
+        "test-question",
+        "TEST suggestion",
+        Actor::OPERATOR,
+    )
+    .unwrap();
+    let version = object(&session, version, "TEST default", Actor::OPERATOR).unwrap();
+    let version = answer(
+        &session,
+        version,
+        "test-question",
+        "TEST answer",
+        Actor::OPERATOR,
+    )
+    .unwrap();
     let version = promote(&session, version).unwrap().unwrap();
     assert_eq!(read(&session).unwrap().version(), version);
     assert_eq!(read(&session).unwrap().goal(), Some("TEST goal"));
@@ -132,11 +153,18 @@ fn unasked_probe_answers_cannot_be_smuggled_into_seed_prose() {
         version,
         SAMPLE.0,
         "TEST sample: one pasted line",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     let version = probe(&session, version).unwrap().unwrap();
-    let version = answer(&session, version, PROBE.0, "TEST my actual answer", None).unwrap();
+    let version = answer(
+        &session,
+        version,
+        PROBE.0,
+        "TEST my actual answer",
+        Actor::OPERATOR,
+    )
+    .unwrap();
     let checks = json!([{"statement":"TEST", "kind":"judge", "source":"TEST", "how_to_judge": "TEST inspect"}]);
     let prose =
         ledger::fixtures::prose_reply(include_str!("../../../tests/fixtures/shape-seed-reply.txt"));
@@ -212,14 +240,14 @@ fn seed_drafting_confirmation_status_and_ending_need_no_installed_helper() {
         &revision,
         &std::fs::read_to_string(session.join("seed-contract.md")).unwrap(),
         "TEST yes to this seed only",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     assert!(matches!(
         super::super::shaping::read(&session).unwrap().stage,
         super::super::shaping::Shaped::Ready { ended: false, .. }
     ));
-    end(&session, Ending::Completed, None).unwrap();
+    end(&session, Ending::Completed, Actor::OPERATOR).unwrap();
     assert!(matches!(
         super::super::shaping::read(&session).unwrap().stage,
         super::super::shaping::Shaped::Ready { ended: true, .. }
@@ -292,7 +320,7 @@ fn a_session_without_a_ledger_is_refused_in_plain_words() {
         1,
         "choice",
         &ledger::AnswerAction::Delegate,
-        None,
+        Actor::OPERATOR,
     )
     .unwrap_err()
     .to_string();
@@ -515,7 +543,7 @@ fn literal_goal_round_trip(goal: &str) {
                 &revision,
                 &malformed,
                 "TEST seed only",
-                None
+                Actor::OPERATOR
             )
             .is_err()
         );
@@ -528,7 +556,7 @@ fn literal_goal_round_trip(goal: &str) {
         &revision,
         &seed,
         "TEST seed only",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     assert_eq!(
@@ -556,7 +584,7 @@ fn invalid_node_fields_report_the_validation_error_even_when_they_name_a_conflic
     saved["nodes"][0]["stale publication version"] = true.into();
     let bytes = serde_json::to_vec(&saved).unwrap();
     fs::write(&path, &bytes).unwrap();
-    let error = end(&session, Ending::Stopped, None).unwrap_err();
+    let error = end(&session, Ending::Stopped, Actor::OPERATOR).unwrap_err();
     assert!(
         matches!(error, Refusal::Refused(ref why) if why.contains("invalid node fields")),
         "{error:?}"
@@ -590,9 +618,16 @@ fn a_draft_lists_its_defaults_and_never_brings_back_an_objected_one() {
     assert!(draft(1, &defaults).contains(listed));
     let version = read(&session).unwrap().version();
     assert_eq!(version, 2, "Defaults alone were not saved");
-    let version = object(&session, version, &defaults[0].text, None).unwrap();
+    let version = object(&session, version, &defaults[0].text, Actor::OPERATOR).unwrap();
     let id = read(&session).unwrap().open()[0].clone();
-    let version = answer(&session, version, &id, "TEST structured refusals", None).unwrap();
+    let version = answer(
+        &session,
+        version,
+        &id,
+        "TEST structured refusals",
+        Actor::OPERATOR,
+    )
+    .unwrap();
     let seed = draft(version, &defaults);
     assert!(
         !seed.contains(listed),

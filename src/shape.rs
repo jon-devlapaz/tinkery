@@ -24,6 +24,7 @@ mod discovery_help;
 mod forms;
 mod help;
 mod step;
+use crate::confirmation::Actor;
 use crate::words;
 
 use crate::seed_me::ledger::{AnswerAction, CheckMethod, DraftCheck};
@@ -116,7 +117,7 @@ struct CheckEdit {
 }
 
 struct Opened {
-    confirmation: Option<crate::think_record::GoalConfirmation>,
+    confirmation: Option<crate::confirmation::GoalConfirmation>,
     session: PathBuf,
     reading: Reading,
     /// The operator's words being typed: an answer, or the words that confirm a seed.
@@ -1233,45 +1234,48 @@ impl Opened {
         let work = write.clone();
         let confirmation = self.confirmation.clone();
         std::thread::spawn(move || {
-            let actor = confirmation.as_ref();
-            let result = match (work, expected) {
-                (Write::RepairCheck { edit, words }, _) => crate::seed_me::ledger::repair_check(
-                    &session,
-                    edit.expected,
-                    &edit.seed,
-                    (&edit.target, edit.method, &words),
-                    actor,
-                )
-                .map_err(Refusal::Refused),
-                (Write::Keep { id, reason }, Some(expected)) => {
-                    answering::keep(&session, expected, &id, &reason, actor)
-                }
-                (
-                    Write::Revisit {
-                        id,
+            let result = Actor::authorize(confirmation.as_ref())
+                .map_err(Refusal::Refused)
+                .and_then(|actor| match (work, expected) {
+                    (Write::RepairCheck { edit, words }, _) => {
+                        crate::seed_me::ledger::repair_check(
+                            &session,
+                            edit.expected,
+                            &edit.seed,
+                            (&edit.target, edit.method, &words),
+                            actor,
+                        )
+                        .map_err(Refusal::Refused)
+                    }
+                    (Write::Keep { id, reason }, Some(expected)) => {
+                        answering::keep(&session, expected, &id, &reason, actor)
+                    }
+                    (
+                        Write::Revisit {
+                            id,
+                            expected,
+                            words,
+                        },
+                        _,
+                    ) => answering::respond(
+                        &session,
                         expected,
-                        words,
-                    },
-                    _,
-                ) => answering::respond(
-                    &session,
-                    expected,
-                    &id,
-                    &AnswerAction::Revisit(words),
-                    actor,
-                )
-                .map(|_| ()),
-                (Write::End(ending), _) => answering::end(&session, ending, actor),
-                (Write::Object(text), Some(expected)) => {
-                    answering::object(&session, expected, &text, actor).map(|_| ())
-                }
-                (Write::Recommend { id, text }, Some(expected)) => {
-                    answering::recommend(&session, expected, &id, &text, actor).map(|_| ())
-                }
-                (Write::Keep { .. } | Write::Object(_) | Write::Recommend { .. }, None) => Err(
-                    Refusal::Refused("Tinkery read no version to change from.".into()),
-                ),
-            };
+                        &id,
+                        &AnswerAction::Revisit(words),
+                        actor,
+                    )
+                    .map(|_| ()),
+                    (Write::End(ending), _) => answering::end(&session, ending, actor),
+                    (Write::Object(text), Some(expected)) => {
+                        answering::object(&session, expected, &text, actor).map(|_| ())
+                    }
+                    (Write::Recommend { id, text }, Some(expected)) => {
+                        answering::recommend(&session, expected, &id, &text, actor).map(|_| ())
+                    }
+                    (Write::Keep { .. } | Write::Object(_) | Write::Recommend { .. }, None) => Err(
+                        Refusal::Refused("Tinkery read no version to change from.".into()),
+                    ),
+                });
             let _ = sender.send(result);
         });
         self.writing = Some((write, receiver));

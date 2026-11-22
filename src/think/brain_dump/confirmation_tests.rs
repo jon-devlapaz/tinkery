@@ -82,7 +82,7 @@ fn first_review_frame_names_the_current_read_requirement() {
         }
     }
 }
-use crate::think_record::{BlastRadius, ConfirmationClass, Door, GoalConfirmation};
+use crate::confirmation::{BlastRadius, ConfirmationClass, Door, GoalConfirmation};
 
 fn terminal(declaration: &str) -> GoalConfirmation {
     serde_json::from_value(serde_json::json!({
