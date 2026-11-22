@@ -207,7 +207,7 @@ fn decisions_lines(ledger: &Value) -> Result<Vec<(String, String)>> {
         } else {
             continue;
         }
-        if id == crate::seed_me::answering::UNOBSERVED.0 {
+        if id == super::UNOBSERVED_NEED {
             rows.push((
                 id.into(),
                 "  Unknown: nobody has observed this need.".into(),

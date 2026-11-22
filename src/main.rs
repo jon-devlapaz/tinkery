@@ -94,7 +94,7 @@ fn seed_write(
                 // A missing FILE must not fall through and save "--relayed" as the answer.
                 ["answer", word] if word.starts_with("--") => return Err(SEED_USAGE.into()),
                 ["answer", "--relayed", file] => Action::Relayed(
-                    tinkery::seed_me::answering::Relay::read(std::path::Path::new(file))?,
+                    tinkery::shape::answering::Relay::read(std::path::Path::new(file))?,
                 ),
                 ["answer", words] => Action::Answer((*words).to_owned()),
                 ["confirm", sha256] => Action::Confirm((*sha256).to_owned()),

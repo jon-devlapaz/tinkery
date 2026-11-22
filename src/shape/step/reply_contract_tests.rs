@@ -1194,7 +1194,7 @@ fn a_draft_that_picks_one_of_two_readings_asks_it_instead_and_stays_gray() {
     let saved = || -> Value {
         serde_json::from_slice(&fs::read(session.join("ledger.json")).unwrap()).unwrap()
     };
-    let gray_before = answering::gray(&saved());
+    let gray_before = ledger::gray(&saved());
     let mut reply = valid_reply();
     reply["readings"] = json!([{"chosen": "TEST ask before erasing.", "other": "TEST erase and offer undo",
         "why": "TEST a confirm step and an undo build different things"}]);
@@ -1208,7 +1208,7 @@ fn a_draft_that_picks_one_of_two_readings_asks_it_instead_and_stays_gray() {
         "the draft is not saved"
     );
     let ledger = saved();
-    let gray = answering::gray(&ledger);
+    let gray = ledger::gray(&ledger);
     assert_eq!(gray.len(), gray_before.len() + 1, "{gray:?}");
     let asked = gray.last().unwrap();
     assert_eq!(

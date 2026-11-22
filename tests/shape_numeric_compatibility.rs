@@ -3,9 +3,9 @@
 #![allow(clippy::disallowed_methods)]
 
 use std::{fs, path::PathBuf};
-use tinkery::seed_me::{
-    answering::{self, Refusal},
-    ledger::{self, Value},
+use tinkery::{
+    seed_me::ledger::{self, Value},
+    shape::answering::{self, Refusal},
 };
 
 fn fixture(raw: &str) -> (tempfile::TempDir, PathBuf) {

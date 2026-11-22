@@ -235,7 +235,7 @@ fn seed_drafting_confirmation_status_and_ending_need_no_installed_helper() {
     .unwrap();
     confirm_seed(
         &session,
-        crate::seed_me::answering::read(&session).unwrap().version(),
+        crate::shape::answering::read(&session).unwrap().version(),
         &revision,
         &std::fs::read_to_string(session.join("seed-contract.md")).unwrap(),
         "TEST yes to this seed only",

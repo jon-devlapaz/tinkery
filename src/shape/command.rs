@@ -12,12 +12,14 @@ use std::sync::atomic::AtomicBool;
 use sha2::{Digest, Sha256};
 
 use super::step::{self, Agent, Done, Why, Work};
+use super::{
+    answering::{self, Refusal},
+    shaping::{self, Shaped},
+};
 use crate::confirmation::GoalConfirmation;
 use crate::seed_me::{
     self,
-    answering::{self, Refusal},
-    ledger::AnswerAction,
-    shaping::{self, Shaped},
+    ledger::{self, AnswerAction},
 };
 
 const STALE: &str = "Another writer changed this session first; nothing more was saved.";
@@ -83,7 +85,7 @@ pub fn new_goal(
 /// recorded, the ledger version, the open questions, the one current thing (question, draft with
 /// the SHA-256 that `Action::Confirm` names, ready seed, or a plain other state), and
 /// `decided_without_you`: every settled answer not in the operator's own words and every assumed
-/// default, so the operator can overrule any of them, and `gray`, as [`answering::gray`] defines
+/// default, so the operator can overrule any of them, and `gray`, as [`ledger::gray`] defines
 /// it. Read-only.
 pub fn show(session: &Path) -> Result<serde_json::Value, String> {
     let shaping = shaping::read(session)?;
@@ -138,7 +140,7 @@ pub fn show(session: &Path) -> Result<serde_json::Value, String> {
             |a| serde_json::json!({"what": a["text"], "why": a["why"], "authority": "assumed"}),
         ))
         .collect::<Vec<_>>();
-    let gray = answering::gray(&ledger);
+    let gray = ledger::gray(&ledger);
     Ok(serde_json::json!({
         "goal": shaping.goal, "version": shaping.version, "open": shaping.open, "now": now,
         "decided_without_you": decided_without_you, "gray": gray,
