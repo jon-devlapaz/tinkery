@@ -140,7 +140,7 @@ fn key(a: &mut BrainDump, code: KeyCode) {
 /// Runs the F1 row whose words contain `label`, as the operator does: F1, then its digit.
 /// Panics, showing help, when no such row is offered right now.
 pub(super) fn choose(a: &mut BrainDump, label: &str) {
-    if !a.screen.help {
+    if !a.screen.overlay.help() {
         key(a, KeyCode::F(1));
     }
     let help = layout::help_text(a);
@@ -240,7 +240,7 @@ fn silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_lay
                 .contains("Original 1")
         );
         key(&mut a, KeyCode::Esc);
-        assert!(!a.screen.original);
+        assert!(!matches!(a.screen.overlay, Overlay::Originals));
     }
 }
 #[test]
@@ -269,7 +269,7 @@ fn failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap() {
     a.paste("A second dump.");
     a.submit();
     settle(&mut a);
-    assert!(a.notice.contains("injected failure"));
+    assert!(a.notice().contains("injected failure"));
     assert_eq!(a.conversation.sources().len(), 2);
     assert_eq!(
         a.conversation.board().unwrap().outcome.as_deref().unwrap(),
@@ -650,33 +650,34 @@ fn details_are_accessible_without_stealing_literal_answer_text_or_focus() {
     let input = a.input.text.clone();
     key(&mut a, KeyCode::Char('d'));
     assert_eq!(a.input.text, input + "d");
-    assert!(!a.screen.details);
+    assert!(!matches!(a.screen.overlay, Overlay::Why));
     let input = a.input.text.clone();
     for mode in 0..4 {
         a.screen.board_focus = mode == 1;
-        a.screen.original = mode == 2;
-        a.screen.help = mode == 3;
+        match mode {
+            2 => a.screen.show(Overlay::Originals),
+            3 => a.screen.open_help(false),
+            _ => a.screen.show(Overlay::None),
+        }
         choose(&mut a, "Why");
-        assert!(a.screen.details);
-        assert!(!a.screen.original && !a.screen.help);
+        assert!(matches!(a.screen.overlay, Overlay::Why));
+        assert!(!matches!(a.screen.overlay, Overlay::Originals) && !a.screen.overlay.help());
         assert_eq!(a.screen.board_focus, mode == 1);
         let frame = snapshot(100, 30, &mut a, false).unwrap();
         assert!(!frame.contains("provisional"));
         assert!(frame.contains("Success criteria"));
         key(&mut a, KeyCode::Esc);
-        assert!(!a.screen.details);
+        assert!(!matches!(a.screen.overlay, Overlay::Why));
         assert_eq!(a.input.text, input);
         assert!(!a.running());
     }
-    a.screen.details = true;
-    a.screen.original = true;
+    a.screen.show(Overlay::Originals);
     choose(&mut a, "Why");
     assert!(
-        a.screen.details && !a.screen.original,
+        matches!(a.screen.overlay, Overlay::Why) && !matches!(a.screen.overlay, Overlay::Originals),
         "Hidden details incorrectly toggled off"
     );
-    a.screen.details = false;
-    a.screen.original = true;
+    a.screen.show(Overlay::Originals);
     let area = a.screen.area;
     a.handle_mouse(
         MouseEvent {
@@ -687,14 +688,14 @@ fn details_are_accessible_without_stealing_literal_answer_text_or_focus() {
         },
         area,
     );
-    assert!(a.screen.help && !a.screen.original);
+    assert!(a.screen.overlay.help() && !matches!(a.screen.overlay, Overlay::Originals));
     assert_eq!(a.input.text, input);
     key(&mut a, KeyCode::Esc);
     a.screen.board_focus = !a.screen.board_focus;
     choose(&mut a, "Why");
-    assert!(a.screen.details);
+    assert!(matches!(a.screen.overlay, Overlay::Why));
     key(&mut a, KeyCode::Esc);
-    assert!(!a.screen.details);
+    assert!(!matches!(a.screen.overlay, Overlay::Why));
 }
 #[test]
 fn clipping_is_visible_and_original_is_one_action_away() {
@@ -949,7 +950,7 @@ fn bad_span_keeps_the_previous_reading_and_originals_without_fallback() {
     let mut bad = guess(&request);
     bad.framings[0].supports = vec![anchor("A paraphrased goal.")];
     a.apply_result(request, Ok(bad));
-    assert!(a.notice.contains("exact source substring"));
+    assert!(a.notice().contains("exact source substring"));
     assert_eq!(a.copy_text(), paper);
     assert!(a.conversation.fragments().is_empty());
     assert_eq!(
@@ -984,11 +985,13 @@ fn originals_label_exists_once_only_after_source_submit_and_unmarked_words_are_n
             .contains("Ctrl-O originals")
     );
     a.handle_key(KeyEvent::new(KeyCode::F(1), KeyModifiers::NONE));
-    assert!(a.screen.help && !a.screen.details);
+    assert!(a.screen.overlay.help() && !matches!(a.screen.overlay, Overlay::Why));
     snapshot(80, 24, &mut a, false).unwrap();
     key(&mut a, KeyCode::Esc);
     choose(&mut a, "Show your originals");
-    assert!(a.screen.original && !a.screen.details);
+    assert!(
+        matches!(a.screen.overlay, Overlay::Originals) && !matches!(a.screen.overlay, Overlay::Why)
+    );
     assert!(a.conversation.fragments().is_empty());
 }
 
@@ -1166,7 +1169,7 @@ fn reply_label_is_stable_and_empty_chrome_is_hidden() {
     assert!(view.lines().last().unwrap().contains("enter send"));
     assert!(!view.contains("Highlighted words support"));
     choose(&mut a, "Add a dump");
-    assert!(a.notice.contains("not an answer"));
+    assert!(a.notice().contains("not an answer"));
     assert!(
         snapshot(100, 30, &mut a, false)
             .unwrap()

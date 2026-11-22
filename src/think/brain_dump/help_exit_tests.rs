@@ -25,7 +25,7 @@ fn help_leads_with_numbered_actions_then_context() {
         "Right now\nType, then Enter opens a choice.\n\nF1 close"
     );
     a = board();
-    a.screen.help = true;
+    a.screen.open_help(false);
     let text = layout::help_text(&a);
     assert!(
         text.starts_with("Right now\n1  Review the goal\n2  Skip this question\n")
@@ -49,11 +49,11 @@ fn help_leads_with_numbered_actions_then_context() {
         assert!(!text.contains(gone), "{gone}: {text}");
     }
     key(&mut a, KeyCode::F(1));
-    assert!(!a.screen.help, "F1 closes the one help layer");
+    assert!(!a.screen.overlay.help(), "F1 closes the one help layer");
     key(&mut a, KeyCode::F(1));
-    assert!(a.screen.help);
+    assert!(a.screen.overlay.help());
     key(&mut a, KeyCode::Esc);
-    assert!(!a.screen.help);
+    assert!(!a.screen.overlay.help());
     a.add_more = true;
     assert!(layout::help_text(&a).contains("\n\nType a new dump"));
     a.add_more = false;
@@ -63,7 +63,7 @@ fn help_leads_with_numbered_actions_then_context() {
     let frozen = a.handoff.review().unwrap().affirmation.goal.clone();
     key(&mut a, KeyCode::F(1));
     key(&mut a, KeyCode::Char('h'));
-    assert!(a.screen.how && a.screen.help);
+    assert!(matches!(a.screen.overlay, Overlay::Help { how: true, .. }) && a.screen.overlay.help());
     let how = layout::how_text(&a);
     for s in [
         "Nothing runs on its own and nothing retries.",
@@ -88,9 +88,11 @@ fn help_leads_with_numbered_actions_then_context() {
     a.paste("confirm");
     assert!(a.handoff.review().unwrap().input.is_empty());
     key(&mut a, KeyCode::Esc);
-    assert!(a.screen.help && !a.screen.how);
+    assert!(
+        a.screen.overlay.help() && !matches!(a.screen.overlay, Overlay::Help { how: true, .. })
+    );
     key(&mut a, KeyCode::Esc);
-    assert!(!a.screen.help);
+    assert!(!a.screen.overlay.help());
     assert_eq!(a.handoff.review().unwrap().affirmation.goal, frozen);
     a.set_saved(seed_me::Receipt::test("/tmp/Tinkery-TEST/session".into()));
     let text = layout::help_text(&a);
@@ -115,11 +117,11 @@ fn exit_guard_keeps_unsent_original_and_reply_until_explicit_leave() {
         let input = a.input.text.clone();
         ctrl_c(&mut a);
         assert!(
-            !a.screen.leave_prompt && !a.quitting(),
+            !matches!(a.screen.overlay, Overlay::Leave) && !a.quitting(),
             "Ctrl-C never leaves"
         );
         leave(&mut a);
-        assert!(a.screen.leave_prompt && !a.quitting());
+        assert!(matches!(a.screen.overlay, Overlay::Leave) && !a.quitting());
         let screen = snapshot(100, 30, &mut a, false).unwrap();
         assert_eq!(
             screen
@@ -137,7 +139,7 @@ fn exit_guard_keeps_unsent_original_and_reply_until_explicit_leave() {
         a.handle_key(KeyEvent::new(KeyCode::Char('y'), KeyModifiers::ALT));
         assert!(!a.quitting());
         key(&mut a, KeyCode::Char('n'));
-        assert!(!a.screen.leave_prompt && !a.quitting());
+        assert!(!matches!(a.screen.overlay, Overlay::Leave) && !a.quitting());
         assert_eq!(
             serde_json::to_value(a.conversation.sources()).unwrap(),
             serde_json::to_value(&source).unwrap()
@@ -146,7 +148,7 @@ fn exit_guard_keeps_unsent_original_and_reply_until_explicit_leave() {
         assert!(!a.running());
         leave(&mut a);
         key(&mut a, KeyCode::Esc);
-        assert!(!a.screen.leave_prompt);
+        assert!(!matches!(a.screen.overlay, Overlay::Leave));
         leave(&mut a);
         key(&mut a, KeyCode::Char('y'));
         assert!(a.quitting());
@@ -158,14 +160,14 @@ fn escape_leaves_empty_think_and_guards_unsaved_words() {
     let mut a = BrainDump::default();
     key(&mut a, KeyCode::Esc);
     assert_eq!(a.exit(), &Exit::Menu);
-    assert!(!a.screen.leave_prompt);
+    assert!(!matches!(a.screen.overlay, Overlay::Leave));
 
     for mut a in [BrainDump::default(), board()] {
         a.paste("Keep these exact words.");
         key(&mut a, KeyCode::Esc);
-        assert!(a.screen.leave_prompt && !a.quitting());
+        assert!(matches!(a.screen.overlay, Overlay::Leave) && !a.quitting());
         key(&mut a, KeyCode::Esc);
-        assert!(!a.screen.leave_prompt && !a.quitting());
+        assert!(!matches!(a.screen.overlay, Overlay::Leave) && !a.quitting());
         assert_eq!(a.input.text, "Keep these exact words.");
         key(&mut a, KeyCode::Esc);
         key(&mut a, KeyCode::Char('y'));
@@ -177,33 +179,41 @@ fn escape_leaves_empty_think_and_guards_unsaved_words() {
 fn empty_and_confirmed_exit_immediately_but_pending_durable_handoff_waits() {
     let mut a = BrainDump::default();
     leave(&mut a);
-    assert!(a.quitting() && !a.screen.leave_prompt);
+    assert!(a.quitting() && !matches!(a.screen.overlay, Overlay::Leave));
     let mut a = board();
     a.set_saved(seed_me::Receipt::test("/tmp/Tinkery-TEST/session".into()));
     leave(&mut a);
-    assert!(a.quitting() && !a.screen.leave_prompt && a.handoff.receipt().is_some());
+    assert!(
+        a.quitting()
+            && !matches!(a.screen.overlay, Overlay::Leave)
+            && a.handoff.receipt().is_some()
+    );
     let mut a = board();
     a.review_goal();
     let (tx, rx) = std::sync::mpsc::channel();
     a.handoff.begin(rx);
     leave(&mut a);
-    assert!(!a.quitting() && a.handoff.leaving() && !a.screen.leave_prompt);
-    assert!(a.notice.contains("back to the menu once it's saved"));
+    assert!(!a.quitting() && a.handoff.leaving() && !matches!(a.screen.overlay, Overlay::Leave));
+    assert!(a.notice().contains("back to the menu once it's saved"));
     tx.send(Err("TEST missing helper".into())).unwrap();
     a.tick();
-    assert!(a.quitting() && a.notice.contains("TEST missing helper"));
+    assert!(a.quitting() && a.notice().contains("TEST missing helper"));
 }
 #[test]
 fn ctrl_c_copies_a_selection_and_never_leaves() {
     let mut a = board();
     ctrl_c(&mut a);
-    assert!(!a.quitting() && !a.screen.leave_prompt && a.take_copy_request().is_none());
+    assert!(
+        !a.quitting()
+            && !matches!(a.screen.overlay, Overlay::Leave)
+            && a.take_copy_request().is_none()
+    );
     let text = a.conversation.sources()[0].text.clone();
     a.screen.board_focus = true;
     a.screen.selection = Some((0, 6));
     ctrl_c(&mut a);
     assert_eq!(a.take_copy_request().unwrap(), text[..6]);
-    assert!(!a.quitting() && !a.screen.leave_prompt);
+    assert!(!a.quitting() && !matches!(a.screen.overlay, Overlay::Leave));
 }
 #[test]
 fn ctrl_c_cancels_a_shaping_call_and_keeps_words() {
@@ -213,15 +223,15 @@ fn ctrl_c_cancels_a_shaping_call_and_keeps_words() {
     assert!(a.running(), "the shaping call started");
     ctrl_c(&mut a);
     assert!(
-        !a.running() && a.notice.starts_with("Cancelled"),
+        !a.running() && a.notice().starts_with("Cancelled"),
         "{}",
-        a.notice
+        a.notice()
     );
     assert_eq!(
         a.conversation.sources()[0].text,
         "These exact words stay mine."
     );
-    assert!(!a.quitting() && !a.screen.leave_prompt);
+    assert!(!a.quitting() && !matches!(a.screen.overlay, Overlay::Leave));
 }
 #[test]
 fn source_wrap_positions_header_and_scroll_survive_review_and_resize() {

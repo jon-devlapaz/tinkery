@@ -100,7 +100,12 @@ fn receipt_preserves_frozen_review_goal_in_ink_and_only_offers_manual_actions() 
         for c in ['n', 'g', 'o', 'd', 'c'] {
             a.handle_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL));
         }
-        assert!(!a.quitting() && !a.screen.original && !a.screen.details && !a.running());
+        assert!(
+            !a.quitting()
+                && !matches!(a.screen.overlay, Overlay::Originals)
+                && !matches!(a.screen.overlay, Overlay::Why)
+                && !a.running()
+        );
         assert!(!a.handoff.saving());
         assert!(a.take_copy_request().is_none());
         assert_eq!(a.exit(), &Exit::Stay);
@@ -222,7 +227,7 @@ fn empty_questions_show_review_route_but_never_confirm_and_missing_helper_preser
     }
     assert!(!a.running());
     assert!(a.handoff.receipt().is_none());
-    assert!(a.notice.contains("Handoff not complete"));
+    assert!(a.notice().contains("Handoff not complete"));
     assert_eq!(a.conversation.sources()[0].text, original);
     assert_eq!(a.handoff.review().unwrap().affirmation.goal, goal);
     assert!(a.handoff.config.as_ref().unwrap().recovery_path().is_none());
@@ -302,7 +307,7 @@ fn unviewed_long_review_cannot_be_affirmed_and_skipped_questions_remain_visible(
     a.paste("confirm");
     key(&mut a, KeyCode::Enter);
     assert!(!a.handoff.saving());
-    assert!(a.notice.contains("Read to the end first"));
+    assert!(a.notice().contains("Read to the end first"));
 }
 
 #[test]
@@ -400,9 +405,9 @@ fn a_failed_save_says_so_whole_above_back_and_retries() {
                 std::thread::sleep(std::time::Duration::from_millis(1));
             }
             assert!(
-                a.notice.starts_with("Handoff not complete:"),
+                a.notice().starts_with("Handoff not complete:"),
                 "{}",
-                a.notice
+                a.notice()
             );
             let screen = snapshot(w, h, &mut a, no_color).unwrap();
             assert!(

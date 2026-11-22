@@ -17,7 +17,9 @@ impl BrainDump {
         self.voice.as_ref().is_some_and(Voice::active)
     }
     pub(super) fn voice_allowed(&self) -> bool {
-        !self.quitting() && !self.screen.leave_prompt && !self.handoff.started()
+        !self.quitting()
+            && !matches!(self.screen.overlay, Overlay::Leave)
+            && !self.handoff.started()
     }
     pub(super) fn voice_available(&self) -> bool {
         self.voice_allowed() && self.voice.is_some()
@@ -40,7 +42,10 @@ impl BrainDump {
                 _ => {}
             }
         }
-        if key.code == KeyCode::Esc && self.voice_active() && !self.screen.leave_prompt {
+        if key.code == KeyCode::Esc
+            && self.voice_active()
+            && !matches!(self.screen.overlay, Overlay::Leave)
+        {
             self.voice.as_mut().unwrap().cancel();
             return true;
         }
@@ -65,9 +70,9 @@ impl BrainDump {
             // Dictation adds at the caret; it never deletes a selection.
             self.input.collapse();
             self.focus_writing();
-            self.screen.help = false;
-            self.screen.original = false;
-            self.screen.details = false;
+            if self.screen.overlay.covers() {
+                self.screen.show(Overlay::None);
+            }
         }
         true
     }
