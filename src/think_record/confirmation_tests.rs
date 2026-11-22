@@ -1,5 +1,6 @@
 //! Attribution round trips and legacy controls use synthetic records in temporary TEST roots.
 use super::*;
+use crate::confirmation::*;
 use std::fs;
 
 const GOAL: &str =

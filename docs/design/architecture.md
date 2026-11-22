@@ -45,10 +45,11 @@ unconfirmed sessions or complete factory telemetry. The read-only
 | --- | --- |
 | `main.rs`, `main/input.rs` | Command-line options, the terminal loop and bounded ordered input. Mouse input after resize waits for a source-level drain acknowledgement for that resize, never an empty transfer queue. Input and read completions wake the UI without shortening its heartbeat. A Unix hangup-only watchdog reports terminal loss and detaches a trapped reader; normal shutdown joins input workers. Wires the menu or think to a real or practice host. |
 | `lib.rs` | The palette (one job per colour) in light or dark, the header's light/dark switch and the model label's room, the minimum terminal size, paging, grapheme-safe list titles and the clipped-view `more` cue. |
+| `confirmation.rs` | Caller-declared confirmation context, its named constructors and the one boundary that resolves it into the `Actor` every session write takes; serde words are the stored format. Never authenticated identity, seed confirmation or implementation permission (shared). |
 | `calendar.rs` | Converts epoch days to the calendar date used by Think records and ledger writers. Each writer owns its timestamp format. |
 | `model_setup.rs`, `model_setup/panel.rs` | The saved model setup's one parser (file and flags), atomic save, header label and Model panel; the terminal loop owns when it shows (shared). |
 | `pi.rs` | The one place a model host starts, Pi or Claude Code: which models and levels each accepts, a bounded, cancellable request with or without read-only tools held inside one folder ([`pi/folder.mjs`](../../pi/folder.mjs) for Pi, `dontAsk` for Claude Code), the call budget and prompt-file assembly (shared). |
-| `regular_file.rs` | The one door for opening files on disk: nonblocking opens that refuse anything but a regular file, directory syncs and random bytes. `clippy.toml` forbids `std::fs` opens and reads elsewhere (shared). |
+| `regular_file.rs` | The one door for opening files on disk: nonblocking opens that refuse anything but a regular file, bounded reads that never follow a link, whole-or-nothing publishes with directory syncs, and random bytes. `clippy.toml` forbids `std::fs` opens and reads elsewhere (shared). |
 | `repo.rs` | Finding the Git repository Tinkery was started in, by looking for `.git` only (shared). |
 | `menu.rs`, `menu/worker.rs`, `menu/retry.rs` | Navigation through the seven place variants, plus the explicit worker-action screen and its retained finite request, and the hand-off of one reviewed Taste rejection to a saved Shape attempt. |
 | `menu/place.rs` | The seven-place enum, display names and purposes, and ordered navigation list; no routing or actions. |
@@ -95,7 +96,7 @@ unconfirmed sessions or complete factory telemetry. The read-only
 | `think/brain_dump/goal_view.rs`, `intact_view.rs`, `voice_input.rs`, `layout.rs` | The review screen, original pane, dictation and screen layout, including help, key bar and notices. |
 | `think/brain_dump/help_view.rs` | Think's bounded help overlay: visual hierarchy, scrolling body, fixed navigation and the boundary against hidden actions. |
 | `think/drafting.rs` | Think's model host: its harness and model settings and bundled working-draft instructions, over the shared `pi.rs` boundary. |
-| `think_record.rs`, `think_record/confirmation.rs`, `think_record/read.rs` | Confirmed-session format, caller-declared context, the shared authorization-to-actor boundary, exact-session attribution, one record scan shared by history and origin lookup, formatted history and typed submissions for Shape; no phase behavior. |
+| `think_record.rs`, `think_record/read.rs` | Confirmed-session format, exact-session attribution, one record scan shared by history and origin lookup, formatted history and typed submissions for Shape; no phase behavior. |
 | `think/canvas.rs`, `note.rs` | Extracted cards, and the raw text box with safe display, grapheme-offset mapping and machine-sized wrapped rows. Editor storage does not own send policy. |
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |
 | `watch.rs`, `watch/state.rs`, `watch/steps.rs` | The runs in one named tink-sdlc checkout, rendered from the shared typed report: waiting runs first, one run's detail and worker attention. No API-word recognition. |

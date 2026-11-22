@@ -19,7 +19,7 @@ fn session_sized_step_sends_findings_once_without_changing_saved_context() {
         .unwrap();
     let context = "TEST Think context: ".to_owned() + &"c".repeat(3920);
     let goal = "TEST goal: ".to_owned() + &"g".repeat(1015);
-    let actor: crate::think_record::GoalConfirmation = serde_json::from_value(json!({
+    let actor: crate::confirmation::GoalConfirmation = serde_json::from_value(json!({
         "by":"agent", "agent":"TEST-agent", "authorizing_operator":"TEST-person",
         "source":"TEST scoped authorization: ".to_owned() + &"s".repeat(200),
         "class":{"door":"two_way", "door_reason":"TEST reversible scratch session",
@@ -40,7 +40,7 @@ fn session_sized_step_sends_findings_once_without_changing_saved_context() {
                 context: context.clone(),
                 source: actor.source(),
             },
-            &actor,
+            actor.actor().unwrap(),
         )
         .unwrap()
         .session;
@@ -148,7 +148,7 @@ fn settled_probe_step() {
         .prefix("TEST-settled-probe-")
         .tempdir()
         .unwrap();
-    let confirmation: crate::think_record::GoalConfirmation = serde_json::from_value(json!({
+    let confirmation: crate::confirmation::GoalConfirmation = serde_json::from_value(json!({
         "by":"agent", "agent":"TEST-agent", "authorizing_operator":"TEST-person",
         "source":"TEST permission to plan this disposable CLI",
         "class":{"door":"two_way", "door_reason":"TEST disposable plan",
@@ -165,7 +165,7 @@ fn settled_probe_step() {
                 context: "{}".into(),
                 source: confirmation.source(),
             },
-            &confirmation,
+            confirmation.actor().unwrap(),
         )
         .unwrap()
         .session;
@@ -176,7 +176,7 @@ fn settled_probe_step() {
         version,
         answering::SAMPLE.0,
         "TEST sample: one pasted line",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     let version = answering::probe(&session, version).unwrap().unwrap();
@@ -186,7 +186,7 @@ fn settled_probe_step() {
         version,
         answering::PROBE.0,
         answer,
-        Some(&confirmation),
+        confirmation.actor().unwrap(),
     )
     .unwrap();
     let ledger_path = session.join("ledger.json");

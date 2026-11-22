@@ -30,7 +30,7 @@ pub(super) struct Affirmation {
     pub unresolved: Vec<Question>,
     pub unresolved_notes: Vec<String>,
     pub decisions: Vec<OpenDecision>,
-    pub confirmation: record::GoalConfirmation,
+    pub confirmation: crate::confirmation::GoalConfirmation,
 }
 impl Affirmation {
     /// What the ledger records: the originals verbatim, and think's questions as provisional context.
@@ -88,12 +88,12 @@ impl BrainDump {
     /// visits in this session. Neither grants seed confirmation or implementation approval.
     pub fn set_goal_confirmation(
         &mut self,
-        confirmation: record::GoalConfirmation,
+        confirmation: crate::confirmation::GoalConfirmation,
     ) -> Result<(), String> {
         confirmation.validate()?;
         if matches!(
             self.handoff.confirmation,
-            record::GoalConfirmation::Terminal { .. }
+            crate::confirmation::GoalConfirmation::Terminal { .. }
         ) {
             return Err("The launch declaration is frozen for this session.".into());
         }
@@ -107,7 +107,7 @@ impl BrainDump {
         Ok(())
     }
     /// Attribution is frozen during review; otherwise it is this visit's supplied context.
-    pub(super) fn goal_confirmation(&self) -> &record::GoalConfirmation {
+    pub(super) fn goal_confirmation(&self) -> &crate::confirmation::GoalConfirmation {
         self.handoff
             .review()
             .map_or(&self.handoff.confirmation, |r| &r.affirmation.confirmation)
@@ -374,7 +374,11 @@ impl BrainDump {
                 let confirmation = review.affirmation.confirmation.clone();
                 let (tx, rx) = mpsc::channel();
                 std::thread::spawn(move || {
-                    let _ = tx.send(config.confirm_as(affirmation, &confirmation));
+                    let _ = tx.send(
+                        confirmation
+                            .actor()
+                            .and_then(|actor| config.confirm_as(affirmation, actor)),
+                    );
                 });
                 self.handoff.begin(rx);
                 self.tell("Saving your goal…");
@@ -402,8 +406,8 @@ impl BrainDump {
 }
 pub(super) fn render_declaration(frame: &mut Frame, app: &BrainDump, start: u16, palette: Palette) {
     let declaration = match app.goal_confirmation() {
-        record::GoalConfirmation::Terminal { declaration, .. } => declaration.as_str(),
-        record::GoalConfirmation::Agent { .. } => "declared: agent",
+        crate::confirmation::GoalConfirmation::Terminal { declaration, .. } => declaration.as_str(),
+        crate::confirmation::GoalConfirmation::Agent { .. } => "declared: agent",
         _ => return,
     };
     let area = frame.area();
@@ -498,7 +502,7 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
     ])
     .split(inner);
     let heading = match &review.affirmation.confirmation {
-        record::GoalConfirmation::Terminal { declaration, .. } => {
+        crate::confirmation::GoalConfirmation::Terminal { declaration, .. } => {
             format!("You are confirming ({declaration})")
         }
         _ => "You are confirming".into(),
@@ -506,7 +510,8 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
     let mut body = format!("{heading}\n{}", review.affirmation.goal);
     if !matches!(
         review.affirmation.confirmation,
-        record::GoalConfirmation::Unrecorded {} | record::GoalConfirmation::Terminal { .. }
+        crate::confirmation::GoalConfirmation::Unrecorded {}
+            | crate::confirmation::GoalConfirmation::Terminal { .. }
     ) {
         body.push_str(&format!(
             "\n\nCaller-declared confirmation attribution: {}",
