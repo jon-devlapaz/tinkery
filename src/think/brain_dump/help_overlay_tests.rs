@@ -16,11 +16,11 @@ fn escape_closes_help_before_cancelling_a_reading_and_keeps_words() {
             .contains("Close help")
     );
     key(&mut app, KeyCode::Esc);
-    assert!(app.running() && !app.screen.help && !app.quitting());
+    assert!(app.running() && !app.screen.overlay.help() && !app.quitting());
     key(&mut app, KeyCode::Esc);
     assert!(!app.running() && !app.quitting());
     assert_eq!(app.conversation.sources()[0].text, original);
-    assert!(app.notice.contains("Cancelled"));
+    assert!(app.notice().contains("Cancelled"));
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn review_and_receipt_help_cannot_confirm_copy_or_open_tend() {
     assert_eq!(app.handoff.review().unwrap().affirmation.goal, frozen);
     assert!(app.saved().is_none());
     key(&mut app, KeyCode::Esc);
-    assert!(!app.screen.help && app.handoff.review().is_some() && !app.quitting());
+    assert!(!app.screen.overlay.help() && app.handoff.review().is_some() && !app.quitting());
     app.set_saved(seed_me::Receipt::test("/tmp/tinkery-TEST-overlay".into()));
     let receipt = app.handoff.receipt().unwrap().text();
     key(&mut app, KeyCode::F(1));
@@ -213,6 +213,38 @@ fn eleven_actions_keep_model_and_calls_reachable_without_spending_calls() {
             assert!(app.saved().is_none() && !root.path().join("TEST-sessions").exists());
             assert!(app.take_copy_request().is_none());
             assert_eq!(app.exit(), &Exit::Stay);
+            // Help that comes back from How it works, by way of the originals, is on page one.
+            key(&mut app, KeyCode::F(1));
+            key(&mut app, KeyCode::Right);
+            assert!(
+                snapshot(width, height, &mut app, mono)
+                    .unwrap()
+                    .contains("Actions 2/2")
+            );
+            key(&mut app, KeyCode::Left);
+            let digit = layout::help_text(&app)
+                .lines()
+                .find_map(|line| line.strip_suffix("  Show your originals"))
+                .and_then(|n| n.chars().next())
+                .expect("an originals row on page one");
+            key(&mut app, KeyCode::Char(digit));
+            assert!(
+                snapshot(width, height, &mut app, mono)
+                    .unwrap()
+                    .contains(words)
+            );
+            key(&mut app, KeyCode::Char('h'));
+            assert!(
+                snapshot(width, height, &mut app, mono)
+                    .unwrap()
+                    .contains("How it works")
+            );
+            key(&mut app, KeyCode::Esc);
+            let help = snapshot(width, height, &mut app, mono).unwrap();
+            assert!(
+                help.contains("Actions 1/2") && help.contains("1  Review the goal"),
+                "{help}"
+            );
         }
     }
 }
@@ -252,7 +284,7 @@ fn contextual_help_is_inset_and_keeps_the_original_and_draft() {
                 );
             }
             key(&mut app, KeyCode::Esc);
-            assert!(!app.screen.help && !app.running() && !app.quitting());
+            assert!(!app.screen.overlay.help() && !app.running() && !app.quitting());
         }
     }
 }
@@ -280,8 +312,12 @@ fn help_blocks_hidden_actions_and_typing_without_confirming_or_sending() {
         key(&mut app, KeyCode::F(1));
         app.handle_key(event);
         app.paste("confirm");
-        assert!(app.screen.help);
-        assert!(!app.screen.original && !app.screen.details && !app.add_more);
+        assert!(app.screen.overlay.help());
+        assert!(
+            !matches!(app.screen.overlay, Overlay::Originals)
+                && !matches!(app.screen.overlay, Overlay::Why)
+                && !app.add_more
+        );
         assert!(!app.running() && app.handoff.review().is_none() && app.saved().is_none());
         assert_eq!(app.input.text, input);
         assert!(app.take_copy_request().is_none());
@@ -308,9 +344,11 @@ fn long_help_keeps_its_title_and_navigation_visible_while_scrolling_and_resizing
         assert!(app.screen.original_scroll > 0);
     }
     key(&mut app, KeyCode::Esc);
-    assert!(app.screen.help && !app.screen.how);
+    assert!(
+        app.screen.overlay.help() && !matches!(app.screen.overlay, Overlay::Help { how: true, .. })
+    );
     key(&mut app, KeyCode::F(1));
-    assert!(!app.screen.help && !app.running() && !app.quitting());
+    assert!(!app.screen.overlay.help() && !app.running() && !app.quitting());
 }
 
 #[test]
@@ -319,8 +357,7 @@ fn scroll_hint_is_present_exactly_when_the_help_body_overflows() {
         for height in [24, 30, 40, 60, 120] {
             for mono in [false, true] {
                 let mut app = BrainDump::default();
-                app.screen.help = true;
-                app.screen.how = how;
+                app.screen.open_help(how);
                 let first = snapshot(100, height, &mut app, mono).unwrap();
                 for _ in 0..100 {
                     key(&mut app, KeyCode::PageDown);

@@ -200,9 +200,9 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
         let mut a = board();
         let before = snapshot(w, h, &mut a, false).unwrap();
         let source_area = a.screen.source_area;
-        a.screen.details = true;
+        a.screen.show(Overlay::Why);
         a.review_goal();
-        assert!(!a.screen.details);
+        assert!(!matches!(a.screen.overlay, Overlay::Why));
         let review = snapshot(w, h, &mut a, false).unwrap();
         assert_eq!(a.screen.source_area, source_area);
         // The key bar (last row) follows the state; everything above it stays put.
@@ -251,9 +251,9 @@ fn one_help_control_and_stable_original_across_review_help_and_receipt() {
         }
         key(&mut a, KeyCode::F(1));
         snapshot(w, h, &mut a, false).unwrap();
-        assert!(a.screen.help);
+        assert!(a.screen.overlay.help());
         key(&mut a, KeyCode::Esc);
-        assert!(!a.quitting() && !a.screen.help);
+        assert!(!a.quitting() && !a.screen.overlay.help());
         assert!(a.handoff.receipt().is_some());
     }
 }
@@ -263,7 +263,7 @@ fn literal_question_mark_and_corner_help_preserve_local_typing_and_review() {
     a.paste("A literal");
     key(&mut a, KeyCode::Char('?'));
     assert_eq!(a.input.text, "A literal?");
-    assert!(!a.screen.help);
+    assert!(!a.screen.overlay.help());
     let saved = (a.input.text.clone(), a.input.cursor);
     snapshot(100, 30, &mut a, false).unwrap();
     a.handle_mouse(
@@ -275,7 +275,7 @@ fn literal_question_mark_and_corner_help_preserve_local_typing_and_review() {
         },
         a.screen.area,
     );
-    assert!(a.screen.help);
+    assert!(a.screen.overlay.help());
     snapshot(100, 30, &mut a, false).unwrap();
     key(&mut a, KeyCode::Esc);
     assert_eq!(a.input.text, saved.0);
@@ -312,10 +312,10 @@ fn long_receipt_goal_is_scrollable_and_path_is_only_in_how_it_works() {
 fn full_failure_reason_is_accessible_and_never_promotes_a_rejected_reading() {
     let mut a = board();
     let old = a.conversation.board().cloned().unwrap();
-    a.notice = format!(
+    a.tell(format!(
         "Reshape failed: {} Or the final concrete referent was erased. Originals retained.",
         "source-grounded rejection explanation ".repeat(50)
-    );
+    ));
     a.conversation.set_applied(0);
     let screen = snapshot(100, 30, &mut a, false).unwrap();
     assert!(screen.contains("Reading couldn't be updated."));
@@ -569,10 +569,10 @@ print(json.dumps(dict(uncertain=False,framings=[dict(text='The restaurateur judg
         a.input.text.is_empty(),
         "failed shaping words are committed originals, not local draft"
     );
-    assert!(a.notice.contains("Reshape failed"), "{}", a.notice);
+    assert!(a.notice().contains("Reshape failed"), "{}", a.notice());
     assert!(a.conversation.last_failure().is_some());
     assert!(
-        a.notice
+        a.notice()
             .contains("provider rejected the input/context size")
     );
     for _ in 0..10 {
@@ -668,7 +668,7 @@ else:
                 let screen = snapshot(100, 30, &mut a, false).unwrap();
                 assert!(screen.contains("TEST refusal wins."));
                 assert!(!screen.contains("of up to 2"));
-                a.screen.refused = None;
+                a.notice.settle();
             }
             fs::write(dir.path().join(format!("release-{kind}")), "TEST").unwrap();
         }
