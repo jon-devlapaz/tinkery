@@ -143,10 +143,6 @@ struct Opened {
 
 /// What an open session is doing. Each mode alone decides its keys, key bar, help line and the
 /// words box keys type into.
-#[expect(
-    clippy::large_enum_variant,
-    reason = "Shape holds one mode at a time; boxing would only add indirection"
-)]
 enum Mode {
     /// Reading, or typing into the editor.
     Idle(Editor),
