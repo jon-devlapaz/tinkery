@@ -22,10 +22,7 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashSet,
-    sync::{Arc, atomic::AtomicBool},
-};
+use std::sync::{Arc, atomic::AtomicBool};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 pub mod board;
@@ -34,6 +31,7 @@ mod suggestion;
 use crate::goal::{GoalParts, Part};
 pub use suggestion::Suggestion;
 
+use board::agent_text;
 use host::Simulated;
 pub use host::{BoardHost, ModelHost};
 use layout::{Notice, Refusal};
@@ -41,7 +39,6 @@ pub use reading::{
     Anchor, Approach, BoardRequest, Fragment, Framing, Guess, OpenDecision, Question, Settled,
     Source,
 };
-use reading::{grapheme_boundary, same_question};
 use review::Review;
 pub use review::{Review as DecisionReview, input as decision_review_input};
 
@@ -1606,35 +1603,6 @@ pub fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     voice_input::render_notice(frame, app, palette);
     help_view::render(frame, app, palette);
     layout::render_leave_prompt(frame, app, palette);
-}
-fn agent_text(text: &str) -> String {
-    text.lines()
-        .map(|line| {
-            let mut line = line.trim_start();
-            let mut stripped = false;
-            // The interface supplies "I think you mean…"; drop a self-label such as
-            // "Goal:", "Possible goal:" or "PROVISIONAL:" (at most three words before the colon).
-            while let Some(colon) = line.find(':').filter(|&i| i <= 32) {
-                let label = &line[..colon];
-                let lower = label.to_ascii_lowercase();
-                if (1..=3).contains(&label.split_whitespace().count())
-                    && (lower.ends_with("goal") || lower.starts_with("provisional"))
-                {
-                    line = line[colon + 1..].trim_start();
-                    stripped = true;
-                } else {
-                    break;
-                }
-            }
-            // A stripped label can leave a lowercase start; the reading begins as a sentence.
-            let mut chars = line.chars();
-            match chars.next() {
-                Some(first) if stripped => first.to_uppercase().chain(chars).collect(),
-                _ => line.to_owned(),
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 fn draw_fragments(frame: &mut Frame, app: &BrainDump, area: Rect, palette: Palette) {

@@ -1,7 +1,8 @@
 //! The decision review: a second call after each reading that names decisions the draft settled
 //! silently. It holds the prompt, what the review sees (the person's words, their answers and the
 //! draft parts, not the template), its reply's decoder, and how its decisions join the reading's.
-use super::*;
+use super::reading::{self, BoardRequest, OpenDecision};
+use std::collections::HashSet;
 
 /// The decision review prompt as written: one rule per line, with notes on why.
 pub(super) const PROMPT: &str = include_str!("prompts/decision_review.txt");

@@ -1,7 +1,14 @@
 //! The reading: think's contract with the model for each shaping call. It holds the request
 //! think sends ([`BoardRequest`]), the prompt, the reply's wire shape ([`Guess`]) and the
 //! lenient decoder that reads a reply into it. [`board`](super::board) then verifies it.
-use super::*;
+use super::{
+    review::Review,
+    suggestion::{self, Suggestion},
+};
+use crate::goal::{GoalParts, Part};
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use unicode_segmentation::UnicodeSegmentation;
 
 /// The reading prompt as written: one rule per line, with notes on why. See its header.
 pub(super) const PROMPT: &str = include_str!("prompts/reading.txt");

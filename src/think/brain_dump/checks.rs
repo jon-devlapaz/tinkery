@@ -3,7 +3,12 @@
 //! reading or a decision. A check that rejects keeps the model's raw reply so the failure can
 //! be read in full.
 
-use super::*;
+use super::{
+    board::agent_text,
+    reading::{BoardRequest, Guess},
+};
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::time::Instant;
 
 /// Where one of the person's words appears in the reading.

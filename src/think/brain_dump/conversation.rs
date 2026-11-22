@@ -1,6 +1,13 @@
 //! Think's conversation with the person, turn by turn.
 
-use super::*;
+use super::{
+    Presentation, board,
+    reading::{
+        self, BoardRequest, Fragment, Guess, Question, Settled, Source, grapheme_boundary,
+        same_question,
+    },
+};
+use crate::goal::Part;
 use crate::think_record::{Event, Turn};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -113,14 +120,14 @@ impl Conversation {
     pub(super) fn reading_context(&self) -> &crate::think_record::ReadingContext {
         &self.context
     }
-    pub(super) fn presentation(&self) -> Option<super::Presentation> {
-        (self.board_revision > self.presented_revision).then(|| super::Presentation {
+    pub(super) fn presentation(&self) -> Option<Presentation> {
+        (self.board_revision > self.presented_revision).then(|| Presentation {
             revision: self.board_revision,
             board: serde_json::to_value(self.board.as_ref().expect("applied board").wire())
                 .expect("verified board serializes"),
         })
     }
-    pub(super) fn presented(&mut self, presentation: super::Presentation) {
+    pub(super) fn presented(&mut self, presentation: Presentation) {
         if presentation.revision == self.board_revision
             && presentation.revision > self.presented_revision
         {
