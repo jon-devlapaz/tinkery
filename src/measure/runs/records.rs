@@ -7,7 +7,7 @@ use serde_json::Value;
 use std::{
     fs::{self, File, OpenOptions},
     io::{BufRead, BufReader, Read as _},
-    path::{Path, PathBuf},
+    path::Path,
     process::Command,
     sync::atomic::AtomicBool,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -58,18 +58,7 @@ pub(super) struct Decision {
     /// The recorded reviewer, verbatim.
     pub(super) reviewer: String,
     /// Who recorded it.
-    pub(super) by: By,
-}
-
-/// Who recorded a decision receipt.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum By {
-    /// A person's gate decision.
-    Operator,
-    /// An agent recorded it; it is not the operator's gate.
-    Agent,
-    /// tink-sdlc bound the confirmed seed itself.
-    Automatic,
+    pub(super) by: sdlc::Attribution,
 }
 
 /// One operator label, with its words exactly as written.
@@ -100,7 +89,7 @@ impl Closed {
     pub(super) fn gates(&self) -> usize {
         self.decisions
             .iter()
-            .filter(|d| d.by == By::Operator)
+            .filter(|d| d.by == sdlc::Attribution::Operator)
             .count()
     }
 
@@ -137,8 +126,7 @@ pub(super) fn read(
         .count();
     let mut closed: Vec<(u128, &str)> = listed
         .iter()
-        .map(|run| &run.data)
-        .filter_map(|run| Some((closure_ns(&run["closure"])?, run["slug"].as_str()?)))
+        .filter_map(|run| Some((closure_ns(run)?, run.data["slug"].as_str()?)))
         .collect();
     closed.sort_unstable_by(|a, b| b.cmp(a));
     let more = closed.len().saturating_sub(RUNS);
@@ -149,7 +137,7 @@ pub(super) fn read(
     for (closed_ns, slug) in closed.into_iter().take(RUNS) {
         let parsed = sdlc::status(root, slug, cancel, left())?;
         let run = &parsed.data;
-        if run["slug"].as_str() != Some(slug) || closure_ns(&run["closure"]) != Some(closed_ns) {
+        if run["slug"].as_str() != Some(slug) || closure_ns(&parsed) != Some(closed_ns) {
             return Err(format!(
                 "Run {slug} changed while it was read. Press p to read again."
             ));
@@ -163,10 +151,8 @@ pub(super) fn read(
     })
 }
 
-fn closure_ns(closure: &Value) -> Option<u128> {
-    matches!(closure["outcome"].as_str(), Some("merged" | "abandoned"))
-        .then(|| closure["time_ns"].as_u64().map(u128::from))
-        .flatten()
+fn closure_ns(run: &sdlc::Run) -> Option<u128> {
+    run.closure.as_ref()?.time_ns.map(u128::from)
 }
 
 fn closed_run(
@@ -178,28 +164,28 @@ fn closed_run(
     deadline: Duration,
 ) -> Result<Closed, String> {
     let run = &parsed.data;
-    let closure = &run["closure"];
-    let merge = match closure["outcome"].as_str() {
-        Some("merged") => Some(
-            closure["merge"]
-                .as_str()
-                .filter(|c| c.len() == 40 && c.bytes().all(|b| b.is_ascii_hexdigit()))
+    let merge = match parsed.closure.as_ref().map(|closure| &closure.outcome) {
+        Some(sdlc::Outcome::Merged(commit)) => Some(
+            commit
+                .as_ref()
                 .ok_or(format!(
                     "Run {slug} is merged without a readable merge commit."
                 ))?
+                .as_str()
                 .to_owned(),
         ),
         _ => None,
     };
-    let checkout = match run.get("checkout") {
-        Some(path) => PathBuf::from(path.as_str().ok_or("A build checkout is unreadable.")?),
-        None => root.to_path_buf(),
+    // No folder holds a NUL name; a relative one would depend on Tinkery's own folder.
+    let folder = match &parsed.checkout {
+        Ok(path) => Some(path.as_deref().unwrap_or(root).join("runs").join(slug)),
+        Err(sdlc::CheckoutGap::NotText) => return Err("A build checkout is unreadable.".into()),
+        Err(sdlc::CheckoutGap::Nul | sdlc::CheckoutGap::Relative) => None,
     };
-    let folder = checkout.join("runs").join(slug);
     // Resolve the checkout once (macOS temp paths are links); files below it must not be links.
-    let folder = folder.canonicalize().unwrap_or(folder);
+    let folder = folder.map(|folder| folder.canonicalize().unwrap_or(folder));
     let pr = run["pr"]["url"].as_str().map(str::to_owned);
-    let closed_ns = closure_ns(closure).unwrap_or_default();
+    let closed_ns = closure_ns(parsed).unwrap_or_default();
     let held = match &merge {
         None => Hold::Abandoned,
         Some(commit) => held(
@@ -216,32 +202,24 @@ fn closed_run(
         merge,
         closed_ns,
         pr,
-        decisions: decisions(run),
-        labels: labels(&folder, run["labels"]["count"].as_u64()),
-        steps: steps(&folder, parsed),
+        decisions: parsed
+            .decisions
+            .iter()
+            .flatten()
+            .map(|d| Decision {
+                stage: d.stage.unwrap_or_default(),
+                decision: d.decision.as_deref().unwrap_or("unknown").into(),
+                reviewer: d.reviewer.as_deref().unwrap_or("unknown").into(),
+                by: d.by,
+            })
+            .collect(),
+        labels: folder
+            .as_deref()
+            .ok_or_else(|| "Labels unreadable in this checkout.".to_owned())
+            .and_then(|folder| labels(folder, parsed.labels.count)),
+        steps: steps(folder.as_deref(), parsed),
         held,
     })
-}
-
-fn decisions(run: &Value) -> Vec<Decision> {
-    let text = |v: &Value| v.as_str().unwrap_or("unknown").to_owned();
-    run["decisions"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .map(|d| Decision {
-            stage: d["stage"].as_u64().unwrap_or_default(),
-            decision: text(&d["decision"]),
-            reviewer: text(&d["reviewer"]),
-            by: if d.get("basis").is_some() {
-                By::Automatic
-            } else if d.get("attribution").is_some() {
-                By::Agent
-            } else {
-                By::Operator
-            },
-        })
-        .collect()
 }
 
 // tink-sdlc has validated the chain; this reads only kind and words, and refuses a count mismatch.
@@ -268,13 +246,16 @@ fn labels(folder: &Path, count: Option<u64>) -> Result<Vec<Label>, String> {
     Ok(labels)
 }
 
-fn steps(folder: &Path, run: &sdlc::Run) -> Vec<(String, Option<usize>)> {
+fn steps(folder: Option<&Path>, run: &sdlc::Run) -> Vec<(String, Option<usize>)> {
     let mut steps: Vec<_> = run
         .steps
         .iter()
         .flatten()
         .filter_map(|s| s.data["name"].as_str())
-        .map(|name| (name.to_owned(), responses(&folder.join("steps"), name)))
+        .map(|name| {
+            let responses = folder.and_then(|folder| responses(&folder.join("steps"), name));
+            (name.to_owned(), responses)
+        })
         .collect();
     steps.sort();
     steps

@@ -86,13 +86,9 @@ pub(super) fn automated(
         Some(value) => {
             let digest = value
                 .as_str()
-                .filter(|s| {
-                    s.len() == 64
-                        && s.bytes()
-                            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-                })
+                .and_then(crate::sdlc::Sha256::parse)
                 .ok_or("Verification log digest is malformed; it is not a path.")?;
-            format!("; receipt log SHA-256: {digest}")
+            format!("; receipt log SHA-256: {}", digest.as_str())
         }
     };
     let argv = serde_json::to_string(argv).map_err(|_| "Checking argv unreadable.")?;

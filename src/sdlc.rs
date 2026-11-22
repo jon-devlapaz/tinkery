@@ -25,7 +25,7 @@ pub(crate) fn git(root: &Path, args: &[&str]) -> Result<String, String> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Seed {
     source: PathBuf,
-    sha256: String,
+    sha256: Sha256,
 }
 
 impl Seed {
@@ -42,18 +42,14 @@ impl Seed {
             .ok_or("The run has no original Tink Contract location.")?;
         let sha256 = record["sha256"]
             .as_str()
-            .filter(|s| {
-                s.len() == 64
-                    && s.bytes()
-                        .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
-            })
+            .and_then(Sha256::parse)
             .ok_or("The run has no readable Tink Contract fingerprint.")?;
         if !Path::new(source).is_absolute() || record["path"].as_str().is_none() {
             return Err("The run has no readable Tink Contract location.".into());
         }
         Ok(Some(Self {
             source: source.into(),
-            sha256: sha256.into(),
+            sha256,
         }))
     }
 
@@ -64,7 +60,44 @@ impl Seed {
 
     /// The lowercase SHA-256 of the source bytes recorded at intake.
     pub(crate) fn sha256(&self) -> &str {
-        &self.sha256
+        self.sha256.as_str()
+    }
+}
+
+/// A full Git commit identity: exactly 40 hexadecimal digits, never a branch or abbreviation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Commit(String);
+
+impl Commit {
+    /// Refuse anything but 40 hexadecimal digits.
+    pub(crate) fn parse(value: &str) -> Option<Self> {
+        (value.len() == 40 && value.bytes().all(|b| b.is_ascii_hexdigit()))
+            .then(|| Self(value.into()))
+    }
+
+    /// The exact spelling the source recorded.
+    pub(crate) fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+/// A SHA-256 digest: exactly 64 lowercase hexadecimal digits.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Sha256(String);
+
+impl Sha256 {
+    /// Refuse anything but 64 lowercase hexadecimal digits.
+    pub(crate) fn parse(value: &str) -> Option<Self> {
+        (value.len() == 64
+            && value
+                .bytes()
+                .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')))
+        .then(|| Self(value.into()))
+    }
+
+    /// The digest's hexadecimal spelling.
+    pub(crate) fn as_str(&self) -> &str {
+        &self.0
     }
 }
 
@@ -216,19 +249,124 @@ pub(crate) struct Run {
     pub(crate) state: Word<StepState>,
     /// Contract stop reason, meaningful only for a stopped contract.
     pub(crate) stopped_by: Word<StopReason>,
+    /// An open local result: the source records a null PR and no closure.
+    pub(crate) local: bool,
+    /// The receipt covers its candidate now: a fresh pass, or a fresh result awaiting only
+    /// judgments. A current receipt is not acceptance.
+    pub(crate) receipt_current: bool,
+    /// The receipt's checked candidate commit; absent or malformed means unknown.
+    pub(crate) receipt_head: Option<Commit>,
+    /// The run's own build checkout. `None` means the named checkout; a present path is
+    /// absolute text without NUL, never resolved or trusted to exist.
+    pub(crate) checkout: Result<Option<PathBuf>, CheckoutGap>,
+    /// A recognized closure outcome; open runs and unfamiliar outcomes have none.
+    pub(crate) closure: Option<Closure>,
+    /// Gate decision receipts, oldest first. Omission means none; a malformed list is `None`.
+    pub(crate) decisions: Option<Vec<Decision>>,
+    /// The source's label counts, never the label words.
+    pub(crate) labels: Labels,
+    /// The intake record, refused when malformed and `None` when older or absent.
+    pub(crate) seed: Result<Option<Seed>, String>,
+}
+
+/// Why a recorded checkout cannot name a folder.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CheckoutGap {
+    /// Not text.
+    NotText,
+    /// Text containing NUL, which no folder name holds.
+    Nul,
+    /// A relative path, which would depend on the reader's folder.
+    Relative,
+}
+
+/// A settled run's recognized outcome and its recorded time.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Closure {
+    /// Merged or abandoned, as recorded.
+    pub(crate) outcome: Outcome,
+    /// Nanoseconds since the Unix epoch; absent or malformed means unknown.
+    pub(crate) time_ns: Option<u64>,
+}
+
+/// How a run closed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Outcome {
+    /// The source names a merge; its commit is `None` when absent or malformed.
+    Merged(Option<Commit>),
+    /// Closed without a merge.
+    Abandoned,
+}
+
+/// One gate decision receipt, verbatim; missing words stay unknown.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Decision {
+    /// The gated stage number.
+    pub(crate) stage: Option<u64>,
+    /// The recorded decision word.
+    pub(crate) decision: Option<String>,
+    /// The recorded reviewer.
+    pub(crate) reviewer: Option<String>,
+    /// Who recorded it; only an operator's receipt is a person's gate.
+    pub(crate) by: Attribution,
+}
+
+/// Who recorded a decision receipt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Attribution {
+    /// A person's gate decision.
+    Operator,
+    /// An agent recorded it; it is not the operator's gate.
+    Agent,
+    /// tink-sdlc bound the confirmed seed itself.
+    Automatic,
+}
+
+/// The source's label counts; each is `None` when absent or malformed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Labels {
+    /// Accepted and rejected verdict counts, present only together.
+    pub(crate) kinds: Option<(u64, u64)>,
+    /// All recorded labels, of every kind.
+    pub(crate) count: Option<u64>,
 }
 
 /// Exact receipt equality without exposing its words for a second interpretation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Receipt(Value);
 
-/// A gate's word and source metadata; stage requirements belong to the consuming operation.
+/// A gate's recognized words; stage requirements belong to the consuming operation.
 #[derive(Debug, Clone)]
 pub(crate) struct Gate {
-    /// Source-owned stage and decision evidence.
-    pub(crate) data: Value,
     /// Recognized gate state or preserved unfamiliar value.
     pub(crate) status: Word<GateStatus>,
+    /// The gated stage; absent or malformed means unknown.
+    pub(crate) stage: Option<Stage>,
+}
+
+/// tink-sdlc's gated stages; a number it may add later stays numbered, never guessed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Stage {
+    /// Stage 1.
+    Problem,
+    /// Stage 2.
+    Specification,
+    /// Stage 3.
+    Plan,
+    /// Any other stage number.
+    Other(u64),
+}
+
+impl Stage {
+    /// The source's stage number.
+    pub(crate) fn number(self) -> u64 {
+        match self {
+            Self::Problem => 1,
+            Self::Specification => 2,
+            Self::Plan => 3,
+            Self::Other(n) => n,
+        }
+    }
 }
 
 /// A completion condition's recognized words and uninterpreted evidence metadata.
@@ -244,6 +382,30 @@ pub(crate) struct CheckItem {
     pub(crate) pending: Result<bool, &'static str>,
     /// Required freshness flag, not a failed sign-off.
     pub(crate) needs_recheck: Result<bool, &'static str>,
+    /// The proof method, only when the automatic flag and the proof word agree.
+    pub(crate) method: Result<Proof, MethodGap>,
+    /// Sign-off evidence: `None` for explicit null, an object otherwise.
+    pub(crate) mark: Result<Option<Value>, MarkGap>,
+}
+
+/// Why a checklist item has no proof method, in the order the rules apply.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MethodGap {
+    /// No readable automatic flag.
+    NoAutomatic,
+    /// No proof word, with the automatic flag the item claims.
+    NoProof { automatic: bool },
+    /// The proof word is not the one the automatic flag requires.
+    Disagrees { automatic: bool },
+}
+
+/// Why a checklist item has no readable sign-off evidence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MarkGap {
+    /// The item omits its mark.
+    Missing,
+    /// The mark is neither null nor an object.
+    Unreadable,
 }
 
 /// A step's recognized state, turn and stop reason, without orchestration policy.
@@ -333,8 +495,13 @@ impl Run {
                 gates
                     .iter()
                     .map(|gate| Gate {
-                        data: metadata(gate, &["status"]),
                         status: word(gate.get("status"), GateStatus::read),
+                        stage: gate["stage"].as_u64().map(|n| match n {
+                            1 => Stage::Problem,
+                            2 => Stage::Specification,
+                            3 => Stage::Plan,
+                            n => Stage::Other(n),
+                        }),
                     })
                     .collect()
             }),
@@ -342,7 +509,10 @@ impl Run {
                 items
                     .iter()
                     .map(|item| CheckItem {
-                        data: metadata(item, &["status", "proof", "pending", "needs_recheck"]),
+                        data: metadata(
+                            item,
+                            &["status", "proof", "pending", "needs_recheck", "mark"],
+                        ),
                         status: word(item.get("status"), CheckStatus::read),
                         proof: word(item.get("proof"), Proof::read),
                         pending: match item.get("pending") {
@@ -354,6 +524,21 @@ impl Run {
                         needs_recheck: item["needs_recheck"]
                             .as_bool()
                             .ok_or("A checklist item has no readable needs_recheck flag."),
+                        method: match (item["automatic"].as_bool(), Proof::read(&item["proof"])) {
+                            (None, _) => Err(MethodGap::NoAutomatic),
+                            (Some(automatic), _) if !item["proof"].is_string() => {
+                                Err(MethodGap::NoProof { automatic })
+                            }
+                            (Some(true), Some(Proof::Automated)) => Ok(Proof::Automated),
+                            (Some(false), Some(Proof::Attested)) => Ok(Proof::Attested),
+                            (Some(automatic), _) => Err(MethodGap::Disagrees { automatic }),
+                        },
+                        mark: match item.get("mark") {
+                            None => Err(MarkGap::Missing),
+                            Some(Value::Null) => Ok(None),
+                            Some(mark) if mark.is_object() => Ok(Some(mark.clone())),
+                            Some(_) => Err(MarkGap::Unreadable),
+                        },
                     })
                     .collect()
             }),
@@ -371,6 +556,67 @@ impl Run {
             steps_present: value.get("steps").is_some(),
             state: word(value.get("state"), StepState::read),
             stopped_by: word(value.get("stopped_by"), StopReason::read),
+            local: value.get("pr") == Some(&Value::Null) && value["closure"].is_null(),
+            receipt_current: (Verification::read(&value["verification_status"])
+                == Some(Verification::Current)
+                && value["verification"]["passed"] == true)
+                || (Verification::read(&value["verification_status"])
+                    == Some(Verification::AwaitingAttestation)
+                    && ReceiptResult::read(&value["verification"]["result"])
+                        == Some(ReceiptResult::AwaitingAttestation)
+                    && value["verification"]["passed"] == false),
+            receipt_head: value["verification"]["candidate"]["head"]
+                .as_str()
+                .and_then(Commit::parse),
+            checkout: match value.get("checkout") {
+                None => Ok(None),
+                Some(path) => match path.as_str() {
+                    None => Err(CheckoutGap::NotText),
+                    Some(path) if path.contains('\0') => Err(CheckoutGap::Nul),
+                    Some(path) if !Path::new(path).is_absolute() => Err(CheckoutGap::Relative),
+                    Some(path) => Ok(Some(path.into())),
+                },
+            },
+            closure: {
+                let closure = &value["closure"];
+                let outcome = match closure["outcome"].as_str() {
+                    Some("merged") => Some(Outcome::Merged(
+                        closure["merge"].as_str().and_then(Commit::parse),
+                    )),
+                    Some("abandoned") => Some(Outcome::Abandoned),
+                    _ => None,
+                };
+                outcome.map(|outcome| Closure {
+                    outcome,
+                    time_ns: closure["time_ns"].as_u64(),
+                })
+            },
+            decisions: match value.get("decisions") {
+                None => Some(Vec::new()),
+                Some(list) => list.as_array().map(|list| {
+                    list.iter()
+                        .map(|d| Decision {
+                            stage: d["stage"].as_u64(),
+                            decision: d["decision"].as_str().map(Into::into),
+                            reviewer: d["reviewer"].as_str().map(Into::into),
+                            by: if d.get("basis").is_some() {
+                                Attribution::Automatic
+                            } else if d.get("attribution").is_some() {
+                                Attribution::Agent
+                            } else {
+                                Attribution::Operator
+                            },
+                        })
+                        .collect()
+                }),
+            },
+            labels: Labels {
+                kinds: value["labels"]["kinds"]["accepted"]
+                    .as_u64()
+                    .zip(value["labels"]["kinds"]["rejected"].as_u64()),
+                count: value["labels"]["count"].as_u64(),
+            },
+            seed: Seed::parse(value),
         }
     }
 }

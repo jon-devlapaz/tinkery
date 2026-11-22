@@ -188,7 +188,7 @@ fn parse_list(output: &str) -> Result<Vec<Run>, String> {
                 total: count("total")?,
                 state,
                 attention: None,
-                goal: runs::goal(run),
+                goal: runs::goal(parsed),
                 codex: None,
             })
         })
@@ -210,7 +210,7 @@ fn parse_run_detail(parsed: &sdlc::Run) -> Result<Detail, String> {
         .ok_or("The run has no gates list.")?
         .iter()
         .map(|gate| {
-            let stage = gate.data["stage"].as_u64().ok_or("A gate has no stage.")?;
+            let stage = gate.stage.ok_or("A gate has no stage.")?.number();
             let status = gate.status.as_str().unwrap_or("missing");
             if gate.status.known().is_none() {
                 return Err(format!("A gate has a state Watch doesn't know ({status})."));
@@ -236,19 +236,19 @@ fn parse_run_detail(parsed: &sdlc::Run) -> Result<Detail, String> {
     let mut checklist = Vec::new();
     for record in items {
         let item = &record.data;
-        let automatic = item["automatic"]
-            .as_bool()
-            .ok_or("A checklist item has no automatic flag.")?;
-        let proof = record
-            .proof
-            .as_str()
-            .ok_or("A run is missing proof; nothing is shown rather than a guess.")?;
-        if !record
-            .proof
-            .is(if automatic { P::Automated } else { P::Attested })
-        {
-            return Err("A checklist item's proof disagrees with its automatic flag.".into());
+        match record.method {
+            Err(sdlc::MethodGap::NoAutomatic) => {
+                return Err("A checklist item has no automatic flag.".into());
+            }
+            Err(sdlc::MethodGap::NoProof { .. }) => {
+                return Err("A run is missing proof; nothing is shown rather than a guess.".into());
+            }
+            Err(sdlc::MethodGap::Disagrees { .. }) => {
+                return Err("A checklist item's proof disagrees with its automatic flag.".into());
+            }
+            Ok(_) => {}
         }
+        let proof = record.proof.as_str().unwrap_or_default();
         let status = record
             .status
             .as_str()
@@ -276,16 +276,14 @@ fn parse_run_detail(parsed: &sdlc::Run) -> Result<Detail, String> {
             text(item, "id")?,
             text(item, "verify")?
         ));
-        match item.get("mark") {
-            Some(Value::Null) => {}
-            Some(mark) if mark.is_object() => {
-                checklist.push(format!("Evidence: {}", text(mark, "evidence")?))
-            }
-            _ => return Err("A checklist item has no readable mark.".into()),
+        match &record.mark {
+            Ok(None) => {}
+            Ok(Some(mark)) => checklist.push(format!("Evidence: {}", text(mark, "evidence")?)),
+            Err(_) => return Err("A checklist item has no readable mark.".into()),
         }
     }
     Ok(Detail {
-        goal: runs::goal(run),
+        goal: runs::goal(parsed),
         state: state(parsed)?,
         next: if parsed
             .verification

@@ -307,7 +307,7 @@ fn current(run: &Run) -> Result<sdlc::Run, String> {
 }
 
 fn require_seed(value: &sdlc::Run) -> Result<ready::ReadySeed, String> {
-    runs::confirmed(&value.data).map_err(|_| "The run's original confirmed Tink Contract is unavailable or changed. Recheck it before running work.".into())
+    runs::confirmed(value).map_err(|_| "The run's original confirmed Tink Contract is unavailable or changed. Recheck it before running work.".into())
 }
 
 // Check both the recorded ancestry and the files a newly launched worker will actually read.
@@ -418,8 +418,9 @@ fn start(request: Start) -> Result<Snapshot, Failure> {
             STAGE,
         )?;
         let value = current(&run)?;
-        let seed =
-            sdlc::Seed::parse(&value.data)?.ok_or("Intake did not record the selected Tink.")?;
+        let seed = value
+            .seed?
+            .ok_or("Intake did not record the selected Tink.")?;
         if !runs::matches(&seed, &intake.seed)? {
             return Err("Intake recorded a different Tink. No worker started.".into());
         }
