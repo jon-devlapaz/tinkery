@@ -5,12 +5,10 @@ use super::{
     label::{self, Verdict},
     preview::{Local, git},
 };
-use crate::{
-    sdlc::Goal,
-    seed_me::{
-        self,
-        retry::{Base, Prior},
-    },
+use crate::seed_me::{
+    self,
+    retry::{Base, Prior},
+    runs::Goal,
 };
 use std::{
     fs,
@@ -58,7 +56,7 @@ impl Rejected {
         {
             return Err("The rejection changed. Return to Taste and reread.".into());
         }
-        let Goal::Matched(goal) = crate::sdlc::goal(&run.data) else {
+        let Goal::Matched(goal) = crate::seed_me::runs::goal(&run.data) else {
             return Err("The original goal is no longer verified.".into());
         };
         let seed = run.data["seed_contract"]["source"]

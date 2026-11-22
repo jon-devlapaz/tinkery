@@ -3,7 +3,10 @@
 
 use super::{evidence, links};
 use crate::process;
-use crate::sdlc::{self, DEADLINE, Goal};
+use crate::{
+    sdlc::{self, DEADLINE},
+    seed_me::runs::{self, Goal},
+};
 use serde_json::Value;
 use std::{
     path::Path,
@@ -471,21 +474,17 @@ fn gh(root: &Path, url: &str, stop: &AtomicBool) -> Result<Value, String> {
 /// Read API 1 plus each run's recorded PR, serially; cancellation never publishes a late row.
 /// Entries whose name is not a safe run locator are skipped and counted, never read or used.
 pub(super) fn collect(root: &Path, stop: &AtomicBool) -> Result<(Vec<ResultRow>, usize), String> {
-    if !root.join(sdlc::SCRIPT).is_file() {
+    if !sdlc::installed(root) {
         return Err("Named checkout has no tink-sdlc status reader.".into());
     }
     let root = root
         .canonicalize()
         .map_err(|_| "Named checkout unavailable.".to_owned())?;
-    let value = sdlc::envelope(&sdlc::status(
-        &root,
-        &["status".into(), "--json".into()],
-        stop,
-        DEADLINE,
-    )?)?;
+    let summaries = sdlc::list(&root, stop, DEADLINE)?.ok_or("Run list unavailable.")?;
     let mut rows = Vec::new();
     let mut skipped = 0;
-    for summary in value["runs"].as_array().ok_or("Run list unavailable.")? {
+    for entry in &summaries {
+        let summary = &entry.data;
         if stop.load(Ordering::SeqCst) {
             return Err("Stopped.".into());
         }
@@ -519,22 +518,11 @@ pub(super) fn collect(root: &Path, stop: &AtomicBool) -> Result<(Vec<ResultRow>,
             labelled: None,
             rejection: None,
         };
-        if sdlc::Run::parse(summary)
-            .verification
-            .is(sdlc::Verification::Invalid)
-            || !sdlc::canonical_run_id(&row.id)
-        {
+        if entry.verification.is(sdlc::Verification::Invalid) || !sdlc::canonical_run_id(&row.id) {
             rows.push(row);
             continue;
         }
-        let out = sdlc::status(
-            &root,
-            &["status".into(), slug.into(), "--json".into()],
-            stop,
-            DEADLINE,
-        )?;
-        let value = sdlc::envelope(&out)?;
-        let parsed = sdlc::Run::parse(&value["run"]);
+        let parsed = sdlc::status(&root, slug, stop, DEADLINE)?;
         let run = &parsed.data;
         if text(run, "run_id")? != row.id || text(run, "slug")? != slug {
             return Err("Run identity changed while reading.".into());
@@ -548,7 +536,7 @@ pub(super) fn collect(root: &Path, stop: &AtomicBool) -> Result<(Vec<ResultRow>,
             return Err("Unknown run verification state.".into());
         }
         row.pending_attestations = parsed.pending_attestations.clone()?;
-        row.goal = sdlc::goal(run);
+        row.goal = runs::goal(run);
         row.seed = run["seed_contract"]["sha256"]
             .as_str()
             .unwrap_or("unknown")
@@ -619,7 +607,7 @@ pub(super) fn collect(root: &Path, stop: &AtomicBool) -> Result<(Vec<ResultRow>,
             Err(why) => row.gaps.push(why),
         }
         row.items.extend(supporting_checks);
-        if sdlc::goal(run) != row.goal {
+        if runs::goal(run) != row.goal {
             return Err("Original goal changed while reading; press r.".into());
         }
         rows.push(row);
