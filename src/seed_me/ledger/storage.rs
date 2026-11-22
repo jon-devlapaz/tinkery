@@ -751,3 +751,5 @@ pub fn end(
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod golden_tests;
