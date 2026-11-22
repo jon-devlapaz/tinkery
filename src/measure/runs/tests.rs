@@ -344,3 +344,33 @@ fn only_a_plain_p_reads_and_failures_stay_unknown() {
     );
     assert!(!text.contains("closed runs ·"));
 }
+
+#[test]
+fn a_relative_build_checkout_never_reads_from_tinkerys_own_folder() {
+    let dir = checkout();
+    let root = &dir.path().canonicalize().unwrap();
+    let build = tempfile::tempdir().unwrap();
+    let build = &build.path().canonicalize().unwrap();
+    let mut runs = Vec::new();
+    for slug in ["absolute", "relative"] {
+        let mut record = run(build, slug, None, DAY, &[label("correction", "TEST words")]);
+        record["checkout"] = json!(build);
+        runs.push(record);
+    }
+    // The same folder, spelled relative to this process's folder, which a reader must refuse.
+    let up = std::env::current_dir().unwrap().components().count() - 1;
+    let relative = "../".repeat(up) + build.strip_prefix("/").unwrap().to_str().unwrap();
+    assert!(Path::new(&relative).join("runs/relative/labels.jsonl").is_file());
+    runs[1]["checkout"] = json!(relative);
+    write(root, runs);
+    let mut view = Measure::open(Repo::enclosing(root));
+    let text = read(&mut view);
+    let words = |slug| {
+        row(&text, slug)
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+    };
+    assert!(words("absolute").ends_with("0 1 ? abandoned absolute"), "{text}");
+    assert!(words("relative").ends_with("0 ? ? abandoned relative"), "{text}");
+}

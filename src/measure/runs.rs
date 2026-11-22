@@ -14,7 +14,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Paragraph, Wrap},
 };
-use records::{By, Closed, HOLD_DAYS, Hold, Postmortem};
+use records::{Closed, HOLD_DAYS, Hold, Postmortem};
 use std::path::Path;
 
 const LIST_ROWS: usize = 7;
@@ -272,9 +272,9 @@ fn details(run: &Closed) -> String {
     lines.push(format!("Gates: {} by you", run.gates()));
     for d in &run.decisions {
         let by = match d.by {
-            By::Operator => "",
-            By::Agent => " · agent-recorded, not counted",
-            By::Automatic => " · automatic Tink Contract link, not counted",
+            sdlc::Attribution::Operator => "",
+            sdlc::Attribution::Agent => " · agent-recorded, not counted",
+            sdlc::Attribution::Automatic => " · automatic Tink Contract link, not counted",
         };
         lines.push(format!(
             "  stage {} {} · {}{by}",

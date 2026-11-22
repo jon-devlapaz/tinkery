@@ -4,7 +4,6 @@
 
 use super::ready::{self, ReadySeed};
 use crate::sdlc::{self, DEADLINE, Seed, Verification};
-use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{path::Path, sync::atomic::AtomicBool};
 
@@ -39,21 +38,24 @@ pub(crate) fn matches(seed: &Seed, path: &Path) -> Result<bool, String> {
 
 /// Read the exact goal only for a still-matching, verified seed, on a worker. An explicit null
 /// record means no seed; missing, changed or unverified original session files stay unknown.
-pub(crate) fn goal(run: &Value) -> Goal {
+pub(crate) fn goal(run: &sdlc::Run) -> Goal {
     confirmed(run).map_or_else(|gap| gap, |ready| Goal::Matched(ready.goal))
 }
 
 /// A run may supply the goal and retry base only from its own still-matching confirmed seed.
-pub(crate) fn confirmed(run: &Value) -> Result<ReadySeed, Goal> {
-    let seed = Seed::parse(run)
+pub(crate) fn confirmed(run: &sdlc::Run) -> Result<ReadySeed, Goal> {
+    let seed = run
+        .seed
+        .as_ref()
         .map_err(|_| Goal::Unknown)?
+        .as_ref()
         .ok_or(Goal::NoSeed)?;
     let matched = || {
-        if !matches(&seed, seed.source()).ok()? {
+        if !matches(seed, seed.source()).ok()? {
             return None;
         }
         let ready = ready::confirmed(seed.source()).ok()?;
-        matches(&seed, seed.source()).ok()?.then_some(ready)
+        matches(seed, seed.source()).ok()?.then_some(ready)
     };
     matched().ok_or(Goal::Unknown)
 }
@@ -74,7 +76,7 @@ pub(crate) fn seeds(root: &Path, cancel: &AtomicBool) -> Result<Vec<Seed>, Strin
                         .into(),
                 );
             }
-            Seed::parse(&run.data)
+            run.seed.clone()
         })
         .collect::<Result<Vec<_>, _>>()
         .map(|seeds| seeds.into_iter().flatten().collect())

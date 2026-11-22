@@ -38,39 +38,36 @@ impl Local {
     /// Require a fresh machine-checked commit; pending judgments never imply acceptance.
     pub(super) fn read(root: &Path, parsed: &sdlc::Run, stop: &AtomicBool) -> Result<Self, String> {
         let run = &parsed.data;
-        if run.get("pr") != Some(&Value::Null) || !run["closure"].is_null() {
+        if !parsed.local {
             return Err("This run is not an open local result; press r.".into());
         }
-        let receipt = &run["verification"];
-        let passed = parsed.verification.is(sdlc::Verification::Current)
-            && receipt["passed"] == true
-            && parsed.receipt_result.is(sdlc::ReceiptResult::Passed);
-        let awaiting = parsed
-            .verification
-            .is(sdlc::Verification::AwaitingAttestation)
-            && receipt["passed"] == false
-            && parsed
-                .receipt_result
-                .is(sdlc::ReceiptResult::AwaitingAttestation)
-            && parsed
-                .pending_attestations
-                .as_ref()
-                .is_ok_and(|ids| !ids.is_empty());
-        if !passed && !awaiting {
+        // A machine-checked pass, or a fresh result whose only open items are pending judgments.
+        if !parsed.receipt_current
+            || !(parsed.receipt_result.is(sdlc::ReceiptResult::Passed)
+                || parsed
+                    .verification
+                    .is(sdlc::Verification::AwaitingAttestation)
+                    && parsed.pending_attestations.is_ok())
+        {
             return Err("Local preview needs a current passed verification. Commit and verify, then press r.".into());
         }
-        let head = receipt["candidate"]["head"]
-            .as_str()
-            .filter(|head| head.len() == 40 && head.bytes().all(|b| b.is_ascii_hexdigit()))
-            .ok_or("Local result commit is unknown; commit and verify, then press r.")?;
-        let source = match run.get("checkout") {
-            None => root,
-            Some(value) => Path::new(
-                value
-                    .as_str()
-                    .filter(|s| !s.contains('\0'))
-                    .ok_or("Local result checkout is invalid; inspect the run and press r.")?,
-            ),
+        let head = parsed
+            .receipt_head
+            .as_ref()
+            .ok_or("Local result commit is unknown; commit and verify, then press r.")?
+            .as_str();
+        let source = match &parsed.checkout {
+            Ok(path) => path.as_deref().unwrap_or(root),
+            Err(sdlc::CheckoutGap::NotText | sdlc::CheckoutGap::Nul) => {
+                return Err(
+                    "Local result checkout is invalid; inspect the run and press r.".into(),
+                );
+            }
+            Err(sdlc::CheckoutGap::Relative) => {
+                return Err(
+                    "Local result checkout must be absolute; inspect the run and press r.".into(),
+                );
+            }
         };
         if !source.is_absolute() {
             return Err(
@@ -102,7 +99,7 @@ impl Local {
             head: head.into(),
             receipt: parsed.receipt.clone(),
             seed: run["seed_contract"].clone(),
-            goal: crate::seed_me::runs::goal(run),
+            goal: crate::seed_me::runs::goal(parsed),
         })
     }
 
