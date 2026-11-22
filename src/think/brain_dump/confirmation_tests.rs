@@ -601,7 +601,8 @@ fn the_review_cursor_follows_the_typed_word_whether_or_not_who_is_named() {
         }
         app.handle_key(KeyEvent::new(KeyCode::F(1), KeyModifiers::NONE));
         app.handle_key(KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE));
-        snapshot(100, 30, &mut app, true).unwrap();
+        let review = snapshot(100, 30, &mut app, true).unwrap();
+        assert!(review.contains("You are confirming"), "{review}");
         for c in "conf".chars() {
             app.handle_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
         }

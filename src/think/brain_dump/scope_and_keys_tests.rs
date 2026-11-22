@@ -687,14 +687,18 @@ fn context_only_overflow_offers_copy_out_without_pruning_or_false_resend() {
 
 #[test]
 fn overflow_help_uses_semantic_kind_after_notice_rewording_and_f1() {
-    for kind in [Refusal::DraftTooLong, Refusal::EarlierWordsTooLong] {
+    for earlier in [false, true] {
         let mut a = BrainDump::with_host(Arc::new(Counting::default()));
-        a.notice = Notice::Refused(kind.clone());
+        a.notice = Notice::Refused(if earlier {
+            Refusal::EarlierWordsTooLong
+        } else {
+            Refusal::DraftTooLong
+        });
         key(&mut a, KeyCode::F(1));
         let help = layout::help_text(&a);
         assert!(help.contains("Nothing was sent") && help.contains("Ctrl-A then Ctrl-C"));
         assert!(!help.contains("KiB") && !help.contains("encoded") && !help.contains("context"));
-        if kind == Refusal::EarlierWordsTooLong {
+        if earlier {
             assert!(
                 help.contains("Shortening new words cannot") && help.contains("Ctrl-PgUp/PgDn")
             );

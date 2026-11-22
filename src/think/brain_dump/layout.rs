@@ -37,7 +37,6 @@ pub(super) enum Notice {
 }
 
 /// Why an action did nothing.
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Refusal {
     /// The words to send are over the request cap; a shorter draft can go.
     DraftTooLong,
@@ -48,7 +47,6 @@ pub(super) enum Refusal {
 }
 
 /// A finished action the status row keeps until the next notice.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Receipt {
     /// The copy reached the terminal (`sent`), after the goal saved (`saved`) or before.
     Copy {
@@ -95,7 +93,7 @@ impl Refusal {
 impl BrainDump {
     /// The status line: what just happened, in plain words.
     pub fn notice(&self) -> String {
-        let receipt = |r: &Receipt| match *r {
+        let receipt = |r: &Receipt| match r {
             Receipt::Copy {
                 sent: true,
                 saved: true,
