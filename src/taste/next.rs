@@ -65,7 +65,7 @@ pub(super) fn suggest(row: &ResultRow) -> Pause {
          Keep the confirmed goal and its constraints unchanged; do not invent another feature or bypass gates.\n\
          Disprove this slice: {check}"
     );
-    if let crate::sdlc::Goal::Matched(goal) = &row.goal {
+    if let crate::seed_me::runs::Goal::Matched(goal) = &row.goal {
         text.push_str("\n\nConfirmed goal (unchanged source):\n");
         text.push_str(goal);
     }

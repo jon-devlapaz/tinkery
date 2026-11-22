@@ -20,7 +20,8 @@ use std::{
 
 use crate::Palette;
 use crate::process::Task;
-use crate::sdlc::{self, DEADLINE, Goal, SCRIPT};
+use crate::sdlc::{self, DEADLINE, SCRIPT};
+use crate::seed_me::runs::{self, Goal};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
     Frame,
@@ -151,15 +152,12 @@ fn text(value: &Value, key: &str) -> Result<String, String> {
 
 /// The list summary, in tink-sdlc's order.
 fn parse_list(output: &str) -> Result<Vec<Run>, String> {
-    let value = sdlc::envelope(output)?;
-    let runs = value["runs"]
-        .as_array()
-        .ok_or("status printed no runs list.")?;
-    runs.iter()
-        .map(|value| {
-            let parsed = sdlc::Run::parse(value);
+    sdlc::list_report(output)?
+        .ok_or("status printed no runs list.")?
+        .iter()
+        .map(|parsed| {
             let run = &parsed.data;
-            let state = match state(&parsed)? {
+            let state = match state(parsed)? {
                 State::Invalid if run["error"] == OLDER_ID_ERROR => State::Older,
                 state => state,
             };
@@ -190,7 +188,7 @@ fn parse_list(output: &str) -> Result<Vec<Run>, String> {
                 total: count("total")?,
                 state,
                 attention: None,
-                goal: sdlc::goal(run),
+                goal: runs::goal(run),
                 codex: None,
             })
         })
@@ -200,8 +198,7 @@ fn parse_list(output: &str) -> Result<Vec<Run>, String> {
 /// One run's detail.
 #[cfg(test)]
 fn parse_detail(output: &str) -> Result<Detail, String> {
-    let value = sdlc::envelope(output)?;
-    parse_run_detail(&sdlc::Run::parse(&value["run"]))
+    parse_run_detail(&sdlc::status_report(output)?)
 }
 
 fn parse_run_detail(parsed: &sdlc::Run) -> Result<Detail, String> {
@@ -288,7 +285,7 @@ fn parse_run_detail(parsed: &sdlc::Run) -> Result<Detail, String> {
         }
     }
     Ok(Detail {
-        goal: sdlc::goal(run),
+        goal: runs::goal(run),
         state: state(parsed)?,
         next: if parsed
             .verification
@@ -340,14 +337,7 @@ fn parse_run_detail(parsed: &sdlc::Run) -> Result<Detail, String> {
 fn read_run(root: &Path, run: Run, deadline: Duration, codex: Option<CodexReport>) -> Load<Detail> {
     let root = root.to_path_buf();
     Load::Reading(Task::start(move |cancel| {
-        let output = sdlc::status(
-            &root,
-            &["status".into(), run.slug.clone(), "--json".into()],
-            cancel,
-            deadline,
-        )?;
-        let value = sdlc::envelope(&output)?;
-        let parsed_run = sdlc::Run::parse(&value["run"]);
+        let parsed_run = sdlc::status(&root, &run.slug, cancel, deadline)?;
         let detail = &parsed_run.data;
         if run.id.is_none()
             || detail["slug"].as_str() != Some(run.slug.as_str())
@@ -458,7 +448,7 @@ impl Watch {
         self.inspection = None;
         self.selected = 0;
         let Some(root) = &self.root else { return };
-        self.list = Some(if root.join(SCRIPT).is_file() {
+        self.list = Some(if sdlc::installed(root) {
             Load::start(
                 root,
                 vec!["status".into(), "--json".into()],

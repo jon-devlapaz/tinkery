@@ -10,7 +10,12 @@ pub(crate) use orientation::cap_advice;
 mod tests;
 
 use crate::sdlc::git;
-use crate::{repo::Repo, sdlc, seed_me::ready, think_record};
+use crate::{
+    repo::Repo,
+    sdlc,
+    seed_me::{ready, runs},
+    think_record,
+};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
@@ -230,7 +235,7 @@ impl Drop for Job {
 }
 
 fn command(root: &Path, args: &[String], deadline: Duration) -> Result<String, String> {
-    sdlc::status(root, args, &AtomicBool::new(false), deadline)
+    sdlc::command(root, args, &AtomicBool::new(false), deadline)
 }
 
 fn canonical_root(root: &Path) -> Result<(), String> {
@@ -242,7 +247,7 @@ fn canonical_root(root: &Path) -> Result<(), String> {
             "The selected checkout moved or is not a canonical repository root. Reopen it.".into(),
         );
     }
-    if !root.join(sdlc::SCRIPT).is_file() {
+    if !sdlc::installed(root) {
         return Err("The named checkout has no SDLC runtime.".into());
     }
     Ok(())
@@ -268,18 +273,11 @@ fn read_status(
     {
         return Err("The run name is not supported; no worker action was taken.".into());
     }
-    let output = sdlc::status(
-        root,
-        &["status".into(), slug.into(), "--json".into()],
-        cancel,
-        deadline,
-    )?;
-    let value = sdlc::envelope(&output)?;
-    let run = &value["run"];
-    if run["slug"].as_str() != Some(slug) {
+    let run = sdlc::status(root, slug, cancel, deadline)?;
+    if run.data["slug"].as_str() != Some(slug) {
         return Err("The checkout reported a different run; no worker action was taken.".into());
     }
-    Ok(sdlc::Run::parse(run))
+    Ok(run)
 }
 
 fn identity(root: &Path, slug: &str, report: &sdlc::Run) -> Result<Run, String> {
@@ -309,7 +307,7 @@ fn current(run: &Run) -> Result<sdlc::Run, String> {
 }
 
 fn require_seed(value: &sdlc::Run) -> Result<ready::ReadySeed, String> {
-    sdlc::confirmed(&value.data).map_err(|_| "The run's original confirmed Tink Contract is unavailable or changed. Recheck it before running work.".into())
+    runs::confirmed(&value.data).map_err(|_| "The run's original confirmed Tink Contract is unavailable or changed. Recheck it before running work.".into())
 }
 
 // Check both the recorded ancestry and the files a newly launched worker will actually read.
@@ -381,8 +379,8 @@ fn start(request: Start) -> Result<Snapshot, Failure> {
         {
             return Err("The retry checkout moved off its confirmed starting commit.".into());
         }
-        let seeds = sdlc::seeds(&intake.root, &AtomicBool::new(false))?;
-        if sdlc::started(&seeds, &intake.seed)? {
+        let seeds = runs::seeds(&intake.root, &AtomicBool::new(false))?;
+        if runs::started(&seeds, &intake.seed)? {
             return Err(
                 "This Tink already has a run. Inspect that run instead of starting another worker."
                     .into(),
@@ -422,7 +420,7 @@ fn start(request: Start) -> Result<Snapshot, Failure> {
         let value = current(&run)?;
         let seed =
             sdlc::Seed::parse(&value.data)?.ok_or("Intake did not record the selected Tink.")?;
-        if !seed.matches(&intake.seed)? {
+        if !runs::matches(&seed, &intake.seed)? {
             return Err("Intake recorded a different Tink. No worker started.".into());
         }
         ready::execution(&request.target, &intake.root)?;

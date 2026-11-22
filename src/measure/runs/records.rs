@@ -129,18 +129,15 @@ pub(super) fn read(
 ) -> Result<Postmortem, String> {
     let until = Instant::now() + deadline;
     let left = || until.saturating_duration_since(Instant::now());
-    let list = sdlc::envelope(&sdlc::status(
-        root,
-        &["status".into(), "--json".into()],
-        cancel,
-        left(),
-    )?)?;
-    let listed = list["runs"]
-        .as_array()
+    let listed = sdlc::list(root, cancel, left())?
         .ok_or("The run list is unreadable. Results unknown; press p to retry.")?;
-    let unreadable = listed.iter().filter(|r| r.get("error").is_some()).count();
+    let unreadable = listed
+        .iter()
+        .filter(|r| r.data.get("error").is_some())
+        .count();
     let mut closed: Vec<(u128, &str)> = listed
         .iter()
+        .map(|run| &run.data)
         .filter_map(|run| Some((closure_ns(&run["closure"])?, run["slug"].as_str()?)))
         .collect();
     closed.sort_unstable_by(|a, b| b.cmp(a));
@@ -150,20 +147,14 @@ pub(super) fn read(
         .map_or(0, |d| d.as_nanos());
     let mut runs = Vec::new();
     for (closed_ns, slug) in closed.into_iter().take(RUNS) {
-        let output = sdlc::status(
-            root,
-            &["status".into(), slug.into(), "--json".into()],
-            cancel,
-            left(),
-        )?;
-        let value = sdlc::envelope(&output)?;
-        let run = &value["run"];
+        let parsed = sdlc::status(root, slug, cancel, left())?;
+        let run = &parsed.data;
         if run["slug"].as_str() != Some(slug) || closure_ns(&run["closure"]) != Some(closed_ns) {
             return Err(format!(
                 "Run {slug} changed while it was read. Press p to read again."
             ));
         }
-        runs.push(closed_run(root, slug, run, now, cancel, left())?);
+        runs.push(closed_run(root, slug, &parsed, now, cancel, left())?);
     }
     Ok(Postmortem {
         runs,
@@ -181,11 +172,12 @@ fn closure_ns(closure: &Value) -> Option<u128> {
 fn closed_run(
     root: &Path,
     slug: &str,
-    run: &Value,
+    parsed: &sdlc::Run,
     now: u128,
     cancel: &AtomicBool,
     deadline: Duration,
 ) -> Result<Closed, String> {
+    let run = &parsed.data;
     let closure = &run["closure"];
     let merge = match closure["outcome"].as_str() {
         Some("merged") => Some(
@@ -226,7 +218,7 @@ fn closed_run(
         pr,
         decisions: decisions(run),
         labels: labels(&folder, run["labels"]["count"].as_u64()),
-        steps: steps(&folder, run),
+        steps: steps(&folder, parsed),
         held,
     })
 }
@@ -276,12 +268,12 @@ fn labels(folder: &Path, count: Option<u64>) -> Result<Vec<Label>, String> {
     Ok(labels)
 }
 
-fn steps(folder: &Path, run: &Value) -> Vec<(String, Option<usize>)> {
-    let mut steps: Vec<_> = run["steps"]
-        .as_array()
-        .into_iter()
+fn steps(folder: &Path, run: &sdlc::Run) -> Vec<(String, Option<usize>)> {
+    let mut steps: Vec<_> = run
+        .steps
+        .iter()
         .flatten()
-        .filter_map(|s| s["name"].as_str())
+        .filter_map(|s| s.data["name"].as_str())
         .map(|name| (name.to_owned(), responses(&folder.join("steps"), name)))
         .collect();
     steps.sort();

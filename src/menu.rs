@@ -501,9 +501,7 @@ impl Home {
     fn approve_watch_root(&self) -> Option<PathBuf> {
         self.sdlc_root.clone().or_else(|| {
             let root = self.repo.as_ref()?.root();
-            root.join(sdlc::SCRIPT)
-                .is_file()
-                .then(|| root.to_path_buf())
+            sdlc::installed(root).then(|| root.to_path_buf())
         })
     }
 
