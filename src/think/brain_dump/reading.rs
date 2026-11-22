@@ -352,11 +352,7 @@ impl Guess {
             return Err("Unsafe display control".into());
         }
         for part in Part::ALL {
-            if self
-                .parts
-                .get(part)
-                .is_some_and(|s| !shown(s))
-            {
+            if self.parts.get(part).is_some_and(|s| !shown(s)) {
                 return Err("Unsafe display control".into());
             }
         }

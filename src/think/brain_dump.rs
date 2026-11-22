@@ -9,7 +9,7 @@
 use super::{
     Motion, Note,
     canvas::Canvas,
-    drafting::{Job, ModelHost, REQUEST_LIMIT, Request},
+    drafting::{Job, REQUEST_LIMIT, Request},
 };
 use crate::{MIN_HEIGHT, MIN_WIDTH, Palette, seed_me};
 use crossterm::event::{
@@ -34,8 +34,8 @@ mod suggestion;
 use crate::goal::{GoalParts, Part};
 pub use suggestion::Suggestion;
 
-pub use host::BoardHost;
 use host::Simulated;
+pub use host::{BoardHost, ModelHost};
 use layout::{Notice, Refusal};
 pub use reading::{
     Anchor, Approach, BoardRequest, Fragment, Framing, Guess, OpenDecision, Question, Settled,

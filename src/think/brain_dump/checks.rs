@@ -138,9 +138,14 @@ pub(super) fn coverage(request: &BoardRequest, g: &Guess) -> Vec<Coverage> {
                 locations.push("outcome".into());
             }
             for option in &g.alternatives {
-                if [&option.label, &option.benefit, &option.cost, &option.undo_cost]
-                    .into_iter()
-                    .any(|s| contains(s))
+                if [
+                    &option.label,
+                    &option.benefit,
+                    &option.cost,
+                    &option.undo_cost,
+                ]
+                .into_iter()
+                .any(|s| contains(s))
                 {
                     locations.push(format!("candidate: {}", option.label));
                 }
@@ -158,11 +163,6 @@ pub(super) fn coverage(request: &BoardRequest, g: &Guess) -> Vec<Coverage> {
             Coverage { term, locations }
         })
         .collect()
-}
-pub(super) fn log(host: &ModelHost, d: &Decision) {
-    if let Ok(mut history) = host.brain_history.lock() {
-        history.push(serde_json::to_string(d).expect("decision is serializable"));
-    }
 }
 pub(super) fn why(history: &[String]) -> String {
     history

@@ -268,7 +268,7 @@ fn long_ordinary_and_rejected_candidate_receipts_finish_promptly() {
 fn bundled_guidance_keeps_the_pinned_source_bytes() {
     use sha2::{Digest, Sha256};
     // Seed Me c9d766760dbeac0c05c92108165f9e968bec0a66, plus the optional failure_case (#913);
-    // extraction boundary is in drafting.rs.
+    // extraction boundary is in brain_dump/host.rs.
     for (text, expected) in [
         (
             include_str!("../src/think/working-draft.txt"),

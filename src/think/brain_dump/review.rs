@@ -8,32 +8,6 @@ pub(super) const PROMPT: &str = include_str!("prompts/decision_review.txt");
 /// Indices of shaping decisions a review explicitly identifies as the same choice.
 pub(super) const COVERS: &str = "covers";
 
-impl ModelHost {
-    /// Runs the review on a reading's raw reply. Returns the decisions it found, or `None` when
-    /// it found none or couldn't run, leaving the reading as it was.
-    pub(super) fn review_decisions(
-        &self,
-        request: &BoardRequest,
-        raw: &str,
-        cancelled: &AtomicBool,
-        changes: &mut Vec<String>,
-    ) -> Option<Review> {
-        let input = input(request, raw)?;
-        match self.complete(
-            Request::DecisionReview,
-            input,
-            reading::assemble(PROMPT),
-            cancelled,
-        ) {
-            Ok(review) => Review::decode(&review, changes),
-            Err(e) => {
-                changes.push(format!("Decision review skipped: {e}"));
-                None
-            }
-        }
-    }
-}
-
 /// Prepares the decision review's input from a readable shaping reply, before board validation.
 /// Unreadable JSON yields no review; a readable but invalid board is still reviewed.
 /// Contains original words, settled answers, draft parts and shaping decisions, never standing instructions.

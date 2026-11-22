@@ -150,7 +150,7 @@ reports zero real calls and zero provider charges for a scripted run only.
 ## Verification and structure
 
 `cargo test --workspace --locked` includes the runner's regression tests and the
-budget tests in `drafting_tests.rs`. They cover limits 0, 1 and 2 before Pi starts
+budget tests in `brain_dump/host_tests.rs`. They cover limits 0, 1 and 2 before Pi starts
 (including failures, retries and cancellation), live refusals, review merging,
 exact originals, unknown judgments and output location. Reverting the budget check
 or the permission check fails them. No real provider runs.

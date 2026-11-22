@@ -26,10 +26,7 @@ use tinkery::{
     Palette, ThemeSwitch,
     menu::{self, Home},
     model_setup::Controls,
-    think::{
-        brain_dump::{self, BrainDump, Exit},
-        drafting::ModelHost,
-    },
+    think::brain_dump::{self, BrainDump, Exit, ModelHost},
 };
 
 fn seed_read(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
