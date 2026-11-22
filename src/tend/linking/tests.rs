@@ -9,7 +9,12 @@ fn fixture() -> (tempfile::TempDir, Tend) {
         .prefix("tinkery-TEST-link-state-")
         .tempdir()
         .unwrap();
-    let mut tend = Tend::new(Ok(tmp.path().join("TEST-links")), None);
+    let mut tend = Tend::new(
+        Ok(tmp.path().join("TEST-links")),
+        None,
+        Err("TEST no records".into()),
+        Box::new(|| Err("TEST no connections".into())),
+    );
     tend.current = true;
     tend.apply(
         &Ok(Found {
@@ -198,7 +203,7 @@ fn held_lock_refuses_within_deadline_and_never_saves_after_release_or_cancel() {
         true,
         2,
     );
-    tend.how = true;
+    tend.overlay = crate::tend::Overlay::How;
     assert!(tend.help_text().contains("another Tinkery is saving links"));
     tend.start_link();
     tend.selected = 1;
@@ -257,7 +262,7 @@ fn deleted_loaded_links_refuse_before_or_during_picking() {
         assert!(!path.exists(), "must not recreate a known missing link set");
         assert!(!tend.is_linking());
         assert!(tend.notice.starts_with("Links couldn't be"));
-        tend.how = true;
+        tend.overlay = crate::tend::Overlay::How;
         assert!(tend.help_text().contains("missing"));
     }
 }
@@ -323,7 +328,7 @@ fn unreadable_at_start_or_commit_preserves_bytes_and_discloses_only_in_help() {
         assert_eq!(tend.notice, UNAVAILABLE);
         assert!(!tend.notice.contains("needs.json"));
         assert!(!tend.help_text().contains("needs.json"));
-        tend.how = true;
+        tend.overlay = crate::tend::Overlay::How;
         let help = tend.help_text();
         assert!(help.contains("Session: /TEST/0"));
         assert!(help.contains("Cannot read links: needs.json is not valid JSON."));

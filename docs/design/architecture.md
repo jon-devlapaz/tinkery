@@ -53,12 +53,12 @@ unconfirmed sessions or complete factory telemetry. The read-only
 | `process.rs` | Bounded child processes: start in an owned process group, bounded stdout and stderr, a deadline, cancellation, stop-and-reap of the group, and a typed outcome that keeps exit status, stdout and stderr apart; plus `Task`, the owned background task with cancel-on-drop. No screen words, tool error formats or phase names (shared). |
 | `regular_file.rs` | The one door for opening files on disk: nonblocking opens that refuse anything but a regular file, bounded reads that never follow a link, whole-or-nothing publishes with directory syncs, and random bytes. `clippy.toml` forbids `std::fs` opens and reads elsewhere (shared). |
 | `repo.rs` | Finding the Git repository Tinkery was started in, by looking for `.git` only (shared). |
-| `menu.rs`, `menu/worker.rs`, `menu/retry.rs` | Navigation through the seven place variants, plus the explicit worker-action screen and its retained finite request, and the hand-off of one reviewed Taste rejection to a saved Shape attempt. |
+| `menu.rs`, `menu/worker.rs`, `menu/retry.rs` | Navigation through the seven place variants, plus the explicit worker-action screen and its retained finite request, and the hand-off of one reviewed Taste rejection to a saved Shape attempt. Tend is routed whole: the menu opens only what Tend's `Next` names. |
 | `menu/place.rs` | The seven-place enum, display names and purposes, and ordered navigation list; no routing or actions. |
 | `measure.rs` | Recent PR list, details and evidence limits; explicit reads only, no writes or providers. |
 | `measure/read.rs` | Bounded, cancellable `gh` reads scoped to the launch repo; no shell or retries. |
 | `measure/runs.rs`, `measure/runs/records.rs` | Closed-run postmortems: one explicit, cancellable read of tink-sdlc status, the run's labels, its steps' Pi launch logs and Git, then list and details. Unknown is never zero; no writes or providers. |
-| `tend/mod.rs` | The mixed garden's discovery states, identity and goal detail, with goal-only navigation to Shape and saved Think history. |
+| `tend/mod.rs` | The mixed garden's discovery states, identity and goal detail, with goal-only navigation to Shape and saved Think history. Owns every Tend key, help layer, reader and refresh rule behind one place surface (`key`, `paste`, `pointer`, `poll`, `offer`, `render`); one branch per state gives both the help and the key bar. |
 | `tend/thought.rs` | Repository thought selection, exact-word reader and unsent Think copies; no editing, persistence or goal authority. |
 | `thought.rs` | Shared repository-bound thought storage with exact-byte deduplication and durable-write outcomes; no phase imports or goal authority. |
 | `tend/connection.rs` | One bounded explicit request, latest exploration, source freshness and receipt coordination. |
