@@ -2910,6 +2910,39 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
 }
 
 #[test]
+fn uncertain_endings_and_other_ledger_saves_never_claim_nothing_changed() {
+    // No key or file setup makes a save's read-back fail on demand, so this one result comes in
+    // where the ledger's own writer thread would deliver it.
+    let reason = "This may or may not have saved (TEST read-back failed). Reopen this session to see what it holds before trying again.";
+    for write in [
+        Write::End(Ending::Completed),
+        Write::Object("TEST default".into()),
+        Write::Recommend {
+            id: "TEST".into(),
+            text: "TEST".into(),
+        },
+    ] {
+        let mut shape = done(question());
+        let (sender, receiver) = std::sync::mpsc::channel();
+        shape.open.as_mut().unwrap().mode = Mode::Writing(write, receiver, Editor::Stage);
+        sender.send(Err(Refusal::Refused(reason.into()))).unwrap();
+        shape.tick();
+        assert_eq!(
+            shape
+                .open
+                .as_ref()
+                .unwrap()
+                .notice
+                .as_ref()
+                .unwrap()
+                .parts()
+                .0,
+            reason
+        );
+    }
+}
+
+#[test]
 fn ledger_refusals_of_endings_objections_and_suggestions_are_shown_unchanged() {
     // This fixture's session path doesn't exist, so each write the operator starts is refused.
     let path = Path::new("/tmp/TEST-shape/session");
@@ -4126,6 +4159,96 @@ fn typing_in_a_teach_back_or_change_box_clears_the_refusal_about_its_empty_words
         shape.key(key(KeyCode::Char('x')));
         let text = screen(&mut shape, 80, 24, true);
         assert!(!text.contains(refusal), "{row}: {text}");
+    }
+}
+
+#[test]
+fn f1_offers_no_answer_action_on_a_read_without_a_ledger_version() {
+    let deferred = crate::seed_me::ledger::DeferredPrerequisite {
+        id: "TEST-earlier".into(),
+        title: "TEST earlier".into(),
+        question: "TEST earlier question?".into(),
+        reason: "TEST later".into(),
+        revisit: "TEST when asked".into(),
+    };
+    let review = Shaped::Review {
+        id: "TEST-answer".into(),
+        title: "TEST answer".into(),
+        answer: "TEST old".into(),
+        found: vec![],
+        revisable: true,
+    };
+    for version in [Some(3), None] {
+        for (stage, rows) in [
+            (
+                question(),
+                &["Defer", "Delegate", "Answer deferred prerequisite"][..],
+            ),
+            (review.clone(), &["Revise the answer"][..]),
+        ] {
+            let mut shape = done(stage).with_agent(Some(agent(1)));
+            let Reading::Done(Ok(shaping)) = &mut shape.open.as_mut().unwrap().reading else {
+                panic!()
+            };
+            shaping.version = version;
+            shaping.deferred = Some(deferred.clone());
+            for row in rows {
+                assert_eq!(
+                    offers(&shape, row),
+                    version.is_some(),
+                    "{row} at {version:?}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn a_fresh_read_under_an_open_teach_back_keeps_its_words_on_screen_and_unsent() {
+    let dir = tempfile::tempdir().unwrap();
+    for (row, label, what) in [
+        ("Teach back", "your teach-back", "Teach-back"),
+        ("Revise the draft", "your change", "Change"),
+    ] {
+        let mut shape = reading(
+            done(Shaped::Drafted {
+                revision: Some("r1".into()),
+                text: Some("TEST seed".into()),
+            })
+            .with_agent(Some(agent(1))),
+            dir.path(),
+        );
+        screen(&mut shape, 80, 24, true);
+        choose(&mut shape, row);
+        shape.paste("TEST kept words");
+        // A fresh read lands on a new question instead of the draft.
+        let Reading::Done(Ok(shaping)) = &mut shape.open.as_mut().unwrap().reading else {
+            panic!()
+        };
+        shaping.stage = question();
+        let text = screen(&mut shape, 80, 24, true);
+        assert!(text.contains(label), "{row}: {text}");
+        assert!(text.contains("TEST kept words"), "{row}: {text}");
+        assert!(text.contains(STALE_ASIDE), "{row}: {text}");
+        assert!(text.contains(STALE_NEXT), "{row}: {text}");
+        assert!(!text.contains("reopen this goal"), "{row}: {text}");
+        // The words are read-only: keys neither change them nor send them to the question.
+        assert!(!shape.takes_text());
+        shape.key(key(KeyCode::Char('x')));
+        shape.paste("TEST more");
+        shape.key(key(KeyCode::F(2)));
+        let open = shape.open.as_mut().unwrap();
+        assert!(matches!(open.mode, Mode::Idle(Editor::Aside(..))), "{row}");
+        assert_eq!(open.words().text(), "TEST kept words");
+        assert_eq!(open.typed.text(), "");
+        assert!(screen(&mut shape, 80, 24, true).contains("TEST kept words"));
+        shape.key(key(KeyCode::Esc));
+        let text = screen(&mut shape, 80, 24, true);
+        assert!(
+            text.contains(&format!("{what} closed. Its words were not saved.")),
+            "{row}: {text}"
+        );
+        assert!(!text.contains("TEST kept words"), "{row}: {text}");
     }
 }
 

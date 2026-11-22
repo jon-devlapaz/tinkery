@@ -67,6 +67,9 @@ const CONFIRM_FIRST: &str = "Type confirm, or F1 Revise the draft. Nothing was c
 const REASON_FIRST: &str = "Type why you're keeping this answer first; nothing was saved.";
 const TEACH_BACK_FIRST: &str = "Type your teach-back first; nothing was saved.";
 const CHANGE_FIRST: &str = "Type what should change first; nothing was saved.";
+/// A fresh read no longer shows the draft an open teach-back or change box was for.
+const STALE_ASIDE: &str = "The draft changed. Your words were not saved.";
+const STALE_NEXT: &str = "Next: copy your words, then Esc closes this box.";
 
 /// Shape's screen: an optional list of goals waiting for a seed and, at most, one open session.
 pub struct Shape {
@@ -544,6 +547,7 @@ impl Shape {
                 return Leave::Stay;
             }
             let f2 = key.code == KeyCode::F(2) && key.modifiers.is_empty();
+            let stale = open.stale_aside().is_some();
             match &mut open.mode {
                 Mode::Running(running, ..) => {
                     if key.code == KeyCode::Esc {
@@ -621,6 +625,10 @@ impl Shape {
                     }
                     return Leave::Stay;
                 }
+                Mode::Idle(Editor::Aside(..)) if f2 && stale => {
+                    open.notice = Some(Notice::Said(STALE_ASIDE.into(), Some(STALE_NEXT.into())));
+                    return Leave::Stay;
+                }
                 Mode::Idle(Editor::Aside(aside, _)) if key.code == KeyCode::Esc => {
                     let what = match aside {
                         Aside::TeachBack => "Teach-back",
@@ -634,9 +642,11 @@ impl Shape {
                             ..
                         }) => "How to judge",
                     };
-                    open.notice = Some(Notice::said(format!(
-                        "{what} cancelled. Nothing was saved."
-                    )));
+                    open.notice = Some(Notice::said(if stale {
+                        format!("{what} closed. Its words were not saved.")
+                    } else {
+                        format!("{what} cancelled. Nothing was saved.")
+                    }));
                     open.mode = Mode::Idle(Editor::Stage);
                     return Leave::Stay;
                 }
@@ -822,7 +832,9 @@ impl Shape {
                     stage: Shaped::Waiting,
                     ..
                 })),
-            ) => Some(("enter look into the next question".into(), None)),
+            ) if open.stale_aside().is_none() => {
+                Some(("enter look into the next question".into(), None))
+            }
             _ => None,
         };
         keys.extend(action);
@@ -1002,6 +1014,19 @@ impl Opened {
         edit(words);
         if self.words().text() != before && matches!(self.notice, Some(Notice::Words(_))) {
             self.notice = None;
+        }
+    }
+
+    /// The label of an open teach-back or change box whose draft a fresh read no longer shows.
+    /// Its words stay on screen, read-only, and never go to the new stage.
+    fn stale_aside(&self) -> Option<&'static str> {
+        if !matches!(self.reading, Reading::Done(Ok(_))) || self.typing().is_some() {
+            return None;
+        }
+        match self.editor() {
+            Editor::Aside(Aside::TeachBack, _) => Some("your teach-back"),
+            Editor::Aside(Aside::Change, _) => Some("your change"),
+            _ => None,
         }
     }
 
@@ -1605,6 +1630,7 @@ fn render_open(
             before,
             after,
             editor,
+            calm,
         } = composed;
         if !reading_fits(frame, &[&reading, &before, &after], area, palette) {
             open.read_end = None;
@@ -1643,7 +1669,7 @@ fn render_open(
                 continue;
             }
         }
-        let calm = matches!(open.mode, Mode::Running(..));
+        let calm = calm || matches!(open.mode, Mode::Running(..));
         let read_end = open.read_end.is_some();
         let editor = editor.then(|| open.words());
         frame.render_widget(
@@ -1701,6 +1727,8 @@ struct Composed {
     before: Text<'static>,
     after: Text<'static>,
     editor: bool,
+    /// Whether the words box only shows words, muted, and takes no keys.
+    calm: bool,
 }
 
 fn compose(open: &Opened, drafting: Option<&Agent>, held: bool, palette: Palette) -> Composed {
@@ -1712,6 +1740,7 @@ fn compose(open: &Opened, drafting: Option<&Agent>, held: bool, palette: Palette
                 before: Text::default(),
                 after: Text::default(),
                 editor: false,
+                calm: false,
             };
         }
         Reading::Done(Err(error)) => {
@@ -1731,6 +1760,7 @@ fn compose(open: &Opened, drafting: Option<&Agent>, held: bool, palette: Palette
                 before: Text::default(),
                 after: Text::default(),
                 editor: false,
+                calm: false,
             };
         }
         Reading::Done(Ok(shaping)) => shaping,
@@ -1765,7 +1795,8 @@ fn compose(open: &Opened, drafting: Option<&Agent>, held: bool, palette: Palette
     let name = open.folder_name();
     let typing = open.typing().filter(|_| agent);
     let act = typing.as_ref().map(|t| &t.act);
-    let words = typing.as_ref().map(|t| t.label);
+    let stale = open.stale_aside().filter(|_| agent);
+    let words = typing.as_ref().map(|t| t.label).or(stale);
     let acts = typing.is_some()
         || agent
             && matches!(
@@ -1840,11 +1871,14 @@ fn compose(open: &Opened, drafting: Option<&Agent>, held: bool, palette: Palette
             }),
             words,
             act,
-            notice: open
-                .notice
-                .as_ref()
-                .map(Notice::parts)
-                .or(held.then_some((HELD, None))),
+            notice: match stale {
+                Some(_) => Some((STALE_ASIDE, Some(STALE_NEXT.into()))),
+                None => open
+                    .notice
+                    .as_ref()
+                    .map(Notice::parts)
+                    .or(held.then_some((HELD, None))),
+            },
             stage_next: !form,
             running: None,
             assumed: &open.assumed,
@@ -1924,6 +1958,7 @@ fn compose(open: &Opened, drafting: Option<&Agent>, held: bool, palette: Palette
         before,
         after,
         editor: editor_at.is_some(),
+        calm: stale.is_some(),
     }
 }
 
