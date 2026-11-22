@@ -1,4 +1,5 @@
 use super::*;
+use crate::think_record;
 use ratatui::{Terminal, backend::TestBackend};
 
 fn seed(goal: &str) -> Reading {
