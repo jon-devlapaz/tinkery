@@ -164,8 +164,12 @@ fn a_budget_refuses_before_pi_starts_and_counts_failures_and_retries() {
         }
         let attempts = budget.attempts();
         assert_eq!(attempts.len(), 3);
-        assert!(attempts[limit..].iter().all(|a| a.outcome == "refused"));
-        assert_eq!(attempts[1].kind, Request::DecisionReview);
+        assert!(
+            attempts[limit..]
+                .iter()
+                .all(|a| a.outcome == crate::pi::Outcome::Refused)
+        );
+        assert_eq!(attempts[1].label, Request::DecisionReview.label());
     }
     // A failed call still spends its unit, so a retry after it is refused.
     let budget = CallBudget::new(1);
@@ -177,7 +181,7 @@ fn a_budget_refuses_before_pi_starts_and_counts_failures_and_retries() {
             .contains("Drafting response limit of 1 reached")
     );
     assert_eq!(started(&starts), 1);
-    assert_eq!(budget.attempts()[0].outcome, "failure");
+    assert_eq!(budget.attempts()[0].outcome, crate::pi::Outcome::Failure);
 }
 
 #[cfg(unix)]

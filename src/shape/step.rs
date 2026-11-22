@@ -10,7 +10,7 @@
 
 use crate::{
     confirmation::Actor,
-    pi::{self, Call, CallBudget, Harness, Request},
+    pi::{self, Call, CallBudget, Harness},
     seed_me::{
         answering::{self, Alternative, Ask, Assumption, Found, Refusal},
         ledger,
@@ -607,7 +607,7 @@ fn look(
     let reply = call
         .complete(
             &agent.budget,
-            Request::SeedStep,
+            "seed step",
             serde_json::to_vec(&input).unwrap_or_default(),
             instructions,
             cancelled,

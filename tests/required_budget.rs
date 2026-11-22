@@ -72,7 +72,7 @@ else:
     assert_eq!(budget.used(), 0);
     let attempts = budget.attempts();
     assert_eq!(attempts.len(), 1);
-    assert_eq!(attempts[0].outcome, "refused");
+    assert_eq!(attempts[0].outcome, tinkery::pi::Outcome::Refused);
     assert_eq!(
         host.calls_left().as_deref(),
         Some("Drafting responses left this launch: 0 of 0.")
