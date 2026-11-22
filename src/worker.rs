@@ -286,9 +286,15 @@ fn identity(root: &Path, slug: &str, report: &sdlc::Run) -> Result<Run, String> 
         .as_str()
         .filter(|id| sdlc::canonical_run_id(id))
         .ok_or("The run has no stable identity.")?;
-    let root = match value.get("checkout") {
-        Some(value) => PathBuf::from(value.as_str().ok_or("The build checkout is unreadable.")?),
-        None => root.to_path_buf(),
+    let root = match &report.checkout {
+        Ok(path) => path.clone().unwrap_or_else(|| root.to_path_buf()),
+        Err(sdlc::CheckoutGap::NotText) => return Err("The build checkout is unreadable.".into()),
+        Err(sdlc::CheckoutGap::Nul | sdlc::CheckoutGap::Relative) => {
+            return Err(
+                "The selected checkout moved or is not a canonical repository root. Reopen it."
+                    .into(),
+            );
+        }
     };
     canonical_root(&root)?;
     Ok(Run {
@@ -540,9 +546,8 @@ fn act(gate: &Gate, run: &Run, action: Action) -> Result<Snapshot, String> {
             admit(gate, run, pin, false, seed.target.as_ref())?;
         }
         Action::Finish => {
-            if !value.verification.is(sdlc::Verification::Current)
-                || value.data["verification"]["passed"].as_bool() != Some(true)
-            {
+            // Only a machine-checked pass finishes; pending judgments are not passing checks.
+            if !(value.verification.is(sdlc::Verification::Current) && value.receipt_current) {
                 return Err("Verify first. Finish needs current passing checks; keep this worker available to repair failures.".into());
             }
             command(&run.root, &step("complete"), sdlc::DEADLINE)?;

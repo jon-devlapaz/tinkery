@@ -226,3 +226,56 @@ fn generated_rules_are_dropped_only_from_well_formed_blocks() {
     }
     assert_eq!(without_generated_rules(authored), authored);
 }
+
+#[test]
+fn run_files_admit_resume_logs_only_when_asked_and_never_read_through_a_link() {
+    use super::{FileGap, RunFiles};
+    let dir = tempfile::Builder::new()
+        .prefix("tinkery-TEST-run-files-")
+        .tempdir()
+        .unwrap();
+    let steps = dir.path().join("runs/TEST-run/steps");
+    std::fs::create_dir_all(&steps).unwrap();
+    for name in [
+        "build.launch-1.pi.log",
+        "build.resume-2.pi.log",
+        "fix.resume-1.launch-3.pi.log",
+        "build.launch-.pi.log",
+        "build.launch-x.pi.log",
+        "build.json",
+    ] {
+        std::fs::write(steps.join(name), "{}\n").unwrap();
+    }
+    let files = RunFiles::open(dir.path(), "TEST-run").unwrap();
+    let found = |resume| {
+        let mut logs: Vec<_> = files
+            .logs(resume)
+            .unwrap()
+            .into_iter()
+            .map(|log| (log.step, log.time))
+            .collect();
+        logs.sort();
+        logs
+    };
+    assert_eq!(
+        found(false),
+        [("build".into(), 1), ("fix.resume-1".into(), 3)]
+    );
+    assert_eq!(
+        found(true),
+        [
+            ("build".into(), 1),
+            ("build".into(), 2),
+            ("fix.resume-1".into(), 3)
+        ]
+    );
+    assert_eq!(files.read("steps/build.json").unwrap(), b"{}\n");
+
+    // The same steps folder reached through a link is neither listed nor read.
+    let linked = dir.path().join("runs/TEST-linked");
+    std::fs::create_dir_all(&linked).unwrap();
+    std::os::unix::fs::symlink(&steps, linked.join("steps")).unwrap();
+    let files = RunFiles::open(dir.path(), "TEST-linked").unwrap();
+    assert!(files.logs(true).is_none());
+    assert_eq!(files.read("steps/build.json"), Err(FileGap::Unreachable));
+}

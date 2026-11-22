@@ -7,8 +7,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::{
     collections::HashMap,
-    fs::{self, File, OpenOptions},
-    io::{self, BufRead, BufReader, Read},
+    fs,
     path::{Path, PathBuf},
     process::Command,
     sync::atomic::{AtomicBool, Ordering},
@@ -16,13 +15,9 @@ use std::{
 };
 
 const NO_SAMPLE: &str = "Suggested minimum unknown: no usable recent Pi launch evidence.";
-const MAX_ENTRIES: usize = 256;
-const MAX_LOG_BYTES: u64 = 8 * 1024 * 1024;
-
 struct Launch {
-    time: u64,
-    step: String,
-    log: PathBuf,
+    files: sdlc::RunFiles,
+    log: sdlc::Log,
     slug: String,
 }
 
@@ -66,7 +61,13 @@ pub(crate) fn cap_advice(root: &Path, cap: usize, cancel: &AtomicBool) -> String
             collect_logs(build, &slug, &mut logs);
         }
     }
-    logs.sort_unstable_by(|a, b| b.time.cmp(&a.time).then_with(|| a.log.cmp(&b.log)));
+    let path = |launch: &Launch| launch.files.folder().join("steps").join(&launch.log.name);
+    logs.sort_unstable_by(|a, b| {
+        b.log
+            .time
+            .cmp(&a.log.time)
+            .then_with(|| path(a).cmp(&path(b)))
+    });
     let mut readings = HashMap::new();
     let mut samples = Vec::new();
     for launch in logs.iter().take(5) {
@@ -99,7 +100,7 @@ pub(crate) fn cap_advice(root: &Path, cap: usize, cancel: &AtomicBool) -> String
     let noun = if count == 1 { "log" } else { "logs" };
     let mut text = format!(
         "Suggested minimum: {minimum} responses. Based on {count} recent Pi launch {noun}.\n{}/{}: {reason}.",
-        source.slug, source.step
+        source.slug, source.log.step
     );
     if cap < minimum {
         text.push_str(&format!(
@@ -116,10 +117,10 @@ fn entries(path: &Path) -> Option<Vec<fs::DirEntry>> {
     }
     let files: Vec<_> = fs::read_dir(path)
         .ok()?
-        .take(MAX_ENTRIES + 1)
+        .take(sdlc::MAX_ENTRIES + 1)
         .collect::<Result<_, _>>()
         .ok()?;
-    (files.len() <= MAX_ENTRIES).then_some(files)
+    (files.len() <= sdlc::MAX_ENTRIES).then_some(files)
 }
 
 // Git locates possible step directories. Only SDLC can identify which checkout owns a run.
@@ -145,38 +146,20 @@ fn build_worktrees(root: &Path, cancel: &AtomicBool) -> HashMap<String, PathBuf>
         .collect()
 }
 
+// Cap advice samples first launches only; a resume continues an earlier session.
 fn collect_logs(root: &Path, slug: &str, logs: &mut Vec<Launch>) {
-    let directory = root.join("runs").join(slug).join("steps");
-    for entry in entries(&directory).unwrap_or_default() {
-        let name = entry.file_name();
-        if entry.file_type().is_ok_and(|kind| kind.is_file())
-            && let Some((step, timestamp)) = name
-                .to_str()
-                .and_then(|n| n.strip_suffix(".pi.log"))
-                .and_then(|n| n.rsplit_once(".launch-"))
-            && let Ok(time) = timestamp.parse()
-        {
+    let Some(files) = sdlc::RunFiles::open(root, slug) else {
+        return;
+    };
+    for log in files.logs(false).unwrap_or_default() {
+        if log.file {
             logs.push(Launch {
-                time,
-                step: step.into(),
-                log: entry.path(),
+                files: files.clone(),
+                log,
                 slug: slug.into(),
             });
         }
     }
-}
-
-fn regular(path: &Path) -> Option<File> {
-    if path.canonicalize().ok()? != path {
-        return None;
-    }
-    crate::regular_file::open(
-        OpenOptions::new().read(true),
-        libc::O_NOFOLLOW,
-        path,
-        "not a regular file",
-    )
-    .ok()
 }
 
 #[derive(Deserialize)]
@@ -205,15 +188,12 @@ fn cap_marker(cap: Option<u64>, line: &str) -> bool {
 
 // The one place a Pi log is checked: contract identity, session header and size caps.
 fn open_log(
-    path: &Path,
-    step: &str,
+    files: &sdlc::RunFiles,
+    log: &sdlc::Log,
     run: &Run,
-) -> Option<(Option<u64>, impl Iterator<Item = io::Result<String>>)> {
-    let contract = regular(&path.with_file_name(format!("{step}.json")))?;
-    if contract.metadata().ok()?.len() > 16 * 1024 {
-        return None;
-    }
-    let contract: Value = serde_json::from_reader(contract.take(16 * 1024)).ok()?;
+) -> Option<(Option<u64>, impl Iterator<Item = Option<String>>)> {
+    let contract: Value =
+        serde_json::from_slice(&files.read(&format!("steps/{}.json", log.step)).ok()?).ok()?;
     if contract["schema"] != 1
         || contract["run_id"] != run.id
         || contract["checkout"].as_str() != run.root.to_str()
@@ -221,10 +201,9 @@ fn open_log(
         return None;
     }
     let session = contract["session"].as_str().filter(|s| !s.is_empty())?;
-    let log = regular(path)?;
-    let mut lines = BufReader::new(log.take(MAX_LOG_BYTES)).lines();
+    let mut lines = files.lines(&format!("steps/{}", log.name))?.into_iter();
     // Pi may print warnings before the header; the header is the first JSON line.
-    let header: Value = lines.find_map(|line| serde_json::from_str(&line.ok()?).ok())?;
+    let header: Value = lines.find_map(|line| serde_json::from_str(&line?).ok())?;
     if header["type"] != "session"
         || header["version"] != 3
         || header["id"] != session
@@ -240,31 +219,20 @@ fn open_log(
 /// the newest ends with the launcher's cap marker after at least the contract's cap of answers.
 /// Any doubt gives false. Never writes.
 pub(crate) fn stopped_at_cap(run: &Run, step: &str) -> bool {
-    let steps = run.root.join("runs").join(&run.slug).join("steps");
-    let mut logs: Vec<(u64, PathBuf)> = entries(&steps)
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|entry| {
-            let name = entry.file_name().into_string().ok()?;
-            let rest = name
-                .strip_prefix(step)?
-                .strip_prefix('.')?
-                .strip_suffix(".pi.log")?;
-            let time = rest
-                .strip_prefix("launch-")
-                .or(rest.strip_prefix("resume-"))?;
-            Some((time.parse().ok()?, entry.path()))
-        })
-        .collect();
-    logs.sort();
+    let Some(files) = sdlc::RunFiles::open(&run.root, &run.slug) else {
+        return false;
+    };
+    let mut logs = files.logs(true).unwrap_or_default();
+    logs.retain(|log| log.step == step);
+    logs.sort_by(|a, b| (a.time, &a.name).cmp(&(b.time, &b.name)));
     // The launcher's cap is cumulative per session, so answers count across launch and resume logs.
     let mut responses = 0;
-    for (n, (_, path)) in logs.iter().enumerate() {
-        let Some((cap, lines)) = open_log(path, step, run) else {
+    for (n, log) in logs.iter().enumerate() {
+        let Some((cap, lines)) = open_log(&files, log, run) else {
             return false;
         };
         for line in lines {
-            let Ok(line) = line else { return false };
+            let Some(line) = line else { return false };
             if n + 1 == logs.len()
                 && cap_marker(cap, &line)
                 && cap.is_some_and(|c| responses as u64 >= c)
@@ -288,15 +256,14 @@ fn observe(
     value: &sdlc::Run,
     cancel: &AtomicBool,
 ) -> Option<Observation> {
-    let steps_dir = run.root.join("runs").join(&run.slug).join("steps");
-    if launch.log.parent()? != steps_dir {
+    if sdlc::RunFiles::open(&run.root, &run.slug)?.folder() != launch.files.folder() {
         return None;
     }
     let step = value
         .steps
         .as_ref()?
         .iter()
-        .find(|s| s.data["name"] == launch.step)?;
+        .find(|s| s.data["name"] == launch.log.step)?;
     if !matches!(
         step.state.known(),
         Some(sdlc::StepState::Active | sdlc::StepState::Completed | sdlc::StepState::Stopped)
@@ -305,13 +272,13 @@ fn observe(
     }
     let stopped_at_cap =
         step.state.is(sdlc::StepState::Stopped) && step.stopped_by.is(sdlc::StopReason::Cap);
-    let (cap, lines) = open_log(&launch.log, &launch.step, run)?;
+    let (cap, lines) = open_log(&launch.files, &launch.log, run)?;
     let mut responses = 0;
     for line in lines {
         if cancel.load(Ordering::SeqCst) {
             return None;
         }
-        let line = line.ok()?;
+        let line = line?;
         if stopped_at_cap && cap_marker(cap, &line) {
             return cap
                 .is_some_and(|n| responses as u64 >= n)

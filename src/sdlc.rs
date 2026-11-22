@@ -1,11 +1,13 @@
 //! tink-sdlc's API 1 in one explicitly named checkout: its run reports, parsed once, and its
 //! commands. It knows no Tinkery session or seed rules; it never stores or discovers anything.
 
+mod files;
 mod run;
 pub(crate) mod source;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use files::{FileGap, Log, MAX_ENTRIES, RunFiles};
 pub(crate) use run::{DEADLINE, SCRIPT, read, refusal, run as command};
 use serde_json::Value;
 use std::{
