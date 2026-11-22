@@ -1,7 +1,7 @@
 //! A fresh Shape session keeps the verified goal and its original attribution. Earlier
 //! decisions become assumptions. Only the operator's explicit save creates a session.
 
-use super::{answering, ledger};
+use super::ledger;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
@@ -127,7 +127,7 @@ impl Prior {
         words: &str,
         run: &str,
     ) -> Result<(), String> {
-        let stamp = answering::now();
+        let stamp = crate::calendar::now();
         let mut origin = self.origin.clone();
         let evidence = origin["evidence"]
             .as_array_mut()
