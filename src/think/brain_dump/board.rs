@@ -1,6 +1,9 @@
 //! A verified reading: a [`Board`] exists only once a decoded reply passes the checks against
 //! the request (exact spans, application-owned questions, ask counts and skips).
-use super::*;
+use super::reading::{
+    Anchor, Approach, BoardRequest, Framing, Guess, OpenDecision, Question, Source,
+};
+use crate::goal::{GoalParts, Part};
 use std::{collections::VecDeque, ops::Deref};
 
 /// Nonempty collections can only be made by the verified board constructor.
@@ -209,13 +212,7 @@ impl Board {
                 q.suggestion = None;
             }
             q.text = text.into();
-            if request.answered.contains(&q.id)
-                || request
-                    .settled
-                    .iter()
-                    .any(|s| same_question(&s.question, q))
-                || request.skipped.iter().any(|s| same_question(s, q))
-            {
+            if request.repeats(q) {
                 g.questions.clear();
             }
         }
@@ -225,16 +222,7 @@ impl Board {
             }
         }
         g.validate(request)?;
-        g.questions.retain(|q| {
-            q.target.is_none_or(|p| {
-                !request.skipped.iter().any(|s| s.target == Some(p))
-                    && (request.ask_counts.get(&p).copied().unwrap_or(0) < 2
-                        || request
-                            .previous
-                            .as_ref()
-                            .is_some_and(|old| old.questions.iter().any(|s| same_question(s, q))))
-            })
-        });
+        g.questions.retain(|q| request.askable(q));
         g.questions.truncate(1);
         let composed = g.parts.compose();
         let outcome = g.parts.done_when.clone().filter(|s| !s.trim().is_empty());
@@ -332,4 +320,36 @@ impl Board {
             decisions: self.decisions.clone(),
         }
     }
+}
+
+/// Model text as shown: a self-label such as "Goal:" is dropped, because the interface
+/// already says "I think you mean…".
+pub(super) fn agent_text(text: &str) -> String {
+    text.lines()
+        .map(|line| {
+            let mut line = line.trim_start();
+            let mut stripped = false;
+            // The interface supplies "I think you mean…"; drop a self-label such as
+            // "Goal:", "Possible goal:" or "PROVISIONAL:" (at most three words before the colon).
+            while let Some(colon) = line.find(':').filter(|&i| i <= 32) {
+                let label = &line[..colon];
+                let lower = label.to_ascii_lowercase();
+                if (1..=3).contains(&label.split_whitespace().count())
+                    && (lower.ends_with("goal") || lower.starts_with("provisional"))
+                {
+                    line = line[colon + 1..].trim_start();
+                    stripped = true;
+                } else {
+                    break;
+                }
+            }
+            // A stripped label can leave a lowercase start; the reading begins as a sentence.
+            let mut chars = line.chars();
+            match chars.next() {
+                Some(first) if stripped => first.to_uppercase().chain(chars).collect(),
+                _ => line.to_owned(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
