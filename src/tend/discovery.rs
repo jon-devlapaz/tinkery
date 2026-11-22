@@ -6,7 +6,7 @@
 //! could not be read at all). A missing root is complete and empty: nothing exists yet.
 
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
     sync::{
@@ -35,12 +35,56 @@ impl Found {
         self.unreadable == 0
     }
 
+    /// The ledger ids of every readable session, ended ones included: the one uniqueness rule
+    /// that linking, the graph, readiness and connections share.
+    pub fn identities(&self) -> Identities {
+        let mut ids = HashMap::new();
+        for session in &self.sessions {
+            let Some(id) = session.id.as_deref().filter(|id| valid_id(id)) else {
+                continue;
+            };
+            ids.entry(id.to_owned())
+                .and_modify(|held: &mut Option<Session>| *held = None)
+                .or_insert_with(|| Some(session.clone()));
+        }
+        Identities(ids)
+    }
+
     fn failed(&mut self, failure: seed_me::ReadFailure) {
         self.unreadable += 1;
         if self.failures.len() < seed_me::MAX_READ_FAILURES {
             self.failures.push(failure);
         }
     }
+}
+
+/// Which session each valid ledger id names in one scan. An id names a session only when exactly
+/// one readable session holds it; identity is never inferred from titles, names or paths.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Identities(HashMap<String, Option<Session>>);
+impl Identities {
+    /// The one session holding `id`, if exactly one does.
+    pub fn session(&self, id: &str) -> Option<&Session> {
+        self.0.get(id)?.as_ref()
+    }
+
+    /// More than one session holds `id`.
+    pub fn ambiguous(&self, id: &str) -> bool {
+        matches!(self.0.get(id), Some(None))
+    }
+
+    /// `session`'s ledger id, when it alone holds that valid id.
+    pub fn id<'a>(&self, session: &'a Session) -> Option<&'a str> {
+        let id = session.id.as_deref()?;
+        self.session(id)
+            .is_some_and(|held| held.path == session.path)
+            .then_some(id)
+    }
+}
+
+/// A ledger id that can name a session or a link end: non-empty, without control characters.
+pub(crate) fn valid_id(id: &str) -> bool {
+    !id.is_empty() && !id.chars().any(char::is_control)
 }
 
 /// `Err` means the root itself could not be read.

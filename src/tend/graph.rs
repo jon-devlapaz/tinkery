@@ -63,12 +63,6 @@ fn identity(session: &super::Session) -> String {
 impl Tend {
     /// Prepare path-bound inputs when sessions, scope or needs links change.
     pub(super) fn prepare_graph(&mut self) {
-        let mut counts = HashMap::new();
-        for session in &self.all_sessions {
-            if let Some(id) = &session.id {
-                *counts.entry(id.as_str()).or_insert(0) += 1;
-            }
-        }
         let mut nodes: Vec<_> = self
             .sessions
             .iter()
@@ -89,10 +83,7 @@ impl Tend {
         let ids: HashMap<_, _> = self
             .sessions
             .iter()
-            .filter_map(|s| {
-                let id = s.id.as_deref()?;
-                (counts.get(id) == Some(&1)).then(|| (id, indices[identity(s).as_str()]))
-            })
+            .filter_map(|s| Some((self.ids.id(s)?, indices[identity(s).as_str()])))
             .collect();
         let edges = self
             .links
