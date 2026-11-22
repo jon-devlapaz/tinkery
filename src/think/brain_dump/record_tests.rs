@@ -265,7 +265,7 @@ fn a_confirmed_session_leaves_exactly_one_record_with_its_words_turns_and_goal()
         g.parts.outcome = Some("TEST later reading".into())
     });
     save(&mut a, Ok(receipt(dir.path(), &shown)));
-    assert_eq!(a.notice, "Saved.");
+    assert_eq!(a.notice(), "Saved.");
     let files = records(&root);
     assert_eq!(files.len(), 1, "{files:?}");
     let name = files[0].file_name().unwrap().to_string_lossy().into_owned();
@@ -374,7 +374,7 @@ fn an_unresolved_saved_session_leaves_the_goal_standing_without_an_unbound_recor
             .unwrap()
             .contains("Think record not written:")
     );
-    assert!(a.notice.contains("The think record wasn't written"));
+    assert!(a.notice().contains("The think record wasn't written"));
 }
 
 #[test]

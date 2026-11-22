@@ -400,7 +400,7 @@ fn review_lists_and_saves(a: &mut BrainDump, open: &[&str]) {
         a.goal_tick();
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
-    assert!(a.notice.contains("Handoff not complete"));
+    assert!(a.notice().contains("Handoff not complete"));
     assert!(a.handoff.receipt().is_none());
     assert!(a.handoff.config.as_ref().unwrap().recovery_path().is_none());
 }
@@ -412,7 +412,7 @@ fn ready_invites_review_without_claiming_complete_intent() {
         assert!(screen.contains("Ready for your review."));
         assert!(!screen.contains("Still missing") && !screen.contains("remain open"));
     }
-    a.screen.help = true;
+    a.screen.open_help(false);
     assert!(layout::help_text(&a).contains("Ready for your review.\n1: Review the goal."));
 }
 #[test]
@@ -705,9 +705,9 @@ fn ctrl_c_during_a_save_claims_no_cancel() {
     a.paste("confirm");
     a.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
     assert!(a.running(), "the save started");
-    let before = a.notice.clone();
+    let before = a.notice();
     a.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL));
-    assert!(!a.notice.contains("Cancelled"), "{}", a.notice);
-    assert_eq!(a.notice, before);
+    assert!(!a.notice().contains("Cancelled"), "{}", a.notice());
+    assert_eq!(a.notice(), before);
     assert!(a.running(), "Ctrl-C does not stop a save");
 }

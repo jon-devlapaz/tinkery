@@ -14,16 +14,144 @@ pub(super) const SCOPE_REFUSAL: &str =
 pub(super) const EMPTY_SEND_TEXT: &str = "Write something, then Enter sends it.";
 /// A review invitation, not a claim that the reading captured every requirement.
 const READY_FOR_REVIEW: &str = "Ready for your review.";
-/// Notices that report a finished action and stay on the status row until replaced. Other
-/// notices that are not refusals live only under How it works, Last result.
-const RECEIPTS: [&str; 6] = [
-    "Copy",
-    "Clipboard",
-    "Question skipped",
-    "Skip undone",
-    "Added words",
-    "Thought",
-];
+/// What the last action did, kept until the next one replaces it. The kind decides where it
+/// shows: a refusal where the person is looking, a receipt on the status row, and every
+/// notice as the last result in How it works and Why. [`BrainDump::notice`] words them all.
+pub(super) enum Notice {
+    /// Why the last action did nothing. It shows until the next input, then turns quiet.
+    Refused(Refusal),
+    /// A finished action, kept on the status row until replaced.
+    Receipt(Receipt),
+    /// A send is out; the status row says what it is doing.
+    Thinking,
+    /// Esc or Ctrl-C cancelled the send; nothing was lost.
+    Cancelled,
+    /// The goal saved, with its think record when one was asked for.
+    Saved,
+    /// The goal saved but its think record did not.
+    RecordFailed,
+    /// The goal save did not finish, with the reason and any recovery location.
+    SaveFailed(String),
+    /// Anything else: only the last result.
+    Quiet(String),
+}
+
+/// Why an action did nothing.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum Refusal {
+    /// The words to send are over the request cap; a shorter draft can go.
+    DraftTooLong,
+    /// The earlier words alone are over the cap; shortening the draft cannot help.
+    EarlierWordsTooLong,
+    /// Any other refusal, in its own words.
+    Because(String),
+}
+
+/// A finished action the status row keeps until the next notice.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Receipt {
+    /// The copy reached the terminal (`sent`), after the goal saved (`saved`) or before.
+    Copy {
+        sent: bool,
+        saved: bool,
+    },
+    QuestionSkipped,
+    SkipUndone,
+    AddedWords,
+    /// Fresh words kept as a thought. It belongs to the empty box the save left, so new words
+    /// end it.
+    FreshThought {
+        duplicate: bool,
+    },
+    /// The original on the left kept as a thought; the conversation is unchanged.
+    OriginalThought {
+        duplicate: bool,
+    },
+}
+
+impl Notice {
+    /// After the next input a refusal is only the last result.
+    pub(super) fn settle(&mut self) {
+        if let Notice::Refused(refusal) = self {
+            *self = Notice::Quiet(refusal.text().to_owned());
+        }
+    }
+}
+
+impl Refusal {
+    fn text(&self) -> &str {
+        match self {
+            Refusal::DraftTooLong => {
+                "Too long to send. Words kept.\nCtrl-A/C copy; replace, Enter."
+            }
+            Refusal::EarlierWordsTooLong => {
+                "Earlier words are too long.\nWords kept. F1: copy elsewhere."
+            }
+            Refusal::Because(why) => why,
+        }
+    }
+}
+
+impl BrainDump {
+    /// The status line: what just happened, in plain words.
+    pub fn notice(&self) -> String {
+        let receipt = |r: &Receipt| match *r {
+            Receipt::Copy {
+                sent: true,
+                saved: true,
+            } => "Copied.",
+            Receipt::Copy {
+                sent: true,
+                saved: false,
+            } => "Copy sent; host may require clipboard permission.",
+            Receipt::Copy {
+                sent: false,
+                saved: true,
+            } => "Clipboard send failed; goal retained.",
+            Receipt::Copy {
+                sent: false,
+                saved: false,
+            } => "Clipboard send failed; board retained.",
+            Receipt::QuestionSkipped => "Question skipped. F1 can bring it back.",
+            Receipt::SkipUndone => "Skip undone; question restored.",
+            Receipt::AddedWords => {
+                "Added words kept unresolved, outside the reading, until you answer their scope question."
+            }
+            Receipt::FreshThought { duplicate: false } => "Thought saved · find it in Tend",
+            Receipt::FreshThought { duplicate: true } => "Thought already saved · find it in Tend",
+            Receipt::OriginalThought { duplicate: false } => {
+                "Thought saved. Your conversation is unchanged."
+            }
+            Receipt::OriginalThought { duplicate: true } => {
+                "Thought already saved. Your conversation is unchanged."
+            }
+        };
+        match &self.notice {
+            Notice::Refused(refusal) => refusal.text().to_owned(),
+            Notice::Receipt(r) => receipt(r).to_owned(),
+            Notice::Thinking => {
+                "Thinking after submit… Esc cancels. New typing stays local.".into()
+            }
+            Notice::Cancelled => {
+                "Cancelled; original and previous board retained. Enter retries.".into()
+            }
+            Notice::Saved => self
+                .handoff
+                .record
+                .as_ref()
+                .and_then(|record| record.as_ref().ok())
+                .and_then(crate::think_record::WrittenRecord::notice)
+                .unwrap_or("Saved.")
+                .into(),
+            Notice::RecordFailed => "The think record wasn't written; F1 then h shows why.".into(),
+            Notice::SaveFailed(reason) => format!("Handoff not complete: {reason}"),
+            Notice::Quiet(text) => text.clone(),
+        }
+    }
+}
+
+/// Where fresh words go when think has no thought store.
+pub(super) const NO_THOUGHT_STORE: &str = "Open --home to save a thought in Tend.";
 /// Why practice, or real mode without a sessions folder, can't review or save a goal.
 pub(super) const SAVE_NEEDS_REAL: &str = "Saving a goal needs real mode and a sessions folder.";
 /// The status while practice prepares its simulated reading: no model runs.
@@ -46,26 +174,27 @@ fn thinking_status(app: &BrainDump) -> &'static str {
 /// The one status line under the writing box: why the last action did nothing, else whether
 /// a reading is coming, else what the last action did. A refusal always wins, so a blocked
 /// key is never silent.
-fn status(app: &BrainDump) -> Option<&str> {
+fn status(app: &BrainDump) -> Option<String> {
     let board = app.conversation.board().is_some();
-    if app.screen.refused.is_some() {
-        Some(&app.notice)
-    } else if app.running() && board {
-        Some(thinking_status(app))
-    } else if RECEIPTS.iter().any(|p| app.notice.starts_with(p)) {
-        Some(&app.notice)
-    } else if !app.running()
-        && !app.conversation.caught_up()
-        && board
-        && app.conversation.scope_pending().is_none()
-    {
-        Some(if app.shaping.ready.is_some() {
-            "Reply ready."
-        } else {
-            "Reading couldn't be updated."
-        })
-    } else {
-        None
+    match app.notice {
+        Notice::Refused(_) => Some(app.notice()),
+        _ if app.running() && board => Some(thinking_status(app).into()),
+        Notice::Receipt(_) => Some(app.notice()),
+        _ if !app.running()
+            && !app.conversation.caught_up()
+            && board
+            && app.conversation.scope_pending().is_none() =>
+        {
+            Some(
+                if app.shaping.ready.is_some() {
+                    "Reply ready."
+                } else {
+                    "Reading couldn't be updated."
+                }
+                .into(),
+            )
+        }
+        _ => None,
     }
 }
 
@@ -75,7 +204,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     frame.render_widget(Block::default().style(palette.ink), area);
     if app.below_minimum() {
         frame.render_widget(
-            Paragraph::new(if app.screen.help {
+            Paragraph::new(if app.screen.overlay.help() {
                 "Help\nF1 or Esc returns. Esc again goes back to the menu.\nResize to 80×24. Words retained."
             } else {
                 "Need 80×24. Words retained."
@@ -89,7 +218,8 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     app.screen.back_button = Rect::default();
     if app.conversation.sources().is_empty() {
         // Before the first send, help sits beside the draft; the draft never leaves view.
-        let width = if app.screen.help {
+        let choice = matches!(app.screen.overlay, Overlay::Choice);
+        let width = if app.screen.overlay.help() {
             area.width * 48 / 100 - 4
         } else {
             area.width - 8
@@ -107,15 +237,14 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             4,
             8,
             width,
-            area.height
-                .saturating_sub(if app.screen.choice { 16 } else { 12 }),
+            area.height.saturating_sub(if choice { 16 } else { 12 }),
         );
         render_input(frame, app, palette);
-        if app.screen.choice {
+        if choice {
             let unavailable = match &app.handoff.thoughts {
                 Some(Ok(_)) => String::new(),
                 Some(Err(reason)) => format!("Unavailable: {reason}"),
-                None => "Unavailable: Open --home to save a thought in Tend.".into(),
+                None => format!("Unavailable: {NO_THOUGHT_STORE}"),
             };
             frame.render_widget(
                 Paragraph::new(format!(
@@ -125,7 +254,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             );
         }
         if let Some(notice) = status(app)
-            && (!app.screen.choice || app.screen.refused.is_some())
+            && (!choice || matches!(app.notice, Notice::Refused(_)))
         {
             frame.render_widget(
                 Paragraph::new(notice)
@@ -156,14 +285,14 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         }
         intact_view::render_source(frame, app, left, palette);
     }
-    if app.screen.original || app.screen.details {
-        let text = if app.screen.original {
+    if matches!(app.screen.overlay, Overlay::Originals | Overlay::Why) {
+        let text = if matches!(app.screen.overlay, Overlay::Originals) {
             app.originals()
         } else {
             format!(
                 "Why\nh How it works\n\n{}\n\n{}\n\n{}",
                 app.details_text(),
-                app.notice,
+                app.notice(),
                 checks::why(&app.diagnostics())
             )
         };
@@ -425,10 +554,10 @@ pub(super) fn help_text(app: &BrainDump) -> String {
     }
     let open_now;
     let now = if matches!(
-        app.screen.refused,
-        Some(Refusal::DraftTooLong | Refusal::EarlierWordsTooLong)
+        app.notice,
+        Notice::Refused(Refusal::DraftTooLong | Refusal::EarlierWordsTooLong)
     ) {
-        if app.screen.refused == Some(Refusal::EarlierWordsTooLong) {
+        if matches!(app.notice, Notice::Refused(Refusal::EarlierWordsTooLong)) {
             concat!(
                 "Earlier words are too long to send. Nothing was sent; all words stay here. Shortening new words cannot help.\n",
                 "Ctrl-A then Ctrl-C copies local words. Tab selects originals; Ctrl-PgUp/PgDn switches them. ",
@@ -499,7 +628,12 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         ""
     };
     // The numbered actions come first, so even a short panel shows them without scrolling.
-    let rows = app.screen.actions.text(&app.rows());
+    let first = crate::actions::Page::default();
+    let page = match &app.screen.overlay {
+        Overlay::Help { page, .. } => page,
+        _ => &first,
+    };
+    let rows = page.text(&app.rows());
     let rows = if rows.is_empty() {
         rows
     } else {
@@ -535,12 +669,12 @@ pub(super) fn how_text(app: &BrainDump) -> String {
         } else {
             format!("\n\n{diagnostics}")
         },
-        app.notice
+        app.notice()
     )
 }
 /// Only what's possible right now (C1): key in ink, word muted.
 pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)> {
-    if app.screen.leave_prompt || app.handoff.saving() {
+    if matches!(app.screen.overlay, Overlay::Leave) || app.handoff.saving() {
         vec![]
     } else if app.handoff.receipt().is_some() {
         vec![("s", "open in tend"), ("esc", "menu")]
@@ -554,7 +688,7 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
             "save"
         };
         vec![("type confirm", save), ("esc", "back")]
-    } else if app.screen.choice {
+    } else if matches!(app.screen.overlay, Overlay::Choice) {
         vec![("1/2", "choose"), ("esc", "back")]
     } else if app.voice_active() {
         vec![
@@ -593,8 +727,10 @@ pub(super) fn key_bar_items(app: &BrainDump) -> Vec<(&'static str, &'static str)
 }
 pub(super) fn render_key_bar(frame: &mut Frame, app: &BrainDump, palette: Palette) {
     let area = frame.area();
-    if app.screen.help
-        || (!app.screen.key_bar && app.handoff.receipt().is_none() && !app.screen.choice)
+    if app.screen.overlay.help()
+        || (!app.screen.key_bar
+            && app.handoff.receipt().is_none()
+            && !matches!(app.screen.overlay, Overlay::Choice))
         || area.width < MIN_WIDTH
         || area.height < MIN_HEIGHT
     {
@@ -648,7 +784,7 @@ pub(super) fn render_header(frame: &mut Frame, app: &BrainDump, palette: Palette
     2 + width + 2
 }
 pub(super) fn render_leave_prompt(frame: &mut Frame, app: &BrainDump, palette: Palette) {
-    if !app.screen.leave_prompt {
+    if !matches!(app.screen.overlay, Overlay::Leave) {
         return;
     }
     let area = frame.area();

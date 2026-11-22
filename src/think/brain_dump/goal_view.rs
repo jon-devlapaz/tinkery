@@ -13,11 +13,6 @@ use std::{
     sync::mpsc,
 };
 
-/// The receipt's notice when the goal saved but its think record didn't; the reason and path
-/// stay in How it works.
-const RECORD_FAILED: &str = "The think record wasn't written; F1 then h shows why.";
-/// How the notice begins when a save didn't finish; the rest is the reason, for How it works.
-const HANDOFF_FAILED: &str = "Handoff not complete:";
 /// What review shows for a save that didn't finish, short enough for the narrowest pane.
 const HANDOFF_FAILED_TEXT: &str = "Handoff not complete. F1 then h shows why; Enter retries.";
 
@@ -255,15 +250,14 @@ impl BrainDump {
             unresolved_notes,
             confirmation: self.handoff.confirmation.clone(),
         };
-        self.screen.original = false;
-        self.screen.help = false;
-        self.screen.details = false;
+        if self.screen.overlay.covers() {
+            self.screen.show(Overlay::None);
+        }
         self.screen.source_scroll = 0;
         self.screen.source_cursor = 0;
         self.screen.selection = None;
         self.screen.drag_anchor = None;
-        self.notice =
-            "Nothing saved. Review the goal and remaining questions before affirming.".into();
+        self.tell("Nothing saved. Review the goal and remaining questions before affirming.");
         self.handoff.open(Review {
             affirmation,
             input: String::new(),
@@ -289,16 +283,16 @@ impl BrainDump {
         self.handoff.finish(&result);
         match result {
             Ok(_) => {
-                self.notice = match &self.handoff.record {
-                    Some(Err(_)) => RECORD_FAILED.into(),
-                    Some(Ok(record)) => record.notice().unwrap_or("Saved.").into(),
-                    None => "Saved.".into(),
+                self.notice = if matches!(self.handoff.record, Some(Err(_))) {
+                    Notice::RecordFailed
+                } else {
+                    Notice::Saved
                 };
                 self.screen.paper_scroll = 0;
             }
             Err(error) => {
-                self.notice = format!(
-                    "{HANDOFF_FAILED} {error}{}",
+                self.notice = Notice::SaveFailed(format!(
+                    "{error}{}",
                     self.handoff
                         .config
                         .as_ref()
@@ -307,7 +301,7 @@ impl BrainDump {
                             " Recovery session: {}",
                             p.display()
                         ))
-                );
+                ));
             }
         }
     }
@@ -329,7 +323,7 @@ impl BrainDump {
     }
     pub(super) fn goal_key(&mut self, key: KeyEvent) -> bool {
         if self.handoff.saving() {
-            self.notice = "Saving your goal; this can't be undone. One moment.".into();
+            self.tell("Saving your goal; this can't be undone. One moment.");
             return true;
         }
         if self.handoff.receipt().is_some() {
@@ -383,7 +377,7 @@ impl BrainDump {
                     let _ = tx.send(config.confirm_as(affirmation, &confirmation));
                 });
                 self.handoff.begin(rx);
-                self.notice = "Saving your goal…".into();
+                self.tell("Saving your goal…");
             }
             KeyCode::Enter if review.scroll < review.max => {
                 self.refuse("Read to the end first: PgDn scrolls. Then type confirm and Enter.")
@@ -445,13 +439,9 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
             .as_ref()
             .and_then(|record| record.as_ref().ok())
             .and_then(record::WrittenRecord::notice);
-        let notice = if app.notice == "Copied."
-            || app.notice.starts_with("Clipboard")
-            || app.notice == RECORD_FAILED
-        {
-            app.notice.as_str()
-        } else {
-            record_notice.unwrap_or("")
+        let notice = match app.notice {
+            Notice::Receipt(layout::Receipt::Copy { .. }) | Notice::RecordFailed => app.notice(),
+            _ => record_notice.unwrap_or("").to_owned(),
         };
         render_saved_goal(
             frame,
@@ -461,18 +451,24 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
             SavedGoal {
                 goal: &receipt.goal,
                 next: Some("Next: shape it into a Tink in Shape."),
-                notice,
+                notice: &notice,
                 saved: true,
             },
         );
         return;
     }
     let saving = app.handoff.saving();
+    // One message row group (a refusal, the save in progress, a failed save, else the
+    // instruction), the typed word, then Back on a row of its own, so nothing paints over it.
+    let message = match app.notice {
+        Notice::Refused(_) => Some(app.notice()),
+        _ if saving => Some("Saving…".into()),
+        Notice::SaveFailed(_) => Some(HANDOFF_FAILED_TEXT.into()),
+        _ => None,
+    };
     let Some(review) = app.handoff.save.review_mut() else {
         return;
     };
-    // One message row group (a refusal, the save in progress, a failed save, else the
-    // instruction), the typed word, then Back on a row of its own, so nothing paints over it.
     let instruction = format!(
         "type confirm to save{}. You can't edit it after.",
         if app.handoff.record_root.is_some() {
@@ -481,15 +477,6 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
             ""
         }
     );
-    let message = if app.screen.refused.is_some() {
-        Some(app.notice.clone())
-    } else if saving {
-        Some("Saving…".into())
-    } else if app.notice.starts_with(HANDOFF_FAILED) {
-        Some(HANDOFF_FAILED_TEXT.into())
-    } else {
-        None
-    };
     let quiet = quiet_who(
         &review.affirmation.parts,
         &review.affirmation.unresolved,
@@ -621,11 +608,11 @@ pub(super) fn render_goal(frame: &mut Frame, app: &mut BrainDump, palette: Palet
         );
         let mut note = Note::new(&prompt);
         note.cursor = prompt.len();
-        let wrapped = note.wrap(rows[1].width);
-        if wrapped.cursor.0 < usize::from(rows[1].height) {
+        let wrapped = note.wrap(rows[2].width);
+        if wrapped.cursor.0 < usize::from(rows[2].height) {
             frame.set_cursor_position((
-                rows[1].x + wrapped.cursor.1.min(rows[1].width - 1),
-                rows[1].y + wrapped.cursor.0 as u16,
+                rows[2].x + wrapped.cursor.1.min(rows[2].width - 1),
+                rows[2].y + wrapped.cursor.0 as u16,
             ));
         }
     }
