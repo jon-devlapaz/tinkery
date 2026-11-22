@@ -89,7 +89,7 @@ impl RetryFeedback {
 }
 
 /// Current reply fields decoded here or delegated unchanged to Tinkery's record validator.
-/// The prompt's examples name the same fields.
+/// The prompt's examples name the same fields; `confidence` is asked for and never read.
 #[cfg(test)]
 pub(super) const FIELDS: &[&str] = &[
     "next",
@@ -316,7 +316,7 @@ pub(super) enum Done {
     Asked(Asked),
     /// A seed draft was saved.
     Drafted,
-    /// Teach-back words and the model's mismatches were saved; F3 remains available.
+    /// Teach-back words and the model's mismatches were saved; confirming stays available.
     Compared,
     /// The seed is confirmed.
     Confirmed,
@@ -855,8 +855,6 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
                 assumed: assumptions(&value["assumed"]),
                 options: alternatives(&value["options"]),
                 against: text("against"),
-                confidence: text("confidence")
-                    .filter(|c| ["low", "medium", "high"].contains(&c.as_str())),
             })))
         }
         Some("seed") => {
@@ -897,7 +895,6 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
                     assumed: assumptions(&value["assumed"]),
                     options: Vec::new(),
                     against: None,
-                    confidence: None,
                 })));
             }
             let mut checks = value["checks"]

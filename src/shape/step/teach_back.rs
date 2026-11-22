@@ -1,4 +1,4 @@
-//! One explicit teach-back capture and one budgeted comparison; no result changes F3 eligibility.
+//! One explicit teach-back capture and one budgeted comparison; no result blocks confirming.
 
 use super::*;
 use crate::confirmation::Actor;
