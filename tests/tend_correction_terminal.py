@@ -211,7 +211,7 @@ def malformed_and_legacy():
         cp.unlink();cp.symlink_to(root/'unsafe-target')
         term=flow.launch(root,repo,100,30,budget=0)
         try:
-            flow.wait(term,'cannot be read safely');os.write(term.master,b'x');settle(term)
+            flow.wait(term,'The correction is not a regular local file.');os.write(term.master,b'x');settle(term)
             assert not (root/'unsafe-target').exists() and cp.is_symlink()
         finally: term.close()
         print('legacy prompt pending recovery, malformed correction saved-goal opening/Clear and symlink refusal: one fake call')

@@ -4,7 +4,7 @@
 use super::{Value, load, transition};
 use std::{
     fs::{File, OpenOptions},
-    io::{self, Write},
+    io,
     os::fd::AsRawFd,
     path::Path,
 };
@@ -319,17 +319,10 @@ fn atomic_write(directory: &Path, bytes: &str) -> io::Result<()> {
 }
 
 fn atomic_text(path: &Path, bytes: &str, mode: Option<std::fs::Permissions>) -> io::Result<()> {
-    let mut temporary = tempfile::Builder::new()
-        .prefix(".ledger-")
-        .suffix(".tmp")
-        .tempfile_in(path.parent().expect("session file has a parent"))?;
-    temporary.write_all(bytes.as_bytes())?;
-    temporary.as_file().sync_all()?;
-    if let Some(mode) = mode {
-        temporary.as_file().set_permissions(mode)?;
-    }
-    temporary.persist(path).map_err(|e| e.error)?;
-    Ok(())
+    use crate::regular_file::Existing;
+    let existing = mode.map_or(Existing::Replace, Existing::ReplaceWith);
+    // A file in place is saved; session files never reported directory durability.
+    crate::regular_file::publish(path, bytes.as_bytes(), existing).map(|_| ())
 }
 
 fn commit(
