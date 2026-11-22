@@ -2,7 +2,8 @@
 //! Never edits saved sessions. Unreadable stores refuse mutation; readiness uses only
 //! supplied sessions, including ended ones, and never infers identity from names or paths.
 
-use crate::seed_me::{Session, Stage};
+use super::discovery::{Identities, valid_id};
+use crate::seed_me::Stage;
 use serde::{Deserialize, Serialize};
 use std::{cell::Cell, collections::BTreeSet, fs, path::PathBuf};
 
@@ -67,38 +68,31 @@ impl Links {
         })
     }
 
-    /// Resolve one goal's needs against all readable sessions, including ended ones.
-    /// Unknown stages, missing ids and ambiguous duplicate ids can never establish readiness.
-    /// An ambiguous source has no attributable needs and yields an empty, non-ready summary.
-    pub fn summary(&self, goal: &str, sessions: &[Session]) -> Summary {
+    /// Resolve one goal's needs against the identities of all readable sessions, including
+    /// ended ones. Unknown stages, missing ids and ambiguous duplicate ids can never establish
+    /// readiness. An ambiguous source has no attributable needs and yields an empty, non-ready
+    /// summary.
+    pub fn summary(&self, goal: &str, ids: &Identities) -> Summary {
         let mut summary = Summary {
             titles: vec![],
             missing: 0,
             ready: false,
         };
-        if sessions
-            .iter()
-            .filter(|s| s.id.as_deref() == Some(goal))
-            .count()
-            > 1
-        {
+        if ids.ambiguous(goal) {
             return summary;
         }
         let mut count = 0;
         let mut all_completed = true;
         for link in self.entries.iter().filter(|link| link.goal == goal) {
             count += 1;
-            let mut found = sessions
-                .iter()
-                .filter(|s| s.id.as_deref() == Some(&link.needs));
-            match (found.next(), found.next()) {
-                (Some(session), None) => {
+            match ids.session(&link.needs) {
+                Some(session) => {
                     summary
                         .titles
                         .push(session.goal.lines().next().unwrap_or("").into());
                     all_completed &= session.stage == Stage::Completed;
                 }
-                _ => {
+                None => {
                     summary.missing += 1;
                     all_completed = false;
                 }
@@ -314,13 +308,18 @@ impl Store {
     }
 }
 
-fn valid_id(id: &str) -> bool {
-    !id.is_empty() && !id.chars().any(char::is_control)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::seed_me::Session;
+
+    fn ids(sessions: &[Session]) -> Identities {
+        super::super::Found {
+            sessions: sessions.to_vec(),
+            ..Default::default()
+        }
+        .identities()
+    }
     use serde_json::json;
 
     fn fixture() -> (tempfile::TempDir, Store, PathBuf) {
@@ -532,7 +531,7 @@ mod tests {
             Stage::Completed,
         )];
         assert_eq!(
-            Links::default().summary("goal", &sessions),
+            Links::default().summary("goal", &ids(&sessions)),
             Summary {
                 titles: vec![],
                 missing: 0,
@@ -541,7 +540,7 @@ mod tests {
         );
         let links = store.toggle("goal", "need").unwrap();
         assert_eq!(
-            links.summary("goal", &sessions),
+            links.summary("goal", &ids(&sessions)),
             Summary {
                 titles: vec!["Ended title".into()],
                 missing: 0,
@@ -557,12 +556,12 @@ mod tests {
             Stage::Stopped,
         ] {
             sessions[0].stage = stage;
-            assert!(!links.summary("goal", &sessions).ready, "{stage:?}");
+            assert!(!links.summary("goal", &ids(&sessions)).ready, "{stage:?}");
         }
         sessions[0].stage = Stage::Completed;
         let both = store.toggle("goal", "stopped").unwrap();
         let stopped = session(Some("stopped"), "Stopped title", Stage::Stopped);
-        let summary = both.summary("goal", &[sessions[0].clone(), stopped]);
+        let summary = both.summary("goal", &ids(&[sessions[0].clone(), stopped]));
         assert_eq!(summary.titles, ["Ended title", "Stopped title"]);
         assert!(!summary.ready, "a stopped need is not finished");
         store.toggle("goal", "stopped").unwrap();
@@ -571,7 +570,7 @@ mod tests {
         let no_id = session(None, "unknown-id", Stage::Completed);
         sessions.extend([unknown, no_id]);
         assert_eq!(
-            links.summary("goal", &sessions),
+            links.summary("goal", &ids(&sessions)),
             Summary {
                 titles: vec!["Ended title".into()],
                 missing: 1,
@@ -579,10 +578,10 @@ mod tests {
             }
         );
         assert_eq!(
-            links.summary("other-goal", &sessions).titles,
+            links.summary("other-goal", &ids(&sessions)).titles,
             Vec::<String>::new()
         );
-        assert_eq!(links.summary("goal", &[]).missing, 2);
+        assert_eq!(links.summary("goal", &ids(&[])).missing, 2);
     }
 
     #[test]
@@ -591,11 +590,13 @@ mod tests {
         let links = store.toggle("goal", "need").unwrap();
         let session = session(Some("need"), "  界 title  \nWhy: intact", Stage::Completed);
         assert_eq!(
-            links.summary("goal", std::slice::from_ref(&session)).titles,
+            links
+                .summary("goal", &ids(std::slice::from_ref(&session)))
+                .titles,
             ["  界 title  "]
         );
         assert_eq!(
-            links.summary("goal", &[session.clone(), session]),
+            links.summary("goal", &ids(&[session.clone(), session])),
             Summary {
                 titles: vec![],
                 missing: 1,
@@ -615,7 +616,7 @@ mod tests {
                 session(Some("need"), "Ended dependency", Stage::Completed),
             ];
             assert_eq!(
-                links.summary("goal", &sessions),
+                links.summary("goal", &ids(&sessions)),
                 Summary {
                     titles: vec![],
                     missing: 0,

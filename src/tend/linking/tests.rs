@@ -282,7 +282,19 @@ fn missing_or_ambiguous_ids_refuse_without_writing_or_guessing() {
         assert!(!tmp.path().join("TEST-links").exists());
     }
     let (tmp, mut tend) = fixture();
-    tend.all_sessions.push(tend.sessions[0].clone());
+    let mut sessions = tend.all_sessions.clone();
+    let mut duplicate = sessions[0].clone();
+    duplicate.path = "/TEST/duplicate".into();
+    sessions.push(duplicate);
+    tend.apply(
+        &Ok(Found {
+            sessions,
+            ..Found::default()
+        }),
+        true,
+        2,
+    );
+    tend.selected = 0;
     tend.start_link();
     assert!(!tend.is_linking());
     assert!(tend.link_error.unwrap().contains("not unique"));

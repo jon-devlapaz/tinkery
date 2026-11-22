@@ -54,29 +54,22 @@ impl Tend {
     }
 
     fn link_id<'a>(&self, session: &'a Session) -> Result<&'a str, String> {
-        let id = session
+        if !session
             .id
             .as_deref()
-            .filter(|id| !id.is_empty() && !id.chars().any(char::is_control))
-            .ok_or_else(|| {
-                format!(
-                    "Cannot link {}: no valid ledger session id.",
-                    session.path.display()
-                )
-            })?;
-        if self
-            .all_sessions
-            .iter()
-            .filter(|s| s.id.as_deref() == Some(id))
-            .count()
-            != 1
+            .is_some_and(super::discovery::valid_id)
         {
             return Err(format!(
-                "Cannot link {}: its ledger session id is not unique.",
+                "Cannot link {}: no valid ledger session id.",
                 session.path.display()
             ));
         }
-        Ok(id)
+        self.ids.id(session).ok_or_else(|| {
+            format!(
+                "Cannot link {}: its ledger session id is not unique.",
+                session.path.display()
+            )
+        })
     }
 
     pub(crate) fn commit_link(&mut self) {
@@ -194,7 +187,7 @@ impl Tend {
             if self.link_id(session).is_err() {
                 return " · readiness unknown".into();
             }
-            let summary = links.summary(id, &self.all_sessions);
+            let summary = links.summary(id, &self.ids);
             if !summary.titles.is_empty() {
                 suffix.push_str(&format!(" · needs {}", summary.titles.join(", ")));
             }
