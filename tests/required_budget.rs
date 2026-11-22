@@ -5,10 +5,7 @@
 use std::{os::unix::fs::PermissionsExt, sync::atomic::AtomicBool};
 use tinkery::{
     pi::{CallBudget, Harness},
-    think::{
-        brain_dump::{BoardHost, BoardRequest, Source},
-        drafting::ModelHost,
-    },
+    think::brain_dump::{BoardHost, BoardRequest, ModelHost, Source},
 };
 
 #[test]

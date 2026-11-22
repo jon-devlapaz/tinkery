@@ -536,19 +536,7 @@ pub(super) fn open_intent(app: &BrainDump) -> Option<String> {
         "Who: not named.".into()
     } else if let Some(part) = g.parts.missing().next() {
         format!("Still missing: {}.", part.label())
-    } else if app.conversation.open_parts().is_empty()
-        && app.conversation.caught_up()
-        && app.shaping.ready.is_none()
-        && app.conversation.skipped().iter().all(|q| {
-            app.conversation
-                .settled()
-                .iter()
-                .any(|s| same_question(&s.question, q))
-        })
-        && g.unresolved_notes.is_empty()
-        && g.misfits.is_empty()
-        && app.conversation.scope_pending().is_none()
-    {
+    } else if app.conversation.nothing_open() && app.shaping.ready.is_none() {
         READY_FOR_REVIEW.into()
     } else {
         "Some parts remain open for the Tink.".into()

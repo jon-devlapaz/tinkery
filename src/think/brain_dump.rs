@@ -9,7 +9,7 @@
 use super::{
     Motion, Note,
     canvas::Canvas,
-    drafting::{Approach, Job, ModelHost, REQUEST_LIMIT, Request},
+    drafting::{Job, REQUEST_LIMIT, Request},
 };
 use crate::{MIN_HEIGHT, MIN_WIDTH, Palette, seed_me};
 use crossterm::event::{
@@ -22,10 +22,7 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashSet,
-    sync::{Arc, atomic::AtomicBool},
-};
+use std::sync::{Arc, atomic::AtomicBool};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 pub mod board;
@@ -34,13 +31,14 @@ mod suggestion;
 use crate::goal::{GoalParts, Part};
 pub use suggestion::Suggestion;
 
-pub use host::BoardHost;
+use board::agent_text;
 use host::Simulated;
+pub use host::{BoardHost, ModelHost};
 use layout::{Notice, Refusal};
 pub use reading::{
-    Anchor, BoardRequest, Fragment, Framing, Guess, OpenDecision, Question, Settled, Source,
+    Anchor, Approach, BoardRequest, Fragment, Framing, Guess, OpenDecision, Question, Settled,
+    Source,
 };
-use reading::{grapheme_boundary, same_question};
 use review::Review;
 pub use review::{Review as DecisionReview, input as decision_review_input};
 
@@ -844,7 +842,6 @@ impl BrainDump {
     /// Advances time: lands a finished reading or save and reads voice events. Never blocks.
     pub fn tick(&mut self) {
         self.voice_tick();
-        self.end_stale_save();
         self.goal_tick();
         if let Some(result) = self.shaping.job.as_ref().and_then(Job::poll) {
             self.shaping.encoded_bytes = None;
@@ -887,13 +884,19 @@ impl BrainDump {
 
     /// Bracketed paste into whatever has focus. Never sends.
     pub fn paste(&mut self, text: &str) {
-        self.paste_input(text);
-        self.end_stale_save();
+        if self.review_below_minimum() {
+            return;
+        }
+        self.person_input(|app| app.paste_input(text));
     }
 
-    /// A save clears the input, so its result belongs to an empty box. Any new words, typed,
-    /// pasted or dictated, make it stale, so it goes and does not come back.
-    fn end_stale_save(&mut self) {
+    /// The one entry for the person's keys, pastes and dictated words. Any of them makes the
+    /// cached send size and the highlighted changed lines stale. A save clears the box, so its
+    /// receipt belongs to an empty box: new words end it, and it does not come back.
+    fn person_input(&mut self, input: impl FnOnce(&mut Self)) {
+        self.shaping.encoded_bytes = None;
+        self.conversation.forget_changes();
+        input(self);
         if !self.input.text.is_empty()
             && matches!(
                 self.notice,
@@ -905,11 +908,6 @@ impl BrainDump {
     }
 
     fn paste_input(&mut self, text: &str) {
-        if self.review_below_minimum() {
-            return;
-        }
-        self.shaping.encoded_bytes = None;
-        self.conversation.forget_changes();
         if !self.screen.overlay.help() {
             self.notice.settle();
         }
@@ -1037,13 +1035,10 @@ impl BrainDump {
     /// One key press. Releases and F2 below the minimum size are ignored;
     /// navigation and copying never send or save.
     pub fn handle_key(&mut self, key: KeyEvent) {
-        self.key_input(key);
-        self.end_stale_save();
+        self.person_input(|app| app.key_input(key));
     }
 
     fn key_input(&mut self, key: KeyEvent) {
-        self.shaping.encoded_bytes = None;
-        self.conversation.forget_changes();
         if key.kind == KeyEventKind::Release {
             return;
         }
@@ -1608,35 +1603,6 @@ pub fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     voice_input::render_notice(frame, app, palette);
     help_view::render(frame, app, palette);
     layout::render_leave_prompt(frame, app, palette);
-}
-fn agent_text(text: &str) -> String {
-    text.lines()
-        .map(|line| {
-            let mut line = line.trim_start();
-            let mut stripped = false;
-            // The interface supplies "I think you mean…"; drop a self-label such as
-            // "Goal:", "Possible goal:" or "PROVISIONAL:" (at most three words before the colon).
-            while let Some(colon) = line.find(':').filter(|&i| i <= 32) {
-                let label = &line[..colon];
-                let lower = label.to_ascii_lowercase();
-                if (1..=3).contains(&label.split_whitespace().count())
-                    && (lower.ends_with("goal") || lower.starts_with("provisional"))
-                {
-                    line = line[colon + 1..].trim_start();
-                    stripped = true;
-                } else {
-                    break;
-                }
-            }
-            // A stripped label can leave a lowercase start; the reading begins as a sentence.
-            let mut chars = line.chars();
-            match chars.next() {
-                Some(first) if stripped => first.to_uppercase().chain(chars).collect(),
-                _ => line.to_owned(),
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 fn draw_fragments(frame: &mut Frame, app: &BrainDump, area: Rect, palette: Palette) {
