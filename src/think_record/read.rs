@@ -499,12 +499,11 @@ fn read_file(path: &Path) -> Result<SavedRecord, Unavailable> {
     counts::file(path);
     let bytes =
         crate::regular_file::read_bounded(path, MAX_RECORD_BYTES, "expected a regular JSON file")
-            .map_err(|error| match error.kind() {
-            std::io::ErrorKind::FileTooLarge => {
+            .map_err(|error| Unavailable::unreadable(path, error))?
+            .bytes
+            .ok_or_else(|| {
                 Unavailable::unreadable(path, "the record exceeds the 16 MiB reading limit")
-            }
-            _ => Unavailable::unreadable(path, error),
-        })?;
+            })?;
     let value: serde_json::Value =
         serde_json::from_slice(&bytes).map_err(|error| Unavailable::unreadable(path, error))?;
     match value.get("schema").and_then(serde_json::Value::as_u64) {

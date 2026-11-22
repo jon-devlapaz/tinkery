@@ -52,10 +52,9 @@ impl Store {
             (LIMIT * 6 + 4096) as u64,
             "A thought is not a regular local file.",
         )
-        .map_err(|e| match e.kind() {
-            std::io::ErrorKind::FileTooLarge => "A saved thought is oversized.".into(),
-            _ => e.to_string(),
-        })?;
+        .map_err(|e| e.to_string())?
+        .bytes
+        .ok_or("A saved thought is oversized.")?;
         let thought: Thought = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
         if thought.schema != 1
             || thought.repo != self.repo
@@ -113,8 +112,8 @@ impl Store {
             ))
         };
         match crate::regular_file::publish(&path, &bytes, crate::regular_file::Existing::Refuse) {
-            Ok(Ok(())) => Ok(Saved::New),
-            Ok(Err(e)) => Ok(uncertain(e)),
+            Ok(crate::regular_file::Published::Durable) => Ok(Saved::New),
+            Ok(crate::regular_file::Published::Uncertain(e)) => Ok(uncertain(e)),
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
                 if self.read_one(&path)? != words {
                     return Err("The existing thought differs. Nothing was replaced.".into());

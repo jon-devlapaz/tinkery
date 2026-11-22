@@ -87,10 +87,9 @@ pub(super) fn read(
         4 * 1024 * 1024,
         "The verdict words are not in a regular file.",
     )
-    .map_err(|error| match error.kind() {
-        std::io::ErrorKind::FileTooLarge => "The verdict record is too large or incomplete.".into(),
-        _ => error.to_string(),
-    })?;
+    .map_err(|error| error.to_string())?
+    .bytes
+    .ok_or("The verdict record is too large or incomplete.")?;
     if !bytes.ends_with(b"\n") {
         return Err("The verdict record is too large or incomplete.".into());
     }

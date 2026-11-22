@@ -79,7 +79,8 @@ pub(crate) fn retry_seed(directory: &Path, slug: &str) -> Option<Seed> {
         4 * 1024 * 1024,
         "run.json is not a regular file",
     )
-    .ok()?;
+    .ok()?
+    .bytes?;
     let run: Value = serde_json::from_slice(&bytes).ok()?;
     let bound = &run["seed_contract"];
     if run["schema"] != 1

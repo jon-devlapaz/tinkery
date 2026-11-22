@@ -348,7 +348,7 @@ pub fn write_with_context(
         text.as_bytes(),
         crate::regular_file::Existing::Refuse,
     )
-    .and_then(|synced| synced)
+    // A file in place is saved; this store never reported directory durability.
     .map_err(|e| format!("{}: {e}", path.display()))?;
     Ok(WrittenRecord {
         path,

@@ -252,12 +252,9 @@ impl Context {
         let path = self.file();
         let regular = "The exploration is not a regular local file.";
         let bytes = match crate::regular_file::read_bounded(&path, RECORD_LIMIT as u64, regular) {
-            Ok(bytes) => bytes,
+            Ok(read) => read.bytes.ok_or("The saved exploration is oversized.")?,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(e) if e.kind() == std::io::ErrorKind::InvalidInput => return Err(regular.into()),
-            Err(e) if e.kind() == std::io::ErrorKind::FileTooLarge => {
-                return Err("The saved exploration is oversized.".into());
-            }
             Err(e) => return Err(format!("The latest exploration is unreadable: {e}")),
         };
         let record: Record = serde_json::from_slice(&bytes)
@@ -319,9 +316,16 @@ impl Context {
         if bytes.len() > RECORD_LIMIT {
             return Err("These edited words exceed the saved exploration limit. Shorten them and retry; the previous result is intact.".into());
         }
-        crate::regular_file::publish(&self.file(), &bytes, crate::regular_file::Existing::Replace)
-            .and_then(|synced| synced)
-            .map_err(|e| e.to_string())
+        match crate::regular_file::publish(
+            &self.file(),
+            &bytes,
+            crate::regular_file::Existing::Replace,
+        )
+        .map_err(|e| e.to_string())?
+        {
+            crate::regular_file::Published::Durable => Ok(()),
+            crate::regular_file::Published::Uncertain(e) => Err(e.to_string()),
+        }
     }
     fn explore(&self, input: &Input, stop: &AtomicBool) -> Result<Record, String> {
         let _lock = self.lock()?;

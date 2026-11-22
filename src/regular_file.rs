@@ -1,14 +1,15 @@
 //! The one door for opening files on disk, and the small-store rules on top of it. Promises: no
 //! open here waits, and every file it returns is a regular file, checked on the opened descriptor
 //! so a path swapped for a FIFO or device cannot turn a read into a wait for a writer. Refuses
-//! anything else with the caller's words. A bounded read never follows a link and never holds more
-//! than its limit; a publish is whole or absent and says when it may not survive a crash. `clippy.toml` forbids `std::fs` opens and reads everywhere else (#489, #585, #764),
-//! except two allowed reads that may wait on purpose: the controlling terminal and the
-//! command-line goal file.
+//! anything else with the caller's words. A bounded read never follows a link and never holds
+//! more than its limit. A publish is whole or absent, and says when it may not survive a crash.
+//! `clippy.toml` forbids `std::fs` opens and reads everywhere else (#489, #585, #764), except
+//! two allowed reads that may wait on purpose: the controlling terminal and the command-line goal
+//! file.
 #![allow(clippy::disallowed_methods)]
 
 use std::{
-    fs::{File, OpenOptions, Permissions},
+    fs::{File, Metadata, OpenOptions, Permissions},
     io::{self, Read, Write},
     os::unix::fs::OpenOptionsExt,
     path::Path,
@@ -46,10 +47,19 @@ pub(crate) fn read_text(path: &Path, refusal: &str) -> io::Result<String> {
     })
 }
 
-/// Reads all of the regular file at `path` if it holds at most `limit` bytes. Never follows a link
-/// at `path`: a link, like any other non-regular file, is refused as `InvalidInput` with `refusal`.
-/// Refuses a longer file as `FileTooLarge` without holding more than `limit + 1` bytes.
-pub(crate) fn read_bounded(path: &Path, limit: u64, refusal: &str) -> io::Result<Vec<u8>> {
+/// One bounded read of one opened file.
+#[derive(Debug)]
+pub(crate) struct Bounded {
+    /// The whole file, or `None` when it holds more than the limit.
+    pub(crate) bytes: Option<Vec<u8>>,
+    /// The metadata of the same opened file the bytes came from.
+    pub(crate) metadata: Metadata,
+}
+
+/// Reads the regular file at `path` without holding more than `limit + 1` bytes. Never follows a
+/// link at `path`: a link, like any other non-regular file, is refused as `InvalidInput` with
+/// `refusal`.
+pub(crate) fn read_bounded(path: &Path, limit: u64, refusal: &str) -> io::Result<Bounded> {
     let file = match open(
         OpenOptions::new().read(true),
         libc::O_NOFOLLOW,
@@ -61,16 +71,19 @@ pub(crate) fn read_bounded(path: &Path, limit: u64, refusal: &str) -> io::Result
         }
         file => file?,
     };
-    let oversized = || io::Error::new(io::ErrorKind::FileTooLarge, "the file exceeds its limit");
-    if file.metadata()?.len() > limit {
-        return Err(oversized());
+    let metadata = file.metadata()?;
+    if metadata.len() > limit {
+        return Ok(Bounded {
+            bytes: None,
+            metadata,
+        });
     }
     let mut bytes = Vec::new();
     file.take(limit + 1).read_to_end(&mut bytes)?;
-    if bytes.len() as u64 > limit {
-        return Err(oversized());
-    }
-    Ok(bytes)
+    Ok(Bounded {
+        bytes: (bytes.len() as u64 <= limit).then_some(bytes),
+        metadata,
+    })
 }
 
 /// What [`publish`] does with a file already at its path.
@@ -83,10 +96,18 @@ pub(crate) enum Existing {
     ReplaceWith(Permissions),
 }
 
+/// How far a [`publish`] got once the new file is in place. Either way the file is saved.
+#[derive(Debug)]
+pub(crate) enum Published {
+    /// The directory entry is on disk too.
+    Durable,
+    /// The directory sync failed: the entry may not survive a crash.
+    Uncertain(io::Error),
+}
+
 /// Publishes `bytes` at `path` whole or not at all: readers see the old file or the new one,
-/// never part of either. The outer error means nothing was published. The inner error means the
-/// new file is in place, but its directory entry may not survive a crash.
-pub(crate) fn publish(path: &Path, bytes: &[u8], existing: Existing) -> io::Result<io::Result<()>> {
+/// never part of either. An error means nothing was published.
+pub(crate) fn publish(path: &Path, bytes: &[u8], existing: Existing) -> io::Result<Published> {
     let folder = path
         .parent()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "a file needs a folder"))?;
@@ -105,7 +126,7 @@ pub(crate) fn publish(path: &Path, bytes: &[u8], existing: Existing) -> io::Resu
             temporary.persist(path).map_err(|e| e.error)?;
         }
     }
-    Ok(sync_directory(folder))
+    Ok(sync_directory(folder).map_or_else(Published::Uncertain, |()| Published::Durable))
 }
 
 /// Flushes a directory's entries to disk. Refuses anything that is not a directory.
@@ -134,25 +155,29 @@ mod tests {
         std::fs::write(&file, b"12345").unwrap();
         std::os::unix::fs::symlink(&file, &link).unwrap();
 
-        assert_eq!(read_bounded(&file, 5, "TEST refusal").unwrap(), b"12345");
+        let read = read_bounded(&file, 5, "TEST refusal").unwrap();
+        assert_eq!(read.bytes.unwrap(), b"12345");
+        assert_eq!(read.metadata.len(), 5);
         let linked = read_bounded(&link, 5, "TEST refusal").unwrap_err();
         assert_eq!(linked.kind(), io::ErrorKind::InvalidInput);
         assert_eq!(linked.to_string(), "TEST refusal");
-        let long = read_bounded(&file, 4, "TEST refusal").unwrap_err();
-        assert_eq!(long.kind(), io::ErrorKind::FileTooLarge);
+        assert!(
+            read_bounded(&file, 4, "TEST refusal")
+                .unwrap()
+                .bytes
+                .is_none()
+        );
     }
 
     #[test]
     fn publish_refuses_or_replaces_an_existing_file_whole() {
         let folder = tempfile::tempdir().unwrap();
         let file = folder.path().join("TEST-store.json");
-        publish(&file, b"first", Existing::Refuse).unwrap().unwrap();
+        publish(&file, b"first", Existing::Refuse).unwrap();
         let kept = publish(&file, b"second", Existing::Refuse).unwrap_err();
         assert_eq!(kept.kind(), io::ErrorKind::AlreadyExists);
         assert_eq!(read(&file, "TEST").unwrap(), b"first");
-        publish(&file, b"second", Existing::Replace)
-            .unwrap()
-            .unwrap();
+        publish(&file, b"second", Existing::Replace).unwrap();
         assert_eq!(read(&file, "TEST").unwrap(), b"second");
         let names: Vec<_> = std::fs::read_dir(folder.path())
             .unwrap()

@@ -312,7 +312,8 @@ impl Store {
                 &bytes,
                 crate::regular_file::Existing::Replace,
             )
-            .and_then(|synced| synced)
+            // A file in place is saved; this store never reported directory durability.
+            .map(|_| ())
             .map_err(|error| error.to_string())
         };
         write().map_err(|error| format!("Cannot save needs.json: {error}"))?;

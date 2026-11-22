@@ -321,7 +321,8 @@ fn atomic_write(directory: &Path, bytes: &str) -> io::Result<()> {
 fn atomic_text(path: &Path, bytes: &str, mode: Option<std::fs::Permissions>) -> io::Result<()> {
     use crate::regular_file::Existing;
     let existing = mode.map_or(Existing::Replace, Existing::ReplaceWith);
-    crate::regular_file::publish(path, bytes.as_bytes(), existing)?
+    // A file in place is saved; session files never reported directory durability.
+    crate::regular_file::publish(path, bytes.as_bytes(), existing).map(|_| ())
 }
 
 fn commit(

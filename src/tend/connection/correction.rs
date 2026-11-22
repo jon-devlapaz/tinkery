@@ -34,7 +34,7 @@ impl Context {
 
     pub(super) fn correction(&self) -> Result<Snapshot, String> {
         let regular = "The correction is not a regular local file.";
-        let bytes = match crate::regular_file::read_bounded(
+        let read = match crate::regular_file::read_bounded(
             &self.correction_file(),
             FILE_LIMIT as u64,
             regular,
@@ -46,12 +46,11 @@ impl Context {
                 });
             }
             Err(e) if e.kind() == std::io::ErrorKind::InvalidInput => return Err(regular.into()),
-            // Oversized records remain clearable, without reading an unbounded file.
-            Err(e) if e.kind() == std::io::ErrorKind::FileTooLarge => None,
             Err(e) => return Err(format!("The correction cannot be read safely: {e}")),
-            Ok(bytes) => Some(bytes),
+            Ok(read) => read,
         };
-        let meta = fs::symlink_metadata(self.correction_file()).map_err(|e| e.to_string())?;
+        // Oversized records remain clearable, without reading an unbounded file.
+        let (bytes, meta) = (read.bytes, read.metadata);
         let mut digest = Sha256::new();
         digest.update(bytes.as_deref().unwrap_or_default());
         for part in [
@@ -135,12 +134,17 @@ impl Context {
             correction: serde_json::to_value(correction).map_err(|e| e.to_string())?,
         };
         let bytes = serde_json::to_vec(&stored).map_err(|e| e.to_string())?;
-        crate::regular_file::publish(
+        match crate::regular_file::publish(
             &self.correction_file(),
             &bytes,
             crate::regular_file::Existing::Replace,
         )
         .map_err(|e| e.to_string())?
-        .map_err(|e| format!("Correction replaced, but persistence is uncertain. Reopen before another change: {e}"))
+        {
+            crate::regular_file::Published::Durable => Ok(()),
+            crate::regular_file::Published::Uncertain(e) => Err(format!(
+                "Correction replaced, but persistence is uncertain. Reopen before another change: {e}"
+            )),
+        }
     }
 }
