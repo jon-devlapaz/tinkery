@@ -106,7 +106,6 @@ fn every_shape_ledger_action_works_without_launching_the_helper() {
             }],
             options: vec![],
             against: None,
-            confidence: None,
         },
         root.path(),
     )

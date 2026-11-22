@@ -16,7 +16,9 @@ use std::{
 };
 
 use crate::{
-    Palette, approve, measure, sdlc, seed_me,
+    Palette, approve,
+    data_roots::DataRoots,
+    measure, sdlc, seed_me,
     shape::{Leave, Shape},
     taste::Taste,
     tend::{self, Discovery, Source, Tend},
@@ -97,14 +99,15 @@ struct ApproveOrigin {
 
 impl Home {
     /// A menu on its first row. `make_dump` makes a fresh think each time think is opened;
-    /// tend reads the selected sessions root or shows its refusal without scanning. Links use
-    /// the separate captured `link_root` (or its refusal).
-    pub fn new(
-        make_dump: Box<dyn Fn() -> BrainDump>,
-        sessions_root: Result<PathBuf, String>,
-        link_root: Result<PathBuf, String>,
-    ) -> Self {
-        let (sessions_root, discovery) = match sessions_root {
+    /// tend reads the sessions root or shows its refusal without scanning. Think records and
+    /// Tend's stores use the other `roots` (or their refusals).
+    pub fn new(make_dump: Box<dyn Fn() -> BrainDump>, roots: DataRoots) -> Self {
+        let DataRoots {
+            sessions,
+            records,
+            tend,
+        } = roots;
+        let (sessions_root, discovery) = match sessions {
             Ok(root) => (Some(root), Discovery::new(Arc::new(tend::scan))),
             Err(reason) => (None, Discovery::unavailable(reason)),
         };
@@ -112,14 +115,14 @@ impl Home {
             quit: false,
             make_dump,
             sessions_root,
-            link_root,
+            link_root: tend,
             selected: Place::Think,
             view: View::Menu,
             help: false,
             key_bar: true,
             receipts: Vec::new(),
             discovery,
-            record_root: crate::think_record::default_root(std::env::var_os("HOME").as_deref()),
+            record_root: records,
             history_reader: tend::history::Reader::default(),
             repo: None,
             shape_agent: None,
@@ -183,30 +186,25 @@ impl Home {
         self
     }
 
-    /// Select the existing Think records to read. Configuring a root creates and reads nothing.
-    pub fn with_record_root(mut self, root: PathBuf) -> Self {
-        self.record_root = Ok(root);
-        self
-    }
-
     /// The menu think returns to after saving a goal when it was launched on its own. The
     /// receipt and captured links destination carry over; `open_tend` opens the saved session.
     pub fn from_receipt(
         mut dump: BrainDump,
         session: &Path,
         open_tend: bool,
-        link_root: Result<PathBuf, String>,
+        roots: DataRoots,
         shape_agent: Option<Arc<crate::shape::Agent>>,
     ) -> Self {
-        let root = session
-            .parent()
-            .map(|path| Ok(path.to_path_buf()))
-            .unwrap_or_else(|| crate::seed_me::default_root(std::env::var_os("HOME").as_deref()));
-        let mut home =
-            Self::new(dump.fresh_factory(), root, link_root).with_shape_agent(shape_agent);
-        if let Some(root) = dump.record_root() {
-            home.record_root = Ok(root.to_path_buf());
-        }
+        let roots = DataRoots {
+            sessions: session
+                .parent()
+                .map_or(roots.sessions, |path| Ok(path.to_path_buf())),
+            records: dump
+                .record_root()
+                .map_or(roots.records, |root| Ok(root.to_path_buf())),
+            tend: roots.tend,
+        };
+        let mut home = Self::new(dump.fresh_factory(), roots).with_shape_agent(shape_agent);
         home.key_bar = dump.key_bar_on();
         home.repo = dump.repo().cloned();
         if let Some(receipt) = dump.finish_handoff() {
@@ -524,10 +522,10 @@ impl Home {
             Place::Tend => {
                 // Deliberate reopening reads again; the last result shows meanwhile.
                 self.request_sessions();
-                let mut tend = Tend::new(self.link_root.clone());
-                tend.thoughts = self.repo.as_ref().map(|repo| {
-                    tend::thought::Garden::open(self.link_root.clone(), repo.root().to_path_buf())
-                });
+                let mut tend = Tend::new(
+                    self.link_root.clone(),
+                    self.repo.as_ref().map(|repo| repo.root()),
+                );
                 if let Some((words, duplicate)) = self.thought_saved.take() {
                     tend.thought_saved(&words, duplicate);
                 }
@@ -1440,8 +1438,11 @@ mod tests {
     fn home(root: &Path) -> Home {
         Home::new(
             Box::new(BrainDump::default),
-            Ok(root.to_path_buf()),
-            Ok(root.join("TEST-links")),
+            DataRoots {
+                sessions: Ok(root.to_path_buf()),
+                tend: Ok(root.join("TEST-links")),
+                ..DataRoots::from_env()
+            },
         )
     }
 
@@ -1727,7 +1728,10 @@ mod tests {
                     dump,
                     &saved,
                     false,
-                    Ok(tmp.path().join("TEST-links")),
+                    DataRoots {
+                        tend: Ok(tmp.path().join("TEST-links")),
+                        ..DataRoots::from_env()
+                    },
                     None,
                 );
                 let screen = snapshot(width, height, &mut h, no_color).unwrap();

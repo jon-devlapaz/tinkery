@@ -116,18 +116,22 @@ fn so_far_names_open_questions_and_the_answers_they_wait_for() {
 fn new_answer_actions_cannot_escape_an_ending_or_objection() {
     for ending in [true, false] {
         let mut shape = done(question()).with_agent(Some(agent(1)));
-        let open = shape.open.as_mut().unwrap();
-        if ending {
-            open.asking = Some(Ending::Stopped);
-        } else {
-            open.objecting = true;
-        }
+        shape.open.as_mut().unwrap().assumed.push(Assumption {
+            text: "TEST default".into(),
+            why: "TEST equal".into(),
+        });
+        choose(
+            &mut shape,
+            if ending {
+                "Stop this session"
+            } else {
+                "Object to an assumption"
+            },
+        );
         assert!(!offers(&shape, "Defer") && !offers(&shape, "Delegate"));
         let open = shape.open.as_ref().unwrap();
-        assert!(open.form.is_none() && open.running.is_none() && open.writing.is_none());
-        assert!(open.notice.is_none());
-        assert_eq!(open.asking.is_some(), ending);
-        assert_eq!(open.objecting, !ending);
+        assert_eq!(matches!(open.mode, Mode::Asking(_)), ending);
+        assert_eq!(matches!(open.mode, Mode::Objecting), !ending);
     }
 }
 
@@ -173,7 +177,11 @@ fn forms_do_not_retarget_after_a_stale_read_and_held_keys_do_nothing() {
         held.kind = KeyEventKind::Repeat;
         assert!(!shape.pick(held));
         let open = shape.open.as_ref().unwrap();
-        assert!(open.form.is_none() && open.running.is_none() && open.writing.is_none());
+        assert!(
+            !matches!(open.mode, Mode::Idle(Editor::Form(_)))
+                && !matches!(open.mode, Mode::Running(..))
+                && !matches!(open.mode, Mode::Writing(..))
+        );
     }
     choose(&mut shape, "Defer");
     let open = shape.open.as_mut().unwrap();
@@ -213,12 +221,21 @@ fn only_flagged_operator_decisions_offer_a_revision_form() {
             assert_eq!(offers(&shape, "Revise"), revisable);
             if revisable {
                 choose(&mut shape, "Revise");
-                assert!(shape.open.as_ref().unwrap().form.is_some());
+                assert!(matches!(
+                    shape.open.as_ref().unwrap().mode,
+                    Mode::Idle(Editor::Form(_))
+                ));
                 shape.paste("TEST replacement\r\nwords ");
                 assert!(screen(&mut shape, width, height, true).contains("replacement answer"));
                 shape.key(key(KeyCode::Esc));
-                assert!(shape.open.as_ref().unwrap().form.is_none());
-                assert!(shape.open.as_ref().unwrap().running.is_none());
+                assert!(!matches!(
+                    shape.open.as_ref().unwrap().mode,
+                    Mode::Idle(Editor::Form(_))
+                ));
+                assert!(!matches!(
+                    shape.open.as_ref().unwrap().mode,
+                    Mode::Running(..)
+                ));
             }
         }
     }
@@ -235,8 +252,15 @@ fn deferral_form_keeps_fields_and_original_answer_without_writes() {
     shape.key(key(KeyCode::F(2)));
     shape.paste("TEST before implementation ");
     shape.key(key(KeyCode::Tab));
+    let Some(Typing {
+        act: Act::Respond { action, .. },
+        ..
+    }) = shape.open.as_ref().unwrap().typing()
+    else {
+        panic!("no form")
+    };
     assert_eq!(
-        shape.open.as_ref().unwrap().form.as_ref().unwrap().action(),
+        action,
         AnswerAction::Defer {
             reason: "TEST wait\r\nfor scope ".into(),
             revisit: "TEST before implementation ".into(),
@@ -245,12 +269,18 @@ fn deferral_form_keeps_fields_and_original_answer_without_writes() {
     shape.key(key(KeyCode::Esc));
     let open = shape.open.as_ref().unwrap();
     assert_eq!(open.typed.text(), "TEST original answer");
-    assert!(open.running.is_none() && open.writing.is_none());
+    assert!(!matches!(open.mode, Mode::Running(..)) && !matches!(open.mode, Mode::Writing(..)));
     shape.held = true;
     assert!(!offers(&shape, "Defer") && !offers(&shape, "Delegate"));
     shape.key(key(KeyCode::F(2)));
-    assert!(shape.open.as_ref().unwrap().form.is_none());
-    assert!(shape.open.as_ref().unwrap().running.is_none());
+    assert!(!matches!(
+        shape.open.as_ref().unwrap().mode,
+        Mode::Idle(Editor::Form(_))
+    ));
+    assert!(!matches!(
+        shape.open.as_ref().unwrap().mode,
+        Mode::Running(..)
+    ));
 }
 
 #[test]
@@ -277,9 +307,15 @@ fn a_flagged_answer_has_a_read_only_route_and_an_explicit_budget_free_keep_key()
     let text = screen(&mut writable, 80, 24, true);
     assert!(text.contains("enter keep with reason"), "{text}");
     writable.key(key(KeyCode::F(2)));
-    assert!(screen(&mut writable, 80, 24, true).contains(WORD_REFUSALS[2]));
-    assert!(writable.open.as_ref().unwrap().writing.is_none());
-    assert!(writable.open.as_ref().unwrap().running.is_none());
+    assert!(screen(&mut writable, 80, 24, true).contains(REASON_FIRST));
+    assert!(!matches!(
+        writable.open.as_ref().unwrap().mode,
+        Mode::Writing(..)
+    ));
+    assert!(!matches!(
+        writable.open.as_ref().unwrap().mode,
+        Mode::Running(..)
+    ));
     assert_eq!(writable.agent.as_ref().unwrap().remaining(), 0);
 }
 
@@ -423,11 +459,11 @@ fn so_far(shape: &mut Shape, width: u16, height: u16, no_color: bool) -> String 
     shape.key(key(KeyCode::Char('x')));
     shape.key(key(KeyCode::Esc));
     assert!(
-        shape.open.as_ref().unwrap().so_far.is_none(),
+        !matches!(shape.open.as_ref().unwrap().mode, Mode::SoFar(_)),
         "Esc kept So far open"
     );
     assert!(
-        shape.open.as_ref().unwrap().typed.is_empty(),
+        shape.open.as_ref().unwrap().typed.text().is_empty(),
         "So far took a letter"
     );
     rows[start + 1..end].join("\n")
@@ -644,7 +680,10 @@ fn typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_st
     shape.paste("\nkept");
     shape.key(key(KeyCode::F(2)));
     let open = shape.open.as_ref().unwrap();
-    assert!(open.running.is_none(), "a step started with no budget");
+    assert!(
+        !matches!(open.mode, Mode::Running(..)),
+        "a step started with no budget"
+    );
     assert_eq!(open.typed.text(), "Local? Yes\nkept");
     let text = screen(&mut shape, 100, 30, true);
     assert!(
@@ -687,8 +726,11 @@ fn a_correction_typed_where_confirm_goes_carries_into_revise_the_draft() {
     screen(&mut shape, 80, 24, true);
     shape.paste(words);
     shape.key(key(KeyCode::F(2)));
-    assert!(shape.open.as_ref().unwrap().running.is_none());
-    assert!(screen(&mut shape, 80, 24, true).contains(WORD_REFUSALS[1]));
+    assert!(!matches!(
+        shape.open.as_ref().unwrap().mode,
+        Mode::Running(..)
+    ));
+    assert!(screen(&mut shape, 80, 24, true).contains(CONFIRM_FIRST));
     choose(&mut shape, "Revise the draft");
     let text = screen(&mut shape, 80, 24, true);
     assert!(
@@ -708,7 +750,7 @@ fn a_correction_typed_where_confirm_goes_carries_into_revise_the_draft() {
     choose(&mut shape, "Revise the draft");
     shape.key(key(KeyCode::F(2)));
     assert!(
-        shape.open.as_ref().unwrap().running.is_some(),
+        matches!(shape.open.as_ref().unwrap().mode, Mode::Running(..)),
         "enter did not save the change and redraft"
     );
     // The word that confirms is never carried in as a change.
@@ -723,7 +765,10 @@ fn a_correction_typed_where_confirm_goes_carries_into_revise_the_draft() {
     shape.paste("confirm");
     choose(&mut shape, "Revise the draft");
     shape.key(key(KeyCode::F(2)));
-    assert!(shape.open.as_ref().unwrap().running.is_none());
+    assert!(!matches!(
+        shape.open.as_ref().unwrap().mode,
+        Mode::Running(..)
+    ));
     assert!(
         screen(&mut shape, 80, 24, true)
             .contains("Type what should change first; nothing was saved.")
@@ -744,23 +789,20 @@ fn teach_back_prefills_exact_confirmation_words_without_sharing_edits() {
         );
         shape.paste(words);
         choose(&mut shape, "Teach back");
-        let open = shape.open.as_ref().unwrap();
-        assert_eq!(open.aside.as_ref().unwrap().1.text(), words);
+        let open = shape.open.as_mut().unwrap();
+        assert!(matches!(
+            open.mode,
+            Mode::Idle(Editor::Aside(Aside::TeachBack, _))
+        ));
+        assert_eq!(open.words().text(), words);
         assert_eq!(open.typed.text(), words);
         shape.paste("TEST changed teach-back");
-        let open = shape.open.as_ref().unwrap();
-        assert!(
-            open.aside
-                .as_ref()
-                .unwrap()
-                .1
-                .text()
-                .contains("TEST changed teach-back")
-        );
+        let open = shape.open.as_mut().unwrap();
+        assert!(open.words().text().contains("TEST changed teach-back"));
         assert_eq!(open.typed.text(), words);
         shape.key(key(KeyCode::Esc));
         let open = shape.open.as_ref().unwrap();
-        assert!(open.aside.is_none() && open.running.is_none());
+        assert!(matches!(open.mode, Mode::Idle(Editor::Stage)));
         assert_eq!(open.typed.text(), words);
     }
 }
@@ -798,7 +840,7 @@ fn while_a_step_runs_the_question_and_the_answer_stay_in_view() {
     shape.paste("TEST keep it local");
     shape.key(key(KeyCode::F(2)));
     assert!(
-        shape.open.as_ref().unwrap().running.is_some(),
+        matches!(shape.open.as_ref().unwrap().mode, Mode::Running(..)),
         "no step started"
     );
     for (width, height) in [(100, 30), (80, 24)] {
@@ -869,10 +911,13 @@ fn without_an_agent_shape_only_reads_and_letters_scroll() {
     let mut shape = done(question());
     assert!(!shape.takes_text());
     shape.key(key(KeyCode::Char('j')));
-    assert!(shape.open.as_ref().unwrap().typed.is_empty());
+    assert!(shape.open.as_ref().unwrap().typed.text().is_empty());
     assert_eq!(shape.scroll, 1);
     shape.key(key(KeyCode::F(2)));
-    assert!(shape.open.as_ref().unwrap().running.is_none());
+    assert!(!matches!(
+        shape.open.as_ref().unwrap().mode,
+        Mode::Running(..)
+    ));
     let text = screen(&mut shape, 100, 30, true);
     assert!(
         text.contains("reopen this goal with Shape set up; F1 shows how."),
@@ -932,8 +977,11 @@ fn a_draft_shows_the_seed_and_f2_needs_the_operators_own_words() {
         "{text}"
     );
     shape.key(key(KeyCode::F(2)));
-    assert!(shape.open.as_ref().unwrap().running.is_none());
-    assert!(screen(&mut shape, 100, 30, true).contains(WORD_REFUSALS[1]));
+    assert!(!matches!(
+        shape.open.as_ref().unwrap().mode,
+        Mode::Running(..)
+    ));
+    assert!(screen(&mut shape, 100, 30, true).contains(CONFIRM_FIRST));
 }
 
 #[test]
@@ -2104,7 +2152,6 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
                 assumed: vec![],
                 options: vec![],
                 against: None,
-                confidence: None,
             },
             temp.path(),
         )
@@ -2418,7 +2465,7 @@ fn the_folder_a_step_reads_shows_before_f2_and_f1_picks_another() {
         shape.key(key(KeyCode::Esc));
         assert!(shape.open.is_some(), "Esc while choosing left Shape");
         assert!(screen(&mut shape, 80, 24, true).contains("reads files in TEST-first."));
-        assert!(shape.open.as_ref().unwrap().typed.is_empty());
+        assert!(shape.open.as_ref().unwrap().typed.text().is_empty());
         // A folder that isn't there is refused and the shown one stays.
         choose(&mut shape, "Choose the folder");
         shape.paste("-missing");
@@ -2463,7 +2510,10 @@ fn no_folder_is_offered_without_an_agent_or_a_step_and_no_step_starts_before_it_
     let mut finding = done(Shaped::Waiting).with_agent(Some(agent(1)));
     assert!(screen(&mut finding, 100, 30, true).contains("Finding which folder the step reads."));
     finding.key(key(KeyCode::F(2)));
-    assert!(finding.open.as_ref().unwrap().running.is_none());
+    assert!(!matches!(
+        finding.open.as_ref().unwrap().mode,
+        Mode::Running(..)
+    ));
     assert!(screen(&mut finding, 100, 30, true).contains("still finding which folder"));
 }
 
@@ -2519,7 +2569,7 @@ fn so_far_scrolls_on_a_short_screen_and_always_says_how_to_close() {
     assert!(text.contains("↑↓ scroll · esc close"), "{text}");
     shape.key(key(KeyCode::Esc));
     assert!(
-        shape.open.as_ref().unwrap().so_far.is_none(),
+        !matches!(shape.open.as_ref().unwrap().mode, Mode::SoFar(_)),
         "Esc didn't close So far"
     );
 }
@@ -2538,7 +2588,7 @@ fn a_long_answer_never_hides_the_question_or_what_a_running_step_is_doing() {
     assert!(text.contains("TEST line 20"), "{text}");
     shape.key(key(KeyCode::F(2)));
     assert!(
-        shape.open.as_ref().unwrap().running.is_some(),
+        matches!(shape.open.as_ref().unwrap().mode, Mode::Running(..)),
         "no step started"
     );
     let text = screen(&mut shape, 80, 24, true);
@@ -2585,7 +2635,7 @@ fn a_newline_key_at_seed_confirmation_guides_without_editing_or_starting_a_step(
         shape.key(newline);
         let open = shape.open.as_ref().unwrap();
         assert_eq!(open.typed.text(), words);
-        assert!(open.running.is_none());
+        assert!(!matches!(open.mode, Mode::Running(..)));
         assert_eq!(shape.agent.as_ref().unwrap().remaining(), 0);
         assert!(
             screen(&mut shape, 80, 24, true)
@@ -2616,11 +2666,14 @@ fn only_the_word_confirm_confirms_and_other_words_are_kept_unconfirmed() {
         shape.paste(words);
         shape.key(key(KeyCode::F(2)));
         let open = shape.open.as_ref().unwrap();
-        assert!(open.running.is_none(), "{words:?} started a confirmation");
+        assert!(
+            !matches!(open.mode, Mode::Running(..)),
+            "{words:?} started a confirmation"
+        );
         assert_eq!(open.typed.text(), words);
         assert_eq!(shape.agent.as_ref().unwrap().remaining(), 0);
         let shown = screen(&mut shape, 80, 24, true);
-        assert!(shown.contains(WORD_REFUSALS[1]), "{shown}");
+        assert!(shown.contains(CONFIRM_FIRST), "{shown}");
     }
     let mut shape = done(Shaped::Drafted {
         revision: Some("r1".into()),
@@ -2630,7 +2683,10 @@ fn only_the_word_confirm_confirms_and_other_words_are_kept_unconfirmed() {
     screen(&mut shape, 80, 24, true);
     shape.paste("confirm");
     shape.key(key(KeyCode::F(2)));
-    assert!(shape.open.as_ref().unwrap().running.is_some());
+    assert!(matches!(
+        shape.open.as_ref().unwrap().mode,
+        Mode::Running(..)
+    ));
 }
 
 #[test]
@@ -2649,7 +2705,7 @@ fn enter_runs_the_key_bar_action_and_only_typed_confirm_confirms() {
         shape.paste(words);
         shape.key(key(KeyCode::Enter));
         let open = shape.open.as_ref().unwrap();
-        assert_eq!(open.running.is_some(), starts, "{words:?}");
+        assert_eq!(matches!(open.mode, Mode::Running(..)), starts, "{words:?}");
         assert_eq!(open.typed.text(), words);
     }
 }
@@ -2667,7 +2723,7 @@ fn folder_edits_keep_multiline_paths_including_trailing_whitespace() {
         shape.paste(folder.to_str().unwrap());
         shape.key(KeyEvent::new(KeyCode::Char('j'), KeyModifiers::CONTROL));
         assert!(
-            shape.open.as_ref().unwrap().choosing.is_some(),
+            matches!(shape.open.as_ref().unwrap().mode, Mode::Choosing(_)),
             "Ctrl+J applied the folder"
         );
         shape.key(key(KeyCode::Backspace));
@@ -2675,7 +2731,7 @@ fn folder_edits_keep_multiline_paths_including_trailing_whitespace() {
         let open = shape.open.as_ref().unwrap();
         assert!(matches!(&open.folder, Folder::Known(p) if *p == folder.canonicalize().unwrap()));
         assert!(open.notice.is_none(), "the exact folder was refused");
-        assert!(open.running.is_none());
+        assert!(!matches!(open.mode, Mode::Running(..)));
     }
 }
 
@@ -2855,7 +2911,9 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
 
 #[test]
 fn uncertain_endings_and_other_ledger_saves_never_claim_nothing_changed() {
-    let reason = "This may or may not have saved (TEST read-back failed). Reopen this session before trying again.";
+    // No key or file setup makes a save's read-back fail on demand, so this one result comes in
+    // where the ledger's own writer thread would deliver it.
+    let reason = "This may or may not have saved (TEST read-back failed). Reopen this session to see what it holds before trying again.";
     for write in [
         Write::End(Ending::Completed),
         Write::Object("TEST default".into()),
@@ -2866,12 +2924,83 @@ fn uncertain_endings_and_other_ledger_saves_never_claim_nothing_changed() {
     ] {
         let mut shape = done(question());
         let (sender, receiver) = std::sync::mpsc::channel();
-        shape.open.as_mut().unwrap().writing = Some((write, receiver));
+        shape.open.as_mut().unwrap().mode = Mode::Writing(write, receiver, Editor::Stage);
         sender.send(Err(Refusal::Refused(reason.into()))).unwrap();
         shape.tick();
         assert_eq!(
-            shape.open.as_ref().unwrap().notice.as_ref().unwrap().0,
+            shape
+                .open
+                .as_ref()
+                .unwrap()
+                .notice
+                .as_ref()
+                .unwrap()
+                .parts()
+                .0,
             reason
+        );
+    }
+}
+
+#[test]
+fn ledger_refusals_of_endings_objections_and_suggestions_are_shown_unchanged() {
+    // This fixture's session path doesn't exist, so each write the operator starts is refused.
+    let path = Path::new("/tmp/TEST-shape/session");
+    let mut hard = question();
+    if let Shaped::Question { hard, .. } = &mut hard {
+        *hard = true;
+    }
+    for (stage, row, digit, expected) in [
+        (
+            question(),
+            "Stop this session",
+            None,
+            answering::end(path, Ending::Stopped, Actor::OPERATOR).map(|_| ()),
+        ),
+        (
+            question(),
+            "Object to an assumption",
+            Some('1'),
+            answering::object(path, 3, "TEST default", Actor::OPERATOR).map(|_| ()),
+        ),
+        (
+            hard,
+            "Show the options",
+            None,
+            answering::recommend(path, 3, "storage", "TEST kept", Actor::OPERATOR).map(|_| ()),
+        ),
+    ] {
+        let mut shape = done(stage);
+        let open = shape.open.as_mut().unwrap();
+        open.assumed.push(Assumption {
+            text: "TEST default".into(),
+            why: "TEST equal".into(),
+        });
+        open.withheld = Some("TEST kept".into());
+        choose(&mut shape, row);
+        match digit {
+            Some(digit) => shape.key(key(KeyCode::Char(digit))),
+            None => shape.key(key(KeyCode::F(2))),
+        };
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while matches!(shape.open.as_ref().unwrap().mode, Mode::Writing(..)) {
+            assert!(std::time::Instant::now() < deadline, "{row} never landed");
+            shape.tick();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let expected = expected.unwrap_err().to_string();
+        assert_eq!(
+            shape
+                .open
+                .as_ref()
+                .unwrap()
+                .notice
+                .as_ref()
+                .unwrap()
+                .parts()
+                .0,
+            expected,
+            "{row}"
         );
     }
 }
@@ -2898,14 +3027,14 @@ fn ending_asks_once_more_and_esc_or_a_held_key_ends_nothing() {
         // Each stage offers only its own ending.
         assert!(!offers(&shape, other));
         choose(&mut shape, ending);
-        assert!(shape.open.as_ref().unwrap().asking.is_some());
+        assert!(matches!(shape.open.as_ref().unwrap().mode, Mode::Asking(_)));
         let text = screen(&mut shape, 80, 24, true);
         assert!(text.contains("read-only for good"), "{text}");
         assert!(text.contains("esc keep it"), "{text}");
         // Esc keeps it open; nothing started.
         shape.key(key(KeyCode::Esc));
         let open = shape.open.as_ref().unwrap();
-        assert!(open.asking.is_none() && open.writing.is_none());
+        assert!(!matches!(open.mode, Mode::Asking(_)) && !matches!(open.mode, Mode::Writing(..)));
         assert!(screen(&mut shape, 80, 24, true).contains("Nothing was ended."));
         // Asked, other keys and a held F2 do nothing; F2 ends it through the helper.
         choose(&mut shape, ending);
@@ -2913,18 +3042,24 @@ fn ending_asks_once_more_and_esc_or_a_held_key_ends_nothing() {
         shape.key(key(KeyCode::Char('x')));
         shape.key(key(KeyCode::Char('1')));
         shape.key(held);
-        assert!(shape.open.as_ref().unwrap().writing.is_none());
+        assert!(!matches!(
+            shape.open.as_ref().unwrap().mode,
+            Mode::Writing(..)
+        ));
         shape.key(key(KeyCode::F(2)));
-        assert!(shape.open.as_ref().unwrap().writing.is_some());
+        assert!(matches!(
+            shape.open.as_ref().unwrap().mode,
+            Mode::Writing(..)
+        ));
         // This fixture's session path doesn't exist, so the ledger's refusal lands.
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-        while shape.open.as_ref().unwrap().writing.is_some() {
+        while matches!(shape.open.as_ref().unwrap().mode, Mode::Writing(..)) {
             assert!(std::time::Instant::now() < deadline, "ending never landed");
             shape.tick();
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
         let open = shape.open.as_ref().unwrap();
-        let said = &open.notice.as_ref().unwrap().0;
+        let said = &open.notice.as_ref().unwrap().parts().0;
         assert!(said.starts_with("Tinkery refused:"), "{said}");
     }
     // Ended, unknown and unverified sessions offer no ending.
@@ -2995,11 +3130,14 @@ fn assumptions_show_with_their_question_and_object_then_a_number_objects_to_one(
         assert!(text.lines().last().unwrap().contains("F1 more"), "{text}");
     }
     choose(&mut shape, "Object");
-    assert!(shape.open.as_ref().unwrap().objecting);
+    assert!(matches!(shape.open.as_ref().unwrap().mode, Mode::Objecting));
     assert!(screen(&mut shape, 80, 24, true).contains("esc keep them all"));
     // Esc keeps them all; a number with no assumption and other keys do nothing.
     shape.key(key(KeyCode::Esc));
-    assert!(!shape.open.as_ref().unwrap().objecting);
+    assert!(!matches!(
+        shape.open.as_ref().unwrap().mode,
+        Mode::Objecting
+    ));
     assert!(screen(&mut shape, 80, 24, true).contains("Nothing was changed."));
     choose(&mut shape, "Object");
     for code in [
@@ -3011,12 +3149,15 @@ fn assumptions_show_with_their_question_and_object_then_a_number_objects_to_one(
         shape.key(key(code));
     }
     let open = shape.open.as_ref().unwrap();
-    assert!(open.objecting && open.writing.is_none());
+    assert!(matches!(open.mode, Mode::Objecting) && !matches!(open.mode, Mode::Writing(..)));
     shape.key(key(KeyCode::Char('2')));
-    assert!(shape.open.as_ref().unwrap().writing.is_some());
+    assert!(matches!(
+        shape.open.as_ref().unwrap().mode,
+        Mode::Writing(..)
+    ));
     // This fixture's session path doesn't exist, so the ledger read refusal lands and both stay.
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-    while shape.open.as_ref().unwrap().writing.is_some() {
+    while matches!(shape.open.as_ref().unwrap().mode, Mode::Writing(..)) {
         assert!(
             std::time::Instant::now() < deadline,
             "objection never landed"
@@ -3025,15 +3166,8 @@ fn assumptions_show_with_their_question_and_object_then_a_number_objects_to_one(
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
     let open = shape.open.as_ref().unwrap();
-    assert!(
-        open.notice
-            .as_ref()
-            .unwrap()
-            .0
-            .starts_with("Cannot read this session:"),
-        "{:?}",
-        open.notice
-    );
+    let said = open.notice.as_ref().unwrap().parts().0;
+    assert!(said.starts_with("Cannot read this session:"), "{said}");
     assert_eq!(open.assumed.len(), 2);
 }
 
@@ -3074,7 +3208,6 @@ fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
         assumed: vec![assumption("TEST Markdown"), assumption("TEST one machine")],
         options: vec![],
         against: None,
-        confidence: None,
     };
     let version = answering::read(&session).unwrap().version();
     let version = answering::ask(&session, version, &ask, temp.path()).unwrap();
@@ -3171,7 +3304,6 @@ fn a_step_gives_exactly_two_options_with_a_known_undo_cost_or_none() {
         let ask = decode(&options, "sure");
         assert!(ask.options.is_empty(), "{options}");
         assert!(!ask.hard());
-        assert_eq!(ask.confidence, None);
     }
 }
 
@@ -3205,14 +3337,22 @@ fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
         }
         choose(&mut shape, "Show the options");
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-        while shape.open.as_ref().unwrap().writing.is_some() {
+        while matches!(shape.open.as_ref().unwrap().mode, Mode::Writing(..)) {
             assert!(std::time::Instant::now() < deadline, "reveal never landed");
             shape.tick();
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
         assert!(shape.open.as_ref().unwrap().revealed);
         // Recording a withheld suggestion needs the helper; this fixture's path doesn't exist.
-        let said = &shape.open.as_ref().unwrap().notice.as_ref().unwrap().0;
+        let said = &shape
+            .open
+            .as_ref()
+            .unwrap()
+            .notice
+            .as_ref()
+            .unwrap()
+            .parts()
+            .0;
         match withheld {
             None => assert!(said.contains("No suggestion was kept"), "{said}"),
             Some(_) => assert!(said.starts_with("Cannot read this session:"), "{said}"),
@@ -3307,7 +3447,6 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
             assumed: vec![],
             options: vec![option("Local", "cheap"), option("Synced", undo)],
             against: Some("TEST sync helps later".into()),
-            confidence: Some("high".into()),
         };
         let version = answering::read(&session).unwrap().version();
         let version = answering::ask(&session, version, &ask, temp.path()).unwrap();
@@ -3486,7 +3625,6 @@ fn the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model
         assumed: vec![],
         options: vec![],
         against: None,
-        confidence: None,
     };
     fs::write(temp.path().join("TEST-read.md"), "TEST local only\n").unwrap();
     let version = answering::ask(&session, version, &ask, temp.path()).unwrap();
@@ -3700,7 +3838,11 @@ fn an_agent_declaration_holds_every_shape_write_and_says_why() {
             shape.key(key(KeyCode::F(2)));
             shape.key(key(KeyCode::F(2)));
             let open = shape.open.as_ref().unwrap();
-            assert!(open.running.is_none() && open.writing.is_none() && open.asking.is_none());
+            assert!(
+                !matches!(open.mode, Mode::Running(..))
+                    && !matches!(open.mode, Mode::Writing(..))
+                    && !matches!(open.mode, Mode::Asking(_))
+            );
             let text = screen(&mut shape, 100, 30, true);
             assert!(flat(text.clone()).contains(HELD), "{text}");
             let bar = text.lines().last().unwrap();
@@ -3742,7 +3884,10 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
                 );
                 assert!(!text.contains("Next: type your own words"), "{text}");
                 assert!(!text.contains("type confirm, then Enter"), "{text}");
-                assert!(shape.open.as_ref().unwrap().running.is_none());
+                assert!(!matches!(
+                    shape.open.as_ref().unwrap().mode,
+                    Mode::Running(..)
+                ));
             }
             shape.paste("TEST exact words café  ");
             assert_eq!(
@@ -3799,7 +3944,10 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
                 };
                 assert_eq!(reading.goal.as_deref(), Some(GOAL));
                 assert_eq!(reading.stage, long_draft());
-                assert!(open.running.is_none() && open.writing.is_none());
+                assert!(
+                    !matches!(open.mode, Mode::Running(..))
+                        && !matches!(open.mode, Mode::Writing(..))
+                );
             }
             // Empty words gain their instruction on the first end frame too.
             let mut empty = done(long_draft()).with_agent(Some(agent(0)));
@@ -3816,7 +3964,7 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
             empty.key(key(KeyCode::F(2)));
             let refusal = screen(&mut empty, width, height, no_color);
             assert!(
-                refusal.contains(WORD_REFUSALS[1]),
+                refusal.contains(CONFIRM_FIRST),
                 "unrelated refusal was cleared: {refusal}"
             );
         }
@@ -3860,7 +4008,10 @@ fn f2_waits_until_the_whole_seed_draft_has_been_on_screen() {
         screen(&mut shape, width, height, true);
         shape.paste("I confirm r1.");
         shape.key(key(KeyCode::F(2)));
-        assert!(shape.open.as_ref().unwrap().running.is_none());
+        assert!(!matches!(
+            shape.open.as_ref().unwrap().mode,
+            Mode::Running(..)
+        ));
         let refusal = screen(&mut shape, width, height, true);
         assert!(
             refusal.contains("PgDn or Down to 'End of Tink Contract' first."),
@@ -3943,7 +4094,10 @@ fn read_to_end_survives_same_revision_rereads_but_not_a_new_revision() {
                 );
                 if changed {
                     shape.key(key(KeyCode::F(2)));
-                    assert!(shape.open.as_ref().unwrap().running.is_none());
+                    assert!(!matches!(
+                        shape.open.as_ref().unwrap().mode,
+                        Mode::Running(..)
+                    ));
                     assert!(
                         screen(&mut shape, width, height, no_color)
                             .contains("PgDn or Down to 'End of Tink Contract' first.")
@@ -3973,14 +4127,129 @@ fn changing_the_words_clears_a_refusal_about_them_and_only_then() {
     screen(&mut shape, 80, 24, true);
     shape.paste("I confirm\nr1.");
     shape.key(key(KeyCode::F(2)));
-    assert!(screen(&mut shape, 80, 24, true).contains(WORD_REFUSALS[1]));
+    assert!(screen(&mut shape, 80, 24, true).contains(CONFIRM_FIRST));
     shape.key(key(KeyCode::Left));
     assert!(
-        screen(&mut shape, 80, 24, true).contains(WORD_REFUSALS[1]),
+        screen(&mut shape, 80, 24, true).contains(CONFIRM_FIRST),
         "moving the caret changed no words but cleared the refusal"
     );
     shape.key(key(KeyCode::Backspace));
-    assert!(!screen(&mut shape, 80, 24, true).contains(WORD_REFUSALS[1]));
+    assert!(!screen(&mut shape, 80, 24, true).contains(CONFIRM_FIRST));
+}
+
+#[test]
+fn typing_in_a_teach_back_or_change_box_clears_the_refusal_about_its_empty_words() {
+    let dir = tempfile::tempdir().unwrap();
+    for (row, refusal) in [
+        ("Teach back", TEACH_BACK_FIRST),
+        ("Revise the draft", CHANGE_FIRST),
+    ] {
+        let mut shape = reading(
+            done(Shaped::Drafted {
+                revision: Some("r1".into()),
+                text: Some("TEST seed".into()),
+            })
+            .with_agent(Some(agent(1))),
+            dir.path(),
+        );
+        screen(&mut shape, 80, 24, true);
+        choose(&mut shape, row);
+        shape.key(key(KeyCode::F(2)));
+        assert!(screen(&mut shape, 80, 24, true).contains(refusal), "{row}");
+        shape.key(key(KeyCode::Char('x')));
+        let text = screen(&mut shape, 80, 24, true);
+        assert!(!text.contains(refusal), "{row}: {text}");
+    }
+}
+
+#[test]
+fn f1_offers_no_answer_action_on_a_read_without_a_ledger_version() {
+    let deferred = crate::seed_me::ledger::DeferredPrerequisite {
+        id: "TEST-earlier".into(),
+        title: "TEST earlier".into(),
+        question: "TEST earlier question?".into(),
+        reason: "TEST later".into(),
+        revisit: "TEST when asked".into(),
+    };
+    let review = Shaped::Review {
+        id: "TEST-answer".into(),
+        title: "TEST answer".into(),
+        answer: "TEST old".into(),
+        found: vec![],
+        revisable: true,
+    };
+    for version in [Some(3), None] {
+        for (stage, rows) in [
+            (
+                question(),
+                &["Defer", "Delegate", "Answer deferred prerequisite"][..],
+            ),
+            (review.clone(), &["Revise the answer"][..]),
+        ] {
+            let mut shape = done(stage).with_agent(Some(agent(1)));
+            let Reading::Done(Ok(shaping)) = &mut shape.open.as_mut().unwrap().reading else {
+                panic!()
+            };
+            shaping.version = version;
+            shaping.deferred = Some(deferred.clone());
+            for row in rows {
+                assert_eq!(
+                    offers(&shape, row),
+                    version.is_some(),
+                    "{row} at {version:?}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn a_fresh_read_under_an_open_teach_back_keeps_its_words_on_screen_and_unsent() {
+    let dir = tempfile::tempdir().unwrap();
+    for (row, label, what) in [
+        ("Teach back", "your teach-back", "Teach-back"),
+        ("Revise the draft", "your change", "Change"),
+    ] {
+        let mut shape = reading(
+            done(Shaped::Drafted {
+                revision: Some("r1".into()),
+                text: Some("TEST seed".into()),
+            })
+            .with_agent(Some(agent(1))),
+            dir.path(),
+        );
+        screen(&mut shape, 80, 24, true);
+        choose(&mut shape, row);
+        shape.paste("TEST kept words");
+        // A fresh read lands on a new question instead of the draft.
+        let Reading::Done(Ok(shaping)) = &mut shape.open.as_mut().unwrap().reading else {
+            panic!()
+        };
+        shaping.stage = question();
+        let text = screen(&mut shape, 80, 24, true);
+        assert!(text.contains(label), "{row}: {text}");
+        assert!(text.contains("TEST kept words"), "{row}: {text}");
+        assert!(text.contains(STALE_ASIDE), "{row}: {text}");
+        assert!(text.contains(STALE_NEXT), "{row}: {text}");
+        assert!(!text.contains("reopen this goal"), "{row}: {text}");
+        // The words are read-only: keys neither change them nor send them to the question.
+        assert!(!shape.takes_text());
+        shape.key(key(KeyCode::Char('x')));
+        shape.paste("TEST more");
+        shape.key(key(KeyCode::F(2)));
+        let open = shape.open.as_mut().unwrap();
+        assert!(matches!(open.mode, Mode::Idle(Editor::Aside(..))), "{row}");
+        assert_eq!(open.words().text(), "TEST kept words");
+        assert_eq!(open.typed.text(), "");
+        assert!(screen(&mut shape, 80, 24, true).contains("TEST kept words"));
+        shape.key(key(KeyCode::Esc));
+        let text = screen(&mut shape, 80, 24, true);
+        assert!(
+            text.contains(&format!("{what} closed. Its words were not saved.")),
+            "{row}: {text}"
+        );
+        assert!(!text.contains("TEST kept words"), "{row}: {text}");
+    }
 }
 
 #[test]
@@ -4023,7 +4292,10 @@ fn issue_314_captured_goal_names_missing_success_before_any_call() {
                 "{shown}"
             );
             assert_eq!(host.remaining(), 1);
-            assert!(shape.open.as_ref().unwrap().running.is_none());
+            assert!(!matches!(
+                shape.open.as_ref().unwrap().mode,
+                Mode::Running(..)
+            ));
             assert_eq!(std::fs::read(session.join("ledger.json")).unwrap(), before);
             assert!(!session.join("seed-contract.md").exists());
         }
@@ -4150,14 +4422,7 @@ fn retired_function_keys_do_nothing_and_f1_reaches_every_action() {
         shape.key(key(KeyCode::F(n)));
         let open = shape.open.as_ref().unwrap();
         assert!(
-            open.form.is_none()
-                && open.choosing.is_none()
-                && open.aside.is_none()
-                && open.asking.is_none()
-                && open.so_far.is_none()
-                && !open.objecting
-                && open.running.is_none()
-                && open.writing.is_none(),
+            matches!(open.mode, Mode::Idle(Editor::Stage)),
             "F{n} still does something"
         );
     }

@@ -7,17 +7,11 @@ impl Shape {
     /// Help for what is on screen now: what to do, then how it works with the paths it reads.
     pub fn help_text(&self) -> String {
         let agent = self.agent.as_deref();
-        let back = match &self.open {
-            Some(open) if open.running.is_some() => "Esc stop",
-            Some(Opened {
-                aside: Some((Aside::TeachBack, _)),
-                ..
-            }) => "Esc cancel teach-back",
-            Some(Opened {
-                aside: Some((Aside::Change, _)),
-                ..
-            }) => "Esc cancel change",
-            Some(open) if open.form.is_some() => "Esc cancel form",
+        let back = match self.open.as_ref().map(|open| (&open.mode, open.editor())) {
+            Some((Mode::Running(..), _)) => "Esc stop",
+            Some((_, Editor::Aside(Aside::TeachBack, _))) => "Esc cancel teach-back",
+            Some((_, Editor::Aside(Aside::Change, _))) => "Esc cancel change",
+            Some((_, Editor::Form(_))) => "Esc cancel form",
             _ => "Esc back",
         };
         let (now, how) = match &self.open {
@@ -36,7 +30,17 @@ impl Shape {
                         .into()
                     },
                     |a| {
-                        let step = if open.offers_teach_back() {
+                        let step = if matches!(
+                            &open.reading,
+                            Reading::Done(Ok(Shaping {
+                                stage: Shaped::Drafted {
+                                    revision: Some(_),
+                                    text: Some(_)
+                                },
+                                version: Some(_),
+                                ..
+                            }))
+                        ) {
                             format!("Each teach-back comparison uses one {RESPONSE}, without repository access.")
                         } else {
                             format!("Each {RESPONSE} counts; a step that reads files may use several. Manual actions use none.")
@@ -60,25 +64,26 @@ impl Shape {
                 let change = format!(
                     "Say what should change in the draft. Enter saves your words as your decision and redrafts (one or more {RESPONSE}s); Esc cancels. Nothing is confirmed."
                 );
-                let now = match (agent, open.typing()) {
-                    _ if open.running.is_some() => "A step is running. Esc stops it.",
-                    _ if open.form.is_some() => {
+                let now = match (&open.mode, agent, open.typing()) {
+                    (Mode::Running(..), ..) => "A step is running. Esc stops it.",
+                    (Mode::Idle(Editor::Form(_)) | Mode::Writing(_, _, Editor::Form(_)), ..) => {
                         "Edit the form. ^J adds a line; Esc cancels without saving."
                     }
-                    _ if open.writing.is_some() => "Tinkery is saving a change.",
-                    _ if open.objecting => {
+                    (Mode::Writing(..), ..) => "Tinkery is saving a change.",
+                    (Mode::Objecting, ..) => {
                         "Press the number of the assumption you object to; it becomes an open question. Esc keeps them all."
                     }
-                    _ if open.asking == Some(Ending::Completed) => {
+                    (Mode::Asking(Ending::Completed), ..) => {
                         "enter ends this session as completed, for good; Esc keeps it open."
                     }
-                    _ if open.asking.is_some() => {
+                    (Mode::Asking(Ending::Stopped), ..) => {
                         "enter stops this session for good; Esc keeps it open."
                     }
-                    _ if open.choosing.is_some() => {
+                    (Mode::Choosing(_), ..) => {
                         "Type the folder the next step should read. ^J adds a line; Enter uses it; Esc keeps the one shown."
                     }
                     (
+                        _,
                         Some(_),
                         Some(Typing {
                             act: Act::TeachBack { .. },
@@ -86,6 +91,7 @@ impl Shape {
                         }),
                     ) => &teach_back,
                     (
+                        _,
                         Some(_),
                         Some(Typing {
                             act: Act::Change { .. },
@@ -93,6 +99,7 @@ impl Shape {
                         }),
                     ) => &change,
                     (
+                        _,
                         Some(_),
                         Some(Typing {
                             act: Act::Keep { .. },
@@ -102,6 +109,7 @@ impl Shape {
                         "Type why you're keeping this answer. Enter keeps it unchanged with your reason; no model runs."
                     }
                     (
+                        _,
                         Some(_),
                         Some(Typing {
                             act: Act::Answer { .. },
@@ -114,6 +122,7 @@ impl Shape {
                         )
                     }
                     (
+                        _,
                         Some(_),
                         Some(Typing {
                             act: Act::Confirm { .. },
@@ -126,16 +135,15 @@ impl Shape {
                             "Without a completed teach-back, confirming records: Skipped teach-back."
                         )
                     }
-                    (Some(_), Some(_)) => {
+                    (_, Some(_), Some(_)) => {
                         "Edit the form. ^J adds a line; Esc cancels without saving."
                     }
                     _ => "Check the status of this Tink. ↑↓ or PgUp/PgDn scroll.",
                 };
-                let form = open
-                    .form
-                    .as_ref()
-                    .map(|f| format!("\n{}", f.description()))
-                    .unwrap_or_default();
+                let form = match open.editor() {
+                    Editor::Form(form) => format!("\n{}", form.description()),
+                    _ => String::new(),
+                };
                 (
                     now.to_owned(),
                     format!(

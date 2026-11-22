@@ -30,7 +30,6 @@ fn refused_resolution_links_keep_facts_open_and_save_no_question_or_findings() {
         assumed: vec![],
         options: vec![],
         against: None,
-        confidence: None,
     };
     let version = super::ask(&session, 1, &ask, root.path()).unwrap();
     let before = fs::read(session.join("ledger.json")).unwrap();

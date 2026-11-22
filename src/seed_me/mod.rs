@@ -18,21 +18,7 @@ mod tests;
 pub use save::{Affirmed, Choice, Config, ExitReceipt, Original, Receipt};
 pub use session::{MAX_READ_FAILURES, ReadFailure, Record, Session, Stage, read, session_id};
 
-use std::{
-    ffi::OsStr,
-    path::{Path, PathBuf},
-};
-
-/// The default session root under an absolute HOME; creates nothing and refuses missing,
-/// empty or relative HOME with the explicit-root remedy. Explicit roots remain caller choices.
-pub fn default_root(home: Option<&OsStr>) -> Result<PathBuf, String> {
-    match home.map(Path::new) {
-        Some(home) if home.is_absolute() => Ok(home.join(".local/share/tinkery/sessions")),
-        _ => {
-            Err("HOME is unset or not absolute; pass --seed-session-root PATH for sessions.".into())
-        }
-    }
-}
+use std::path::{Path, PathBuf};
 
 /// Capture an explicit destination relative to the launch directory, or the checked HOME default.
 /// Returns an absolute path without creating it; helpers must receive this same destination.
@@ -52,7 +38,7 @@ pub fn resolve_root(explicit: Option<PathBuf>) -> Result<PathBuf, String> {
             migration::refuse_old_root(&root)?;
             Ok(root)
         }
-        None => default_root(std::env::var_os("HOME").as_deref()),
+        None => crate::data_roots::DataRoots::from_env().sessions,
     }
 }
 

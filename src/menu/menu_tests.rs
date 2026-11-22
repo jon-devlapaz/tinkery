@@ -1,6 +1,7 @@
 //! Menu and tend never wait on session discovery. The fake source is held open, so a
 //! regression that reads inside paint, tick or input fails instead of passing quietly.
 use super::*;
+use crate::data_roots::DataRoots;
 use crate::tend::{Found, Outcome, Session, Stage, scan};
 use serde_json::json;
 use std::{
@@ -188,8 +189,11 @@ fn watch_f10_returns_home_from_help_without_quitting() {
 fn home(source: Source) -> Home {
     Home::new(
         Box::new(BrainDump::default),
-        Ok(PathBuf::from("/TEST/sessions")),
-        Err("TEST links unavailable".into()),
+        DataRoots {
+            sessions: Ok(PathBuf::from("/TEST/sessions")),
+            tend: Err("TEST links unavailable".into()),
+            ..DataRoots::from_env()
+        },
     )
     .with_discovery_source(source)
 }
@@ -199,7 +203,7 @@ fn screen(h: &mut Home) -> String {
 
 fn garden(count: usize) -> Home {
     let mut h = home(Arc::new(|_| panic!("input and painting never read")));
-    let mut tend = Tend::new(Err("TEST links unavailable".into()));
+    let mut tend = Tend::new(Err("TEST links unavailable".into()), None);
     tend.apply(
         &found(
             (0..count)
@@ -384,7 +388,7 @@ fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
 #[test]
 fn wanted_session_is_matched_before_filtering_and_selected_by_path_after_it() {
     for stage in [Stage::GoalSaved, Stage::Completed] {
-        let mut tend = Tend::new(Err("TEST links unavailable".into()));
+        let mut tend = Tend::new(Err("TEST links unavailable".into()), None);
         tend.want = Some(("/TEST/alias".into(), Some("/TEST/target".into())));
         tend.apply(
             &found(vec![
@@ -1256,8 +1260,11 @@ fn returning_from_think_and_reopening_tend_read_again_and_hide_a_stale_count() {
     write_session(tmp.path(), "first", "2026-10-09T10:00:00Z");
     let mut h = Home::new(
         Box::new(BrainDump::default),
-        Ok(tmp.path().to_path_buf()),
-        Ok(tmp.path().join("TEST-links")),
+        DataRoots {
+            sessions: Ok(tmp.path().to_path_buf()),
+            tend: Ok(tmp.path().join("TEST-links")),
+            ..DataRoots::from_env()
+        },
     );
     settle(&mut h);
     assert_eq!(h.count(Place::Tend), Some("1".into()));
@@ -1327,8 +1334,11 @@ fn scan_reads_thousands_once_each_newest_first_with_exact_active_count() {
     assert!(times.windows(2).all(|w| w[0] >= w[1]), "newest first");
     let mut h = Home::new(
         Box::new(BrainDump::default),
-        Ok(tmp.path().to_path_buf()),
-        Ok(tmp.path().join("TEST-links")),
+        DataRoots {
+            sessions: Ok(tmp.path().to_path_buf()),
+            tend: Ok(tmp.path().join("TEST-links")),
+            ..DataRoots::from_env()
+        },
     );
     settle(&mut h);
     assert_eq!(h.count(Place::Tend), Some((total - total / 5).to_string()));
@@ -1445,8 +1455,11 @@ fn unavailable_session_root_never_scans_or_claims_an_empty_list() {
     let reason = "HOME is unavailable; pass --seed-session-root PATH";
     let mut h = Home::new(
         Box::new(BrainDump::default),
-        Err(reason.into()),
-        Err("TEST links unavailable".into()),
+        DataRoots {
+            sessions: Err(reason.into()),
+            tend: Err("TEST links unavailable".into()),
+            ..DataRoots::from_env()
+        },
     )
     .with_discovery_source(Arc::new(|_| panic!("No root must never reach a source")));
     h.tick();
@@ -1488,14 +1501,20 @@ fn links_destination_survives_menu_reopening_and_standalone_receipt_handoff() {
                 BrainDump::default(),
                 &sessions.join("goal"),
                 true,
-                Ok(links.clone()),
+                DataRoots {
+                    tend: Ok(links.clone()),
+                    ..DataRoots::from_env()
+                },
                 None,
             )
         } else {
             Home::new(
                 Box::new(BrainDump::default),
-                Ok(sessions.clone()),
-                Ok(links.clone()),
+                DataRoots {
+                    sessions: Ok(sessions.clone()),
+                    tend: Ok(links.clone()),
+                    ..DataRoots::from_env()
+                },
             )
         };
         for _ in 0..2 {
