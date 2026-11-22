@@ -65,8 +65,9 @@ fn utc_offset(_secs: i64) -> i64 {
     0
 }
 
-/// An RFC 3339 timestamp with its own offset kept, accepting any one character between date
-/// and time, a leap second and lowercase `t` or `z`; anything else is refused.
+/// An RFC 3339 timestamp with its own offset kept. It accepts lowercase `t` or `z`, any one
+/// ASCII separator between date and time, and a leap second at the end of a UTC day; anything
+/// else is refused.
 pub(crate) fn parse(value: &str) -> Option<OffsetDateTime> {
     OffsetDateTime::parse(value, &Rfc3339).ok()
 }

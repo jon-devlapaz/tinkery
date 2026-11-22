@@ -17,7 +17,7 @@ use ratatui::{
     widgets::{Paragraph, Wrap},
 };
 use serde::Deserialize;
-use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+use time::OffsetDateTime;
 
 const LIST_ROWS: usize = 7;
 const TITLE_ROWS: u16 = 5;
@@ -86,7 +86,7 @@ fn parse(text: &str) -> Result<Report, String> {
             || !numbers.insert(pr.number)
             || dates
                 .into_iter()
-                .any(|date| OffsetDateTime::parse(date, &Rfc3339).is_err())
+                .any(|date| crate::calendar::parse(date).is_none())
             || !pr.url.starts_with("https://")
             || pr.head_ref_oid.is_empty()
             || matches!(pr.state, State::Merged) != pr.merged_at.is_some()
