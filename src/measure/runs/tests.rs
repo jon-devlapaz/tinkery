@@ -360,7 +360,11 @@ fn a_relative_build_checkout_never_reads_from_tinkerys_own_folder() {
     // The same folder, spelled relative to this process's folder, which a reader must refuse.
     let up = std::env::current_dir().unwrap().components().count() - 1;
     let relative = "../".repeat(up) + build.strip_prefix("/").unwrap().to_str().unwrap();
-    assert!(Path::new(&relative).join("runs/relative/labels.jsonl").is_file());
+    assert!(
+        Path::new(&relative)
+            .join("runs/relative/labels.jsonl")
+            .is_file()
+    );
     runs[1]["checkout"] = json!(relative);
     write(root, runs);
     let mut view = Measure::open(Repo::enclosing(root));
@@ -371,6 +375,12 @@ fn a_relative_build_checkout_never_reads_from_tinkerys_own_folder() {
             .collect::<Vec<_>>()
             .join(" ")
     };
-    assert!(words("absolute").ends_with("0 1 ? abandoned absolute"), "{text}");
-    assert!(words("relative").ends_with("0 ? ? abandoned relative"), "{text}");
+    assert!(
+        words("absolute").ends_with("0 1 ? abandoned absolute"),
+        "{text}"
+    );
+    assert!(
+        words("relative").ends_with("0 ? ? abandoned relative"),
+        "{text}"
+    );
 }

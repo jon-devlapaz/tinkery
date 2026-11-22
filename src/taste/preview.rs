@@ -542,6 +542,18 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_closed_run_is_never_an_open_local_result() {
+        let run = sdlc::Run::parse(&serde_json::json!({
+            "pr":null, "closure":{"outcome":"abandoned"}, "verification_status":"current",
+            "verification":{"passed":true, "result":"passed"}
+        }));
+        assert_eq!(
+            Local::read(Path::new("/TEST/unopened"), &run, &AtomicBool::new(false)).unwrap_err(),
+            "This run is not an open local result; press r."
+        );
+    }
+
     fn probe(address: SocketAddr) -> bool {
         answers(
             address,
