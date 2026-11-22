@@ -209,13 +209,7 @@ impl Board {
                 q.suggestion = None;
             }
             q.text = text.into();
-            if request.answered.contains(&q.id)
-                || request
-                    .settled
-                    .iter()
-                    .any(|s| same_question(&s.question, q))
-                || request.skipped.iter().any(|s| same_question(s, q))
-            {
+            if request.repeats(q) {
                 g.questions.clear();
             }
         }
@@ -225,16 +219,7 @@ impl Board {
             }
         }
         g.validate(request)?;
-        g.questions.retain(|q| {
-            q.target.is_none_or(|p| {
-                !request.skipped.iter().any(|s| s.target == Some(p))
-                    && (request.ask_counts.get(&p).copied().unwrap_or(0) < 2
-                        || request
-                            .previous
-                            .as_ref()
-                            .is_some_and(|old| old.questions.iter().any(|s| same_question(s, q))))
-            })
-        });
+        g.questions.retain(|q| request.askable(q));
         g.questions.truncate(1);
         let composed = g.parts.compose();
         let outcome = g.parts.done_when.clone().filter(|s| !s.trim().is_empty());

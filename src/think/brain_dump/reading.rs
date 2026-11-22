@@ -247,6 +247,36 @@ pub struct BoardRequest {
     pub layout: Vec<(String, f64, f64)>,
 }
 
+impl BoardRequest {
+    /// The one repeat rule: a question that matches an answered, settled or skipped one is not
+    /// asked again. "Matches" means [`same_question`].
+    pub(super) fn repeats(&self, q: &Question) -> bool {
+        self.answered.contains(&q.id) || repeats(q, &self.settled, &self.skipped)
+    }
+    /// The one part rule: a question about a skipped part, or about a part asked twice, is
+    /// not asked again, unless the previous reading already asked it.
+    pub(super) fn askable(&self, q: &Question) -> bool {
+        q.target.is_none_or(|p| {
+            !self.skipped.iter().any(|s| s.target == Some(p))
+                && (self.ask_counts.get(&p).copied().unwrap_or(0) < 2
+                    || self
+                        .previous
+                        .as_ref()
+                        .is_some_and(|old| old.questions.iter().any(|s| same_question(s, q))))
+        })
+    }
+}
+/// `q` matches a settled or skipped question, so it is not asked again.
+pub(super) fn repeats(q: &Question, settled: &[Settled], skipped: &[Question]) -> bool {
+    settled.iter().any(|s| same_question(&s.question, q))
+        || skipped.iter().any(|s| same_question(s, q))
+}
+/// Think owns these question ids; a model reply never uses them.
+pub(super) fn application_owned(id: &str) -> bool {
+    id.starts_with("scope-addition-") || id.starts_with("goal-refinement-")
+}
+/// The one meaning of "same question": the same id, or the same words ignoring case and
+/// punctuation.
 pub(super) fn same_question(a: &Question, b: &Question) -> bool {
     a.id == b.id || same_question_text(&a.text, &b.text)
 }
@@ -340,16 +370,11 @@ impl Guess {
         }
         let mut ids = HashSet::new();
         for q in &self.questions {
-            if q.id.starts_with("scope-addition-")
+            if application_owned(&q.id)
                 || !safe(&q.id)
                 || !safe(&q.text)
                 || !ids.insert(&q.id)
-                || request.answered.contains(&q.id)
-                || request
-                    .settled
-                    .iter()
-                    .any(|s| same_question(&s.question, q))
-                || request.skipped.iter().any(|s| same_question(s, q))
+                || request.repeats(q)
             {
                 return Err("Invalid application-owned question identity/history".into());
             }
@@ -623,29 +648,15 @@ fn reviewed(
             text,
             suggestion: suggestion::read(o.and_then(|o| o.get("suggestion"))),
         };
-        if q.id.starts_with("scope-addition-") || q.id.starts_with("goal-refinement-") {
+        if application_owned(&q.id) {
             return Err("Model attempted an application-owned question ID".into());
         }
-        if questions.iter().any(|old| same_question(old, &q))
-            || request.answered.contains(&q.id)
-            || request
-                .settled
-                .iter()
-                .any(|s| same_question(&s.question, &q))
-            || request.skipped.iter().any(|s| same_question(s, &q))
-        {
+        if questions.iter().any(|old| same_question(old, &q)) || request.repeats(&q) {
             changes.push(format!(
                 "Excluded duplicate/answered/skipped question {}",
                 q.id
             ));
-        } else if q.target.is_some_and(|p| {
-            request.skipped.iter().any(|s| s.target == Some(p))
-                || (request.ask_counts.get(&p).copied().unwrap_or(0) >= 2
-                    && !request
-                        .previous
-                        .as_ref()
-                        .is_some_and(|old| old.questions.iter().any(|s| same_question(s, &q))))
-        }) {
+        } else if !request.askable(&q) {
             changes.push(format!(
                 "Part question {} left open for seed: skipped or asked twice",
                 q.id
