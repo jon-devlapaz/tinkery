@@ -72,15 +72,16 @@ unconfirmed sessions or complete factory telemetry. The read-only
 | `tend/graph.rs` | Graf adapter: identity-keyed topology, deterministic layout, palette, labels, viewport and pointer geometry; no physics worker or writes. |
 | `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart, and the one ledger-id uniqueness rule that linking, the graph, readiness and connections read. |
 | `tend::needs` | Tinkery-owned needs links, strict atomic persistence and readiness derived from readable session identities; never writes session files. |
-| `seed_me/` | Session formats, goal saving and the one-time root migration; `answering.rs` adapts Shape actions, typed facts and operator review reasons to the shared ledger without duplicating its fact rules. Goal initialization uses the Rust ledger; exit receipts retain data until printing, when the shared verifier supplies the current next step. Contract guidance is bundled, and copied intake commands name this Tinkery executable (shared). |
+| `seed_me/` | Session formats, goal saving and the one-time root migration. Goal initialization uses the Rust ledger; exit receipts retain data until printing, when the shared verifier supplies the current next step. Contract guidance is bundled, and copied intake commands name this Tinkery executable (shared). |
 | `seed_me/ledger` | Validation, transitions, explicit answer actions and cascading reopen, confirmation risks and completion-review coverage, byte-bound teach-back records, seed decisions and checks, confirmation receipts, verification and ending; shared writer lock and atomic saves. No phase policy, viewer or network connection. |
-| `seed_me/shaping.rs` | Classifying ledger-owned status and review flags for display, with optional Tinkery-executable intake text; no subprocess or mutation. |
 | `approve.rs` | One verified seed at a time, read-only commands, a retained verifier and navigation to worker-start review; no execution on navigation or copying. |
-| `seed_me/retry.rs` | A new attempt's starting checkout and commit, pinned in the goal's evidence; carries the prior goal unchanged and its decisions as assumptions. Only the operator's save creates the session. |
-| `seed_me/ready.rs` | Consistent verified goal/acceptance snapshots and typed intake shared by copying and explicit execution; no mutation. |
+| `seed_me/retry.rs` | The retry hand-off in one place: a new attempt's starting checkout and commit, pinned in the goal's evidence, and the Git checks that hold a checkout and build to that commit; carries the prior goal unchanged and its decisions as assumptions. Only the operator's save creates the session. |
+| `seed_me/ready.rs` | Where a session's seed stands, read once through the ledger and its verifier for Shape, receipts and handoff; consistent verified goal/acceptance snapshots and typed intake shared by copying and explicit execution; no mutation. |
 | `seed_me/runs.rs` | The run-to-seed join: a run lends its goal, or counts as started, only through its recorded canonical source path and current bytes; reads only. |
 | `worker.rs`, `worker/orientation.rs` | Bounded intake, stage and worker actions through SDLC, including whether a failed start permits retry or requires inspection. Recent Pi launch logs inform the operator’s cap choice. Only the explicitly configured allowance can reach the worker. |
 | `shape.rs` | Goals awaiting seeds; each session's confirmed goal, stage, folder, words, draft reading and next step. Reads and steps stay off the paint path. |
+| `shape/answering.rs`, `shape/answering/` | Adapts Shape actions, typed facts and operator review reasons to the shared ledger without duplicating its fact rules. |
+| `shape/shaping.rs` | Shape's view of where a seed stands: questions, findings, decisions and review lines over the shared classification; no subprocess or mutation. |
 | `shape/forms.rs` | Unsaved deferral and replacement-answer fields, navigation and cancellation; no validation or publication policy. |
 | `words.rs` | Exact-word textarea for Shape: editing, selection, cursor-following and original line-ending provenance; no save or agent policy. |
 | `shape/command.rs` | Shape without a screen: saving a goal's exact words, showing where a seed stands as JSON and taking one explicit step; it builds the same work the screen does and adds no ledger rule. |
@@ -93,12 +94,12 @@ unconfirmed sessions or complete factory telemetry. The read-only
 | `think/brain_dump/suggestion.rs` | Optional proposal decoding and copying into an empty draft; never submission or model context. |
 | `think/brain_dump/review.rs` | The decision review: its prompt, what it sees, and how its decisions join the reading's. |
 | `think/brain_dump/prompts/` | The two prompts as text, one rule per line, with a note naming the finding behind each tuned rule. Notes never reach the model. |
-| `think/brain_dump/host.rs` | Pi shaping then review, or practice simulation. Stateful hosts start separate histories for each Think visit. |
+| `think/brain_dump/host.rs` | The one model host: harness and model settings, bundled working-draft instructions over the shared `pi.rs` boundary, Pi shaping then review, or practice simulation. Stateful hosts start separate histories for each Think visit. |
 | `think/brain_dump/board.rs` | A verified reading; `Board` exists only after verification. |
 | `think/brain_dump/checks.rs` | The per-send record shown in "Why", from F1. |
 | `think/brain_dump/goal_view.rs`, `intact_view.rs`, `voice_input.rs`, `layout.rs` | The review screen, original pane, dictation and screen layout, including help, key bar and notices. |
 | `think/brain_dump/help_view.rs` | Think's bounded help overlay: visual hierarchy, scrolling body, fixed navigation and the boundary against hidden actions. |
-| `think/drafting.rs` | Think's model host: its harness and model settings and bundled working-draft instructions, over the shared `pi.rs` boundary. |
+| `think/drafting.rs` | Which model requests one send makes, and the background job that runs them. |
 | `think_record.rs`, `think_record/read.rs` | Confirmed-session format as one typed record that both writes and reads, exact-session attribution, one record scan shared by history and origin lookup, formatted history and typed submissions for Shape; Think records only, no Tend evidence and no phase behavior. |
 | `think/canvas.rs`, `note.rs` | Extracted cards, and the raw text box with safe display, grapheme-offset mapping and machine-sized wrapped rows. Editor storage does not own send policy. |
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |

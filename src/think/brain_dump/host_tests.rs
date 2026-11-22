@@ -1,5 +1,5 @@
 use super::*;
-use std::time::Instant;
+use std::{thread, time::Instant};
 
 fn input(text: &str) -> Vec<u8> {
     serde_json::to_vec(&serde_json::json!({"words": [text]})).unwrap()
