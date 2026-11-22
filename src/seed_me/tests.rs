@@ -223,18 +223,6 @@ fn session_identity_comes_only_from_a_nonempty_control_free_ledger_string() {
 }
 
 #[test]
-fn default_root_is_under_the_given_home() {
-    for home in [None, Some(""), Some("TEST-relative"), Some(".")] {
-        let error = default_root(home.map(std::ffi::OsStr::new)).unwrap_err();
-        assert!(error.contains("--seed-session-root PATH"));
-    }
-    assert_eq!(
-        default_root(Some(std::ffi::OsStr::new("/TEST/home"))).unwrap(),
-        Path::new("/TEST/home/.local/share/tinkery/sessions")
-    );
-}
-
-#[test]
 fn an_empty_explicit_root_never_means_the_current_folder() {
     let error = resolve_root(Some(PathBuf::new())).unwrap_err();
     assert!(error.contains("--seed-session-root"), "{error}");

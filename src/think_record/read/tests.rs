@@ -1006,7 +1006,6 @@ fn shape_context_keeps_only_exact_submissions_in_one_verified_scan() {
     );
 }
 
-
 #[test]
 fn a_written_record_reads_back_with_its_keys_in_stored_order() {
     let dir = tempfile::tempdir().unwrap();
@@ -1025,7 +1024,11 @@ fn a_written_record_reads_back_with_its_keys_in_stored_order() {
     assert!(text.contains("\"kind\": \"draft_suggested\""), "{text}");
     let history = read(&root, &session, GOAL).unwrap();
     assert_eq!(
-        history.turns.into_iter().map(|t| t.event).collect::<Vec<_>>(),
+        history
+            .turns
+            .into_iter()
+            .map(|t| t.event)
+            .collect::<Vec<_>>(),
         turns().into_iter().map(|t| t.event).collect::<Vec<_>>()
     );
     assert!(history.details.contains("Format: 3"));

@@ -8,6 +8,7 @@ use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
+use tinkery::data_roots::DataRoots;
 use tinkery::{
     ThemeSwitch,
     menu::{Home, render},
@@ -61,10 +62,12 @@ fn warmed_garden_matches_fresh_colors_after_theme_source_and_graph_changes() {
         let source = found.clone();
         let mut home = Home::new(
             Box::new(Default::default),
-            Ok(dir.path().join("sessions")),
-            Ok(dir.path().join("links")),
+            DataRoots {
+                sessions: Ok(dir.path().join("sessions")),
+                records: Ok(dir.path().join("records")),
+                tend: Ok(dir.path().join("links")),
+            },
         )
-        .with_record_root(dir.path().join("records"))
         .with_discovery_source(Arc::new(move |_| Ok(source.lock().unwrap().clone())));
         home.open(tinkery::menu::Place::Tend);
         settle(&mut home);

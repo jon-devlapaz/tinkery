@@ -1,12 +1,16 @@
 //! Measure's no-repo state, help ownership and quit routes; no implicit external reads.
 
 use super::*;
+use crate::data_roots::DataRoots;
 
 fn home(root: &Path) -> Home {
     let mut home = Home::new(
         Box::new(BrainDump::default),
-        Ok(root.join("TEST-sessions")),
-        Ok(root.join("TEST-links")),
+        DataRoots {
+            sessions: Ok(root.join("TEST-sessions")),
+            tend: Ok(root.join("TEST-links")),
+            ..DataRoots::from_env()
+        },
     );
     home.open(Place::Measure);
     home

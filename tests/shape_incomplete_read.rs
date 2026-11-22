@@ -10,6 +10,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+use tinkery::data_roots::DataRoots;
 use tinkery::{
     menu::{Home, snapshot},
     think::brain_dump::BrainDump,
@@ -75,10 +76,12 @@ fn fixture(unreadable: bool, populated: bool) -> tempfile::TempDir {
 fn shape_screen(root: &Path, width: u16, height: u16, no_color: bool) -> String {
     let mut home = Home::new(
         Box::new(BrainDump::default),
-        Ok(root.to_path_buf()),
-        Err("TEST links disabled".into()),
-    )
-    .with_record_root(root.join("TEST-no-records"));
+        DataRoots {
+            sessions: Ok(root.to_path_buf()),
+            records: Ok(root.join("TEST-no-records")),
+            tend: Err("TEST links disabled".into()),
+        },
+    );
     home.handle_key(KeyEvent::new(KeyCode::Char('3'), KeyModifiers::NONE));
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {

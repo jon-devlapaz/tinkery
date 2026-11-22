@@ -25,6 +25,7 @@ pub mod actions;
 mod approve;
 mod calendar;
 pub mod confirmation;
+pub mod data_roots;
 pub mod goal;
 pub mod measure;
 pub mod menu;

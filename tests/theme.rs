@@ -7,6 +7,7 @@ use crossterm::event::{
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
 use ratatui::{Terminal, backend::TestBackend, buffer::Buffer, layout::Rect, style::Color};
+use tinkery::data_roots::DataRoots;
 use tinkery::{
     ThemeSwitch,
     menu::{self, Home, PLACES},
@@ -24,10 +25,12 @@ const DARK_RUST: Color = Color::Rgb(234, 138, 104);
 fn home(root: &std::path::Path) -> Home {
     Home::new(
         Box::new(BrainDump::default),
-        Ok(root.join("TEST-sessions")),
-        Ok(root.join("TEST-links")),
+        DataRoots {
+            sessions: Ok(root.join("TEST-sessions")),
+            records: Ok(root.join("TEST-records")),
+            tend: Ok(root.join("TEST-links")),
+        },
     )
-    .with_record_root(root.join("TEST-records"))
 }
 
 fn draw(home: &mut Home, switch: &ThemeSwitch, width: u16, height: u16) -> Buffer {

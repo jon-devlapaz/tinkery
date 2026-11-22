@@ -7,6 +7,7 @@ use std::{
     fs, thread,
     time::{Duration, Instant},
 };
+use tinkery::data_roots::DataRoots;
 use tinkery::{
     menu::{Home, snapshot},
     think::brain_dump::BrainDump,
@@ -26,8 +27,11 @@ fn fixture() -> (tempfile::TempDir, Home) {
     fs::write(broken.join("ledger.json"), "not JSON").unwrap();
     let mut home = Home::new(
         Box::new(BrainDump::default),
-        Ok(dir.path().to_path_buf()),
-        Err("TEST links disabled".into()),
+        DataRoots {
+            sessions: Ok(dir.path().to_path_buf()),
+            tend: Err("TEST links disabled".into()),
+            ..DataRoots::from_env()
+        },
     );
     home.handle_key(key(KeyCode::Char('3')));
     let deadline = Instant::now() + Duration::from_secs(5);
