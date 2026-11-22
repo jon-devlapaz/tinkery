@@ -1,6 +1,13 @@
 //! Think's conversation with the person, turn by turn.
 
-use super::*;
+use super::{
+    Presentation, board,
+    reading::{
+        self, BoardRequest, Fragment, Guess, Question, Settled, Source, grapheme_boundary,
+        same_question,
+    },
+};
+use crate::goal::Part;
 use crate::think_record::{Event, Turn};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -113,14 +120,14 @@ impl Conversation {
     pub(super) fn reading_context(&self) -> &crate::think_record::ReadingContext {
         &self.context
     }
-    pub(super) fn presentation(&self) -> Option<super::Presentation> {
-        (self.board_revision > self.presented_revision).then(|| super::Presentation {
+    pub(super) fn presentation(&self) -> Option<Presentation> {
+        (self.board_revision > self.presented_revision).then(|| Presentation {
             revision: self.board_revision,
             board: serde_json::to_value(self.board.as_ref().expect("applied board").wire())
                 .expect("verified board serializes"),
         })
     }
-    pub(super) fn presented(&mut self, presentation: super::Presentation) {
+    pub(super) fn presented(&mut self, presentation: Presentation) {
         if presentation.revision == self.board_revision
             && presentation.revision > self.presented_revision
         {
@@ -185,11 +192,7 @@ impl Conversation {
     pub fn available(&self, q: &Question) -> bool {
         !q.target
             .is_some_and(|target| self.skipped.iter().any(|s| s.target == Some(target)))
-            && !self
-                .skipped
-                .iter()
-                .any(|s| s.id == q.id || s.text.trim().eq_ignore_ascii_case(q.text.trim()))
-            && !self.settled.iter().any(|s| same_question(&s.question, q))
+            && !reading::repeats(q, &self.settled, &self.skipped)
             && !self
                 .sources
                 .iter()
@@ -244,11 +247,16 @@ impl Conversation {
         open.dedup();
         open
     }
-    /// The reading covers every word and leaves nothing open, unplaced or unasked.
+    /// The one meaning of "ready": the reading covers every word and leaves nothing open,
+    /// unplaced, unasked or skipped without an answer.
     pub fn nothing_open(&self) -> bool {
         self.board.as_ref().is_some_and(|g| g.goal().is_some())
             && self.caught_up()
             && self.open_parts().is_empty()
+            && self
+                .skipped
+                .iter()
+                .all(|q| self.settled.iter().any(|s| same_question(&s.question, q)))
             && self
                 .board
                 .as_ref()

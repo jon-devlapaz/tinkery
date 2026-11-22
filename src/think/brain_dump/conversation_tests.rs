@@ -1,6 +1,7 @@
 //! Think's conversation rules, with no terminal, keys or jobs.
 
 use super::*;
+use crate::think::brain_dump::{Anchor, OpenDecision};
 
 const DUMP: &str = "I want mornings that start calmly.";
 

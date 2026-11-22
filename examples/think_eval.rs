@@ -17,9 +17,9 @@ use std::{
 use tinkery::pi::CallBudget;
 use tinkery::think::{
     brain_dump::{
-        BoardHost, BoardRequest, BrainDump, DecisionReview, Guess, decision_review_input,
+        BoardHost, BoardRequest, BrainDump, DecisionReview, Guess, ModelHost, decision_review_input,
     },
-    drafting::{ModelHost, Request},
+    drafting::Request,
 };
 use tinkery::think_record::hash;
 
