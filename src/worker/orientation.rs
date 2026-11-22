@@ -151,7 +151,7 @@ fn collect_logs(root: &Path, slug: &str, logs: &mut Vec<Launch>) {
     let Some(files) = sdlc::RunFiles::open(root, slug) else {
         return;
     };
-    for log in files.logs(false).unwrap_or_default() {
+    for log in files.logs(false, true).unwrap_or_default() {
         if log.file {
             logs.push(Launch {
                 files: files.clone(),
@@ -222,7 +222,7 @@ pub(crate) fn stopped_at_cap(run: &Run, step: &str) -> bool {
     let Some(files) = sdlc::RunFiles::open(&run.root, &run.slug) else {
         return false;
     };
-    let mut logs = files.logs(true).unwrap_or_default();
+    let mut logs = files.logs(true, true).unwrap_or_default();
     logs.retain(|log| log.step == step);
     logs.sort_by(|a, b| (a.time, &a.name).cmp(&(b.time, &b.name)));
     // The launcher's cap is cumulative per session, so answers count across launch and resume logs.

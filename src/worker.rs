@@ -238,14 +238,15 @@ fn command(root: &Path, args: &[String], deadline: Duration) -> Result<String, S
     sdlc::command(root, args, &AtomicBool::new(false), deadline)
 }
 
+/// A checkout that cannot be the exact repository root it claims; never a guessed folder.
+const MOVED: &str = "The selected checkout moved or is not a canonical repository root. Reopen it.";
+
 fn canonical_root(root: &Path) -> Result<(), String> {
     if !root.is_absolute()
         || root.canonicalize().ok().as_deref() != Some(root)
         || Repo::enclosing(root).as_ref().map(Repo::root) != Some(root)
     {
-        return Err(
-            "The selected checkout moved or is not a canonical repository root. Reopen it.".into(),
-        );
+        return Err(MOVED.into());
     }
     if !sdlc::installed(root) {
         return Err("The named checkout has no SDLC runtime.".into());
@@ -290,10 +291,7 @@ fn identity(root: &Path, slug: &str, report: &sdlc::Run) -> Result<Run, String> 
         Ok(path) => path.clone().unwrap_or_else(|| root.to_path_buf()),
         Err(sdlc::CheckoutGap::NotText) => return Err("The build checkout is unreadable.".into()),
         Err(sdlc::CheckoutGap::Nul | sdlc::CheckoutGap::Relative) => {
-            return Err(
-                "The selected checkout moved or is not a canonical repository root. Reopen it."
-                    .into(),
-            );
+            return Err(MOVED.into());
         }
     };
     canonical_root(&root)?;

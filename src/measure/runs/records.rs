@@ -239,7 +239,7 @@ fn labels(files: Option<&sdlc::RunFiles>, count: Option<u64>) -> Result<Vec<Labe
 }
 
 fn steps(files: Option<&sdlc::RunFiles>, run: &sdlc::Run) -> Vec<(String, Option<usize>)> {
-    let logs = files.and_then(|files| files.logs(true));
+    let logs = files.and_then(|files| files.logs(true, false));
     let mut steps: Vec<_> = run
         .steps
         .iter()

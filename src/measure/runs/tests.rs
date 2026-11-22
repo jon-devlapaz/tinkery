@@ -384,3 +384,24 @@ fn a_relative_build_checkout_never_reads_from_tinkerys_own_folder() {
         "{text}"
     );
 }
+
+#[test]
+fn a_large_steps_folder_keeps_its_response_counts() {
+    let dir = checkout();
+    let root = &dir.path().canonicalize().unwrap();
+    let mut record = run(root, "large", None, DAY, &[]);
+    record["steps"] = json!([{"name": "build"}]);
+    step(root, "large", "build", &[("launch-1", 3)]);
+    let steps = root.join("runs/large/steps");
+    for n in 0..300 {
+        fs::write(steps.join(format!("TEST-note-{n}.txt")), "").unwrap();
+    }
+    write(root, vec![record]);
+    let mut view = Measure::open(Repo::enclosing(root));
+    let text = read(&mut view);
+    let words = row(&text, "large")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(words.ends_with("0 0 3 abandoned large"), "{text}");
+}

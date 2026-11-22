@@ -4,7 +4,7 @@
 
 use std::{
     fs,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
 /// The most bytes read from any one run file; a larger file is refused, never truncated.
@@ -27,7 +27,8 @@ pub(crate) enum FileGap {
     Incomplete,
 }
 
-/// One run's folder, resolved once; links in the checkout path are allowed, links below it never.
+/// One run's folder. Links in the checkout's own path are resolved; a link at `runs/`, at the run
+/// folder or below it is refused, and the slug names exactly one folder.
 #[derive(Clone)]
 pub(crate) struct RunFiles {
     folder: PathBuf,
@@ -47,10 +48,18 @@ pub(crate) struct Log {
 }
 
 impl RunFiles {
-    /// The run folder below `checkout`; `None` when it is missing or unresolvable.
+    /// The run folder below `checkout`; `None` when it is missing, linked, or the slug is not
+    /// one plain folder name.
     pub(crate) fn open(checkout: &Path, slug: &str) -> Option<Self> {
-        let folder = checkout.join("runs").join(slug).canonicalize().ok()?;
-        Some(Self { folder })
+        let mut parts = Path::new(slug).components();
+        if !matches!(
+            (parts.next(), parts.next()),
+            (Some(Component::Normal(_)), None)
+        ) {
+            return None;
+        }
+        let folder = checkout.canonicalize().ok()?.join("runs").join(slug);
+        (folder.canonicalize().ok()? == folder).then_some(Self { folder })
     }
 
     /// The resolved run folder, for identity comparison only.
@@ -89,20 +98,26 @@ impl RunFiles {
     }
 
     /// Pi launch logs in `steps/`, in no promised order. `resume` also admits `resume-` logs.
-    /// `None` when the folder is missing, linked or holds more than [`MAX_ENTRIES`] entries.
-    pub(crate) fn logs(&self, resume: bool) -> Option<Vec<Log>> {
+    /// `None` when the folder is missing or linked. With `bounded`, an unreadable entry or more
+    /// than [`MAX_ENTRIES`] entries also gives `None`; without it, unreadable entries are skipped.
+    pub(crate) fn logs(&self, resume: bool, bounded: bool) -> Option<Vec<Log>> {
         let steps = self.folder.join("steps");
         if steps.canonicalize().ok()? != steps {
             return None;
         }
-        let entries: Vec<_> = fs::read_dir(&steps)
-            .ok()?
-            .take(MAX_ENTRIES + 1)
-            .collect::<Result<_, _>>()
-            .ok()?;
-        if entries.len() > MAX_ENTRIES {
-            return None;
-        }
+        let listing = fs::read_dir(&steps).ok()?;
+        let entries: Vec<_> = if bounded {
+            let entries: Vec<_> = listing
+                .take(MAX_ENTRIES + 1)
+                .collect::<Result<_, _>>()
+                .ok()?;
+            if entries.len() > MAX_ENTRIES {
+                return None;
+            }
+            entries
+        } else {
+            listing.filter_map(Result::ok).collect()
+        };
         Some(
             entries
                 .into_iter()
