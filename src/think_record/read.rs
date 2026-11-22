@@ -130,7 +130,6 @@ struct SavedRecord {
 /// older matching records refuse attribution. A record over 16 MiB is unreadable. Ledger IDs
 /// must be unique among readable live sessions before and after the read. A path-only record may use
 /// its final folder name as the ID only when that folder is missing. Nothing is rewritten.
-/// Reads Think records only and never Tend creation evidence.
 pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavailable> {
     let VerifiedRecord {
         selected,

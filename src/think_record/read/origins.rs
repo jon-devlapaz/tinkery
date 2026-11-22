@@ -12,7 +12,7 @@ pub(crate) struct Attribution {
     pub(crate) made_in: MadeIn,
     /// The session stayed readable, unchanged and uniquely identified through the scan.
     pub(crate) live: bool,
-    /// Some record of any schema names this live session, whatever its goal or uniqueness.
+    /// Some record of any schema names this live session, whatever its goal or record uniqueness.
     pub(crate) claimed: bool,
 }
 
