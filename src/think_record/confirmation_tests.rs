@@ -7,6 +7,11 @@ const GOAL: &str =
     "TEST I keep this goal.\nWhy: exact intent matters.\nDone when: all words survive.";
 const WORDS: &str = "  TEST Café 👩‍💻\n\"original\"\ttab  ";
 
+/// Think-only origins; these sessions carry no Tend evidence.
+fn read_origins(root: &Path, sessions: &[(&Path, &str)]) -> Result<Vec<MadeIn>, Unavailable> {
+    super::read_origins(root, sessions).map(|found| found.into_iter().map(|a| a.made_in).collect())
+}
+
 fn class(door: Door, blast_radius: BlastRadius) -> ConfirmationClass {
     ConfirmationClass {
         door,

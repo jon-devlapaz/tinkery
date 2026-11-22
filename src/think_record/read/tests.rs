@@ -10,6 +10,11 @@ use std::{
 const GOAL: &str = "I TEST a calm morning.\nWhy: I need space.\nDone when: I can think.";
 const WORDS: &str = "  Café 👩‍💻\n\"quoted\"\ttab  ";
 
+/// Think-only origins; these sessions carry no Tend evidence.
+fn read_origins(root: &Path, sessions: &[(&Path, &str)]) -> Result<Vec<MadeIn>, Unavailable> {
+    super::read_origins(root, sessions).map(|found| found.into_iter().map(|a| a.made_in).collect())
+}
+
 fn session(root: &Path, branch: &str) -> PathBuf {
     let path = root.join("TEST-sessions").join(format!("TEST-id-{branch}"));
     fs::create_dir_all(&path).unwrap();

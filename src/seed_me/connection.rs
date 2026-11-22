@@ -1,7 +1,9 @@
-//! Checked creation evidence for a goal discovered in Tend. No history is invented,
-//! and this evidence grants neither seed confirmation nor permission to execute work.
+//! Checked creation evidence for a goal discovered in Tend, and the one place it meets Think
+//! records for history and origins. No history is invented, and this evidence grants neither
+//! seed confirmation nor permission to execute work.
 
 use super::ledger;
+use crate::think_record::{self, History, MadeIn, Unavailable};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -212,4 +214,74 @@ pub(crate) fn read(session: &Path, goal: &str) -> Result<Option<Origin>, String>
         .ok_or("The Tend origin is unreadable or duplicated.")?;
     result.validate(goal)?;
     Ok(Some(result))
+}
+
+/// Where each saved goal was made, in input order: Tend evidence checked against one Think
+/// record scan. Invalid Tend evidence, an unchecked Tend session or a conflicting Think record
+/// is `Invalid`, never a fallback. Without Tend evidence, a failed scan refuses. Writes nothing.
+pub(crate) fn origins(root: &Path, sessions: &[(&Path, &str)]) -> Result<Vec<MadeIn>, Unavailable> {
+    let creation: Vec<_> = sessions
+        .iter()
+        .map(|(session, goal)| read(session, goal))
+        .collect();
+    let think = think_record::read_origins(root, sessions);
+    if creation.iter().all(|origin| matches!(origin, Ok(None))) {
+        return Ok(think?.into_iter().map(|found| found.made_in).collect());
+    }
+    let mut think = think.ok().map(Vec::into_iter);
+    Ok(sessions
+        .iter()
+        .zip(creation)
+        .map(|((session, goal), creation)| {
+            let found = think.as_mut().and_then(Iterator::next);
+            match creation {
+                Ok(None) => found.map_or(MadeIn::Unknown, |found| found.made_in),
+                Err(reason) => MadeIn::Invalid(reason),
+                // The evidence is read again so a change during the scan cannot pass.
+                Ok(Some(origin)) => match found {
+                    Some(found)
+                        if found.live
+                            && read(session, goal).ok().flatten().as_ref() == Some(&origin) =>
+                    {
+                        if found.claimed && found.made_in != MadeIn::Repo(origin.repo.clone()) {
+                            MadeIn::Invalid("Think and Tend origins conflict or are ambiguous.".into())
+                        } else {
+                            MadeIn::Repo(origin.repo)
+                        }
+                    }
+                    _ => MadeIn::Invalid(
+                        "The Tend origin cannot be checked against live sessions and Think records."
+                            .into(),
+                    ),
+                },
+            }
+        })
+        .collect())
+}
+
+/// The history of one saved goal: a Tend-created goal shows its checked creation evidence and
+/// no turns; any other goal reads its Think record. Invalid Tend evidence refuses. Writes nothing.
+pub(crate) fn history(root: &Path, session: &Path, goal: &str) -> Result<History, Unavailable> {
+    let unavailable = |details: String| Unavailable {
+        message: "Tend origin unavailable.".into(),
+        details,
+    };
+    let Some(origin) = read(session, goal).map_err(unavailable)? else {
+        return think_record::read(root, session, goal);
+    };
+    let made_in = origins(root, &[(session, goal)])?.remove(0);
+    if let MadeIn::Invalid(reason) = &made_in {
+        return Err(unavailable(reason.clone()));
+    }
+    Ok(History {
+        turns: vec![],
+        goal: goal.into(),
+        made_in,
+        details: serde_json::to_string_pretty(&origin).map_err(|e| unavailable(e.to_string()))?,
+        sequence: origin.correction.as_ref().map_or_else(
+            || "Created from a Tend connection".into(),
+            |c| format!("Created from a Tend connection\n\nOperator guidance supplied during discovery:\n{}", c.text),
+        ),
+        readings: vec![],
+    })
 }

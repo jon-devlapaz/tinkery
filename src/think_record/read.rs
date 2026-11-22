@@ -130,27 +130,8 @@ struct SavedRecord {
 /// older matching records refuse attribution. A record over 16 MiB is unreadable. Ledger IDs
 /// must be unique among readable live sessions before and after the read. A path-only record may use
 /// its final folder name as the ID only when that folder is missing. Nothing is rewritten.
+/// Reads Think records only and never Tend creation evidence.
 pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavailable> {
-    if let Some(origin) = seed_me::connection::read(session, goal)
-        .map_err(|e| Unavailable::new("Tend origin unavailable.", e))?
-    {
-        let made_in = read_origins(root, &[(session, goal)])?.remove(0);
-        if let MadeIn::Invalid(reason) = &made_in {
-            return Err(Unavailable::new("Tend origin unavailable.", reason.clone()));
-        }
-        return Ok(History {
-            turns: vec![],
-            goal: goal.into(),
-            made_in,
-            details: serde_json::to_string_pretty(&origin)
-                .map_err(|e| Unavailable::new("Tend origin unavailable.", e.to_string()))?,
-            sequence: origin.correction.as_ref().map_or_else(
-                || "Created from a Tend connection".into(),
-                |c| format!("Created from a Tend connection\n\nOperator guidance supplied during discovery:\n{}", c.text),
-            ),
-            readings: vec![],
-        });
-    }
     let VerifiedRecord {
         selected,
         path,

@@ -62,7 +62,7 @@ unconfirmed sessions or complete factory telemetry. The read-only
 | `tend/connection.rs` | One bounded explicit request, latest exploration, source freshness and receipt coordination. |
 | `tend/connection/panel.rs` | Source and guidance review, explicit discovery, goal save and correction edits. |
 | `tend/connection/correction.rs` | One repository correction, bounded reads and stale-view-safe explicit replacement. |
-| `seed_me/connection.rs` | Strict v1/v2 Tend creation evidence and exact correction words shared by history, attribution and saving. |
+| `seed_me/connection.rs` | Strict v1/v2 Tend creation evidence and exact correction words shared by history, attribution and saving; the one place that evidence meets Think records for history and origins. |
 | `seed_me/connection_save.rs` | Frozen confirmation, owned staging and exclusive publication to one destination. |
 | `tend/history.rs` | One owned history read at a time and a read-only conversation view with separate technical help. |
 | `tend/linking.rs` | The source and target selection state, link refusals and derived needs wording, independent of garden drawing. |
@@ -96,7 +96,7 @@ unconfirmed sessions or complete factory telemetry. The read-only
 | `think/brain_dump/goal_view.rs`, `intact_view.rs`, `voice_input.rs`, `layout.rs` | The review screen, original pane, dictation and screen layout, including help, key bar and notices. |
 | `think/brain_dump/help_view.rs` | Think's bounded help overlay: visual hierarchy, scrolling body, fixed navigation and the boundary against hidden actions. |
 | `think/drafting.rs` | Think's model host: its harness and model settings and bundled working-draft instructions, over the shared `pi.rs` boundary. |
-| `think_record.rs`, `think_record/read.rs` | Confirmed-session format, exact-session attribution, one record scan shared by history and origin lookup, formatted history and typed submissions for Shape; no phase behavior. |
+| `think_record.rs`, `think_record/read.rs` | Confirmed-session format, exact-session attribution, one record scan shared by history and origin lookup, formatted history and typed submissions for Shape; Think records only, no Tend evidence and no phase behavior. |
 | `think/canvas.rs`, `note.rs` | Extracted cards, and the raw text box with safe display, grapheme-offset mapping and machine-sized wrapped rows. Editor storage does not own send policy. |
 | `voice/` | Local dictation: the host boundary, helper process, protocol and owned setup. |
 | `watch.rs`, `watch/state.rs`, `watch/steps.rs` | The runs in one named tink-sdlc checkout, rendered from the shared typed report: waiting runs first, one run's detail and worker attention. No API-word recognition. |

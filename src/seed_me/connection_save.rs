@@ -380,7 +380,8 @@ mod tests {
         );
         let records = temp.path().join("records");
         fs::create_dir(&records).unwrap();
-        let history = crate::think_record::read(&records, &receipt.session, &receipt.goal).unwrap();
+        let history =
+            super::super::connection::history(&records, &receipt.session, &receipt.goal).unwrap();
         assert!(
             history
                 .sequence
@@ -667,7 +668,7 @@ mod tests {
         let records = temp.path().join("records");
         fs::create_dir(&records).unwrap();
         let receipt = pending.resume(|| Ok(())).unwrap();
-        let origins = crate::think_record::read_origins(
+        let origins = super::super::connection::origins(
             &records,
             &[(receipt.session.as_path(), receipt.goal.as_str())],
         )
@@ -678,7 +679,8 @@ mod tests {
                 pending.origin.repo.clone()
             )]
         );
-        let history = crate::think_record::read(&records, &receipt.session, &receipt.goal).unwrap();
+        let history =
+            super::super::connection::history(&records, &receipt.session, &receipt.goal).unwrap();
         assert!(history.turns.is_empty());
         assert_eq!(history.sequence, "Created from a Tend connection");
         let path = receipt.session.join("ledger.json");
@@ -691,7 +693,7 @@ mod tests {
             .find(|e| e["artifact"] == super::super::connection::ARTIFACT)
             .unwrap()["observed"] = "malformed".into();
         fs::write(path, serde_json::to_vec(&value).unwrap()).unwrap();
-        let origins = crate::think_record::read_origins(
+        let origins = super::super::connection::origins(
             &records,
             &[(receipt.session.as_path(), receipt.goal.as_str())],
         )
