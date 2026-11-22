@@ -94,13 +94,7 @@ impl Review {
                 changes.push("Ignored invalid review decision; shaping choices retained".into());
                 continue;
             }
-            let mut answers: Vec<String> = vec![];
-            for a in choice.answers {
-                if !answers.contains(&a) {
-                    answers.push(a);
-                }
-            }
-            choice.answers = answers;
+            choice.answers = OpenDecision::distinct(choice.answers);
             let covers = covers.as_ref().and_then(|v| v.as_array()).map(|indices| {
                 indices
                     .iter()

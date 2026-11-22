@@ -228,7 +228,7 @@ fn the_reading_prompt_names_the_fields_its_decoder_reads() {
             .trim()
             .trim_start_matches("optional ");
         match name {
-            "parts" => assert_eq!(braced(entry), sorted(reading::PARTS.iter().copied())),
+            "parts" => assert_eq!(braced(entry), sorted(Part::ALL.map(Part::name))),
             "decisions" => assert_eq!(braced(entry), sorted(reading::DECISION.iter().copied())),
             "questions" => assert_eq!(braced(entry), sorted(reading::QUESTION.iter().copied())),
             "alternatives" => assert_eq!(braced(entry), sorted(reading::APPROACH.iter().copied())),

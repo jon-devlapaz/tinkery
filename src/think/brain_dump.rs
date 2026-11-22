@@ -347,13 +347,6 @@ impl Default for BrainDump {
         Self::with_mode(Arc::new(Simulated), false)
     }
 }
-/// The verified board associated with a rendered frame. Only the terminal owner acknowledges
-/// successful output; this is neither a full screen snapshot nor proof of human attention.
-pub struct Presentation {
-    revision: usize,
-    board: serde_json::Value,
-}
-
 impl BrainDump {
     /// The first presentation candidate for this board, only when this frame exposes reading
     /// content. Calling this never records output; the owner must acknowledge successful IO.
@@ -1823,7 +1816,7 @@ mod reading;
 #[cfg(test)]
 mod record_tests;
 mod review;
-pub use conversation::Conversation;
+pub use conversation::{Conversation, Presentation};
 #[cfg(test)]
 mod goal_lines_tests;
 #[cfg(test)]

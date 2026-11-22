@@ -177,11 +177,6 @@ impl Board {
                 *value = agent_text(value);
             }
         }
-        for d in &g.decisions {
-            if !g.open.contains(&d.part) {
-                g.open.push(d.part);
-            }
-        }
         g.parts.normalize_constraints();
         g.parts.distinct_check();
         if let Some(selected) = g
