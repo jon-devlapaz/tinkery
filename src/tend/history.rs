@@ -37,7 +37,7 @@ pub(crate) struct Reader {
 impl Default for Reader {
     fn default() -> Self {
         Self {
-            source: Arc::new(|r| think_record::read(&r.root, &r.session, &r.goal)),
+            source: Arc::new(|r| crate::seed_me::connection::history(&r.root, &r.session, &r.goal)),
             epoch: 0,
             wanted: None,
             running: None,

@@ -10,7 +10,7 @@
 
 use crate::{
     confirmation::Actor,
-    pi::{self, Call, CallBudget, Harness, Request},
+    pi::{self, Call, CallBudget, Harness},
     seed_me::{
         answering::{self, Alternative, Ask, Assumption, Found, Refusal},
         ledger,
@@ -236,7 +236,7 @@ impl Agent {
                 .records
                 .as_deref()
                 .ok_or("The Tend origin cannot be checked without the records folder.")?;
-            return match think_record::read_origins(root, &[(session, goal)])
+            return match crate::seed_me::connection::origins(root, &[(session, goal)])
                 .map_err(|e| e.message)?
                 .remove(0)
             {
@@ -607,7 +607,7 @@ fn look(
     let reply = call
         .complete(
             &agent.budget,
-            Request::SeedStep,
+            "seed step",
             serde_json::to_vec(&input).unwrap_or_default(),
             instructions,
             cancelled,

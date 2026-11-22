@@ -361,7 +361,8 @@ fn start(request: Start) -> Result<Snapshot, Failure> {
             canonical_root(&intake.root)?;
         }
         let origins = request.record_root.as_ref().ok().and_then(|root| {
-            think_record::read_origins(root, &[(&request.target.session, goal.as_str())]).ok()
+            crate::seed_me::connection::origins(root, &[(&request.target.session, goal.as_str())])
+                .ok()
         });
         if let Some(think_record::MadeIn::Repo(origin)) = origins.as_ref().and_then(|o| o.first())
             && origin != &intake.root
