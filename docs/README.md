@@ -10,6 +10,7 @@ to the smallest relevant reference.
 | --- | --- |
 | A first real task, from install to a running worker | [First task](first-task.md) |
 | Terminal setup or a real drafting trial | [Terminal setup](terminal-setup.md) |
+| Commands an agent or a script runs without a screen | [Headless commands](terminal-setup.md#headless-commands) |
 | CLI, rendering, input, graph or presentation | [Principles](design/principles.md), plus the [Pinstar API](../vendor/pinstar/API.md) or [Graf API](../vendor/graf/API.md) when changing those libraries or adapters |
 | Module boundaries or shared code | [Architecture](design/architecture.md) |
 | Think interactions, records or model evaluation | [Think](design/think.md), [Think evaluation](design/think-evaluation.md) |
