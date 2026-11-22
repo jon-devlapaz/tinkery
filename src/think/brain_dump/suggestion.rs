@@ -16,7 +16,7 @@ pub(super) fn read(value: Option<&serde_json::Value>) -> Option<Suggestion> {
     let suggestion: Suggestion = serde_json::from_value(value?.clone()).ok()?;
     [&suggestion.answer, &suggestion.reason]
         .iter()
-        .all(|s| !s.trim().is_empty() && s.chars().all(|c| c == '\n' || !c.is_control()))
+        .all(|s| super::reading::safe(s))
         .then_some(suggestion)
 }
 

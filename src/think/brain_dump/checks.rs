@@ -104,9 +104,6 @@ pub(super) fn request_key(request: &BoardRequest) -> String {
     format!("{:016x}", hash.finish())
 }
 pub(super) fn coverage(request: &BoardRequest, g: &Guess) -> Vec<Coverage> {
-    coverage_board(request, &serde_json::to_value(g).expect("guess serializes"))
-}
-fn coverage_board(request: &BoardRequest, g: &serde_json::Value) -> Vec<Coverage> {
     let mut terms = HashSet::new();
     for s in &request.sources {
         for word in s.text.split_whitespace() {
@@ -132,72 +129,30 @@ fn coverage_board(request: &BoardRequest, g: &serde_json::Value) -> Vec<Coverage
                     .any(|w| w.eq_ignore_ascii_case(&term))
             };
             let mut locations = vec![];
-            for (i, f) in g
-                .get("framings")
-                .and_then(|v| v.as_array())
-                .into_iter()
-                .flatten()
-                .enumerate()
-            {
-                if f.get("text").and_then(|v| v.as_str()).is_some_and(contains) {
+            for (i, f) in g.framings.iter().enumerate() {
+                if contains(&f.text) {
                     locations.push(format!("reading {}", i + 1));
                 }
             }
-            if g.get("outcome")
-                .and_then(|v| v.as_str())
-                .is_some_and(contains)
-            {
+            if contains(&g.outcome) {
                 locations.push("outcome".into());
             }
-            for option in g
-                .get("alternatives")
-                .and_then(|v| v.as_array())
-                .into_iter()
-                .flatten()
-            {
-                if option
-                    .as_object()
-                    .is_some_and(|o| o.values().filter_map(|v| v.as_str()).any(contains))
+            for option in &g.alternatives {
+                if [&option.label, &option.benefit, &option.cost, &option.undo_cost]
+                    .into_iter()
+                    .any(|s| contains(s))
                 {
-                    locations.push(format!(
-                        "candidate: {}",
-                        option
-                            .get("label")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("(invalid label)")
-                    ));
+                    locations.push(format!("candidate: {}", option.label));
                 }
             }
-            for q in g
-                .get("questions")
-                .and_then(|v| v.as_array())
-                .into_iter()
-                .flatten()
-            {
-                if q.get("text").and_then(|v| v.as_str()).is_some_and(contains) {
-                    locations.push(format!(
-                        "question: {}",
-                        q.get("id")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("(invalid ID)")
-                    ));
+            for q in &g.questions {
+                if contains(&q.text) {
+                    locations.push(format!("question: {}", q.id));
                 }
             }
-            for span in g
-                .get("misfits")
-                .and_then(|v| v.as_array())
-                .into_iter()
-                .flatten()
-            {
-                if span
-                    .get("quote")
-                    .and_then(|v| v.as_str())
-                    .is_some_and(contains)
-                {
-                    locations.push(format!(
-                        "unresolved source {}",
-                        span.get("source").unwrap_or(&serde_json::Value::Null)
-                    ));
+            for span in &g.misfits {
+                if contains(&span.quote) {
+                    locations.push(format!("unresolved source {}", span.source));
                 }
             }
             Coverage { term, locations }

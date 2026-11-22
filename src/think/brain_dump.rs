@@ -9,7 +9,7 @@
 use super::{
     Motion, Note,
     canvas::Canvas,
-    drafting::{Approach, Job, ModelHost, REQUEST_LIMIT, Request},
+    drafting::{Job, ModelHost, REQUEST_LIMIT, Request},
 };
 use crate::{MIN_HEIGHT, MIN_WIDTH, Palette, seed_me};
 use crossterm::event::{
@@ -38,7 +38,8 @@ pub use host::BoardHost;
 use host::Simulated;
 use layout::{Notice, Refusal};
 pub use reading::{
-    Anchor, BoardRequest, Fragment, Framing, Guess, OpenDecision, Question, Settled, Source,
+    Anchor, Approach, BoardRequest, Fragment, Framing, Guess, OpenDecision, Question, Settled,
+    Source,
 };
 use reading::{grapheme_boundary, same_question};
 use review::Review;

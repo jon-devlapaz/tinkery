@@ -109,9 +109,8 @@ impl Review {
                 changes.push("Ignored unreadable review decision; shaping choices retained".into());
                 continue;
             };
-            let safe =
-                |s: &str| !s.trim().is_empty() && s.chars().all(|c| c == '\n' || !c.is_control());
             let distinct: HashSet<_> = choice.answers.iter().map(|a| a.trim()).collect();
+            let safe = reading::safe;
             if !safe(&choice.text)
                 || distinct.len() < 2
                 || choice.answers.iter().any(|a| !safe(a))

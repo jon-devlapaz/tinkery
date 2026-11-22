@@ -18,7 +18,7 @@ use std::{
     time::Duration,
 };
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 pub use crate::pi::REQUEST_LIMIT;
 use crate::pi::{CallBudget, Harness};
@@ -44,21 +44,6 @@ impl Request {
             Request::DecisionReview => "decision_review",
         }
     }
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-/// One way to reach the goal, as the reading proposes it. A proposal only: saving records it as
-/// an option, never as a choice.
-pub struct Approach {
-    /// The approach in a few words.
-    pub label: String,
-    /// What it gains.
-    pub benefit: String,
-    /// What it costs to do.
-    pub cost: String,
-    /// What it costs to back out of later.
-    pub undo_cost: String,
 }
 
 /// Pi or Claude Code, configured for think's shaping calls: an explicit model, a thinking level,

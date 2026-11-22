@@ -216,6 +216,21 @@ pub struct Guess {
     /// Approaches the model proposes; proposals only.
     pub alternatives: Vec<Approach>,
 }
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+/// One way to reach the goal, as the reading proposes it. A proposal only: saving records it as
+/// an option, never as a choice.
+pub struct Approach {
+    /// The approach in a few words.
+    pub label: String,
+    /// What it gains.
+    pub benefit: String,
+    /// What it costs to do.
+    pub cost: String,
+    /// What it costs to back out of later.
+    pub undo_cost: String,
+}
+
 /// A question the person answered, and the source holding their answer.
 #[derive(Clone, Debug, Serialize)]
 pub struct Settled {
@@ -292,8 +307,13 @@ fn same_question_text(a: &str, b: &str) -> bool {
 pub(super) fn grapheme_boundary(text: &str, index: usize) -> bool {
     index == text.len() || text.grapheme_indices(true).any(|(i, _)| i == index)
 }
-fn safe(text: &str) -> bool {
-    !text.trim().is_empty() && text.chars().all(|c| c == '\n' || !c.is_control())
+/// Text Think may show: no control characters except newlines.
+pub(super) fn shown(text: &str) -> bool {
+    text.chars().all(|c| c == '\n' || !c.is_control())
+}
+/// Text Think may show that says something: not blank, and [`shown`].
+pub(super) fn safe(text: &str) -> bool {
+    !text.trim().is_empty() && shown(text)
 }
 impl Guess {
     /// Reads a reply leniently: tolerated slips (a code fence, a trailing comma, unknown fields)
@@ -327,7 +347,7 @@ impl Guess {
             .chain(&self.parts.must_not)
             .chain(&self.other_goals)
             .chain(&self.deferred)
-            .any(|s| s.chars().any(|c| c != '\n' && c.is_control()))
+            .any(|s| !shown(s))
         {
             return Err("Unsafe display control".into());
         }
@@ -335,13 +355,13 @@ impl Guess {
             if self
                 .parts
                 .get(part)
-                .is_some_and(|s| s.chars().any(|c| c != '\n' && c.is_control()))
+                .is_some_and(|s| !shown(s))
             {
                 return Err("Unsafe display control".into());
             }
         }
         for frame in &self.framings {
-            if frame.text.chars().any(|c| c != '\n' && c.is_control()) {
+            if !shown(&frame.text) {
                 return Err("Unsafe display control".into());
             }
             for span in &frame.supports {
@@ -364,7 +384,7 @@ impl Guess {
                     .flat_map(|a| [&a.label, &a.benefit, &a.cost, &a.undo_cost]),
             )
         {
-            if text.chars().any(|c| c != '\n' && c.is_control()) {
+            if !shown(text) {
                 return Err("Unsafe display control".into());
             }
         }
