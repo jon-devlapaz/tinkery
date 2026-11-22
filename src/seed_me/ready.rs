@@ -3,10 +3,8 @@
 
 use std::path::{Path, PathBuf};
 
-use super::{
-    retry::Base,
-    shaping::{self, Shaped},
-};
+use super::retry::Base;
+use serde_json::Value;
 
 /// The exact verified seed selected for a read-only visit; not copy or execution permission.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -58,13 +56,215 @@ pub(crate) fn confirmed(seed: &Path) -> Result<ReadySeed, String> {
 /// Blocks on disk reads, so callers must use a worker, never an input or paint path.
 pub fn read(session: &Path, root: Option<&Path>) -> Result<Option<ReadySeed>, String> {
     super::migration::refuse_old_root(session)?;
-    read_with(session, root, || shaping::read(session))
+    read_with(session, root, || standing(session))
+}
+
+/// Attribution and intake requirement of an agent-confirmed seed; never operator confirmation.
+const AGENT_NOTE: &str = "Agent-confirmed Tink. Intake requires tink-sdlc 1.38.0 or newer; this is not operator confirmation or implementation approval.";
+
+/// Where one session's seed stands, read once through the ledger and its verifier. Reads only;
+/// each error is Tinkery's refusal in the operator's words.
+pub(crate) struct Standing {
+    /// The ledger as stored.
+    pub(crate) ledger: super::ledger::Value,
+    /// The same ledger as JSON.
+    pub(crate) json: Value,
+    /// The verified status, with each node's review flags, revisability and what it waits on.
+    pub(crate) status: Value,
+    /// Where the seed stands.
+    pub(crate) stand: Stand,
+    /// The retry checkout pinned in the goal's evidence.
+    pub(crate) retry: Option<Base>,
+    /// The exact verified seed, only while it stands ready.
+    pub(crate) target: Option<SeedTarget>,
+    /// Attribution and intake requirement of an agent-confirmed ready seed; not permission.
+    pub(crate) note: Option<&'static str>,
+    /// The single eligible deferred prerequisite, only while waiting.
+    pub(crate) deferred: Option<super::ledger::DeferredPrerequisite>,
+}
+
+/// Where a session's seed stands. Each says only what the ledger's files show; nothing is guessed.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum Stand {
+    /// A settled node the ledger flags for review, by id; shown before any question or seed.
+    Review(String),
+    /// The current question's id; its node is in the ledger and has wording.
+    Question(String),
+    /// Active with no current question and no seed.
+    Waiting,
+    /// A seed draft waiting for confirmation, with its revision label.
+    Drafted(Option<String>),
+    /// A confirmed seed the verifier accepts; it stays ready after the session is completed.
+    Ready {
+        /// The confirmed revision label.
+        revision: Option<String>,
+        /// Whether the session is completed.
+        ended: bool,
+    },
+    /// A seed that says it is confirmed but fails verification, with Tinkery's reason.
+    Unverified(String),
+    /// A practice session's seed, never a real one.
+    Practice,
+    /// Completed or stopped, with the ledger's status word.
+    Ended(String),
+    /// What the files say that Tinkery does not recognise.
+    Unknown(&'static str),
+}
+
+/// Read where `session`'s seed stands. Blocks on disk reads, so callers must use a worker.
+pub(crate) fn standing(session: &Path) -> Result<Standing, String> {
+    let read = || -> Result<Standing, String> {
+        let ledger = super::ledger::load(session)?;
+        let flags = super::ledger::review_flags(&ledger["nodes"]);
+        let status = super::ledger::status_from_ledger(session, &ledger)?;
+        let revisable: Vec<_> = ledger["nodes"]
+            .array()
+            .unwrap_or(&[])
+            .iter()
+            .filter_map(|n| n["id"].string())
+            .filter(|id| super::ledger::can_revise(&ledger, id))
+            .map(str::to_owned)
+            .collect();
+        let waits: serde_json::Map<String, Value> = ledger["nodes"]
+            .array()
+            .unwrap_or(&[])
+            .iter()
+            .filter_map(|node| {
+                let id = node["id"].string()?;
+                Some((
+                    id.to_owned(),
+                    serde_json::json!(super::ledger::waiting_on(&ledger["nodes"], id)),
+                ))
+            })
+            .collect();
+        let json = ledger.to_json()?;
+        let mut status = status.to_json()?;
+        status["review_flags"] = flags.to_json()?;
+        status["revisable"] = serde_json::json!(revisable);
+        status["waiting_on"] = Value::Object(waits);
+        let stand = stand(&json, &status);
+        let retry = super::retry::base(&ledger)?;
+        let ready = matches!(stand, Stand::Ready { .. });
+        let target = ready
+            .then(|| {
+                Some(SeedTarget {
+                    session: session.canonicalize().ok()?,
+                    session_id: json["session_id"]
+                        .as_str()
+                        .filter(|id| !id.is_empty() && !id.chars().any(char::is_control))?
+                        .to_owned(),
+                    retry: retry.clone(),
+                    version: json.get("version").and_then(Value::as_u64)?,
+                    sha256: status["seed"]["sha256"].as_str()?.to_owned(),
+                })
+            })
+            .flatten();
+        if ready && retry.is_some() && target.is_none() {
+            return Err("The retry has no verified session identity.".into());
+        }
+        let deferred = match stand {
+            Stand::Waiting => super::ledger::deferred_prerequisite(&ledger)?,
+            _ => None,
+        };
+        let note = (ready && status["handoff"]["operator"] == "agent").then_some(AGENT_NOTE);
+        Ok(Standing {
+            ledger,
+            json,
+            status,
+            stand,
+            retry,
+            target,
+            note,
+            deferred,
+        })
+    };
+    read().map_err(|reason| format!("Tinkery refused: {reason}"))
+}
+
+/// Where the seed stands, from the ledger and its verified `status`. An open question comes
+/// before a seed, so a reopened decision is never hidden behind an older draft.
+pub(crate) fn stand(ledger: &Value, status: &Value) -> Stand {
+    let text = |value: &Value, key: &str| {
+        value
+            .get(key)
+            .and_then(Value::as_str)
+            .filter(|s| !s.trim().is_empty())
+            .map(str::to_owned)
+    };
+    let nodes = ledger
+        .get("nodes")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    let Some(state) = text(status, "status") else {
+        return Stand::Unknown("Tinkery read no session status.");
+    };
+    let handoff = status.get("handoff");
+    let verified = handoff
+        .and_then(|h| h.get("verified"))
+        .and_then(Value::as_bool)
+        == Some(true);
+    let seed = status.get("seed").filter(|s| !s.is_null());
+    let line = seed.and_then(|s| s.get("line_1")).and_then(Value::as_str);
+    let revision = seed.and_then(|s| text(s, "revision"));
+    if state == "completed" && line == Some("status: confirmed for intake") && verified {
+        return Stand::Ready {
+            revision,
+            ended: true,
+        };
+    }
+    if state != "active" {
+        return Stand::Ended(state);
+    }
+    if ledger
+        .get("goal")
+        .and_then(Value::as_str)
+        .is_none_or(|g| g.trim().is_empty())
+    {
+        return Stand::Unknown("This session has no confirmed goal.");
+    }
+    if let Some(id) = nodes
+        .iter()
+        .filter_map(|n| n["id"].as_str())
+        .find(|id| status["review_flags"].get(id).is_some())
+    {
+        return Stand::Review(id.to_owned());
+    }
+    if let Some(id) = text(status, "current_question") {
+        let Some(node) = nodes.iter().find(|n| text(n, "id").as_deref() == Some(&id)) else {
+            return Stand::Unknown("The current question isn't in its ledger.");
+        };
+        if text(node, "question")
+            .or_else(|| text(node, "gate"))
+            .is_none()
+        {
+            return Stand::Unknown("The current question has no wording.");
+        }
+        return Stand::Question(id);
+    }
+    if seed.is_none() {
+        return Stand::Waiting;
+    }
+    match line {
+        Some("status: draft") => Stand::Drafted(revision),
+        Some("status: simulated") => Stand::Practice,
+        Some("status: confirmed for intake") if verified => Stand::Ready {
+            revision,
+            ended: false,
+        },
+        Some("status: confirmed for intake") => Stand::Unverified(
+            handoff
+                .and_then(|h| text(h, "reason"))
+                .unwrap_or_else(|| "Tinkery gave no reason.".into()),
+        ),
+        _ => Stand::Unknown("Tinkery cannot recognize the Tink Contract's status line."),
+    }
 }
 
 fn read_with(
     session: &Path,
     root: Option<&Path>,
-    inspect: impl FnOnce() -> Result<shaping::Shaping, String>,
+    inspect: impl FnOnce() -> Result<Standing, String>,
 ) -> Result<Option<ReadySeed>, String> {
     let seed_path = path(session);
     let seed = match super::read_seed_text(&seed_path) {
@@ -85,14 +285,14 @@ fn read_with(
             "The session changed while being read. Return to the menu and reopen Approve.".into(),
         );
     }
-    let Shaped::Ready { revision, .. } = shaped.stage else {
+    let Stand::Ready { revision, .. } = shaped.stand else {
         return Ok(None);
     };
     let retry = shaped
-        .ready_target
+        .target
         .as_ref()
         .and_then(|target| target.retry.as_ref());
-    let retry_started = match (shaped.ready_target.as_ref(), retry, root) {
+    let retry_started = match (shaped.target.as_ref(), retry, root) {
         (Some(target), Some(base), Some(named)) => {
             base.started(named, &target.session, &retry_name(target))
         }
@@ -105,7 +305,7 @@ fn read_with(
     let commands = if matches!(retry_started, Ok(false)) {
         root.and_then(|named| {
             let title = seed.lines().find_map(|line| line.strip_prefix("# "))?;
-            let run = run_name(title, shaped.ready_target.as_ref())?;
+            let run = run_name(title, shaped.target.as_ref())?;
             let checkout = retry.map_or(named, |base| base.checkout.as_path());
             crate::sdlc::installed(checkout).then_some(())?;
             intake(
@@ -120,16 +320,17 @@ fn read_with(
         None
     };
     Ok(Some(ReadySeed {
-        target: shaped.ready_target,
-        goal: shaped
-            .goal
+        goal: shaped.json["goal"]
+            .as_str()
             .filter(|g| !g.trim().is_empty())
-            .ok_or("The verified Tink has no goal.")?,
+            .ok_or("The verified Tink has no goal.")?
+            .to_owned(),
+        target: shaped.target,
         revision: revision.ok_or("The verified Tink has no revision.")?,
         acceptance: acceptance(&seed)?,
         commands,
         retry_started,
-        confirmation_note: shaped.confirmation_note,
+        confirmation_note: shaped.note.map(Into::into),
     }))
 }
 
@@ -235,134 +436,6 @@ fn retry_name(target: &SeedTarget) -> String {
     use sha2::{Digest, Sha256};
     let id = format!("{:x}", Sha256::digest(target.session_id.as_bytes()));
     format!("retry-{}", &id[..16])
-}
-
-impl Base {
-    /// Require the reviewed candidate to remain a detached checkout of the named project.
-    /// Only Git metadata is read. No script from the candidate is executed.
-    pub(crate) fn check_checkout(&self, named: &Path) -> Result<(), String> {
-        if self.detached_head(named)? == self.head {
-            Ok(())
-        } else {
-            Err(self.moved())
-        }
-    }
-
-    fn moved(&self) -> String {
-        format!(
-            "The retry needs its detached checkout at {} on commit {}. Open the matching project and restore that checkout before starting.",
-            self.checkout.display(),
-            self.head
-        )
-    }
-
-    fn detached_head(&self, named: &Path) -> Result<String, String> {
-        if self.checkout.canonicalize().ok().as_deref() != Some(&self.checkout) {
-            return Err(self.moved());
-        }
-        let git = |root: &Path, args: &[&str]| {
-            crate::sdlc::git(
-                root,
-                &[&["rev-parse", "--path-format=absolute"][..], args].concat(),
-            )
-            .map_err(|_| self.moved())
-        };
-        let shared = git(named, &["--git-common-dir"])?;
-        let metadata = git(
-            &self.checkout,
-            &[
-                "--show-toplevel",
-                "--git-common-dir",
-                "HEAD",
-                "--abbrev-ref",
-                "HEAD",
-            ],
-        )?;
-        metadata
-            .strip_prefix(&format!("{}\n{}", self.checkout.display(), shared))
-            .and_then(|tail| tail.strip_suffix("\nHEAD\n"))
-            .map(str::to_owned)
-            .ok_or_else(|| self.moved())
-    }
-
-    /// A stage-3 build may include one direct commit containing only its own run evidence.
-    pub(crate) fn check_build(&self, root: &Path, slug: &str, head: &str) -> Result<(), String> {
-        use crate::sdlc::git;
-        if head == self.head {
-            return Ok(());
-        }
-        if git(root, &["show", "-s", "--format=%P", head])?.trim() != self.head {
-            return Err(self.moved());
-        }
-        let exclude = format!(":(exclude)runs/{slug}");
-        git(
-            root,
-            &[
-                "diff",
-                "--quiet",
-                "--no-ext-diff",
-                "--no-textconv",
-                &self.head,
-                head,
-                "--",
-                ".",
-                &exclude,
-            ],
-        )
-        .map(|_| ())
-        .map_err(|_| self.moved())
-    }
-
-    fn started(&self, named: &Path, session: &Path, slug: &str) -> Result<bool, String> {
-        let head = self.detached_head(named)?;
-        let unknown = || {
-            format!(
-                "Cannot identify the retry intake. Open Watch with --sdlc-root {} and inspect run {slug}.",
-                self.checkout.display()
-            )
-        };
-        let mut directory = self.checkout.clone();
-        for component in ["runs", slug] {
-            directory.push(component);
-            match std::fs::symlink_metadata(&directory) {
-                Ok(meta) if meta.is_dir() => {}
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                    return if head == self.head {
-                        Ok(false)
-                    } else {
-                        Err(self.moved())
-                    };
-                }
-                _ => return Err(unknown()),
-            }
-        }
-        self.check_build(&self.checkout, slug, &head)?;
-        // Only the expected detached retry's intake record; never its runtime or steps.
-        let recorded = (|| {
-            let bytes = crate::regular_file::read_bounded(
-                &directory.join("run.json"),
-                4 * 1024 * 1024,
-                "run.json is not a regular file",
-            )
-            .ok()?
-            .bytes?;
-            let run: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
-            let bound = &run["seed_contract"];
-            if run["schema"] != 1
-                || !crate::sdlc::canonical_run_id(run["run_id"].as_str()?)
-                || bound["path"].as_str()? != format!("runs/{slug}/seed-contract.md")
-                || bound.get("definitions_sha256").is_none()
-            {
-                return None;
-            }
-            crate::sdlc::Seed::parse(&run).ok().flatten()
-        })()
-        .ok_or_else(unknown)?;
-        if !super::runs::matches(&recorded, &path(session))? {
-            return Err(unknown());
-        }
-        Ok(true)
-    }
 }
 
 /// Run names stay scannable: whole lowercase ASCII words joined by hyphens, at most
@@ -585,7 +658,7 @@ mod tests {
                 .unwrap()
                 .contains("Agent-confirmed Tink. Intake requires tink-sdlc 1.38.0")
         );
-        assert!(shaping::read(&session).unwrap().confirmation_note.is_some());
+        assert!(standing(&session).unwrap().note.is_some());
         let before = fs::read(&seed_path).unwrap();
         for invalid in [
             serde_json::Value::Null,
@@ -608,8 +681,8 @@ mod tests {
             fs::write(session.join("seed-confirmation.json"), changed.to_string()).unwrap();
             assert!(read(&session, Some(root.path())).unwrap().is_none());
             assert!(!matches!(
-                shaping::read(&session).unwrap().stage,
-                Shaped::Ready { .. }
+                standing(&session).unwrap().stand,
+                Stand::Ready { .. }
             ));
         }
         fs::write(session.join("seed-confirmation.json"), receipt.to_string()).unwrap();
@@ -629,7 +702,7 @@ mod tests {
             let (_root, session) = fixture(true);
             assert!(
                 read_with(&session, Some(&session), || {
-                    let shaped = shaping::read(&session)?;
+                    let shaped = standing(&session)?;
                     fs::write(session.join(file), "TEST changed").unwrap();
                     Ok(shaped)
                 })
@@ -668,7 +741,7 @@ mod tests {
             });
             let started = Instant::now();
             let result = read_with(&session, None, || {
-                let shaped = shaping::read(&session)?;
+                let shaped = standing(&session)?;
                 fs::remove_file(&seed).unwrap();
                 let name = CString::new(seed.as_os_str().as_encoded_bytes()).unwrap();
                 assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);

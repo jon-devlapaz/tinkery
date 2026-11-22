@@ -1,7 +1,7 @@
 //! Citation warnings and reported paths through Shape's public ledger and seed interfaces.
 
 use super::*;
-use crate::seed_me::shaping::{self, Shaped};
+use crate::shape::shaping::{self, Shaped};
 use std::fs;
 
 fn journey(checked: &str, warning: Option<&str>, paths: &[&str]) {

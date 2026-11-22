@@ -18,11 +18,13 @@
 
 pub use step::Agent;
 
+pub mod answering;
 mod choices;
 pub mod command;
 mod discovery_help;
 mod forms;
 mod help;
+pub mod shaping;
 mod step;
 use crate::confirmation::Actor;
 use crate::words;
@@ -30,14 +32,9 @@ use crate::words;
 use crate::seed_me::ledger::{AnswerAction, CheckMethod, DraftCheck};
 use crate::{
     Palette,
-    seed_me::{
-        Session, Stage,
-        answering::{
-            self, Assumption, Ending, NOTHING_FOUND, OBJECTION, PROBE, Refusal, SAMPLE, UNOBSERVED,
-        },
-        shaping::{self, Shaped, Shaping},
-    },
+    seed_me::{Session, Stage},
 };
+use answering::{Assumption, Ending, NOTHING_FOUND, OBJECTION, PROBE, Refusal, SAMPLE, UNOBSERVED};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use forms::Form;
 use ratatui::{
@@ -46,6 +43,7 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::{Paragraph, Wrap},
 };
+use shaping::{Shaped, Shaping};
 use std::{
     path::{Path, PathBuf},
     sync::{Arc, mpsc},

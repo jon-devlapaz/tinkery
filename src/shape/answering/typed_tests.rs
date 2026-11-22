@@ -246,7 +246,7 @@ fn a_contradicted_session_cannot_confirm_until_the_operator_keeps_it_with_a_reas
     let before = fs::read(session.join("ledger.json")).unwrap();
     let error = confirm_seed(
         &session,
-        crate::seed_me::answering::read(&session).unwrap().version(),
+        crate::shape::answering::read(&session).unwrap().version(),
         &revision,
         &std::fs::read_to_string(session.join("seed-contract.md")).unwrap(),
         "TEST confirm",
@@ -300,7 +300,7 @@ fn a_contradicted_session_cannot_confirm_until_the_operator_keeps_it_with_a_reas
     );
     confirm_seed(
         &session,
-        crate::seed_me::answering::read(&session).unwrap().version(),
+        crate::shape::answering::read(&session).unwrap().version(),
         &revision,
         &std::fs::read_to_string(session.join("seed-contract.md")).unwrap(),
         "TEST confirm",
