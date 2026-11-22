@@ -212,10 +212,13 @@ impl Context {
                 _ => {},
             }
         }
-        sources.sort_by(|a, b| a.id.cmp(&b.id));
-        if sources.windows(2).any(|s| s[0].id == s[1].id) {
+        // The one rule linking uses: a source id held by any other readable session, ended ones
+        // included, would make a saved need ambiguous.
+        let ids = found.identities();
+        if sources.iter().any(|s| ids.session(&s.id).is_none()) {
             return Err("Source identities are ambiguous.".into());
         }
+        sources.sort_by(|a, b| a.id.cmp(&b.id));
         if sources.len() < 2 {
             return Err(
                 "Save at least two goals in this repository before finding connections.".into(),

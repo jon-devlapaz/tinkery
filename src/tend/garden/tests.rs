@@ -27,6 +27,11 @@ fn tend(count: usize) -> Tend {
         })
         .collect();
     tend.all_sessions = tend.sessions.clone();
+    tend.ids = crate::tend::Found {
+        sessions: tend.sessions.clone(),
+        ..Default::default()
+    }
+    .identities();
     tend
 }
 fn body(width: u16, height: u16) -> Rect {

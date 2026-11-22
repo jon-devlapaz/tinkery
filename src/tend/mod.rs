@@ -12,7 +12,7 @@ pub(crate) mod history;
 mod linking;
 pub mod needs;
 pub(crate) mod thought;
-pub use discovery::{Discovery, Found, Outcome, Source, scan};
+pub use discovery::{Discovery, Found, Identities, Outcome, Source, scan};
 
 use crate::clipped;
 pub use crate::seed_me::{Session, Stage};
@@ -87,6 +87,7 @@ pub(super) struct Tend {
     pub(super) needs: needs::Store,
     links: Result<needs::Links, String>,
     all_sessions: Vec<Session>,
+    ids: Identities,
     /// Only exact recorded repo matches; absent outside a repository.
     pub(super) repo_paths: Option<HashSet<PathBuf>>,
     /// Active goals with unknown repository attribution, not known non-matches.
@@ -130,6 +131,7 @@ impl Tend {
             needs: needs::Store::new(link_root),
             links: Ok(needs::Links::default()),
             all_sessions: vec![],
+            ids: Identities::default(),
             repo_paths: None,
             repo_unknown: 0,
             show_all: false,
@@ -169,6 +171,7 @@ impl Tend {
                 self.error = Some(error.clone());
                 self.sessions.clear();
                 self.all_sessions.clear();
+                self.ids = Identities::default();
                 self.unreadable = 0;
                 self.ended = 0;
                 self.want = None;
@@ -189,6 +192,7 @@ impl Tend {
                 self.error = None;
                 self.unreadable = found.unreadable;
                 self.all_sessions = found.sessions.clone();
+                self.ids = found.identities();
                 if let Some(index) = wanted_at
                     && self
                         .repo_paths
