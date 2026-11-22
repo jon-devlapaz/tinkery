@@ -2,11 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{
-    fs,
-    io::{Read, Write},
-    path::PathBuf,
-};
+use std::{fs, path::PathBuf};
 
 const LIMIT: usize = 128 * 1024;
 
@@ -51,20 +47,14 @@ impl Store {
     }
 
     fn read_one(&self, path: &PathBuf) -> Result<String, String> {
-        let file = crate::regular_file::open(
-            fs::OpenOptions::new().read(true),
-            libc::O_NOFOLLOW,
+        let bytes = crate::regular_file::read_bounded(
             path,
+            (LIMIT * 6 + 4096) as u64,
             "A thought is not a regular local file.",
         )
-        .map_err(|e| e.to_string())?;
-        let mut bytes = vec![];
-        file.take((LIMIT * 6 + 4096) as u64 + 1)
-            .read_to_end(&mut bytes)
-            .map_err(|e| e.to_string())?;
-        if bytes.len() > LIMIT * 6 + 4096 {
-            return Err("A saved thought is oversized.".into());
-        }
+        .map_err(|e| e.to_string())?
+        .bytes
+        .ok_or("A saved thought is oversized.")?;
         let thought: Thought = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
         if thought.schema != 1
             || thought.repo != self.repo
@@ -116,28 +106,20 @@ impl Store {
             words: words.into(),
         };
         let bytes = serde_json::to_vec(&thought).map_err(|e| e.to_string())?;
-        let mut temp = tempfile::NamedTempFile::new_in(root).map_err(|e| e.to_string())?;
-        temp.write_all(&bytes).map_err(|e| e.to_string())?;
-        temp.as_file().sync_all().map_err(|e| e.to_string())?;
-        match temp.persist_noclobber(&path) {
-            Ok(_) => {
-                if let Err(e) = crate::regular_file::sync_directory(root) {
-                    return Ok(Saved::Uncertain(format!(
-                        "Thought persistence is uncertain. Keep these words: {e}"
-                    )));
-                }
-                Ok(Saved::New)
-            }
-            Err(e) if e.error.kind() == std::io::ErrorKind::AlreadyExists => {
+        let uncertain = |e: std::io::Error| {
+            Saved::Uncertain(format!(
+                "Thought persistence is uncertain. Keep these words: {e}"
+            ))
+        };
+        match crate::regular_file::publish(&path, &bytes, crate::regular_file::Existing::Refuse) {
+            Ok(crate::regular_file::Published::Durable) => Ok(Saved::New),
+            Ok(crate::regular_file::Published::Uncertain(e)) => Ok(uncertain(e)),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
                 if self.read_one(&path)? != words {
                     return Err("The existing thought differs. Nothing was replaced.".into());
                 }
-                if let Err(e) = crate::regular_file::sync_directory(root) {
-                    return Ok(Saved::Uncertain(format!(
-                        "Thought persistence is uncertain. Keep these words: {e}"
-                    )));
-                }
-                Ok(Saved::Duplicate)
+                Ok(crate::regular_file::sync_directory(root)
+                    .map_or_else(uncertain, |()| Saved::Duplicate))
             }
             Err(e) => Err(e.to_string()),
         }

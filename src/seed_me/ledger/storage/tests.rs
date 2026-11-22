@@ -310,12 +310,13 @@ fn atomic_replace_is_private_and_leaves_no_temporary_file_and_noop_keeps_bytes()
         fs::metadata(&path).unwrap().permissions().mode() & 0o777,
         0o600
     );
-    assert!(!fs::read_dir(root.path()).unwrap().any(|p| {
-        p.unwrap()
+    assert!(
+        !fs::read_dir(root.path()).unwrap().any(|p| p
+            .unwrap()
             .file_name()
             .to_string_lossy()
-            .starts_with(".ledger-")
-    }));
+            .starts_with(".tmp"))
+    );
     let ledger = load(root.path()).unwrap();
     let bytes = fs::read(&path).unwrap();
     fs::set_permissions(&path, fs::Permissions::from_mode(0o640)).unwrap();

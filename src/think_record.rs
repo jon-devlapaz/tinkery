@@ -24,7 +24,6 @@ use crate::goal::Part;
 use serde::{Deserialize, Serialize};
 use std::{
     ffi::OsStr,
-    io::Write,
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -342,13 +341,13 @@ pub fn write_with_context(
     }
     std::fs::create_dir_all(root).map_err(|e| format!("{}: {e}", root.display()))?;
     let path = root.join(format!("{}_{id}.json", utc(session.confirmed, '-')));
-    let mut file =
-        tempfile::NamedTempFile::new_in(root).map_err(|e| format!("{}: {e}", root.display()))?;
-    file.write_all(text.as_bytes())
-        .and_then(|()| file.as_file().sync_all())
-        .map_err(|e| format!("{}: {e}", path.display()))?;
-    file.persist_noclobber(&path)
-        .map_err(|e| format!("{}: {}", path.display(), e.error))?;
+    crate::regular_file::publish(
+        &path,
+        text.as_bytes(),
+        crate::regular_file::Existing::Refuse,
+    )
+    // A file in place is saved; this store never reported directory durability.
+    .map_err(|e| format!("{}: {e}", path.display()))?;
     Ok(WrittenRecord {
         path,
         reading_context_error,
