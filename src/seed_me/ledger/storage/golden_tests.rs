@@ -24,7 +24,7 @@ fn republish(stored: &str) -> std::result::Result<String, String> {
         None,
         STAMP,
     )
-    .map_err(|e| e.reason)?;
+    .map_err(|e| e.to_string())?;
     Ok(fs::read_to_string(root.path().join("ledger.json")).unwrap())
 }
 
@@ -52,24 +52,59 @@ fn republished_ledgers_keep_their_golden_bytes() {
         ("goal_float", swap(r#""goal":null"#, r#""goal":1.0"#)),
         ("goal_nan", swap(r#""goal":null"#, r#""goal":NaN"#)),
         ("goal_string_int", swap(r#""goal":null"#, r#""goal":"7""#)),
-        ("question_float", swap(r#""current_question":null"#, r#""current_question":1e16"#)),
-        ("question_nan", swap(r#""current_question":null"#, r#""current_question":NaN"#)),
-        ("frontier_float", swap(r#""frontier":[]"#, r#""frontier":[2E3]"#)),
-        ("revision_bool", swap(r#""revision":0"#, r#""revision":false"#)),
+        (
+            "question_float",
+            swap(r#""current_question":null"#, r#""current_question":1e16"#),
+        ),
+        (
+            "question_nan",
+            swap(r#""current_question":null"#, r#""current_question":NaN"#),
+        ),
+        (
+            "frontier_float",
+            swap(r#""frontier":[]"#, r#""frontier":[2E3]"#),
+        ),
+        (
+            "revision_bool",
+            swap(r#""revision":0"#, r#""revision":false"#),
+        ),
         ("version_string", swap(r#""version":0"#, r#""version":"0""#)),
-        ("schema_float", swap(r#""schema_version":1"#, r#""schema_version":1.0"#)),
-        ("dup_key", swap(r#""status":"active""#, r#""status":"stopped","status":"active""#)),
+        (
+            "schema_float",
+            swap(r#""schema_version":1"#, r#""schema_version":1.0"#),
+        ),
+        (
+            "dup_key",
+            swap(
+                r#""status":"active""#,
+                r#""status":"stopped","status":"active""#,
+            ),
+        ),
         ("crlf", swap(",", ",\r\n")),
         ("plain", base("", "0", "[]")),
-        ("floats", base(r#""extra":[1.0,1e16,1.5e-7,-0.0,0.1,123456789012345678901234567890,2E3],"#, "0", "[]")),
+        (
+            "floats",
+            base(
+                r#""extra":[1.0,1e16,1.5e-7,-0.0,0.1,123456789012345678901234567890,2E3],"#,
+                "0",
+                "[]",
+            ),
+        ),
         ("nan", base(r#""extra":NaN,"#, "0", "[]")),
         ("infinity", base(r#""extra":-Infinity,"#, "0", "[]")),
         ("big_version", base("", "18446744073709551616", "[]")),
         ("float_version", base("", "0.0", "[]")),
-        ("unicode", swap(r#""outcome":"""#, r#""outcome":"é\u00e9\ud83d\ude00\u001f\/\t\u2028\u007f""#)),
+        (
+            "unicode",
+            swap(
+                r#""outcome":"""#,
+                r#""outcome":"é\u00e9\ud83d\ude00\u001f\/\t\u2028\u007f""#,
+            ),
+        ),
         ("probe", probe),
     ] {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/seed_me/ledger/storage/goldens");
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("src/seed_me/ledger/storage/goldens");
         let (file, actual) = match republish(&stored) {
             Ok(bytes) => (format!("{name}.json"), bytes),
             Err(reason) => (format!("{name}.refused"), reason + "\n"),

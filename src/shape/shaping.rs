@@ -171,7 +171,7 @@ pub(crate) fn read_with_base(session: &Path) -> Result<(Shaping, Option<Base>), 
         shaping.signoff = ledger::human_signoff(&records);
     }
     if let Shaped::Drafted { text, revision } = &mut shaping.stage {
-        *text = crate::seed_me::read_seed_text(&session.join("seed-contract.md")).ok();
+        *text = crate::seed_me::read_seed_text(&session.join(crate::seed_me::files::SEED)).ok();
         if let (Some(seed), Some(revision)) = (text.as_ref(), revision.as_ref()) {
             if let Ok(records) = ledger::read_checks(session)
                 && ledger::checks_block(&records).is_ok_and(|block| seed.contains(&block))

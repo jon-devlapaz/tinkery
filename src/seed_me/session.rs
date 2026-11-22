@@ -32,9 +32,9 @@ impl Stage {
             ("completed", _) => Self::Completed,
             ("stopped", _) => Self::Stopped,
             ("active", None) => Self::GoalSaved,
-            ("active", Some("status: draft")) => Self::SeedDrafted,
-            ("active", Some("status: confirmed for intake")) => Self::SeedUnchecked,
-            ("active", Some("status: simulated")) => Self::Simulated,
+            ("active", Some(super::files::DRAFT)) => Self::SeedDrafted,
+            ("active", Some(super::files::CONFIRMED)) => Self::SeedUnchecked,
+            ("active", Some(super::files::SIMULATED)) => Self::Simulated,
             _ => Self::Unknown,
         }
     }
@@ -130,7 +130,7 @@ pub fn read(path: &Path) -> Record {
         return Record::Unreadable(ReadFailure::new(path.to_path_buf(), reason));
     }
     use std::io::ErrorKind::{NotADirectory, NotFound};
-    let ledger_path = path.join("ledger.json");
+    let ledger_path = path.join(super::files::LEDGER);
     let text = match super::read_regular_text(&ledger_path, "ledger") {
         Ok(text) => text,
         Err(error) if matches!(error.kind(), NotFound | NotADirectory) => {
@@ -176,7 +176,7 @@ pub fn read(path: &Path) -> Record {
     {
         Stage::Unknown
     } else {
-        match super::read_seed_text(&path.join("seed-contract.md")) {
+        match super::read_seed_text(&path.join(super::files::SEED)) {
             Ok(seed) => Stage::from_files(status, Some(&seed)),
             Err(error) if error.kind() == NotFound => Stage::from_files(status, None),
             Err(_) => Stage::Unknown,
@@ -202,7 +202,7 @@ pub fn read(path: &Path) -> Record {
 /// identifier from the directory name and never changes the ledger.
 pub fn session_id(path: &Path, goal: &str) -> Result<String, String> {
     super::migration::refuse_old_root(path)?;
-    let ledger_path = path.join("ledger.json");
+    let ledger_path = path.join(super::files::LEDGER);
     let text = super::read_regular_text(&ledger_path, "ledger")
         .map_err(|error| format!("{}: {error}", ledger_path.display()))?;
     let ledger: Value = serde_json::from_str(&text)
