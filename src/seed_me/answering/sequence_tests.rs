@@ -34,7 +34,6 @@ fn question(id: &str, after: &[&str]) -> Ask {
         assumed: vec![],
         options: vec![],
         against: None,
-        confidence: None,
     }
 }
 

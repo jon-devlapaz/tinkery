@@ -46,11 +46,6 @@ impl Words {
         &self.state.raw
     }
 
-    #[cfg(test)]
-    pub(super) fn is_empty(&self) -> bool {
-        self.text().is_empty()
-    }
-
     pub(super) fn clear(&mut self) {
         *self = Self::new("");
     }

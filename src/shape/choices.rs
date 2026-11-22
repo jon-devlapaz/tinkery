@@ -4,105 +4,182 @@
 
 use super::*;
 use crate::actions::Row;
+use crate::seed_me::ledger::DeferredPrerequisite;
 
-/// An action F1 can run on the open session.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// An action F1 can run on the open session, carrying what the row was offered on.
+#[derive(Clone)]
 pub(super) enum Choice {
-    Approve,
-    Reveal,
-    Defer,
-    Delegate,
+    Approve(crate::seed_me::ready::SeedTarget),
+    Reveal(String),
+    Defer {
+        id: String,
+        expected: u64,
+        gate: String,
+    },
+    Delegate(Act),
     Object,
-    Revise,
-    Revisit,
+    Revise {
+        id: String,
+        expected: u64,
+    },
+    Revisit(DeferredPrerequisite, u64),
     TeachBack,
-    EditCheck(usize, CheckMethod),
+    EditCheck(CheckEdit, String),
     Change,
-    Folder,
+    Folder(String),
     SoFar,
     End(Ending),
     Model,
 }
 
 impl Shape {
-    /// The actions allowed now, most likely first. Empty without an open, idle session, or
+    /// The actions allowed now, most likely first. Empty without an open, idle, read session, or
     /// while a form, folder, teach-back, change, objection or ending is in progress.
     pub(super) fn rows(&self) -> Vec<Row<Choice>> {
-        let Some(open) = &self.open else {
+        let Some(
+            open @ Opened {
+                mode: Mode::Idle(Editor::Stage),
+                reading: Reading::Done(Ok(shaping)),
+                ..
+            },
+        ) = &self.open
+        else {
             return vec![];
         };
-        if !open.offers_choices() {
-            return vec![];
-        }
         let mut rows = vec![];
-        if matches!(&open.reading, Reading::Done(Ok(shaping)) if shaping.ready_target.is_some()) {
-            rows.push(Row::new("Open this Tink in Approve", Choice::Approve));
+        if let Some(target) = &shaping.ready_target {
+            rows.push(Row::new(
+                "Open this Tink in Approve",
+                Choice::Approve(target.clone()),
+            ));
         }
         let agent = self.agent.is_some() && !self.held;
-        if open.instinct_first() {
-            rows.push(Row::new("Show the options and suggestion", Choice::Reveal));
-        }
-        if agent && open.offers_answers() {
-            rows.push(Row::new("Defer, with a reason", Choice::Defer));
-            if !open.instinct_first() {
-                rows.push(Row::new("Delegate to the suggestion", Choice::Delegate));
-            }
-        }
-        if open.offers_objection() {
-            rows.push(Row::new("Object to an assumption", Choice::Object));
-        }
-        if agent && open.revisable() {
-            rows.push(Row::new("Revise the answer", Choice::Revise));
-        }
-        if agent
-            && let Reading::Done(Ok(Shaping {
-                deferred: Some(_), ..
-            })) = &open.reading
+        let instinct = open.instinct_first();
+        if let Shaped::Question { id, .. } = &shaping.stage
+            && instinct
         {
-            rows.push(Row::new("Answer deferred prerequisite", Choice::Revisit));
+            rows.push(Row::new(
+                "Show the options and suggestion",
+                Choice::Reveal(id.clone()),
+            ));
+        }
+        match (&shaping.stage, shaping.version) {
+            (Shaped::Question { id, gate, .. }, Some(expected)) => {
+                if agent {
+                    rows.push(Row::new(
+                        "Defer, with a reason",
+                        Choice::Defer {
+                            id: id.clone(),
+                            expected,
+                            gate: gate.clone(),
+                        },
+                    ));
+                    if !instinct {
+                        rows.push(Row::new(
+                            "Delegate to the suggestion",
+                            Choice::Delegate(Act::Respond {
+                                id: id.clone(),
+                                expected,
+                                action: AnswerAction::Delegate,
+                            }),
+                        ));
+                    }
+                }
+                if !open.assumed.is_empty() {
+                    rows.push(Row::new("Object to an assumption", Choice::Object));
+                }
+            }
+            (
+                Shaped::Review {
+                    id,
+                    revisable: true,
+                    ..
+                },
+                Some(expected),
+            ) if agent => rows.push(Row::new(
+                "Revise the answer",
+                Choice::Revise {
+                    id: id.clone(),
+                    expected,
+                },
+            )),
+            _ => {}
+        }
+        if agent && let (Some(target), Some(expected)) = (&shaping.deferred, shaping.version) {
+            rows.push(Row::new(
+                "Answer deferred prerequisite",
+                Choice::Revisit(target.clone(), expected),
+            ));
         }
         if agent
-            && open.offers_teach_back()
-            && let Reading::Done(Ok(shaping)) = &open.reading
+            && let (
+                Shaped::Drafted {
+                    revision: Some(_),
+                    text: Some(seed),
+                },
+                Some(expected),
+            ) = (&shaping.stage, shaping.version)
         {
             for check in &shaping.checks {
                 let number = check.index + 1;
+                let edit = |method| {
+                    Choice::EditCheck(
+                        CheckEdit {
+                            expected,
+                            seed: seed.clone(),
+                            target: check.clone(),
+                            method,
+                        },
+                        check
+                            .words()
+                            .filter(|_| method == check.method())
+                            .unwrap_or("")
+                            .to_owned(),
+                    )
+                };
                 rows.push(Row::new(
                     format!("Edit check {number}"),
-                    Choice::EditCheck(check.index, check.method()),
+                    edit(check.method()),
                 ));
                 if check.gap() == Some(CheckMethod::Command) {
                     rows.push(Row::new(
                         format!("Make check {number} a judgment"),
-                        Choice::EditCheck(check.index, CheckMethod::Manual),
+                        edit(CheckMethod::Manual),
                     ));
                 }
             }
-        }
-        if agent && open.offers_teach_back() {
             rows.push(Row::new("Revise the draft", Choice::Change));
             rows.push(Row::new("Teach back what will be built", Choice::TeachBack));
         }
-        if agent && open.offers_step() && matches!(open.folder, Folder::Known(_)) {
-            rows.push(Row::new("Choose the folder to read", Choice::Folder));
+        if agent
+            && open.offers_step()
+            && let Folder::Known(folder) = &open.folder
+        {
+            rows.push(Row::new(
+                "Choose the folder to read",
+                Choice::Folder(folder.display().to_string()),
+            ));
         }
-        if open.so_far_ready() {
-            rows.push(Row::new("So far: goal and decisions", Choice::SoFar));
-        }
+        rows.push(Row::new("So far: goal and decisions", Choice::SoFar));
         if !self.held {
-            match open.offers_end() {
-                Some(Ending::Completed) => rows.push(Row::new(
+            // Completed once the seed is ready, stopped while it's still being shaped. Never for
+            // an ended or unknown session.
+            match shaping.stage {
+                Shaped::Ready { ended: false, .. } => rows.push(Row::new(
                     "End this session as completed",
                     Choice::End(Ending::Completed),
                 )),
-                Some(Ending::Stopped) => rows.push(Row::new(
+                Shaped::Question { .. }
+                | Shaped::Review { .. }
+                | Shaped::Waiting
+                | Shaped::Drafted { .. } => rows.push(Row::new(
                     "Stop this session for good",
                     Choice::End(Ending::Stopped),
                 )),
-                None => {}
+                _ => {}
             }
         }
-        if self.agent.is_some() && matches!(open.reading, Reading::Done(Ok(_))) {
+        if self.agent.is_some() {
             rows.push(Row::new("Model and responses", Choice::Model));
         }
         rows
@@ -123,131 +200,63 @@ impl Shape {
     }
 
     fn run(&mut self, choice: Choice) {
-        if choice == Choice::Model {
-            self.model = true;
-            return;
-        }
-        let agent = self.agent.clone();
         let Some(open) = &mut self.open else {
             return;
         };
-        open.notice = None;
+        // The Model panel keeps what was said, for when Shape shows again.
+        if !matches!(choice, Choice::Model) {
+            open.notice = None;
+        }
         match choice {
-            Choice::Approve => {
-                if let Reading::Done(Ok(shaping)) = &open.reading {
-                    self.approve = shaping.ready_target.clone();
-                }
-            }
-            Choice::Reveal => open.reveal(),
+            Choice::Model => self.model = true,
+            Choice::Approve(target) => self.approve = Some(target),
+            Choice::Reveal(id) => open.reveal(id),
             Choice::Object => {
-                open.objecting = true;
-                open.notice = Some((
+                open.mode = Mode::Objecting;
+                open.notice = Some(Notice::Said(
                     "Which assumption do you object to?".into(),
                     Some("Next: press its number; Esc keeps them all.".into()),
                 ));
             }
-            Choice::EditCheck(index, method) => {
-                if let Reading::Done(Ok(Shaping {
-                    stage:
-                        Shaped::Drafted {
-                            text: Some(seed), ..
-                        },
-                    checks,
-                    version: Some(expected),
-                    ..
-                })) = &open.reading
-                    && let Some(check) = checks.get(index)
-                {
-                    let words = check.words().filter(|_| method == check.method());
-                    open.aside = Some((
-                        Aside::RepairCheck(CheckEdit {
-                            expected: *expected,
-                            seed: seed.clone(),
-                            target: check.clone(),
-                            method,
-                        }),
-                        Words::new(words.unwrap_or("")),
-                    ));
-                    open.notice = Some((
-                        String::new(),
-                        (method == CheckMethod::Manual).then(|| {
-                            "A person signs off after seeing the built result; agent evidence can't sign it off.".into()
-                        }),
-                    ));
-                    self.scroll = 0;
-                }
+            Choice::EditCheck(edit, words) => {
+                let manual = edit.method == CheckMethod::Manual;
+                open.mode = Mode::Idle(Editor::Aside(Aside::RepairCheck(edit), Words::new(&words)));
+                open.notice = Some(Notice::Said(
+                    String::new(),
+                    manual.then(|| {
+                        "A person signs off after seeing the built result; agent evidence can't sign it off.".into()
+                    }),
+                ));
+                self.scroll = 0;
             }
             Choice::TeachBack => {
-                open.aside = Some((Aside::TeachBack, Words::new(open.typed.text())));
+                let words = Words::new(open.typed.text());
+                open.mode = Mode::Idle(Editor::Aside(Aside::TeachBack, words));
             }
             Choice::Change => {
+                // Typed confirmation words are not a change.
                 let typed = open.typed.text();
-                let words = if typed == CONFIRM { "" } else { typed };
-                open.aside = Some((Aside::Change, Words::new(words)));
+                let words = Words::new(if typed == CONFIRM { "" } else { typed });
+                open.mode = Mode::Idle(Editor::Aside(Aside::Change, words));
             }
-            Choice::Folder => {
-                if let Folder::Known(folder) = &open.folder {
-                    open.choosing = Some(Words::new(&folder.display().to_string()));
-                }
-            }
-            Choice::SoFar => open.so_far = Some(0),
+            Choice::Folder(folder) => open.mode = Mode::Choosing(Words::new(&folder)),
+            Choice::SoFar => open.mode = Mode::SoFar(0),
             Choice::End(ending) => {
-                open.asking = Some(ending);
+                open.mode = Mode::Asking(ending);
                 open.notice = Some(asked(ending));
             }
-            Choice::Revisit => {
-                if let Reading::Done(Ok(Shaping {
-                    deferred: Some(target),
-                    version: Some(expected),
-                    ..
-                })) = &open.reading
-                {
-                    open.form = Some(Form::revisit(target.clone(), *expected));
-                }
+            Choice::Revisit(target, expected) => {
+                open.mode = Mode::Idle(Editor::Form(Form::revisit(target, expected)));
             }
-            Choice::Model => {}
-            Choice::Defer | Choice::Delegate | Choice::Revise => {
-                let Some(agent) = agent else {
-                    return;
-                };
-                match (&open.reading, choice) {
-                    (
-                        Reading::Done(Ok(Shaping {
-                            stage: Shaped::Question { id, gate, .. },
-                            version: Some(expected),
-                            ..
-                        })),
-                        Choice::Defer,
-                    ) => open.form = Some(Form::defer(id.clone(), *expected, gate.clone())),
-                    (
-                        Reading::Done(Ok(Shaping {
-                            stage: Shaped::Question { id, .. },
-                            version: Some(expected),
-                            ..
-                        })),
-                        Choice::Delegate,
-                    ) => {
-                        let act = Act::Respond {
-                            id: id.clone(),
-                            expected: *expected,
-                            action: AnswerAction::Delegate,
-                        };
-                        open.act(act, &agent);
-                    }
-                    (
-                        Reading::Done(Ok(Shaping {
-                            stage:
-                                Shaped::Review {
-                                    id,
-                                    revisable: true,
-                                    ..
-                                },
-                            version: Some(expected),
-                            ..
-                        })),
-                        Choice::Revise,
-                    ) => open.form = Some(Form::revise(id.clone(), *expected)),
-                    _ => {}
+            Choice::Defer { id, expected, gate } => {
+                open.mode = Mode::Idle(Editor::Form(Form::defer(id, expected, gate)));
+            }
+            Choice::Revise { id, expected } => {
+                open.mode = Mode::Idle(Editor::Form(Form::revise(id, expected)));
+            }
+            Choice::Delegate(act) => {
+                if let Some(agent) = &self.agent {
+                    open.act(act, agent);
                 }
             }
         }

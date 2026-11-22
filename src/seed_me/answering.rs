@@ -81,8 +81,6 @@ pub struct Ask {
     pub options: Vec<Alternative>,
     /// The strongest case against the suggestion.
     pub against: Option<String>,
-    /// Reply confidence: low, medium or high; not recorded in the ledger.
-    pub confidence: Option<String>,
 }
 
 /// One way to settle a decision, as the question format names it.
@@ -128,7 +126,7 @@ impl Ask {
         text
     }
 
-    /// The suggestion unchanged, without reply confidence; blank suggestions are absent.
+    /// The suggestion unchanged; blank suggestions are absent.
     pub fn recommendation(&self) -> Option<String> {
         self.suggestion
             .as_ref()
@@ -1339,7 +1337,6 @@ mod tests {
                 option("Mixed in;", "TEST one list, "),
             ],
             against: None,
-            confidence: None,
         };
         assert_eq!(
             ask.text(),

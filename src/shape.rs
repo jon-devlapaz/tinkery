@@ -62,12 +62,11 @@ const HELD: &str = "An agent answers Shape with --shape-pi. Shape only reads; Es
 const CONFIRM: &str = "confirm";
 /// Confirming before the whole seed draft has been on screen.
 const READ_FIRST: &str = "PgDn or Down to 'End of Tink Contract' first. Nothing was confirmed.";
-/// Refusals about the typed words; changing the words clears them.
-const WORD_REFUSALS: [&str; 3] = [
-    "Type your answer first; nothing was saved.",
-    "Type confirm, or F1 Revise the draft. Nothing was confirmed.",
-    "Type why you're keeping this answer first; nothing was saved.",
-];
+const ANSWER_FIRST: &str = "Type your answer first; nothing was saved.";
+const CONFIRM_FIRST: &str = "Type confirm, or F1 Revise the draft. Nothing was confirmed.";
+const REASON_FIRST: &str = "Type why you're keeping this answer first; nothing was saved.";
+const TEACH_BACK_FIRST: &str = "Type your teach-back first; nothing was saved.";
+const CHANGE_FIRST: &str = "Type what should change first; nothing was saved.";
 
 /// Shape's screen: an optional list of goals waiting for a seed and, at most, one open session.
 pub struct Shape {
@@ -120,40 +119,84 @@ struct Opened {
     confirmation: Option<crate::confirmation::GoalConfirmation>,
     session: PathBuf,
     reading: Reading,
-    /// The operator's words being typed: an answer, or the words that confirm a seed.
+    /// The stage's own words: an answer, a reason to keep, or the words that confirm a seed. A
+    /// form or aside leaves them untouched.
     typed: Words,
-    /// A deferral or revision form; cancelling restores the untouched answer/reason editor.
-    form: Option<Form>,
-    /// An unsaved form over the draft, with its own words and cancel action.
-    aside: Option<(Aside, Words)>,
-    /// What the last key or step did, when it needs saying, and its own next step if any.
-    notice: Option<(String, Option<String>)>,
+    /// The one thing the session is doing now.
+    mode: Mode,
+    /// What the last key or step did, when it needs saying.
+    notice: Option<Notice>,
     /// The last rejected reply's diagnostic, only for a matching explicit retry in this visit.
     feedback: Option<RetryFeedback>,
-    running: Option<Running>,
-    /// What the running step was asked to do.
-    doing: Doing,
     /// The folder the next step reads.
     folder: Folder,
-    /// A folder being typed after choosing it in F1, until F2 uses it or Esc keeps the one shown.
-    choosing: Option<Words>,
-    /// The "So far" page's scroll while it shows.
-    so_far: Option<u16>,
-    /// An ending asked for once, waiting for F2 or Esc.
-    asking: Option<Ending>,
     /// What the step that asked the current question assumed instead of asking; shown with
     /// that question only.
     assumed: Vec<Assumption>,
-    /// After choosing to object, waiting for the number of the assumption, or Esc.
-    objecting: bool,
     /// A hard-to-undo question's suggestion its step didn't record, until F1 asks for it.
     withheld: Option<String>,
     /// Whether F1 showed a hard-to-undo question's options and suggestion.
     revealed: bool,
-    /// A change without a model (an ending or an objection) the ledger is carrying out.
-    writing: Option<(Write, mpsc::Receiver<Result<(), Refusal>>)>,
     /// The exact draft revision whose last line has been on screen; layout changes don't revoke it.
     read_end: Option<Shaped>,
+}
+
+/// What an open session is doing. Each mode alone decides its keys, key bar, help line and the
+/// words box keys type into.
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Shape holds one mode at a time; boxing would only add indirection"
+)]
+enum Mode {
+    /// Reading, or typing into the editor.
+    Idle(Editor),
+    /// A model step is running; Esc stops it, and its editor stays on screen, muted.
+    Running(Running, Doing, Editor),
+    /// The ledger is carrying out a change without a model; keys do nothing until it lands.
+    Writing(Write, mpsc::Receiver<Result<(), Refusal>>, Editor),
+    /// The "So far" page, at this scroll.
+    SoFar(u16),
+    /// A folder being typed after choosing it in F1, until F2 uses it or Esc keeps the one shown.
+    Choosing(Words),
+    /// After choosing to object, waiting for the number of the assumption, or Esc.
+    Objecting,
+    /// An ending asked for once, waiting for F2 or Esc.
+    Asking(Ending),
+}
+
+/// The words box an idle, running or saving session shows.
+enum Editor {
+    /// The stage's own words, [`Opened::typed`].
+    Stage,
+    /// A deferral or revision form; cancelling restores the untouched stage words.
+    Form(Form),
+    /// An unsaved box over the draft, with its own words and cancel action.
+    Aside(Aside, Words),
+}
+
+/// What the last key or step said.
+enum Notice {
+    /// Its words, and its own next step if any.
+    Said(String, Option<String>),
+    /// A refusal about the typed words; changing the words clears it.
+    Words(&'static str),
+    /// Confirming before the draft's end was on screen; reaching the end clears it.
+    ReadFirst,
+}
+
+impl Notice {
+    fn said(said: impl Into<String>) -> Self {
+        Self::Said(said.into(), None)
+    }
+
+    /// What it says, and its own next step.
+    fn parts(&self) -> (&str, Option<String>) {
+        match self {
+            Self::Said(said, next) => (said, next.clone()),
+            Self::Words(said) => (said, None),
+            Self::ReadFirst => (READ_FIRST, None),
+        }
+    }
 }
 
 /// A change Shape asks of the ledger without a model.
@@ -285,13 +328,10 @@ impl Shape {
     /// commands. Never while an ending or objection asks, or the helper carries one out.
     pub fn takes_text(&self) -> bool {
         self.agent.is_some()
-            && self.open.as_ref().is_some_and(|open| {
-                open.so_far.is_none()
-                    && open.running.is_none()
-                    && open.asking.is_none()
-                    && !open.objecting
-                    && open.writing.is_none()
-                    && (open.choosing.is_some() || open.typing().is_some())
+            && self.open.as_ref().is_some_and(|open| match open.mode {
+                Mode::Choosing(_) => true,
+                Mode::Idle(_) => open.typing().is_some(),
+                _ => false,
             })
     }
 
@@ -300,16 +340,7 @@ impl Shape {
         if self.takes_text()
             && let Some(open) = &mut self.open
         {
-            match (&mut open.choosing, &mut open.form) {
-                (Some(folder), _) => folder.insert(text),
-                (_, Some(form)) => form.words().insert(text),
-                (None, None) if open.aside.is_some() => open.aside.as_mut().unwrap().1.insert(text),
-                (None, None) => {
-                    let before = open.typed.text().to_owned();
-                    open.typed.insert(text);
-                    open.edited(&before);
-                }
-            }
+            open.type_into(|words| words.insert(text));
         }
     }
 
@@ -361,20 +392,25 @@ impl Shape {
     /// blocks.
     pub fn tick(&mut self) {
         if let Some(open) = &mut self.open
-            && let Some(result) = open.running.as_ref().and_then(Running::poll)
+            && let Mode::Running(running, doing, _) = &open.mode
+            && let Some(result) = running.poll()
         {
-            open.running = None;
+            let doing = *doing;
+            let editor = open.take_editor();
             // Typed words stay only when nothing of them was saved.
-            if result
-                .as_ref()
-                .map_or_else(|failure| failure.answer_saved, |_| true)
-            {
-                open.aside = None;
-                if !matches!(open.doing, Doing::TeachBack) {
-                    open.typed.clear();
-                    open.form = None;
-                }
-            }
+            open.mode = Mode::Idle(
+                if result
+                    .as_ref()
+                    .map_or_else(|failure| failure.answer_saved, |_| true)
+                {
+                    if !matches!(doing, Doing::TeachBack) {
+                        open.typed.clear();
+                    }
+                    Editor::Stage
+                } else {
+                    editor
+                },
+            );
             let asked = match &result {
                 Ok(Done::Asked(asked)) => asked.clone(),
                 _ => step::Asked::default(),
@@ -386,11 +422,11 @@ impl Shape {
                 .as_ref()
                 .err()
                 .and_then(|failure| failure.feedback.as_deref().cloned());
-            open.notice = said(result, open.doing, self.agent.as_deref().map(Agent::left));
+            open.notice = said(result, doing, self.agent.as_deref().map(Agent::left));
             open.reading = Reading::NotStarted;
         }
         if let Some(open) = &mut self.open
-            && let Some((write, receiver)) = &open.writing
+            && let Mode::Writing(write, receiver, _) = &open.mode
         {
             let write = write.clone();
             let result = match receiver.try_recv() {
@@ -401,50 +437,45 @@ impl Shape {
                 }
             };
             if let Some(result) = result {
-                open.writing = None;
-                open.notice = Some(match (result, write) {
+                let editor = open.take_editor();
+                // A saved check or deferred answer closes its box; anything else keeps it.
+                let mut close = false;
+                open.notice = Some(Notice::said(match (result, write) {
                     (Ok(()), Write::RepairCheck { .. }) => {
-                        open.aside = None;
+                        close = true;
                         open.read_end = None;
                         self.scroll = 0;
-                        (
-                            "Check saved. Read the changed draft, then confirm. No model ran."
-                                .into(),
-                            None,
-                        )
+                        "Check saved. Read the changed draft, then confirm. No model ran.".into()
                     }
                     (Ok(()), Write::Revisit { .. }) => {
-                        open.form = None;
+                        close = true;
                         open.typed.clear();
-                        ("Deferred prerequisite answered. No model ran.".into(), None)
+                        "Deferred prerequisite answered. No model ran.".into()
                     }
                     (Ok(()), Write::End(Ending::Completed)) => {
-                        ("Session completed. It's read-only now.".into(), None)
+                        "Session completed. It's read-only now.".into()
                     }
-                    (Ok(()), Write::End(Ending::Stopped)) => (
+                    (Ok(()), Write::End(Ending::Stopped)) => {
                         "Session stopped. Its open questions stay recorded; it's read-only now."
-                            .into(),
-                        None,
-                    ),
+                            .into()
+                    }
                     (Ok(()), Write::Object(text)) => {
                         open.assumed.retain(|a| a.text != text);
-                        (
-                            format!(
-                                "Not assumed: {text}. It's an open question now, asked before Shape drafts the Tink."
-                            ),
-                            None,
+                        format!(
+                            "Not assumed: {text}. It's an open question now, asked before Shape drafts the Tink."
                         )
                     }
                     (Ok(()), Write::Keep { .. }) => {
                         open.typed.clear();
-                        ("Answer kept with your reason. No model ran.".into(), None)
+                        "Answer kept with your reason. No model ran.".into()
                     }
                     (Ok(()), Write::Recommend { .. }) => {
                         open.withheld = None;
-                        ("Here are the options and my suggestion.".into(), None)
+                        "Here are the options and my suggestion.".into()
                     }
-                    (Err(refusal), _) => (refusal.to_string(), None),
-                });
+                    (Err(refusal), _) => refusal.to_string(),
+                }));
+                open.mode = Mode::Idle(if close { Editor::Stage } else { editor });
                 open.reading = Reading::NotStarted;
             }
         }
@@ -501,9 +532,9 @@ impl Shape {
         }
         let page = crate::page(self.page);
         if let Some(open) = &mut self.open {
-            if let Some(scroll) = &mut open.so_far {
+            if let Mode::SoFar(scroll) = &mut open.mode {
                 match key.code {
-                    KeyCode::Esc => open.so_far = None,
+                    KeyCode::Esc => open.mode = Mode::Idle(Editor::Stage),
                     KeyCode::Down | KeyCode::Char('j') => *scroll = scroll.saturating_add(1),
                     KeyCode::Up | KeyCode::Char('k') => *scroll = scroll.saturating_sub(1),
                     KeyCode::PageDown => *scroll = scroll.saturating_add(page),
@@ -513,133 +544,133 @@ impl Shape {
                 return Leave::Stay;
             }
             if self.held && key.code == KeyCode::F(2) {
-                open.notice = Some((HELD.into(), None));
+                open.notice = Some(Notice::said(HELD));
                 return Leave::Stay;
             }
-            if open.running.is_some() {
-                if key.code == KeyCode::Esc
-                    && let Some(running) = &open.running
-                {
-                    running.stop();
-                }
-                return Leave::Stay;
-            }
-            if let Some(folder) = &mut open.choosing {
-                match key.code {
-                    KeyCode::F(2) if key.modifiers.is_empty() => {
-                        let typed = open.choosing.take().unwrap();
-                        open.notice = open.pick(typed.text());
+            let f2 = key.code == KeyCode::F(2) && key.modifiers.is_empty();
+            match &mut open.mode {
+                Mode::Running(running, ..) => {
+                    if key.code == KeyCode::Esc {
+                        running.stop();
                     }
-                    KeyCode::Esc => open.choosing = None,
-                    KeyCode::PageDown => self.scroll = self.scroll.saturating_add(page),
-                    KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(page),
-                    _ => folder.key(key),
+                    return Leave::Stay;
                 }
-                return Leave::Stay;
-            }
-            if open.writing.is_some() {
-                return Leave::Stay;
-            }
-            if let Some(form) = &mut open.form {
-                match key.code {
-                    KeyCode::Esc => {
-                        open.form = None;
-                        open.notice = Some(("Nothing was changed.".into(), None));
-                    }
-                    KeyCode::Tab => form.toggle(),
-                    KeyCode::PageDown => self.scroll = self.scroll.saturating_add(page),
-                    KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(page),
-                    KeyCode::F(2) if key.modifiers.is_empty() => {
-                        if form.advance()
-                            && let (Some(agent), Some(typing)) = (&self.agent, open.typing())
-                        {
-                            open.act(typing.act, agent);
+                Mode::Writing(..) => return Leave::Stay,
+                Mode::Choosing(folder) => {
+                    match key.code {
+                        _ if f2 => {
+                            let typed = folder.text().to_owned();
+                            open.mode = Mode::Idle(Editor::Stage);
+                            open.notice = open.pick(&typed);
                         }
+                        KeyCode::Esc => open.mode = Mode::Idle(Editor::Stage),
+                        KeyCode::PageDown => self.scroll = self.scroll.saturating_add(page),
+                        KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(page),
+                        _ => open.type_into(|words| words.key(key)),
                     }
-                    KeyCode::F(_) => {}
-                    _ => form.words().key(key),
+                    return Leave::Stay;
                 }
-                return Leave::Stay;
-            }
-            if let Some((aside, _)) = open.aside.take_if(|_| key.code == KeyCode::Esc) {
-                let what = match aside {
-                    Aside::TeachBack => "Teach-back",
-                    Aside::Change => "Change",
-                    Aside::RepairCheck(CheckEdit {
-                        method: CheckMethod::Command,
-                        ..
-                    }) => "Check command",
-                    Aside::RepairCheck(CheckEdit {
-                        method: CheckMethod::Manual,
-                        ..
-                    }) => "How to judge",
-                };
-                open.notice = Some((format!("{what} cancelled. Nothing was saved."), None));
-                return Leave::Stay;
-            }
-            if open.objecting {
-                match key.code {
-                    KeyCode::Esc => {
-                        open.objecting = false;
-                        open.notice = Some(("Nothing was changed.".into(), None));
-                    }
-                    KeyCode::Char(c) if key.modifiers.is_empty() => {
-                        if let Some(text) = c
-                            .to_digit(10)
-                            .and_then(|n| (n as usize).checked_sub(1))
-                            .and_then(|i| open.assumed.get(i))
-                            .map(|a| a.text.clone())
-                        {
-                            open.object(text);
+                Mode::Objecting => {
+                    match key.code {
+                        KeyCode::Esc => {
+                            open.mode = Mode::Idle(Editor::Stage);
+                            open.notice = Some(Notice::said("Nothing was changed."));
                         }
+                        KeyCode::Char(c) if key.modifiers.is_empty() => {
+                            if let Some(text) = c
+                                .to_digit(10)
+                                .and_then(|n| (n as usize).checked_sub(1))
+                                .and_then(|i| open.assumed.get(i))
+                                .map(|a| a.text.clone())
+                            {
+                                open.object(text);
+                            }
+                        }
+                        _ => {}
                     }
-                    _ => {}
+                    return Leave::Stay;
                 }
-                return Leave::Stay;
-            }
-            if let Some(asked) = open.asking {
-                match key.code {
-                    KeyCode::F(2) if key.modifiers.is_empty() => open.end(asked),
-                    KeyCode::Esc => {
-                        open.asking = None;
-                        open.notice = Some(("Nothing was ended.".into(), None));
+                Mode::Asking(ending) => {
+                    match key.code {
+                        _ if f2 => {
+                            let ending = *ending;
+                            open.end(ending);
+                        }
+                        KeyCode::Esc => {
+                            open.mode = Mode::Idle(Editor::Stage);
+                            open.notice = Some(Notice::said("Nothing was ended."));
+                        }
+                        _ => {}
                     }
-                    _ => {}
+                    return Leave::Stay;
                 }
-                return Leave::Stay;
+                Mode::Idle(Editor::Form(form)) => {
+                    match key.code {
+                        KeyCode::Esc => {
+                            open.mode = Mode::Idle(Editor::Stage);
+                            open.notice = Some(Notice::said("Nothing was changed."));
+                        }
+                        KeyCode::Tab => form.toggle(),
+                        KeyCode::PageDown => self.scroll = self.scroll.saturating_add(page),
+                        KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(page),
+                        _ if f2 => {
+                            if form.advance()
+                                && let (Some(agent), Some(typing)) = (&self.agent, open.typing())
+                            {
+                                open.act(typing.act, agent);
+                            }
+                        }
+                        KeyCode::F(_) => {}
+                        _ => form.words().key(key),
+                    }
+                    return Leave::Stay;
+                }
+                Mode::Idle(Editor::Aside(aside, _)) if key.code == KeyCode::Esc => {
+                    let what = match aside {
+                        Aside::TeachBack => "Teach-back",
+                        Aside::Change => "Change",
+                        Aside::RepairCheck(CheckEdit {
+                            method: CheckMethod::Command,
+                            ..
+                        }) => "Check command",
+                        Aside::RepairCheck(CheckEdit {
+                            method: CheckMethod::Manual,
+                            ..
+                        }) => "How to judge",
+                    };
+                    open.notice = Some(Notice::said(format!(
+                        "{what} cancelled. Nothing was saved."
+                    )));
+                    open.mode = Mode::Idle(Editor::Stage);
+                    return Leave::Stay;
+                }
+                Mode::Idle(_) | Mode::SoFar(_) => {}
             }
             if let (Some(agent), Some(typing)) = (&self.agent, open.typing()) {
-                match key.code {
-                    KeyCode::F(2) if key.modifiers.is_empty() => {
-                        open.act(typing.act, agent);
-                        return Leave::Stay;
-                    }
-                    // Confirmation words are one line, so Up and Down scroll the seed being
-                    // read, for terminals that take PgUp/PgDn (#614).
-                    KeyCode::Down if matches!(typing.act, Act::Confirm { .. }) => {
+                if f2 {
+                    open.act(typing.act, agent);
+                    return Leave::Stay;
+                }
+                // Confirmation words are one line, so Up and Down scroll the seed being read,
+                // for terminals that take PgUp/PgDn (#614), and Enter adds no line.
+                match (typing.act, key.code) {
+                    (_, KeyCode::Esc | KeyCode::F(_) | KeyCode::PageDown | KeyCode::PageUp) => {}
+                    (Act::Confirm { .. }, KeyCode::Down) => {
                         self.scroll = self.scroll.saturating_add(1);
                         return Leave::Stay;
                     }
-                    KeyCode::Up if matches!(typing.act, Act::Confirm { .. }) => {
+                    (Act::Confirm { .. }, KeyCode::Up) => {
                         self.scroll = self.scroll.saturating_sub(1);
                         return Leave::Stay;
                     }
-                    KeyCode::Enter if matches!(typing.act, Act::Confirm { .. }) => {
-                        open.notice = Some((
-                            "Enter confirms the Tink. ^J adds no line here.".into(),
-                            None,
+                    (Act::Confirm { .. }, KeyCode::Enter) => {
+                        open.notice = Some(Notice::said(
+                            "Enter confirms the Tink. ^J adds no line here.",
                         ));
                         return Leave::Stay;
                     }
-                    KeyCode::Esc | KeyCode::F(_) | KeyCode::PageDown | KeyCode::PageUp => {}
                     _ => {
-                        if let Some((_, words)) = &mut open.aside {
-                            words.key(key);
-                            return Leave::Stay;
-                        }
-                        let before = open.typed.text().to_owned();
-                        open.typed.key(key);
-                        open.edited(&before);
+                        open.type_into(|words| words.key(key));
                         return Leave::Stay;
                     }
                 }
@@ -699,7 +730,7 @@ impl Shape {
     /// like help, fills the body and has no key bar.
     pub fn render(&mut self, frame: &mut Frame, area: Rect, palette: Palette) {
         if let Some(Opened {
-            so_far: Some(scroll),
+            mode: Mode::SoFar(scroll),
             reading: Reading::Done(Ok(shaping)),
             ..
         }) = &mut self.open
@@ -708,7 +739,6 @@ impl Shape {
             render_so_far(frame, scroll, shaping, area, palette);
             return;
         }
-        let agent = self.agent.is_some();
         let overflow = match &mut self.open {
             Some(open) => {
                 let (overflow, page) = render_open(
@@ -728,149 +758,21 @@ impl Shape {
                 false
             }
         };
+        let width = frame.area().width.saturating_sub(4);
         let keys = match (&self.open, &self.list) {
-            (Some(open), _) if open.running.is_some() => "esc stop".to_owned(),
-            (Some(open), _) if open.writing.is_some() => String::new(),
-            (Some(open), _) if open.objecting => {
-                "1-9 object to that one   esc keep them all".to_owned()
-            }
-            (
-                Some(Opened {
-                    asking: Some(ending),
-                    ..
-                }),
-                _,
-            ) => match ending {
-                Ending::Completed => "enter end for good   esc keep it".to_owned(),
-                Ending::Stopped => "enter stop for good   esc keep it".to_owned(),
-            },
-            (Some(open), _) if open.form.is_some() => {
-                format!("{}   esc cancel", open.form.as_ref().unwrap().bar())
-            }
-            (Some(open), _) if open.choosing.is_some() => {
-                format!(
+            (Some(open), _) => match &open.mode {
+                Mode::Running(..) => "esc stop".to_owned(),
+                Mode::Writing(..) => String::new(),
+                Mode::Objecting => "1-9 object to that one   esc keep them all".to_owned(),
+                Mode::Asking(Ending::Completed) => "enter end for good   esc keep it".to_owned(),
+                Mode::Asking(Ending::Stopped) => "enter stop for good   esc keep it".to_owned(),
+                Mode::Idle(Editor::Form(form)) => format!("{}   esc cancel", form.bar()),
+                Mode::Choosing(_) => format!(
                     "{}^J newline   enter use folder   esc cancel",
                     if overflow { "pgup/dn read   " } else { "" }
-                )
-            }
-            (Some(open), _) => {
-                let action = match (&self.agent, open.typing(), &open.reading) {
-                    (
-                        Some(_),
-                        Some(Typing {
-                            act: Act::TeachBack { .. },
-                            ..
-                        }),
-                        _,
-                    ) => Some("enter save + compare".to_owned()),
-                    (
-                        Some(_),
-                        Some(Typing {
-                            act: Act::Change { .. },
-                            ..
-                        }),
-                        _,
-                    ) => Some("enter save + redraft".to_owned()),
-                    (
-                        _,
-                        Some(Typing {
-                            act: Act::RepairCheck(_),
-                            ..
-                        }),
-                        _,
-                    ) => Some("enter save check".to_owned()),
-                    (
-                        Some(_),
-                        Some(Typing {
-                            act: Act::Keep { .. },
-                            ..
-                        }),
-                        _,
-                    ) => Some("enter keep with reason".to_owned()),
-                    (
-                        Some(_),
-                        Some(Typing {
-                            act: Act::Answer { .. },
-                            ..
-                        }),
-                        _,
-                    ) => Some(
-                        if overflow || open.offers_answers() {
-                            "enter save + look"
-                        } else {
-                            "enter save answer and look into next"
-                        }
-                        .to_owned(),
-                    ),
-                    (
-                        Some(_),
-                        Some(Typing {
-                            act: Act::Confirm { revision: r, .. },
-                            ..
-                        }),
-                        _,
-                    ) if open.read_end.is_some() => Some(format!("enter confirm Tink {r}")),
-                    (
-                        Some(_),
-                        None,
-                        Reading::Done(Ok(Shaping {
-                            stage: Shaped::Waiting,
-                            ..
-                        })),
-                    ) => Some("enter look into the next question".to_owned()),
-                    _ => None,
-                };
-                let mut keys = Vec::new();
-                if overflow {
-                    keys.push(
-                        if agent
-                            && open.read_end.is_none()
-                            && matches!(
-                                open.typing(),
-                                Some(Typing {
-                                    act: Act::Confirm { .. },
-                                    ..
-                                })
-                            )
-                        {
-                            "pgup/dn read to end"
-                        } else if open.typing().is_some() && agent {
-                            "pgup/dn read"
-                        } else {
-                            "↑↓ scroll"
-                        }
-                        .to_owned(),
-                    );
-                }
-                if let Some(action) = action {
-                    keys.push(action);
-                }
-                if !self.rows().is_empty() {
-                    keys.push("F1 more".to_owned());
-                }
-                keys.push(
-                    if open.aside.is_some() {
-                        "esc cancel"
-                    } else {
-                        "esc back"
-                    }
-                    .to_owned(),
-                );
-                // Esc is never cut off: a full bar closes up before it runs out of room.
-                let bar = keys.join("   ");
-                if bar.width() > frame.area().width.saturating_sub(4) as usize {
-                    let tight = keys.join("  ");
-                    if tight.width() > frame.area().width.saturating_sub(4) as usize {
-                        tight
-                            .replace("pgup/dn read", "pgup/dn")
-                            .replace("enter save + look", "enter answer")
-                    } else {
-                        tight
-                    }
-                } else {
-                    bar
-                }
-            }
+                ),
+                Mode::Idle(_) | Mode::SoFar(_) => self.bar(open, overflow, width),
+            },
             (None, Some(Some(Ok(sessions)))) if !sessions.is_empty() => {
                 "↑↓ move   enter open   esc back".into()
             }
@@ -885,6 +787,73 @@ impl Shape {
                 1,
             ),
         );
+    }
+
+    /// The key bar over an open session's reading or words box, fitted to `width`. Esc is never
+    /// cut off: a full bar closes up, then uses each key's short words, before it runs out of room.
+    fn bar(&self, open: &Opened, overflow: bool, width: u16) -> String {
+        let agent = self.agent.is_some();
+        let typing = open.typing();
+        let act = typing.as_ref().map(|typing| &typing.act);
+        // Each key's words, and shorter words for a crowded bar.
+        let mut keys: Vec<(String, Option<&str>)> = Vec::new();
+        if overflow {
+            keys.push(match act {
+                Some(Act::Confirm { .. }) if agent && open.read_end.is_none() => {
+                    ("pgup/dn read to end".into(), Some("pgup/dn to end"))
+                }
+                Some(_) if agent => ("pgup/dn read".into(), Some("pgup/dn")),
+                _ => ("↑↓ scroll".into(), None),
+            });
+        }
+        let action = match (agent, act, &open.reading) {
+            (true, Some(Act::TeachBack { .. }), _) => Some(("enter save + compare".into(), None)),
+            (true, Some(Act::Change { .. }), _) => Some(("enter save + redraft".into(), None)),
+            (_, Some(Act::RepairCheck(_)), _) => Some(("enter save check".into(), None)),
+            (true, Some(Act::Keep { .. }), _) => Some(("enter keep with reason".into(), None)),
+            (true, Some(Act::Answer { .. }), _) => Some(if overflow || open.offers_answers() {
+                ("enter save + look".into(), Some("enter answer"))
+            } else {
+                ("enter save answer and look into next".into(), None)
+            }),
+            (true, Some(Act::Confirm { revision, .. }), _) if open.read_end.is_some() => {
+                Some((format!("enter confirm Tink {revision}"), None))
+            }
+            (
+                true,
+                None,
+                Reading::Done(Ok(Shaping {
+                    stage: Shaped::Waiting,
+                    ..
+                })),
+            ) => Some(("enter look into the next question".into(), None)),
+            _ => None,
+        };
+        keys.extend(action);
+        if !self.rows().is_empty() {
+            keys.push(("F1 more".into(), None));
+        }
+        keys.push((
+            match open.editor() {
+                Editor::Aside(..) => "esc cancel",
+                _ => "esc back",
+            }
+            .into(),
+            None,
+        ));
+        let join = |gap: &str, short: bool| {
+            keys.iter()
+                .map(|(full, brief)| match brief {
+                    Some(brief) if short => *brief,
+                    _ => full.as_str(),
+                })
+                .collect::<Vec<_>>()
+                .join(gap)
+        };
+        [join("   ", false), join("  ", false)]
+            .into_iter()
+            .find(|bar| bar.width() <= width as usize)
+            .unwrap_or_else(|| join("  ", true))
     }
 
     fn render_list(&self, frame: &mut Frame, mut area: Rect, palette: Palette) {
@@ -999,10 +968,51 @@ struct Typing {
 }
 
 impl Opened {
+    /// The words box shown now: a running step or a save keeps the one it started from.
+    fn editor(&self) -> &Editor {
+        match &self.mode {
+            Mode::Idle(editor) | Mode::Running(.., editor) | Mode::Writing(.., editor) => editor,
+            _ => &Editor::Stage,
+        }
+    }
+
+    /// Leave the current mode for an idle stage, keeping the words box it showed.
+    fn take_editor(&mut self) -> Editor {
+        match std::mem::replace(&mut self.mode, Mode::Idle(Editor::Stage)) {
+            Mode::Idle(editor) | Mode::Running(.., editor) | Mode::Writing(.., editor) => editor,
+            _ => Editor::Stage,
+        }
+    }
+
+    /// The words keys type into now: a folder, an aside, a form's field, or the stage's own.
+    fn words(&mut self) -> &mut Words {
+        match &mut self.mode {
+            Mode::Choosing(folder) => folder,
+            Mode::Idle(editor) | Mode::Running(.., editor) | Mode::Writing(.., editor) => {
+                match editor {
+                    Editor::Aside(_, words) => words,
+                    Editor::Form(form) => form.words(),
+                    Editor::Stage => &mut self.typed,
+                }
+            }
+            _ => &mut self.typed,
+        }
+    }
+
+    /// Edit the words keys type into; a refusal about them no longer applies once they change.
+    fn type_into(&mut self, edit: impl FnOnce(&mut Words)) {
+        let words = self.words();
+        let before = words.text().to_owned();
+        edit(words);
+        if self.words().text() != before && matches!(self.notice, Some(Notice::Words(_))) {
+            self.notice = None;
+        }
+    }
+
     /// The words box this stage offers, if any: an answer to the current question, or the words
     /// that confirm a seed draft.
     fn typing(&self) -> Option<Typing> {
-        if let Some((Aside::RepairCheck(edit), _)) = &self.aside {
+        if let Editor::Aside(Aside::RepairCheck(edit), _) = self.editor() {
             return matches!(self.reading, Reading::Done(Ok(_))).then(|| Typing {
                 act: Act::RepairCheck(edit.clone()),
                 label: if edit.method == CheckMethod::Manual {
@@ -1015,17 +1025,15 @@ impl Opened {
         let Reading::Done(Ok(shaping)) = &self.reading else {
             return None;
         };
-        if let (
-            Some((aside, _)),
-            Shaped::Drafted {
-                revision: Some(revision),
-                text: Some(seed),
-            },
-            Some(expected),
-        ) = (&self.aside, &shaping.stage, shaping.version)
-        {
-            return Some(match aside {
-                Aside::RepairCheck(_) => unreachable!("check edits retain their displayed target"),
+        match (self.editor(), &shaping.stage, shaping.version) {
+            (
+                Editor::Aside(aside, _),
+                Shaped::Drafted {
+                    revision: Some(revision),
+                    text: Some(seed),
+                },
+                Some(expected),
+            ) => Some(match aside {
                 Aside::TeachBack => Typing {
                     act: Act::TeachBack {
                         revision: revision.clone(),
@@ -1034,31 +1042,28 @@ impl Opened {
                     },
                     label: "your teach-back",
                 },
-                Aside::Change => Typing {
+                _ => Typing {
                     act: Act::Change {
                         revision: revision.clone(),
                         expected,
                     },
                     label: "your change",
                 },
-            });
-        }
-        if let Some(form) = &self.form {
-            return Some(Typing {
+            }),
+            (Editor::Form(form), ..) => Some(Typing {
                 act: Act::Respond {
                     id: form.id.clone(),
                     expected: form.expected,
                     action: form.action(),
                 },
                 label: form.label(),
-            });
-        }
-        match (&shaping.stage, shaping.version) {
-            (Shaped::Review { id, .. }, Some(_)) => Some(Typing {
+            }),
+            (Editor::Aside(..), ..) => None,
+            (Editor::Stage, Shaped::Review { id, .. }, Some(_)) => Some(Typing {
                 act: Act::Keep { id: id.clone() },
                 label: "your reason",
             }),
-            (Shaped::Question { id, .. }, Some(expected)) => Some(Typing {
+            (Editor::Stage, Shaped::Question { id, .. }, Some(expected)) => Some(Typing {
                 act: Act::Answer {
                     id: id.clone(),
                     expected,
@@ -1066,6 +1071,7 @@ impl Opened {
                 label: "your answer",
             }),
             (
+                Editor::Stage,
                 Shaped::Drafted {
                     revision: Some(revision),
                     text: Some(seed),
@@ -1083,32 +1089,6 @@ impl Opened {
         }
     }
 
-    fn offers_teach_back(&self) -> bool {
-        matches!(
-            &self.reading,
-            Reading::Done(Ok(Shaping {
-                stage: Shaped::Drafted {
-                    revision: Some(_),
-                    text: Some(_)
-                },
-                version: Some(_),
-                ..
-            }))
-        )
-    }
-
-    /// F1 actions are unavailable while another form, view or operation owns the session.
-    fn offers_choices(&self) -> bool {
-        self.running.is_none()
-            && self.writing.is_none()
-            && self.form.is_none()
-            && self.choosing.is_none()
-            && self.aside.is_none()
-            && !self.objecting
-            && self.asking.is_none()
-            && self.so_far.is_none()
-    }
-
     fn offers_answers(&self) -> bool {
         matches!(
             &self.reading,
@@ -1117,24 +1097,6 @@ impl Opened {
                 ..
             }))
         )
-    }
-
-    fn revisable(&self) -> bool {
-        matches!(
-            &self.reading,
-            Reading::Done(Ok(Shaping {
-                stage: Shaped::Review {
-                    revisable: true,
-                    ..
-                },
-                ..
-            }))
-        )
-    }
-
-    /// Whether "So far" can show the goal and decisions now: once read, and not while a step runs.
-    fn so_far_ready(&self) -> bool {
-        matches!(self.reading, Reading::Done(Ok(_))) && self.running.is_none()
     }
 
     /// Whether this stage offers an agent step (a question to answer, or none asked yet).
@@ -1146,35 +1108,6 @@ impl Opened {
                 ..
             }))
         )
-    }
-
-    /// How this stage can be ended, with the helper configured: completed once the seed is
-    /// ready, stopped while it's still being shaped. Never for an ended or unknown session.
-    fn offers_end(&self) -> Option<Ending> {
-        let Reading::Done(Ok(shaping)) = &self.reading else {
-            return None;
-        };
-        match shaping.stage {
-            Shaped::Ready { ended: false, .. } => Some(Ending::Completed),
-            Shaped::Question { .. }
-            | Shaped::Review { .. }
-            | Shaped::Waiting
-            | Shaped::Drafted { .. } => Some(Ending::Stopped),
-            _ => None,
-        }
-    }
-
-    /// Whether F1 can object to an assumption: the question its step asked is still current.
-    fn offers_objection(&self) -> bool {
-        !self.assumed.is_empty()
-            && matches!(
-                &self.reading,
-                Reading::Done(Ok(Shaping {
-                    stage: Shaped::Question { .. },
-                    version: Some(_),
-                    ..
-                }))
-            )
     }
 
     /// Whether the current question is hard to undo and its options and suggestion are still held
@@ -1190,22 +1123,14 @@ impl Opened {
             )
     }
 
-    /// Show what a hard-to-undo question held back, recording its withheld suggestion first.
-    fn reveal(&mut self) {
+    /// Show what hard-to-undo question `id` held back, recording its withheld suggestion first.
+    fn reveal(&mut self, id: String) {
         self.revealed = true;
-        let id = match &self.reading {
-            Reading::Done(Ok(Shaping {
-                stage: Shaped::Question { id, .. },
-                ..
-            })) => id.clone(),
-            _ => return,
-        };
         match self.withheld.clone() {
             Some(text) => self.write(Write::Recommend { id, text }, "Saving my suggestion."),
             _ => {
-                self.notice = Some((
-                    "Here are the options. No suggestion was kept for this question.".into(),
-                    None,
+                self.notice = Some(Notice::said(
+                    "Here are the options. No suggestion was kept for this question.",
                 ))
             }
         }
@@ -1213,13 +1138,11 @@ impl Opened {
 
     /// End the session through the helper off the paint path; [`Shape::tick`] reports it.
     fn end(&mut self, ending: Ending) {
-        self.asking = None;
         self.write(Write::End(ending), "Ending the session.");
     }
 
     /// Object to assuming `text`, from the version shown.
     fn object(&mut self, text: String) {
-        self.objecting = false;
         self.write(Write::Object(text), "Saving your objection.");
     }
 
@@ -1278,14 +1201,15 @@ impl Opened {
                 });
             let _ = sender.send(result);
         });
-        self.writing = Some((write, receiver));
-        self.notice = Some((said.into(), None));
+        let editor = self.take_editor();
+        self.mode = Mode::Writing(write, receiver, editor);
+        self.notice = Some(Notice::said(said));
     }
 
     /// Use the folder the operator typed for the next steps, or say why not and keep the one shown.
     /// `~/` means the home folder; anything else must be an absolute path to a folder. The exact
     /// text is tried first, then without surrounding whitespace, so a pasted line break still works.
-    fn pick(&mut self, typed: &str) -> Option<(String, Option<String>)> {
+    fn pick(&mut self, typed: &str) -> Option<Notice> {
         let home = || std::env::var_os("HOME").map(PathBuf::from);
         let folder = |typed: &str| {
             match typed.strip_prefix("~/") {
@@ -1305,13 +1229,10 @@ impl Opened {
                 self.folder = Folder::Known(folder);
                 None
             }
-            None => Some((
-                format!(
-                    "There's no folder at {typed}, so the step still reads {}.",
-                    self.folder_name().unwrap_or_default()
-                ),
-                None,
-            )),
+            None => Some(Notice::said(format!(
+                "There's no folder at {typed}, so the step still reads {}.",
+                self.folder_name().unwrap_or_default()
+            ))),
         }
     }
 
@@ -1324,18 +1245,6 @@ impl Opened {
             || folder.display().to_string(),
             |name| name.to_string_lossy().into_owned(),
         ))
-    }
-
-    /// The words changed from `before`: a refusal about the old words no longer applies.
-    fn edited(&mut self, before: &str) {
-        if self.typed.text() != before
-            && self
-                .notice
-                .as_ref()
-                .is_some_and(|(said, _)| WORD_REFUSALS.contains(&said.as_str()))
-        {
-            self.notice = None;
-        }
     }
 
     /// Start what `act` asks, or say why not. Refuses empty words, an exhausted budget, a folder
@@ -1357,12 +1266,12 @@ impl Opened {
             );
             return;
         }
-        let words = self
-            .aside
-            .as_ref()
-            .map_or(&self.typed, |(_, words)| words)
-            .text()
-            .to_owned();
+        let words = match self.editor() {
+            Editor::Aside(_, words) => words,
+            _ => &self.typed,
+        }
+        .text()
+        .to_owned();
         if let Act::RepairCheck(edit) = act {
             self.write(
                 Write::RepairCheck { edit, words },
@@ -1370,22 +1279,18 @@ impl Opened {
             );
             return;
         }
-        let refuse = |said: &str| Some((said.to_owned(), None));
         let folder = match &self.folder {
             Folder::Known(folder) => Some(folder.clone()),
             _ => None,
         };
+        let empty = words.trim().is_empty();
         self.notice = match &act {
-            Act::TeachBack { .. } if words.trim().is_empty() => {
-                refuse("Type your teach-back first; nothing was saved.")
-            }
-            Act::Change { .. } if words.trim().is_empty() => {
-                refuse("Type what should change first; nothing was saved.")
-            }
-            Act::Keep { .. } if words.trim().is_empty() => refuse(WORD_REFUSALS[2]),
-            Act::Answer { .. } if words.trim().is_empty() => refuse(WORD_REFUSALS[0]),
-            Act::Confirm { .. } if self.read_end.is_none() => refuse(READ_FIRST),
-            Act::Confirm { .. } if words != CONFIRM => refuse(WORD_REFUSALS[1]),
+            Act::TeachBack { .. } if empty => Some(Notice::Words(TEACH_BACK_FIRST)),
+            Act::Change { .. } if empty => Some(Notice::Words(CHANGE_FIRST)),
+            Act::Keep { .. } if empty => Some(Notice::Words(REASON_FIRST)),
+            Act::Answer { .. } if empty => Some(Notice::Words(ANSWER_FIRST)),
+            Act::Confirm { .. } if self.read_end.is_none() => Some(Notice::ReadFirst),
+            Act::Confirm { .. } if words != CONFIRM => Some(Notice::Words(CONFIRM_FIRST)),
             Act::TeachBack { .. }
             | Act::Change { .. }
             | Act::Respond { .. }
@@ -1406,7 +1311,9 @@ impl Opened {
             Act::Respond { .. } | Act::Answer { .. } | Act::Change { .. } | Act::Look(_)
                 if folder.is_none() =>
             {
-                refuse("Shape is still finding which folder the step reads; nothing was saved.")
+                Some(Notice::said(
+                    "Shape is still finding which folder the step reads; nothing was saved.",
+                ))
             }
             _ => None,
         };
@@ -1495,8 +1402,9 @@ impl Opened {
                 Doing::Confirm,
             ),
         };
-        self.doing = doing;
-        self.running = Some(Running::start(work, self.session.clone(), agent.clone()));
+        let running = Running::start(work, self.session.clone(), agent.clone());
+        let editor = self.take_editor();
+        self.mode = Mode::Running(running, doing, editor);
     }
 
     /// Read the session off the paint path and, with an agent, find the folder its step reads.
@@ -1532,21 +1440,13 @@ impl Opened {
             confirmation: None,
             reading: Reading::NotStarted,
             typed: Words::new(""),
-            form: None,
-            aside: None,
+            mode: Mode::Idle(Editor::Stage),
             notice: None,
             feedback: None,
-            running: None,
-            doing: Doing::Look,
             folder: Folder::Unknown,
-            choosing: None,
-            so_far: None,
-            asking: None,
             assumed: Vec::new(),
-            objecting: false,
             withheld: None,
             revealed: false,
-            writing: None,
             read_end: None,
         }
     }
@@ -1687,325 +1587,348 @@ fn render_open(
     if area.width == 0 || area.height == 0 {
         return (false, 1);
     }
-    let (reading, input) = match &open.reading {
-        Reading::NotStarted | Reading::Waiting(_) => (
-            Text::styled("Checking this Tink.", palette.muted),
-            Text::default(),
-        ),
-        Reading::Done(Err(error)) => (
-            plain(
-                &match error
-                    .strip_prefix("Tinkery refused: ")
-                    .and_then(|reason| reason.lines().next())
-                    .filter(|reason| !reason.trim().is_empty())
-                {
-                    Some(reason) => format!("Tinkery refused to read this session: {reason}"),
-                    None => "Shape couldn't read this session. F1 shows why.".into(),
-                },
-                "Next: Esc goes back; F1 shows where the session is.",
-                palette,
-            ),
-            Text::default(),
-        ),
-        Reading::Done(Ok(shaping)) => {
-            let editing_check = match &open.aside {
-                Some((Aside::RepairCheck(edit), _)) => Some(&edit.target),
-                _ => None,
-            };
-            let top = match (&shaping.stage, editing_check) {
-                (_, Some(check)) => Some(Text::styled(
-                    format!("Edit check {}\n\n{}", check.index + 1, check.statement()),
-                    palette.ink,
-                )),
-                (
-                    Shaped::Drafted {
-                        revision,
-                        text: Some(seed),
-                    },
-                    _,
-                ) => Some(seed_view(
-                    seed,
-                    revision.as_deref(),
-                    shaping,
-                    agent && !held,
-                    palette,
-                )),
-                _ => shaping.goal.as_deref().map(|goal| {
-                    Text::styled(goal.lines().next().unwrap_or("").to_owned(), palette.ink)
-                }),
-            };
-            let name = open.folder_name();
-            let typing = open.typing().filter(|_| agent);
-            let words = || typing.as_ref().map(|t| t.label);
-            let acts = typing.is_some()
-                || agent
-                    && matches!(
-                        shaping,
-                        Shaping {
-                            stage: Shaped::Waiting,
-                            version: Some(_),
-                            ..
-                        }
-                    );
-            let stand = match (&open.running, &open.choosing) {
-                (Some(running), _) => {
-                    let name = name.as_deref().unwrap_or_default();
-                    let said = match (open.doing, running.saved()) {
-                        (Doing::Answer, false) => "Saving your answer.".to_owned(),
-                        (Doing::Answer, true) => {
-                            format!("Answer saved. Looking in {name} for the next question.")
-                        }
-                        (Doing::Defer, false) => "Saving your deferral.".into(),
-                        (Doing::Delegate, false) => "Saving the delegated suggestion.".into(),
-                        (Doing::Revise, false) => {
-                            "Revising your answer and reopening dependents.".into()
-                        }
-                        (Doing::Defer | Doing::Delegate | Doing::Revise, true) => format!(
-                            "{}Looking in {name} for the next question.",
-                            open.doing.saved()
-                        ),
-                        (Doing::Look, _) => format!("Looking in {name} for the next question."),
-                        (Doing::TeachBack, false) => "Saving your teach-back.".into(),
-                        (Doing::TeachBack, true) => {
-                            "Teach-back saved. Comparing with the draft.".into()
-                        }
-                        (Doing::Change, false) => "Saving your change.".into(),
-                        (Doing::Change, true) => {
-                            format!("Change saved. Redrafting the Tink from {name}.")
-                        }
-                        (Doing::Confirm, _) => "Confirming the Tink.".to_owned(),
-                    };
-                    Stand {
-                        acts,
-                        reads: None,
-                        words: words(),
-                        notice: None,
-                        running: Some(Line::from(vec![
-                            Span::styled(said, palette.ink),
-                            Span::styled(
-                                format!("  {}s", running.elapsed().as_secs()),
-                                palette.muted,
-                            ),
-                        ])),
-                        assumed: &open.assumed,
-                        instinct: open.instinct_first(),
-                    }
-                }
-                (None, Some(_)) => Stand {
-                    acts,
-                    reads: None,
-                    words: Some("Folder:"),
-                    notice: Some((
-                        "",
-                        Some(format!(
-                            "Next: Enter uses this folder; Esc keeps {}.",
-                            name.as_deref().unwrap_or_default()
-                        )),
-                    )),
-                    running: None,
-                    assumed: &open.assumed,
-                    instinct: open.instinct_first(),
-                },
-                (None, None) => Stand {
-                    acts,
-                    reads: (agent && open.offers_step()).then(|| match &name {
-                        Some(name) => {
-                            format!("The step reads files in {name}. F1 picks another folder.")
-                        }
-                        None => "Finding which folder the step reads.".into(),
-                    }),
-                    words: words(),
-                    notice: open
-                        .notice
-                        .as_ref()
-                        .map(|(said, next)| (said.as_str(), next.clone()))
-                        .or(held.then_some((HELD, None))),
-                    running: None,
-                    assumed: &open.assumed,
-                    instinct: open.instinct_first(),
-                },
-            };
-            let (mut said, mut input) = standing(shaping, stand, palette);
-            if open.running.is_none()
-                && open.offers_answers()
-                && let Some(drafting) = drafting.filter(|a| a.remaining() == 1)
-            {
-                input
-                    .lines
-                    .insert(0, Line::styled(drafting.left(), palette.muted));
-            }
-            if agent && !held && open.offers_choices() && shaping.deferred.is_some() {
-                said.lines.push(Line::styled(
-                    "F1 offers an explicit answer; no model runs.",
-                    palette.muted,
-                ));
-            }
-            if let Some(note) = &shaping.confirmation_note {
-                input.lines.push(Line::styled(note.clone(), palette.muted));
-            }
-            let mut reading = top.unwrap_or_default();
-            if editing_check.is_none() && matches!(shaping.stage, Shaped::Drafted { .. }) {
-                reading.lines.push(Line::default());
-                reading
-                    .lines
-                    .push(Line::styled("Before you confirm", palette.muted));
-                for line in &shaping.teach_back {
-                    reading
-                        .lines
-                        .extend(Text::styled(line.clone(), palette.ink).lines);
-                }
-                for line in shaping.review_lines(!shaping.checks.is_empty()) {
-                    reading.lines.extend(Text::styled(line, palette.ink).lines);
-                }
-                if let Some(signoff) = &shaping.signoff {
-                    reading
-                        .lines
-                        .push(Line::styled(signoff.clone(), palette.ink));
-                }
-            }
-            let (mut reading, input) = if let Some(form) = &open.form {
-                reading.lines.extend(said.lines);
-                reading.lines.push(Line::default());
-                reading
-                    .lines
-                    .extend(Text::styled(form.description(), palette.ink).lines);
-                if !open.notice.as_ref().is_some_and(|(_, next)| next.is_some()) {
-                    input
-                        .lines
-                        .retain(|line| !line.to_string().starts_with("Next:"));
-                }
-                (reading, input)
-            } else {
-                if !reading.lines.is_empty() && !said.lines.is_empty() {
-                    reading.lines.push(Line::default());
-                }
-                reading.lines.extend(said.lines);
-                (reading, input)
-            };
-            if editing_check.is_none()
-                && matches!(shaping.stage, Shaped::Drafted { text: Some(_), .. })
-            {
-                reading.lines.push(Line::default());
-                reading
-                    .lines
-                    .push(Line::styled("End of Tink Contract", palette.muted));
-            }
-            (reading, input)
-        }
-    };
-    if !reading_fits(frame, &[&reading, &input], area, palette) {
-        open.read_end = None;
-        return (false, 1);
-    }
     let rows = |text: &Text<'static>| {
         Paragraph::new(text.clone())
             .wrap(Wrap { trim: false })
             .line_count(area.width) as u16
     };
-    let label = if open.choosing.is_some() {
-        Some("Folder:")
-    } else {
-        open.typing().filter(|_| agent).map(|t| t.label)
-    };
-    let split = label.and_then(|label| input.lines.iter().position(|l| l.to_string() == label));
-    let (before, mut after) = match split {
-        Some(i) => (
-            Text::from(input.lines[..=i].to_vec()),
-            Text::from(input.lines[i + 1..].to_vec()),
-        ),
-        None => (Text::default(), input),
-    };
-    let main_draft = open.aside.is_none();
-    let editor = split.map(|_| {
-        if let Some(folder) = &mut open.choosing {
-            folder
-        } else if let Some((_, words)) = &mut open.aside {
-            words
-        } else if let Some(form) = &mut open.form {
-            form.words()
-        } else {
-            &mut open.typed
+    let main_draft = !matches!(open.editor(), Editor::Aside(..));
+    let confirming = agent
+        && !matches!(open.mode, Mode::Choosing(_))
+        && matches!(
+            open.typing(),
+            Some(Typing {
+                act: Act::Confirm { .. },
+                ..
+            })
+        );
+    let mut composed = compose(open, drafting, held, palette);
+    loop {
+        let Composed {
+            reading,
+            before,
+            after,
+            editor,
+        } = composed;
+        if !reading_fits(frame, &[&reading, &before, &after], area, palette) {
+            open.read_end = None;
+            return (false, 1);
         }
-    });
-    let editor_rows = editor.as_ref().map_or(0, |words| words.rows(area.width));
-    let (read_rows, before_rows, after_rows) = (rows(&reading), rows(&before), rows(&after));
-    let input_rows = before_rows
-        .saturating_add(editor_rows)
-        .saturating_add(after_rows);
-    let gap = u16::from(read_rows > 0 && input_rows > 0);
-    // Reserve at least half the body for a long reading. The editor scrolls to its caret;
-    // labels and consequences stay outside that viewport, even while a step is running.
-    let input_height =
-        input_rows
+        let editor_rows = if editor {
+            open.words().rows(area.width)
+        } else {
+            0
+        };
+        let (read_rows, before_rows, after_rows) = (rows(&reading), rows(&before), rows(&after));
+        let input_rows = before_rows
+            .saturating_add(editor_rows)
+            .saturating_add(after_rows);
+        let gap = u16::from(read_rows > 0 && input_rows > 0);
+        // Reserve at least half the body for a long reading. The editor scrolls to its caret;
+        // labels and consequences stay outside that viewport, even while a step is running.
+        let input_height = input_rows
             .min(area.height.saturating_sub(
                 gap + read_rows.min(area.height / 2).max(u16::from(read_rows > 0)),
             ));
-    let height = read_rows.min(area.height.saturating_sub(input_height + gap));
-    *scroll = (*scroll).min(read_rows.saturating_sub(height));
-    if height > 0
-        && open.read_end.is_none()
-        && main_draft
-        && *scroll >= read_rows.saturating_sub(height)
-        && let Reading::Done(Ok(shaping)) = &open.reading
-        && matches!(shaping.stage, Shaped::Drafted { text: Some(_), .. })
-    {
-        open.read_end = Some(shaping.stage.clone());
+        let height = read_rows.min(area.height.saturating_sub(input_height + gap));
+        *scroll = (*scroll).min(read_rows.saturating_sub(height));
+        if height > 0
+            && open.read_end.is_none()
+            && main_draft
+            && *scroll >= read_rows.saturating_sub(height)
+            && let Reading::Done(Ok(shaping)) = &open.reading
+            && matches!(shaping.stage, Shaped::Drafted { text: Some(_), .. })
+        {
+            open.read_end = Some(shaping.stage.clone());
+            // Reaching the end answers "read to the end first", from this very frame.
+            if let Some(Notice::ReadFirst) = open.notice {
+                open.notice = None;
+                composed = compose(open, drafting, held, palette);
+                continue;
+            }
+        }
+        let calm = matches!(open.mode, Mode::Running(..));
+        let read_end = open.read_end.is_some();
+        let editor = editor.then(|| open.words());
+        frame.render_widget(
+            Paragraph::new(reading)
+                .wrap(Wrap { trim: false })
+                .scroll((*scroll, 0)),
+            Rect { height, ..area },
+        );
+        let mut input_area = Rect {
+            y: area.y + height + gap,
+            height: input_height,
+            ..area
+        }
+        .intersection(area);
+        let after_height = after_rows.min(input_height.saturating_sub(u16::from(editor.is_some())));
+        let before_height = before_rows
+            .min(input_height.saturating_sub(after_height + u16::from(editor.is_some())));
+        frame.render_widget(
+            Paragraph::new(before).wrap(Wrap { trim: false }),
+            Rect {
+                height: before_height,
+                ..input_area
+            },
+        );
+        input_area.y += before_height;
+        input_area.height = input_height.saturating_sub(before_height + after_height);
+        if let Some(editor) = editor {
+            editor.render(frame, input_area, palette, calm);
+            if confirming && editor.text().is_empty() && read_end {
+                frame.render_widget(
+                    Paragraph::new("type confirm, then Enter").style(palette.muted),
+                    Rect {
+                        height: input_area.height.min(1),
+                        ..input_area
+                    },
+                );
+            }
+        }
+        input_area.y += input_area.height;
+        input_area.height = after_height;
+        frame.render_widget(
+            Paragraph::new(after)
+                .wrap(Wrap { trim: false })
+                .scroll((after_rows.saturating_sub(after_height), 0)),
+            input_area,
+        );
+        return (read_rows > height, height);
     }
-    // Reaching the end answers "read to the end first".
-    if open.read_end.is_some()
-        && open
-            .notice
-            .as_ref()
-            .is_some_and(|(said, _)| said == READ_FIRST)
-    {
-        open.notice = None;
-        after.lines.retain(|line| line.to_string() != READ_FIRST);
-    }
-    frame.render_widget(
-        Paragraph::new(reading)
-            .wrap(Wrap { trim: false })
-            .scroll((*scroll, 0)),
-        Rect { height, ..area },
-    );
-    let mut input_area = Rect {
-        y: area.y + height + gap,
-        height: input_height,
-        ..area
-    }
-    .intersection(area);
-    let after_height = after_rows.min(input_height.saturating_sub(u16::from(editor.is_some())));
-    let before_height =
-        before_rows.min(input_height.saturating_sub(after_height + u16::from(editor.is_some())));
-    frame.render_widget(
-        Paragraph::new(before).wrap(Wrap { trim: false }),
-        Rect {
-            height: before_height,
-            ..input_area
-        },
-    );
-    input_area.y += before_height;
-    input_area.height = input_height.saturating_sub(before_height + after_height);
-    if let Some(editor) = editor {
-        editor.render(frame, input_area, palette, open.running.is_some());
-        if label == Some("your words") && editor.text().is_empty() && open.read_end.is_some() {
-            frame.render_widget(
-                Paragraph::new("type confirm, then Enter").style(palette.muted),
-                Rect {
-                    height: input_area.height.min(1),
-                    ..input_area
-                },
+}
+
+/// An open session's screen before layout: what to read, then the lines above and below the words
+/// box, and whether there is one.
+struct Composed {
+    reading: Text<'static>,
+    before: Text<'static>,
+    after: Text<'static>,
+    editor: bool,
+}
+
+fn compose(open: &Opened, drafting: Option<&Agent>, held: bool, palette: Palette) -> Composed {
+    let agent = drafting.is_some();
+    let shaping = match &open.reading {
+        Reading::NotStarted | Reading::Waiting(_) => {
+            return Composed {
+                reading: Text::styled("Checking this Tink.", palette.muted),
+                before: Text::default(),
+                after: Text::default(),
+                editor: false,
+            };
+        }
+        Reading::Done(Err(error)) => {
+            return Composed {
+                reading: plain(
+                    &match error
+                        .strip_prefix("Tinkery refused: ")
+                        .and_then(|reason| reason.lines().next())
+                        .filter(|reason| !reason.trim().is_empty())
+                    {
+                        Some(reason) => format!("Tinkery refused to read this session: {reason}"),
+                        None => "Shape couldn't read this session. F1 shows why.".into(),
+                    },
+                    "Next: Esc goes back; F1 shows where the session is.",
+                    palette,
+                ),
+                before: Text::default(),
+                after: Text::default(),
+                editor: false,
+            };
+        }
+        Reading::Done(Ok(shaping)) => shaping,
+    };
+    let editing_check = match open.editor() {
+        Editor::Aside(Aside::RepairCheck(edit), _) => Some(&edit.target),
+        _ => None,
+    };
+    let top = match (&shaping.stage, editing_check) {
+        (_, Some(check)) => Some(Text::styled(
+            format!("Edit check {}\n\n{}", check.index + 1, check.statement()),
+            palette.ink,
+        )),
+        (
+            Shaped::Drafted {
+                revision,
+                text: Some(seed),
+            },
+            _,
+        ) => Some(seed_view(
+            seed,
+            revision.as_deref(),
+            shaping,
+            agent && !held,
+            palette,
+        )),
+        _ => shaping
+            .goal
+            .as_deref()
+            .map(|goal| Text::styled(goal.lines().next().unwrap_or("").to_owned(), palette.ink)),
+    };
+    let name = open.folder_name();
+    let typing = open.typing().filter(|_| agent);
+    let act = typing.as_ref().map(|t| &t.act);
+    let words = typing.as_ref().map(|t| t.label);
+    let acts = typing.is_some()
+        || agent
+            && matches!(
+                shaping,
+                Shaping {
+                    stage: Shaped::Waiting,
+                    version: Some(_),
+                    ..
+                }
             );
+    let form = matches!(open.editor(), Editor::Form(_));
+    let stand = match &open.mode {
+        Mode::Running(running, doing, _) => {
+            let name = name.as_deref().unwrap_or_default();
+            let said = match (doing, running.saved()) {
+                (Doing::Answer, false) => "Saving your answer.".to_owned(),
+                (Doing::Answer, true) => {
+                    format!("Answer saved. Looking in {name} for the next question.")
+                }
+                (Doing::Defer, false) => "Saving your deferral.".into(),
+                (Doing::Delegate, false) => "Saving the delegated suggestion.".into(),
+                (Doing::Revise, false) => "Revising your answer and reopening dependents.".into(),
+                (Doing::Defer | Doing::Delegate | Doing::Revise, true) => {
+                    format!("{}Looking in {name} for the next question.", doing.saved())
+                }
+                (Doing::Look, _) => format!("Looking in {name} for the next question."),
+                (Doing::TeachBack, false) => "Saving your teach-back.".into(),
+                (Doing::TeachBack, true) => "Teach-back saved. Comparing with the draft.".into(),
+                (Doing::Change, false) => "Saving your change.".into(),
+                (Doing::Change, true) => format!("Change saved. Redrafting the Tink from {name}."),
+                (Doing::Confirm, _) => "Confirming the Tink.".to_owned(),
+            };
+            Stand {
+                acts,
+                reads: None,
+                words,
+                act,
+                notice: None,
+                stage_next: !form,
+                running: Some(Line::from(vec![
+                    Span::styled(said, palette.ink),
+                    Span::styled(format!("  {}s", running.elapsed().as_secs()), palette.muted),
+                ])),
+                assumed: &open.assumed,
+                instinct: open.instinct_first(),
+            }
+        }
+        Mode::Choosing(_) => Stand {
+            acts,
+            reads: None,
+            words: Some("Folder:"),
+            act: None,
+            notice: Some((
+                "",
+                Some(format!(
+                    "Next: Enter uses this folder; Esc keeps {}.",
+                    name.as_deref().unwrap_or_default()
+                )),
+            )),
+            stage_next: true,
+            running: None,
+            assumed: &open.assumed,
+            instinct: open.instinct_first(),
+        },
+        _ => Stand {
+            acts,
+            reads: (agent && open.offers_step()).then(|| match &name {
+                Some(name) => {
+                    format!("The step reads files in {name}. F1 picks another folder.")
+                }
+                None => "Finding which folder the step reads.".into(),
+            }),
+            words,
+            act,
+            notice: open
+                .notice
+                .as_ref()
+                .map(Notice::parts)
+                .or(held.then_some((HELD, None))),
+            stage_next: !form,
+            running: None,
+            assumed: &open.assumed,
+            instinct: open.instinct_first(),
+        },
+    };
+    let (mut said, mut input, mut editor_at) = standing(shaping, stand, palette);
+    if !matches!(open.mode, Mode::Running(..))
+        && open.offers_answers()
+        && let Some(drafting) = drafting.filter(|a| a.remaining() == 1)
+    {
+        input
+            .lines
+            .insert(0, Line::styled(drafting.left(), palette.muted));
+        editor_at = editor_at.map(|at| at + 1);
+    }
+    if agent
+        && !held
+        && matches!(open.mode, Mode::Idle(Editor::Stage))
+        && shaping.deferred.is_some()
+    {
+        said.lines.push(Line::styled(
+            "F1 offers an explicit answer; no model runs.",
+            palette.muted,
+        ));
+    }
+    if let Some(note) = &shaping.confirmation_note {
+        input.lines.push(Line::styled(note.clone(), palette.muted));
+    }
+    let mut reading = top.unwrap_or_default();
+    if editing_check.is_none() && matches!(shaping.stage, Shaped::Drafted { .. }) {
+        reading.lines.push(Line::default());
+        reading
+            .lines
+            .push(Line::styled("Before you confirm", palette.muted));
+        for line in &shaping.teach_back {
+            reading
+                .lines
+                .extend(Text::styled(line.clone(), palette.ink).lines);
+        }
+        for line in shaping.review_lines(!shaping.checks.is_empty()) {
+            reading.lines.extend(Text::styled(line, palette.ink).lines);
+        }
+        if let Some(signoff) = &shaping.signoff {
+            reading
+                .lines
+                .push(Line::styled(signoff.clone(), palette.ink));
         }
     }
-    input_area.y += input_area.height;
-    input_area.height = after_height;
-    frame.render_widget(
-        Paragraph::new(after)
-            .wrap(Wrap { trim: false })
-            .scroll((after_rows.saturating_sub(after_height), 0)),
-        input_area,
-    );
-    (read_rows > height, height)
+    if let Editor::Form(form) = open.editor() {
+        reading.lines.extend(said.lines);
+        reading.lines.push(Line::default());
+        reading
+            .lines
+            .extend(Text::styled(form.description(), palette.ink).lines);
+    } else {
+        if !reading.lines.is_empty() && !said.lines.is_empty() {
+            reading.lines.push(Line::default());
+        }
+        reading.lines.extend(said.lines);
+    }
+    if editing_check.is_none() && matches!(shaping.stage, Shaped::Drafted { text: Some(_), .. }) {
+        reading.lines.push(Line::default());
+        reading
+            .lines
+            .push(Line::styled("End of Tink Contract", palette.muted));
+    }
+    let (before, after) = match editor_at {
+        Some(at) => {
+            let after = input.lines.split_off(at + 1);
+            (input, Text::from(after))
+        }
+        None => (Text::default(), input),
+    };
+    Composed {
+        reading,
+        before,
+        after,
+        editor: editor_at.is_some(),
+    }
 }
 
 /// Review the proposed checks first. Stored seed bytes and artifact order do not change.
@@ -2111,13 +2034,13 @@ fn seed_view(
 
 /// What a finished step needs to say, and its own next step when the stage's won't do.
 /// What choosing an ending asks, and how to answer it.
-fn asked(ending: Ending) -> (String, Option<String>) {
+fn asked(ending: Ending) -> Notice {
     match ending {
-        Ending::Completed => (
+        Ending::Completed => Notice::Said(
             "End this session as completed? It becomes read-only for good, and tend no longer lists it; Approve still offers its Tink.".into(),
             Some("Next: Enter ends it; Esc keeps it open.".into()),
         ),
-        Ending::Stopped => (
+        Ending::Stopped => Notice::Said(
             "Stop this session? It becomes read-only for good and tend no longer lists it; its open questions stay recorded.".into(),
             Some("Next: Enter stops it; Esc keeps it open.".into()),
         ),
@@ -2125,15 +2048,10 @@ fn asked(ending: Ending) -> (String, Option<String>) {
 }
 
 /// `left` is the allowance, added where the operator decides whether to retry (#435).
-fn said(
-    result: Result<Done, Failure>,
-    doing: Doing,
-    left: Option<String>,
-) -> Option<(String, Option<String>)> {
+fn said(result: Result<Done, Failure>, doing: Doing, left: Option<String>) -> Option<Notice> {
     if result == Ok(Done::Compared) {
-        return Some((
-            "Teach-back compared. Mismatches never block confirming.".into(),
-            None,
+        return Some(Notice::said(
+            "Teach-back compared. Mismatches never block confirming.",
         ));
     }
     let Failure {
@@ -2143,7 +2061,7 @@ fn said(
     } = result.err()?;
     let saved = if answer_saved { doing.saved() } else { "" };
     let left = left.map_or_else(String::new, |left| format!(" {left}"));
-    Some(match why {
+    let (said, next) = match why {
         Why::Stale if answer_saved => (
             format!(
                 "{saved}Another writer changed this session before the next step, so Shape saved nothing more and read it again."
@@ -2191,7 +2109,8 @@ fn said(
             ),
             None,
         ),
-    })
+    };
+    Some(Notice::Said(said, next))
 }
 
 /// The rule in a refused reply's reason, without Tinkery's prefix or the node it names.
@@ -2219,8 +2138,12 @@ struct Stand<'a> {
     reads: Option<String>,
     /// The editor's label, when this stage takes words.
     words: Option<&'a str>,
+    /// What typed words would do, when the words box is the stage's or an aside's.
+    act: Option<&'a Act>,
     /// What the last key or step said, and its own next step if any.
     notice: Option<(&'a str, Option<String>)>,
+    /// Whether the stage's own Next line may show; a form's description says what to do instead.
+    stage_next: bool,
     /// What a running step is doing; everything else then stays, muted.
     running: Option<Line<'static>>,
     /// Defaults the current question's step assumed instead of asking.
@@ -2234,15 +2157,22 @@ struct Stand<'a> {
 /// thing to act on (jade); its suggestion is a guess (italic). The operator's words are in ink.
 /// At most one Next line: none when the key bar already names the one next action and nothing
 /// was said, and a notice's own next step replaces the stage's. While a step runs, the question and the words
-/// stay, muted, under what the step is doing.
-fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>, Text<'static>) {
+/// stay, muted, under what the step is doing. Also returns the index of the input line the words
+/// box follows, when there is one.
+fn standing(
+    shaping: &Shaping,
+    stand: Stand,
+    palette: Palette,
+) -> (Text<'static>, Text<'static>, Option<usize>) {
     const SETUP: &str = "Next: reopen this goal with Shape set up; F1 shows how.";
     const INSPECT: &str = "Next: check this session's files; F1 shows the path.";
     let Stand {
         acts,
         reads,
         words,
+        act,
         notice,
+        stage_next,
         running,
         assumed,
         instinct,
@@ -2417,16 +2347,16 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
                     palette.ink,
                 ));
             }
-            match (acts, revision) {
-                (true, _) if words == Some("your teach-back") => {
+            match (acts, revision, act) {
+                (true, _, Some(Act::TeachBack { .. })) => {
                     Some("Next: Enter saves your words and compares with the draft.".into())
                 }
-                (true, _) if words == Some("your change") => {
+                (true, _, Some(Act::Change { .. })) => {
                     Some("Next: Enter saves your change and redrafts the Tink.".into())
                 }
                 // The key bar owns the next action, including while a refusal is shown.
-                (true, Some(_)) => None,
-                (false, Some(_)) => Some(SETUP.into()),
+                (true, Some(_), _) => None,
+                (false, Some(_), _) => Some(SETUP.into()),
                 _ => Some(INSPECT.into()),
             }
         }
@@ -2490,11 +2420,16 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
     }
     // What the operator acts with stays in view beneath what they read.
     let mut input: Vec<Line<'static>> = flag.into_iter().collect();
+    let mut editor_at = None;
     if let Some(label) = words {
         let style = if calm { palette.muted } else { palette.ink };
         gap(&mut input);
         input.push(Line::styled(label.to_owned(), style));
-        if label == "your words" && acts && !calm && matches!(shaping.stage, Shaped::Drafted { .. })
+        editor_at = Some(input.len() - 1);
+        if matches!(act, Some(Act::Confirm { .. }))
+            && acts
+            && !calm
+            && matches!(shaping.stage, Shaped::Drafted { .. })
         {
             input.push(Line::default());
             input.push(Line::styled(
@@ -2506,8 +2441,9 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
     if let Some(running) = running {
         gap(&mut input);
         input.push(running);
-        return (Text::from(lines), Text::from(input));
+        return (Text::from(lines), Text::from(input), editor_at);
     }
+    let next = next.filter(|_| stage_next);
     let next = match notice {
         Some((said, own)) => {
             if !said.is_empty() {
@@ -2523,7 +2459,7 @@ fn standing(shaping: &Shaping, stand: Stand, palette: Palette) -> (Text<'static>
         gap(&mut input);
         input.push(Line::styled(next, palette.ink));
     }
-    (Text::from(lines), Text::from(input))
+    (Text::from(lines), Text::from(input), editor_at)
 }
 
 #[cfg(test)]

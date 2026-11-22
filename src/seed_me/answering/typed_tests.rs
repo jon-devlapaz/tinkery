@@ -28,7 +28,6 @@ fn question(found: Vec<Found>, supported_by: Option<Value>) -> Ask {
         assumed: vec![],
         options: vec![],
         against: None,
-        confidence: None,
     }
 }
 
