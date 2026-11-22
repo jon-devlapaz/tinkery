@@ -428,7 +428,12 @@ print(json.dumps(dict(parts=dict(who='I',outcome='judge the result',why='w'*3150
         let review_ok = reviewed && !matches!(mode, "review-transport" | "review-syntax");
         assert_eq!(dir.path().join("review-ok").exists(), review_ok, "{mode}");
         if mode.starts_with("review-") {
-            let logs = pi.diagnostics().join("\n");
+            let logs = pi
+                .diagnostics()
+                .iter()
+                .map(|d| serde_json::to_string(d).unwrap())
+                .collect::<Vec<_>>()
+                .join("\n");
             assert!(
                 logs.contains(if mode == "review-syntax" {
                     "Ignored decision review"
@@ -450,8 +455,7 @@ print(json.dumps(dict(parts=dict(who='I',outcome='judge the result',why='w'*3150
             }
             if mode == "review-cap" {
                 assert!(logs.contains("Start a smaller goal, keeping this one as a reference."));
-                let decision: checks::Decision =
-                    serde_json::from_str(&pi.diagnostics()[0]).unwrap();
+                let decision = pi.diagnostics()[0].clone();
                 let raw = decision.raw.as_ref().unwrap();
                 let shape_bytes = serde_json::to_vec(&r).unwrap().len();
                 let review_bytes = review::input(&r, raw).unwrap().len();
@@ -486,8 +490,7 @@ print(json.dumps(dict(parts=dict(who='I',outcome='judge the result',why='w'*3150
             "mode={mode}, fake process starts={}, reviews={reviews}",
             calls.lines().count()
         );
-        for log in pi.diagnostics() {
-            let d: checks::Decision = serde_json::from_str(&log).unwrap();
+        for d in pi.diagnostics() {
             assert!(!d.request_key.is_empty());
         }
         if mode == "invalid" {

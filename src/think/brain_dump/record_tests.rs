@@ -464,7 +464,14 @@ print(json.dumps(dict(parts=dict(who='I',outcome='finish TEST-GOOD-REPLY',why='t
         "the decoded reading stays: {record:#}"
     );
     // F5 still has every reply this session.
-    assert!(a.diagnostics().join("\n").contains("TEST-GOOD-REPLY"));
+    assert!(
+        a.diagnostics()
+            .iter()
+            .map(|d| serde_json::to_string(d).unwrap())
+            .collect::<Vec<_>>()
+            .join("\n")
+            .contains("TEST-GOOD-REPLY")
+    );
 }
 
 #[cfg(unix)]
@@ -523,7 +530,13 @@ print(json.dumps(dict(parts=dict(who='I',outcome='finish '+marker,why='the work 
         next.submit();
         settle(&mut next);
         assert!(
-            !next.diagnostics().join("\n").contains("ALPHA"),
+            !next
+                .diagnostics()
+                .iter()
+                .map(|d| serde_json::to_string(d).unwrap())
+                .collect::<Vec<_>>()
+                .join("\n")
+                .contains("ALPHA"),
             "previous goal in F5 history"
         );
         next.review_goal();

@@ -35,8 +35,8 @@ pub trait BoardHost: Send + Sync {
     fn calls_left(&self) -> Option<String> {
         None
     }
-    /// The host's own log lines for "Why" in F1; none by default.
-    fn diagnostics(&self) -> Vec<String> {
+    /// The host's own checks for "Why" in F1; none by default.
+    fn diagnostics(&self) -> Vec<checks::Decision> {
         Vec::new()
     }
     /// Who this host is, for the think record. A host that names no model is `simulated`.
@@ -53,7 +53,7 @@ pub struct ModelHost {
     thinking: String,
     timeout: Duration,
     budget: Arc<CallBudget>,
-    brain_history: std::sync::Mutex<Vec<String>>,
+    brain_history: std::sync::Mutex<Vec<checks::Decision>>,
     active_call: std::sync::Mutex<Option<Request>>,
 }
 
@@ -171,7 +171,7 @@ impl BoardHost for ModelHost {
             ))),
         }
     }
-    fn diagnostics(&self) -> Vec<String> {
+    fn diagnostics(&self) -> Vec<checks::Decision> {
         self.brain_history
             .try_lock()
             .map(|h| h.clone())
@@ -182,8 +182,7 @@ impl BoardHost for ModelHost {
         let prompt = reading::prompt(self.working_instructions());
         let mut decision = checks::Decision::new(
             "structure-spans-history",
-            "blocking",
-            "pass",
+            checks::Verdict::Pass,
             "Readable board, exact claimed spans and application-owned history. Not a meaning judgment."
                 .into(),
             started,
@@ -222,12 +221,12 @@ impl BoardHost for ModelHost {
             Ok(guess)
         })();
         if let Err(e) = &result {
-            decision.decision = "reject".into();
+            decision.decision = checks::Verdict::Reject;
             decision.reason = e.clone();
         }
         decision.elapsed_ms = started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
         if let Ok(mut history) = self.brain_history.lock() {
-            history.push(serde_json::to_string(&decision).expect("decision is serializable"));
+            history.push(decision.clone());
         }
         result
     }

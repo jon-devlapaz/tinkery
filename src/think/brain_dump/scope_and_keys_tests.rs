@@ -476,7 +476,10 @@ fn encoded_cap_counts_metadata_keeps_unsent_words_and_near_cap_is_visible() {
     assert_eq!(a.conversation.sources()[0].text, source);
     assert_eq!(a.input.text, "new words stay local");
     assert!(a.notice().contains("too long"));
-    assert_eq!(a.local_checks.last().unwrap().decision, "reject");
+    assert_eq!(
+        a.local_checks.last().unwrap().decision,
+        checks::Verdict::Reject
+    );
 }
 #[test]
 fn rejected_schema_attempt_is_readable_lossless_and_never_promoted() {
@@ -489,13 +492,12 @@ fn rejected_schema_attempt_is_readable_lossless_and_never_promoted() {
     assert!(serde_json::from_str::<Guess>(&text).is_err());
     let mut d = checks::Decision::new(
         "structure-spans-history",
-        "blocking",
-        "reject",
+        checks::Verdict::Reject,
         "Unknown field precondition; unsupported schema.".into(),
         std::time::Instant::now(),
     );
     d.raw = Some(text.clone());
-    let logs = vec![serde_json::to_string(&d).unwrap()];
+    let logs = vec![d.clone()];
     let why = checks::why(&logs);
     assert!(why.contains("Rejected attempt — not confirmable"));
     assert!(why.contains(g.goal().unwrap()));
@@ -804,7 +806,10 @@ fn waiting_reply_contraction_sends_the_fitting_preview_once() {
     assert_eq!(requests[2].sources[1].text, "additional exact words");
     assert_eq!(requests[2].sources[2].text, "include these words");
     assert_eq!(requests[2].sources[3].text.as_bytes(), words.as_bytes());
-    assert_eq!(a.local_checks.last().unwrap().decision, "pass");
+    assert_eq!(
+        a.local_checks.last().unwrap().decision,
+        checks::Verdict::Pass
+    );
     assert!(a.shaping.ready.is_none() && a.input.text.is_empty());
 }
 
@@ -836,7 +841,10 @@ fn waiting_reply_overflow_is_transactional_before_committing_local_words() {
     assert_eq!(a.conversation.sources().len(), 1);
     assert_eq!(a.conversation.board().unwrap().reading, old);
     assert!(a.shaping.ready.is_some());
-    assert_eq!(a.local_checks.last().unwrap().decision, "reject");
+    assert_eq!(
+        a.local_checks.last().unwrap().decision,
+        checks::Verdict::Reject
+    );
     assert!(!a.running());
     assert_eq!(
         host.requests.lock().unwrap().len(),

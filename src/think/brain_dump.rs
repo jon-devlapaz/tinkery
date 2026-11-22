@@ -685,12 +685,8 @@ impl BrainDump {
             waiting_failure,
         })
     }
-    fn diagnostics(&self) -> Vec<String> {
-        let mut logs = self
-            .local_checks
-            .iter()
-            .map(|d| serde_json::to_string(d).expect("decision serializes"))
-            .collect::<Vec<_>>();
+    fn diagnostics(&self) -> Vec<checks::Decision> {
+        let mut logs = self.local_checks.clone();
         logs.extend(self.host.diagnostics());
         logs
     }
@@ -732,11 +728,10 @@ impl BrainDump {
         };
         let mut cap = checks::Decision::new(
             "encoded-request-cap",
-            "blocking",
             if measured > REQUEST_LIMIT {
-                "reject"
+                checks::Verdict::Reject
             } else {
-                "pass"
+                checks::Verdict::Pass
             },
             format!(
                 "Encoded request: {measured} / {REQUEST_LIMIT} bytes; no truncation or dropped originals."

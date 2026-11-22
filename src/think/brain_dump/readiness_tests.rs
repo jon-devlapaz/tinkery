@@ -297,13 +297,12 @@ fn rejected_summary_labels_raw_success_criteria_without_changing_evidence() {
     .to_string();
     let mut decision = checks::Decision::new(
         "structure",
-        "blocking",
-        "reject",
+        checks::Verdict::Reject,
         "TEST rejected reply".into(),
         std::time::Instant::now(),
     );
     decision.raw = Some(raw.clone());
-    let history = vec![serde_json::to_string(&decision).unwrap()];
+    let history = vec![decision];
     let summary = checks::why(&history);
     assert!(
         summary.contains("Success criteria (unaccepted)\nBudget consequences are visible."),

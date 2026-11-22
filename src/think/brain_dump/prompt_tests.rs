@@ -166,8 +166,7 @@ else:print(pathlib.Path(__file__).with_name('reply').read_text())
         assert_eq!(reading, &expected.reading.as_ref().unwrap().text);
         assert!(board.questions.is_empty());
         assert_eq!(request.sources[0].text, words);
-        let record: checks::Decision =
-            serde_json::from_str(pi.diagnostics().last().unwrap()).unwrap();
+        let record = pi.diagnostics().last().unwrap().clone();
         assert_eq!(
             record.raw.as_deref().map(str::trim_end),
             Some(sent.trim_end())
@@ -321,7 +320,7 @@ print('{"parts":{"who":"I","outcome":"judge the result","why":"it matters","done
     let guess = pi.reshape(request, &AtomicBool::new(false)).unwrap();
     assert_eq!(guess.decisions.len(), 1);
     assert_eq!(guess.questions[0].text, "May the results be published?");
-    let record: checks::Decision = serde_json::from_str(pi.diagnostics().last().unwrap()).unwrap();
+    let record = pi.diagnostics().last().unwrap().clone();
     assert_eq!(
         record.raw.as_deref().map(str::trim_end),
         Some(
