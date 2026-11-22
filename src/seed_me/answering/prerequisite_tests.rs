@@ -17,7 +17,6 @@ fn proposal(id: &str, prerequisites: Option<Value>) -> Ask {
         assumed: vec![],
         options: vec![],
         against: None,
-        confidence: None,
     }
 }
 
