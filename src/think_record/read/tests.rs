@@ -2,7 +2,10 @@
 
 use super::*;
 use crate::think_record::{Origin, Session, Turn, write};
-use std::time::{Duration, UNIX_EPOCH};
+use std::{
+    fs::File,
+    time::{Duration, UNIX_EPOCH},
+};
 
 const GOAL: &str = "I TEST a calm morning.\nWhy: I need space.\nDone when: I can think.";
 const WORDS: &str = "  Café 👩‍💻\n\"quoted\"\ttab  ";

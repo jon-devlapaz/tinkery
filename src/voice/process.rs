@@ -3,6 +3,7 @@
 //! lengths. Think sees none of this; it talks to [`VoiceHost`].
 
 use super::{Command, Event, Failure, VoiceHost, protocol::MAX_LINE};
+use crate::process;
 use std::{
     io::{BufRead, BufReader, Read, Write},
     path::PathBuf,
@@ -108,72 +109,35 @@ fn push(output: &SyncSender<Event>, overflow: &AtomicBool, event: Event) {
         overflow.store(true, Ordering::SeqCst);
     }
 }
-fn launch(command: &mut Process) -> std::io::Result<Child> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        command.process_group(0);
-    }
-    command.spawn()
-}
-fn kill_group(child: &mut Child) {
-    #[cfg(unix)]
-    {
-        let _ = Process::new("/bin/kill")
-            .args(["-KILL", "--", &format!("-{}", child.id())])
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
-    }
-    let _ = child.kill();
-}
-fn probe(mut command: Process, stop: &AtomicBool) -> Result<String, Failure> {
-    let mut child = launch(
-        command
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null()),
-    )
-    .map_err(|_| {
+fn probe(command: Process, stop: &AtomicBool) -> Result<String, Failure> {
+    let unread = || {
         Failure::new(
             "no-node",
-            "Voice needs Node 22 or later. Set TINKERY_NODE to its executable.",
+            "Could not read Node discovery result. Set TINKERY_NODE.",
         )
-    })?;
-    let stdout = child.stdout.take().unwrap();
-    let reader = thread::spawn(move || {
-        let mut text = String::new();
-        stdout.take(1024).read_to_string(&mut text).map(|_| text)
-    });
-    let end = Instant::now() + Duration::from_secs(3);
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break Some(status),
-            Ok(None) if Instant::now() < end && !stop.load(Ordering::SeqCst) => {
-                thread::sleep(Duration::from_millis(10))
-            }
-            _ => {
-                kill_group(&mut child);
-                let _ = child.wait();
-                break None;
-            }
-        }
     };
-    kill_group(&mut child);
-    let text = reader.join().ok().and_then(Result::ok);
-    if !status.is_some_and(|s| s.success()) {
+    let limits = process::Limits {
+        stdout: 1024,
+        stderr: 0,
+        deadline: Duration::from_secs(3),
+        stop_at_exit: true,
+    };
+    let output = process::run(command, limits, stop).map_err(|failure| match failure {
+        process::Failure::TooMuch(_) | process::Failure::Read(_) => unread(),
+        _ => Failure::new(
+            "no-node",
+            "Voice needs Node 22 or later. Set TINKERY_NODE to its executable.",
+        ),
+    })?;
+    if !output.status.success() {
         return Err(Failure::new(
             "no-node",
             "Voice needs Node 22 or later. Set TINKERY_NODE to its executable.",
         ));
     }
-    text.map(|text| text.trim().into()).ok_or_else(|| {
-        Failure::new(
-            "no-node",
-            "Could not read Node discovery result. Set TINKERY_NODE.",
-        )
-    })
+    String::from_utf8(output.stdout)
+        .map(|text| text.trim().into())
+        .map_err(|_| unread())
 }
 fn version(path: &std::ffi::OsStr, stop: &AtomicBool) -> Result<String, Failure> {
     let mut command = Process::new(path);
@@ -238,20 +202,13 @@ fn discover(stop: &AtomicBool) -> Result<Node, Failure> {
     }
     result
 }
+/// Give the helper a moment to exit after its stdin closes, then stop its group.
 fn reap(child: &mut Child) {
     let end = Instant::now() + Duration::from_millis(200);
-    loop {
-        if child.try_wait().ok().flatten().is_some() {
-            kill_group(child);
-            return;
-        }
-        if Instant::now() >= end {
-            kill_group(child);
-            let _ = child.wait();
-            return;
-        }
+    while child.try_wait().ok().flatten().is_none() && Instant::now() < end {
         thread::sleep(Duration::from_millis(10));
     }
+    process::stop(child);
 }
 #[cfg(all(test, unix))]
 mod tests {
@@ -303,7 +260,7 @@ fn run(
             return;
         }
     };
-    let mut child = match launch(
+    let mut child = match process::spawn(
         Process::new(node.executable)
             .args([
                 "--input-type=module",

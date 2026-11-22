@@ -4,10 +4,11 @@
 //! through verbatim, never trimmed or rewritten, and signed with the name the form showed.
 
 use super::read::{Check, commit};
+use crate::process::{self, Limits};
 use crate::sdlc::{self, DEADLINE};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use serde_json::Value;
-use std::{fs, io::Read, path::Path, process::Command, sync::atomic::AtomicBool};
+use std::{path::Path, process::Command, sync::atomic::AtomicBool};
 
 /// The operator's answer, on keys 1 and 2. Taste offers only these two of tink-sdlc's kinds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -82,19 +83,15 @@ pub(super) fn read(
     if path.canonicalize().ok().as_ref() != Some(&path) {
         return Err("Cannot read this run's verdict words in its checkout.".into());
     }
-    let file = crate::regular_file::open(
-        fs::OpenOptions::new().read(true),
-        libc::O_NOFOLLOW,
+    let bytes = crate::regular_file::read_bounded(
         &path,
+        4 * 1024 * 1024,
         "The verdict words are not in a regular file.",
     )
-    .map_err(|error| error.to_string())?;
-    const LIMIT: u64 = 4 * 1024 * 1024;
-    let mut bytes = Vec::new();
-    file.take(LIMIT + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|e| e.to_string())?;
-    if bytes.len() as u64 > LIMIT || !bytes.ends_with(b"\n") {
+    .map_err(|error| error.to_string())?
+    .bytes
+    .ok_or("The verdict record is too large or incomplete.")?;
+    if !bytes.ends_with(b"\n") {
         return Err("The verdict record is too large or incomplete.".into());
     }
     let mut status = Check::Stale;
@@ -206,11 +203,18 @@ pub(super) fn signer(root: &Path, stop: &AtomicBool) -> Result<String, String> {
     name.args(["config", "user.name"]);
     // git config exits 1 when the name is unset; any other failure is reported as itself.
     let unset = "No name to sign with. Set one in this checkout (git config user.name \"Your Name\"), then press F2.";
-    match sdlc::execute(root, name, "git", stop, DEADLINE) {
-        Ok(out) if !out.trim().is_empty() => Ok(out.trim().to_owned()),
-        Ok(_) => Err(unset.into()),
-        Err(why) if why.starts_with("git exited with exit status: 1") => Err(unset.into()),
-        Err(why) => Err(why),
+    name.current_dir(root);
+    let output = process::run(name, Limits::text(DEADLINE), stop).map_err(|f| f.words("git"))?;
+    if output.status.code() == Some(1) {
+        return Err(unset.into());
+    }
+    let failed = (!output.status.success()).then(|| output.exited("git", &output.said()));
+    let out = String::from_utf8(output.stdout)
+        .map_err(|_| "git printed text that isn't UTF-8.".to_owned())?;
+    match failed {
+        Some(why) => Err(why),
+        None if out.trim().is_empty() => Err(unset.into()),
+        None => Ok(out.trim().to_owned()),
     }
 }
 
@@ -255,22 +259,28 @@ pub(super) fn write(
         format!("--reviewer={reviewer}"),
         format!("--source={source}"),
     ]);
-    sdlc::execute(root, label, "sdlc.py label", stop, DEADLINE)
-        .map(|out| out.trim().to_owned())
-        .map_err(|why| {
-            if why.contains("unrecognized arguments: --expected-run-id") {
-                return "This checkout needs a newer tink-sdlc to save a verdict safely. Update it, reread the result, and try again.".into();
-            }
-            match why.split_once(": Error: ") {
-                Some((_, said)) => format!("tink-sdlc said: {said}"),
-                None => why,
-            }
-        })
+    label.current_dir(root);
+    let name = "sdlc.py label";
+    let output = process::run(label, Limits::text(DEADLINE), stop).map_err(|f| f.words(name))?;
+    let failed = (!output.status.success()).then(|| {
+        let said = sdlc::refusal(&output);
+        if said.contains("unrecognized arguments: --expected-run-id") {
+            return "This checkout needs a newer tink-sdlc to save a verdict safely. Update it, reread the result, and try again.".into();
+        }
+        match said.strip_prefix("Error: ") {
+            Some(rest) => format!("tink-sdlc said: {rest}"),
+            None => output.exited(name, &said),
+        }
+    });
+    let out = String::from_utf8(output.stdout)
+        .map_err(|_| format!("{name} printed text that isn't UTF-8."))?;
+    failed.map_or_else(|| Ok(out.trim().to_owned()), Err)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     fn press(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::NONE)

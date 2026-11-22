@@ -13,18 +13,17 @@
 //! Callers get text back, or one line saying why not. Which phase asks is the caller's business; this module names none.
 
 use std::{
-    io::{Read, Write},
-    os::unix::process::CommandExt,
+    io::Write,
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
+    process::Command,
     sync::{
         Arc,
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
-    thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
 
+use crate::process::{self, Failure, Limits};
 use serde::{Deserialize, Serialize};
 
 const FOLDER_GUARD: &str = include_str!("../pi/folder.mjs");
@@ -328,36 +327,31 @@ pub fn pi_models(program: &Path) -> Result<Vec<String>, String> {
     command
         .args(["--list-models", "--offline"])
         .env_remove("PI_SESSION_ID")
-        .env_remove("PI_SESSION_FILE")
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .process_group(0);
-    let mut child = start(&mut command).map_err(|error| match error.kind() {
-        std::io::ErrorKind::NotFound => format!(
-            "Pi isn't installed: no `{}` on PATH. Install Pi and log in.",
-            program.display()
-        ),
-        _ => format!("Cannot list Pi's models: {error}"),
-    })?;
-    let overflow = Arc::new(AtomicBool::new(false));
-    let stdout = read_pipe(child.stdout.take().unwrap(), LIMIT, "Pi", overflow);
-    let started = Instant::now();
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) if stdout.is_finished() => break Ok(status),
-            Err(error) => break Err(format!("Cannot list Pi's models: {error}")),
-            _ if started.elapsed() >= Duration::from_secs(10) => {
-                break Err("Pi took too long to list its models.".into());
-            }
-            _ => thread::sleep(Duration::from_millis(20)),
-        }
+        .env_remove("PI_SESSION_FILE");
+    let limits = Limits {
+        stdout: LIMIT,
+        stderr: LIMIT,
+        deadline: Duration::from_secs(10),
+        stop_at_exit: false,
     };
-    stop(&mut child);
-    let status = status?;
-    let output = stdout
-        .join()
-        .map_err(|_| "Pi output reader failed.".to_owned())??;
+    let listed =
+        process::run(command, limits, &AtomicBool::new(false)).map_err(
+            |failure| match failure {
+                Failure::Start(error) if error.kind() == std::io::ErrorKind::NotFound => format!(
+                    "Pi isn't installed: no `{}` on PATH. Install Pi and log in.",
+                    program.display()
+                ),
+                Failure::Start(error) | Failure::Wait(error) => {
+                    format!("Cannot list Pi's models: {error}")
+                }
+                Failure::Late(_) | Failure::Cancelled | Failure::Halted(_) => {
+                    "Pi took too long to list its models.".into()
+                }
+                Failure::TooMuch(_) => "Pi output exceeded 32 KiB.".into(),
+                Failure::Read(error) => format!("Cannot read Pi output: {error}"),
+            },
+        )?;
+    let (status, output) = (listed.status, listed.stdout);
     if !status.success() {
         return Err(format!("Pi couldn't list its models ({status})."));
     }
@@ -446,44 +440,22 @@ impl Call {
             .arg("--model")
             .arg(&self.model)
             .arg("--system-prompt")
-            .arg(prompt)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .process_group(0);
-        let mut child = start(&mut command).map_err(|error| match self.harness {
-            Harness::ClaudeCode if error.kind() == std::io::ErrorKind::NotFound => {
-                "Cannot start Claude Code: `claude` is not installed or not on PATH.".to_owned()
-            }
-            _ => format!("Cannot start {host}: {error}"),
-        })?;
-        // Claude Code reports its turns only when it ends; once started, a request stopped first
-        // may have used every response it held.
-        if self.harness == Harness::ClaudeCode {
-            *responses = cap;
-        }
-        let mut stdin = child.stdin.take().unwrap();
-        let writer = thread::spawn(move || stdin.write_all(&input));
-        let overflow = Arc::new(AtomicBool::new(false));
+            .arg(prompt);
         // Claude Code wraps the reply in JSON, escapes and all; its text is checked after.
-        let output_cap = match self.harness {
-            Harness::Pi => LIMIT,
-            Harness::ClaudeCode => 4 * LIMIT,
+        let limits = Limits {
+            stdout: match self.harness {
+                Harness::Pi => LIMIT,
+                Harness::ClaudeCode => 4 * LIMIT,
+            },
+            stderr: LIMIT,
+            deadline: self.timeout,
+            stop_at_exit: false,
         };
-        let stdout = read_pipe(
-            child.stdout.take().unwrap(),
-            output_cap,
-            host,
-            overflow.clone(),
-        );
-        let stderr = read_pipe(child.stderr.take().unwrap(), LIMIT, host, overflow.clone());
-        let started = Instant::now();
-        let mut status = None;
         let mut capped: Option<Instant> = None;
         let mut polled: Option<Instant> = None;
-        let result = loop {
+        let watch = |exited: bool| {
             if self.harness == Harness::Pi
-                && status.is_none()
+                && !exited
                 && polled.is_none_or(|at| at.elapsed() >= POLL)
             {
                 polled = Some(Instant::now());
@@ -496,51 +468,38 @@ impl Call {
                     capped = Some(Instant::now());
                 }
             }
-            let failure = if cancelled.load(Ordering::Relaxed) {
-                Some("Request cancelled.".to_owned())
-            } else if overflow.load(Ordering::Relaxed) {
-                Some(format!("{host} output exceeded 32 KiB."))
-            } else if capped.is_some_and(|at| status.is_none() && at.elapsed() >= CAP_GRACE) {
-                Some(cap_reached(host, *responses))
-            } else if started.elapsed() >= self.timeout {
-                Some(format!(
-                    "{host} timed out after {} seconds.",
-                    self.timeout.as_secs()
-                ))
-            } else {
-                None
-            };
-            if let Some(error) = failure {
-                break Err(error);
-            }
-            match child.try_wait() {
-                Ok(Some(exited)) => status = Some(exited),
-                Ok(None) => {}
-                Err(error) => {
-                    break Err(format!("Cannot wait for {host}: {error}"));
-                }
-            }
-            if let Some(status) = status
-                && writer.is_finished()
-                && stdout.is_finished()
-                && stderr.is_finished()
-            {
-                break Ok(status);
-            }
-            thread::sleep(Duration::from_millis(20));
+            capped
+                .is_some_and(|at| !exited && at.elapsed() >= CAP_GRACE)
+                .then(|| cap_reached(host, *responses))
         };
-        stop(&mut child);
-        // Unfinished pipe workers must not extend a failed call's deadline.
-        let status = result?;
-        let input_result = writer
-            .join()
-            .map_err(|_| format!("{host} input writer failed."))?;
-        let output = stdout
-            .join()
-            .map_err(|_| format!("{host} output reader failed."))??;
-        let diagnostics = stderr
-            .join()
-            .map_err(|_| format!("{host} error reader failed."))??;
+        let outcome = process::feed(command, Some(input), limits, cancelled, watch);
+        // Claude Code reports its turns only when it ends; once started, a request stopped first
+        // may have used every response it held.
+        if self.harness == Harness::ClaudeCode && !matches!(outcome, Err(Failure::Start(_))) {
+            *responses = cap;
+        }
+        let finished = outcome.map_err(|failure| match failure {
+            Failure::Start(error)
+                if self.harness == Harness::ClaudeCode
+                    && error.kind() == std::io::ErrorKind::NotFound =>
+            {
+                "Cannot start Claude Code: `claude` is not installed or not on PATH.".to_owned()
+            }
+            Failure::Start(error) => format!("Cannot start {host}: {error}"),
+            Failure::Cancelled => "Request cancelled.".to_owned(),
+            Failure::Late(timeout) => {
+                format!("{host} timed out after {} seconds.", timeout.as_secs())
+            }
+            Failure::TooMuch(_) => format!("{host} output exceeded 32 KiB."),
+            Failure::Read(error) => format!("Cannot read {host} output: {error}"),
+            Failure::Wait(error) => format!("Cannot wait for {host}: {error}"),
+            Failure::Halted(why) => why,
+        })?;
+        if finished.stderr_cut {
+            return Err(format!("{host} output exceeded 32 KiB."));
+        }
+        let (status, output, input_result) = (finished.status, finished.stdout, finished.input);
+        let diagnostics = finished.stderr;
         let diagnostics = String::from_utf8_lossy(&diagnostics);
         let text = match self.harness {
             Harness::Pi => {
@@ -811,54 +770,10 @@ fn claude_reply(
     Err(format!("{why} No automatic retry."))
 }
 
-/// Starts `command`, waiting up to a second while its executable is busy: one being replaced
-/// (an update in progress, or a fake a test just wrote) can't start until its writer closes it.
-fn start(command: &mut Command) -> std::io::Result<Child> {
-    let until = Instant::now() + Duration::from_secs(1);
-    loop {
-        match command.spawn() {
-            Err(error) if error.raw_os_error() == Some(libc::ETXTBSY) && Instant::now() < until => {
-                thread::sleep(Duration::from_millis(10));
-            }
-            started => return started,
-        }
-    }
-}
-
-// Stop descendants even if the host already exited, then reap the immediate child.
-fn stop(child: &mut Child) {
-    // SAFETY: this group was created for the owned child with process_group(0).
-    unsafe {
-        libc::kill(-(child.id() as libc::pid_t), libc::SIGKILL);
-    }
-    let _ = child.kill();
-    let _ = child.wait();
-}
-
-fn read_pipe(
-    reader: impl Read + Send + 'static,
-    cap: usize,
-    host: &'static str,
-    overflow: Arc<AtomicBool>,
-) -> JoinHandle<Result<Vec<u8>, String>> {
-    thread::spawn(move || {
-        let mut bytes = Vec::new();
-        reader
-            .take((cap + 1) as u64)
-            .read_to_end(&mut bytes)
-            .map_err(|error| format!("Cannot read {host} output: {error}"))?;
-        if bytes.len() > cap {
-            overflow.store(true, Ordering::Relaxed);
-            return Err(format!("{host} output exceeded 32 KiB."));
-        }
-        Ok(bytes)
-    })
-}
-
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
-    use std::{os::unix::fs::PermissionsExt, path::Path};
+    use std::{os::unix::fs::PermissionsExt, path::Path, thread};
 
     mod descendant {
         include!(concat!(

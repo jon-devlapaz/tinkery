@@ -24,7 +24,10 @@ impl BrainDump {
     /// The actions allowed now, most likely first. Empty while saving, reviewing, after saving,
     /// while asking whether to leave, or during a voice take.
     pub(super) fn rows(&self) -> Vec<Row<Act>> {
-        if self.screen.leave_prompt || self.handoff.started() || self.voice_active() {
+        if matches!(self.screen.overlay, Overlay::Leave)
+            || self.handoff.started()
+            || self.voice_active()
+        {
             return vec![];
         }
         let mut rows = vec![];
@@ -77,9 +80,7 @@ impl BrainDump {
 
     /// Close help, then run `act`.
     pub(super) fn run(&mut self, act: Act) {
-        self.screen.help = false;
-        self.screen.how = false;
-        self.screen.original_scroll = 0;
+        self.screen.show(Overlay::None);
         match act {
             Act::Review => self.review_goal(),
             Act::UseSuggestion => self.use_suggestion(),
@@ -89,25 +90,19 @@ impl BrainDump {
             Act::SaveWords => {
                 let words = &self.conversation.sources()[self.screen.source_view].text;
                 match self.write_thought(words) {
-                    Ok(crate::thought::Saved::New) => {
-                        self.notice = "Thought saved. Your conversation is unchanged.".into();
-                    }
-                    Ok(crate::thought::Saved::Duplicate) => {
-                        self.notice =
-                            "Thought already saved. Your conversation is unchanged.".into();
+                    Ok(saved @ (crate::thought::Saved::New | crate::thought::Saved::Duplicate)) => {
+                        self.notice = Notice::Receipt(layout::Receipt::OriginalThought {
+                            duplicate: matches!(saved, crate::thought::Saved::Duplicate),
+                        });
                     }
                     Ok(crate::thought::Saved::Uncertain(reason)) | Err(reason) => {
                         self.refuse(reason);
                     }
                 }
             }
-            Act::Originals => {
-                self.screen.details = false;
-                self.screen.original = true;
-            }
+            Act::Originals => self.screen.show(Overlay::Originals),
             Act::Why => {
-                self.screen.original = false;
-                self.screen.details = true;
+                self.screen.show(Overlay::Why);
                 self.screen.paper_scroll = 0;
             }
             Act::Cards => self.toggle_cards(),

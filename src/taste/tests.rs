@@ -387,10 +387,10 @@ fn selection_is_retained_by_run_and_pr_not_index_and_missing_selection_returns_t
     taste.selection = Some(key);
     let mut rows = taste.rows.clone();
     rows.reverse();
-    taste.reading = Some(Read::task(move |_| Ok((rows, 0))));
+    taste.reading = Some(Task::start(move |_| Ok((rows, 0))));
     settle(&mut taste);
     assert_eq!(taste.rows[taste.selected].id, "TEST-other");
-    taste.reading = Some(Read::task(|_| Ok((vec![row()], 0))));
+    taste.reading = Some(Task::start(|_| Ok((vec![row()], 0))));
     settle(&mut taste);
     assert!(!taste.detail && taste.notice.contains("no longer"));
 }
@@ -402,12 +402,6 @@ fn settle(taste: &mut Taste) {
         taste.poll();
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
-}
-
-#[test]
-fn unsafe_terminal_controls_are_only_escaped_for_display() {
-    assert_eq!(safe("TEST\x1b[31m\u{202e}"), "TEST\\u{1b}[31m\\u{202e}");
-    assert_eq!(safe(" TEST café  "), " TEST café  ");
 }
 
 #[test]

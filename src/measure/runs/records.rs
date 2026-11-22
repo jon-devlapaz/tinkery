@@ -2,7 +2,7 @@
 //! Nothing is written, inferred or estimated: a record that is missing or doesn't agree with its
 //! source reads as unknown, never as zero.
 
-use crate::sdlc;
+use crate::{process, sdlc};
 use serde_json::Value;
 use std::{
     fs::{self, File, OpenOptions},
@@ -352,7 +352,7 @@ fn held(
     let git = |args: &[&str]| {
         let mut command = Command::new("git");
         command.arg("--no-optional-locks").args(args);
-        sdlc::execute(root, command, "git", cancel, deadline)
+        process::text(root, command, "git", cancel, deadline)
     };
     if git(&["merge-base", "--is-ancestor", merge, "HEAD"]).is_err() {
         return Hold::Unknown("the merge commit isn't in this checkout's HEAD history".into());

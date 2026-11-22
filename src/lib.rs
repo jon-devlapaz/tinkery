@@ -2,7 +2,7 @@
 //!
 //! Each place in the menu is a phase with its own module (`think`, `tend`, `shape`, `approve`, `watch`, `taste`, `measure`); the menu
 //! is the only module that knows them all. Phases never use each other: anything two of them
-//! share (`goal`, `model_setup`, `repo`, `seed_me`, `think_record`, `voice`, and the palette and sizes below) is shared code that names
+//! share (`confirmation`, `goal`, `model_setup`, `repo`, `seed_me`, `think_record`, `voice`, and the palette and sizes below) is shared code that names
 //! no phase. `docs/design/architecture.md` has the map and `tests/architecture.rs` enforces it.
 #![deny(missing_docs, unreachable_pub)]
 // Tests and fixtures read files they made; operator paths go through `regular_file`.
@@ -24,11 +24,13 @@ use ratatui::{
 pub mod actions;
 mod approve;
 mod calendar;
+pub mod confirmation;
 pub mod goal;
 pub mod measure;
 pub mod menu;
 pub mod model_setup;
 pub mod pi;
+mod process;
 mod regular_file;
 pub mod repo;
 mod sdlc;
@@ -64,6 +66,36 @@ pub(crate) fn writing_key(key: KeyEvent) -> KeyEvent {
         modifiers: KeyModifiers::NONE,
         ..key
     }
+}
+
+/// Whether a character can steer a terminal: a control, or a mark that reorders the line
+/// around it (direction marks, embeddings, overrides and isolates).
+pub(crate) fn steers_terminal(c: char) -> bool {
+    c.is_control()
+        || matches!(c, '\u{061c}' | '\u{200e}' | '\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
+}
+
+/// Untrusted words as the terminal shows them: each character that [`steers_terminal`] is
+/// spelled out by code point, except line breaks. It returns a display copy and never changes
+/// its input.
+pub(crate) fn shown(text: &str) -> String {
+    text.split('\n')
+        .map(shown_line)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// [`shown`] for one row: a line break is spelled out too.
+pub(crate) fn shown_line(text: &str) -> String {
+    text.chars()
+        .flat_map(|c| {
+            if steers_terminal(c) {
+                c.escape_default().collect::<Vec<_>>()
+            } else {
+                vec![c]
+            }
+        })
+        .collect()
 }
 
 /// Fit a single-line title into terminal cells, keeping whole graphemes and marking omitted text.
@@ -387,5 +419,21 @@ mod writing_key_tests {
         ] {
             assert_eq!(writing_key(kept), kept, "{kept:?}");
         }
+    }
+}
+
+#[cfg(test)]
+mod shown_tests {
+    use super::*;
+
+    #[test]
+    fn terminal_controls_and_direction_marks_are_spelled_out() {
+        let raw = "safe\n\x1b[31m\r\t\u{85}\u{202e}\u{061c}\u{200e}\u{2066} café 👩‍💻";
+        assert_eq!(
+            shown(raw),
+            "safe\n\\u{1b}[31m\\r\\t\\u{85}\\u{202e}\\u{61c}\\u{200e}\\u{2066} café 👩‍💻"
+        );
+        assert_eq!(shown_line("a\nb"), "a\\nb");
+        assert_eq!(shown_line(" TEST café  "), " TEST café  ");
     }
 }

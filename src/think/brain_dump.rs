@@ -36,6 +36,7 @@ pub use suggestion::Suggestion;
 
 pub use host::BoardHost;
 use host::Simulated;
+use layout::{Notice, Refusal};
 pub use reading::{
     Anchor, BoardRequest, Fragment, Framing, Guess, OpenDecision, Question, Settled, Source,
 };
@@ -61,7 +62,7 @@ pub struct BrainDump {
     voice: Option<crate::voice::Voice>,
     /// Real provider mode, not practice.
     real: bool,
-    notice: String,
+    notice: Notice,
     /// Local checks on each send, shown in "Why" (F1).
     local_checks: Vec<checks::Decision>,
     /// Text waiting to be copied by the terminal host.
@@ -80,11 +81,37 @@ pub enum Exit {
     Tend(std::path::PathBuf),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Refusal {
-    Other,
-    DraftTooLong,
-    EarlierWordsTooLong,
+/// What covers part of think, at most one at a time: opening one closes the one before.
+#[derive(Default)]
+enum Overlay {
+    #[default]
+    None,
+    /// Before the first send, Enter asks whether a model reads the words or they stay a thought.
+    Choice,
+    /// F1 over the reading side: Right now with its numbered rows, or How it works.
+    Help {
+        how: bool,
+        page: crate::actions::Page,
+    },
+    /// Every original, verbatim, over the reading side.
+    Originals,
+    /// Why: attempts and checks, over the reading side.
+    Why,
+    /// Esc with words at stake asks before going back.
+    Leave,
+}
+
+impl Overlay {
+    fn help(&self) -> bool {
+        matches!(self, Overlay::Help { .. })
+    }
+    /// Help, the originals or Why cover the reading side, and keys go to them.
+    fn covers(&self) -> bool {
+        matches!(
+            self,
+            Overlay::Help { .. } | Overlay::Originals | Overlay::Why
+        )
+    }
 }
 
 /// What is shown where: rectangles from the last paint, scrolls, focus, overlays and
@@ -92,20 +119,11 @@ enum Refusal {
 struct Screen {
     key_bar: bool,
     shift_enter: bool,
-    choice: bool,
     /// This frame contains reading content; overlays can suppress its acknowledgment.
     reading_visible: bool,
-    /// Help (F1), the originals and why cover the right side.
-    help: bool,
-    how: bool,
-    actions: crate::actions::Page,
-    original: bool,
-    details: bool,
-    leave_prompt: bool,
+    overlay: Overlay,
     /// F1's Model and responses row asked for the Model panel, which the launch owns.
     model: bool,
-    /// The notice says why the last action did nothing; drawn until the next input.
-    refused: Option<Refusal>,
     /// Focus is on the original (or its cards), not the writing box.
     board_focus: bool,
     show_extractions: bool,
@@ -134,16 +152,9 @@ impl Default for Screen {
         Self {
             key_bar: true,
             shift_enter: false,
-            choice: false,
             reading_visible: false,
-            help: false,
-            how: false,
-            actions: crate::actions::Page::default(),
-            original: false,
-            details: false,
-            leave_prompt: false,
+            overlay: Overlay::None,
             model: false,
-            refused: None,
             board_focus: false,
             show_extractions: false,
             original_scroll: 0,
@@ -162,6 +173,28 @@ impl Default for Screen {
             source_area: Rect::default(),
             goal_button: Rect::default(),
             back_button: Rect::default(),
+        }
+    }
+}
+
+impl Screen {
+    /// Shows `overlay` in place of the one before; a covering panel opens at its top.
+    fn show(&mut self, overlay: Overlay) {
+        self.overlay = overlay;
+        self.original_scroll = 0;
+    }
+    /// Opens help on page one of Right now, or on How it works.
+    fn open_help(&mut self, how: bool) {
+        self.show(Overlay::Help {
+            how,
+            page: crate::actions::Page::default(),
+        });
+    }
+    /// Switches open help between Right now and How it works, keeping its page.
+    fn show_how(&mut self, on: bool) {
+        if let Overlay::Help { how, .. } = &mut self.overlay {
+            *how = on;
+            self.original_scroll = 0;
         }
     }
 }
@@ -192,7 +225,7 @@ struct Handoff {
     thoughts: Option<Result<crate::thought::Store, String>>,
     thought_saved: Option<(String, bool)>,
     /// Visit-scoped named attribution, or the terminal declaration frozen for this session.
-    confirmation: crate::think_record::GoalConfirmation,
+    confirmation: crate::confirmation::GoalConfirmation,
     save: Save,
     /// Where a confirmed session's think record goes; `None` writes none.
     record_root: Option<std::path::PathBuf>,
@@ -327,7 +360,9 @@ impl BrainDump {
     /// The first presentation candidate for this board, only when this frame exposes reading
     /// content. Calling this never records output; the owner must acknowledge successful IO.
     pub fn presentation(&self) -> Option<Presentation> {
-        if !self.screen.reading_visible || self.screen.help || self.screen.leave_prompt {
+        if !self.screen.reading_visible
+            || matches!(self.screen.overlay, Overlay::Help { .. } | Overlay::Leave)
+        {
             return None;
         }
         self.conversation.presentation()
@@ -354,7 +389,7 @@ impl BrainDump {
             host,
             voice: None,
             real,
-            notice: "Nothing saved. Submit when ready; no guess before then.".into(),
+            notice: Notice::Quiet("Nothing saved. Submit when ready; no guess before then.".into()),
             local_checks: vec![],
             copy: None,
             exit: Exit::Stay,
@@ -369,8 +404,7 @@ impl BrainDump {
             return;
         }
         self.conversation.offer_draft(draft);
-        self.notice =
-            "Tinkery's guess · edit freely; Enter sends your words. Nothing saved.".into();
+        self.tell("Tinkery's guess · edit freely; Enter sends your words. Nothing saved.");
     }
     /// What think asks of whoever opened it, read after each tick.
     pub fn exit(&self) -> &Exit {
@@ -379,10 +413,6 @@ impl BrainDump {
     /// What has been said and read so far.
     pub fn conversation(&self) -> &Conversation {
         &self.conversation
-    }
-    /// The status line: what just happened, in plain words.
-    pub fn notice(&self) -> &str {
-        &self.notice
     }
     /// The goal saved in this visit, if any.
     pub fn saved(&self) -> Option<&seed_me::Receipt> {
@@ -725,12 +755,7 @@ impl BrainDump {
         cap.request_key = checks::request_key(&request);
         self.local_checks.push(cap);
         if measured > REQUEST_LIMIT {
-            self.refuse(if context_over {
-                "Earlier words are too long.\nWords kept. F1: copy elsewhere."
-            } else {
-                "Too long to send. Words kept.\nCtrl-A/C copy; replace, Enter."
-            });
-            self.screen.refused = Some(if context_over {
+            self.notice = Notice::Refused(if context_over {
                 Refusal::EarlierWordsTooLong
             } else {
                 Refusal::DraftTooLong
@@ -752,7 +777,7 @@ impl BrainDump {
             self.screen.input_scroll = 0;
             self.add_more = false;
             if staged.addition {
-                self.notice="Added words kept unresolved, outside the reading, until you answer their scope question.".into();
+                self.notice = Notice::Receipt(layout::Receipt::AddedWords);
                 return;
             }
         }
@@ -781,7 +806,7 @@ impl BrainDump {
         self.shaping.request = Some(request);
         self.screen.canvas.cancel_gesture();
         self.screen.drag_anchor = None;
-        self.notice = "Thinking after submit… Esc cancels. New typing stays local.".into();
+        self.notice = Notice::Thinking;
     }
     /// Place a card for the newest fragment on the canvas, clear of the others.
     fn place_card(&mut self) {
@@ -829,8 +854,7 @@ impl BrainDump {
                 self.apply_result(request, result);
             } else {
                 self.shaping.ready = Some((request, result));
-                self.notice =
-                    "Reply ready; no interruption while typing. Enter submits when ready.".into();
+                self.tell("Reply ready; no interruption while typing. Enter submits when ready.");
             }
         }
     }
@@ -839,13 +863,12 @@ impl BrainDump {
         match self.conversation.apply(request, result) {
             Ok(()) => {
                 self.screen.paper_scroll = 0;
-                self.notice =
-                    "Reshaped after submit. Your positions kept; nothing confirmed.".into();
+                self.tell("Reshaped after submit. Your positions kept; nothing confirmed.");
             }
             Err(e) => {
-                self.notice = format!(
+                self.tell(format!(
                     "Reshape failed: {e} Original and previous board retained; Enter retries."
-                );
+                ));
             }
         }
     }
@@ -872,10 +895,12 @@ impl BrainDump {
     /// pasted or dictated, make it stale, so it goes and does not come back.
     fn end_stale_save(&mut self) {
         if !self.input.text.is_empty()
-            && (self.notice.starts_with("Thought saved · ")
-                || self.notice.starts_with("Thought already saved · "))
+            && matches!(
+                self.notice,
+                Notice::Receipt(layout::Receipt::FreshThought { .. })
+            )
         {
-            self.notice.clear();
+            self.tell("");
         }
     }
 
@@ -885,23 +910,16 @@ impl BrainDump {
         }
         self.shaping.encoded_bytes = None;
         self.conversation.forget_changes();
-        if !self.screen.help {
-            self.screen.refused = None;
+        if !self.screen.overlay.help() {
+            self.notice.settle();
         }
-        if self.screen.choice
-            || self.screen.leave_prompt
-            || self.screen.help
-            || self.screen.details
-            || self.screen.original
-        {
+        if !matches!(self.screen.overlay, Overlay::None) {
             return;
         }
         if self.goal_paste(text) {
             return;
         }
-        if !self.screen.original
-            && !self.screen.help
-            && !self.screen.board_focus
+        if !self.screen.board_focus
             && let Err(_) = self.input.insert(text)
         {
             self.refuse(layout::LIMIT_TEXT);
@@ -942,13 +960,10 @@ impl BrainDump {
     }
     /// Whether the copy reached the terminal's clipboard, so the notice can say so.
     pub fn copy_result(&mut self, sent: bool) {
-        self.notice = match (sent, self.handoff.receipt().is_some()) {
-            (true, true) => "Copied.",
-            (true, false) => "Copy sent; host may require clipboard permission.",
-            (false, true) => "Clipboard send failed; goal retained.",
-            (false, false) => "Clipboard send failed; board retained.",
-        }
-        .into();
+        self.notice = Notice::Receipt(layout::Receipt::Copy {
+            sent,
+            saved: self.handoff.receipt().is_some(),
+        });
     }
     /// Enable exact thought capture only with a garden return route. No goal authority is granted.
     pub(crate) fn with_thoughts(
@@ -975,15 +990,14 @@ impl BrainDump {
             && !self.running()
             && !self.voice_active()
             && !self.handoff.started()
-            && !self.screen.help
-            && !self.screen.leave_prompt
+            && !matches!(self.screen.overlay, Overlay::Help { .. } | Overlay::Leave)
             && !self.below_minimum()
             && self.exit == Exit::Stay
     }
 
     fn writing_action(&mut self) {
         if self.thought_ready() {
-            self.screen.choice = true;
+            self.screen.show(Overlay::Choice);
         } else {
             self.submit();
         }
@@ -991,7 +1005,7 @@ impl BrainDump {
 
     fn save_thought(&mut self) {
         if !self.thought_ready() {
-            if !self.conversation.sources().is_empty() && !self.screen.help {
+            if !self.conversation.sources().is_empty() && !self.screen.overlay.help() {
                 self.refuse("Nothing kept. Keep thought works only before the first send.");
             }
             return;
@@ -1003,13 +1017,10 @@ impl BrainDump {
                     matches!(saved, crate::thought::Saved::Duplicate),
                 ));
                 self.shaping.encoded_bytes = None;
-                self.screen.choice = false;
-                self.notice = if matches!(saved, crate::thought::Saved::Duplicate) {
-                    "Thought already saved · find it in Tend"
-                } else {
-                    "Thought saved · find it in Tend"
-                }
-                .into();
+                self.screen.overlay = Overlay::None;
+                self.notice = Notice::Receipt(layout::Receipt::FreshThought {
+                    duplicate: matches!(saved, crate::thought::Saved::Duplicate),
+                });
             }
             Ok(crate::thought::Saved::Uncertain(reason)) | Err(reason) => self.refuse(reason),
         }
@@ -1019,7 +1030,7 @@ impl BrainDump {
         match &self.handoff.thoughts {
             Some(Ok(store)) => store.save(words),
             Some(Err(reason)) => Err(reason.clone()),
-            None => Err("Open --home to save a thought in Tend.".into()),
+            None => Err(layout::NO_THOUGHT_STORE.into()),
         }
     }
 
@@ -1037,7 +1048,7 @@ impl BrainDump {
             return;
         }
         // Goal review, its receipt, help and card extraction give Enter their own meaning.
-        let key = if self.screen.help
+        let key = if self.screen.overlay.help()
             || self.handoff.review().is_some()
             || self.handoff.receipt().is_some()
             || self.screen.board_focus && self.screen.show_extractions
@@ -1049,8 +1060,8 @@ impl BrainDump {
         if key.code == KeyCode::F(2) && self.below_minimum() {
             return;
         }
-        if !self.screen.help && key.code != KeyCode::F(1) {
-            self.screen.refused = None;
+        if !self.screen.overlay.help() && key.code != KeyCode::F(1) {
+            self.notice.settle();
         }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         // One key map (#440): F1 lists, F2 sends, F3 saves fresh thoughts, F6 speaks; other function keys do nothing.
@@ -1066,15 +1077,15 @@ impl BrainDump {
             self.save_thought();
             return;
         }
-        if self.screen.choice {
+        if matches!(self.screen.overlay, Overlay::Choice) {
             if key.kind == KeyEventKind::Press && key.modifiers.is_empty() {
                 match key.code {
                     KeyCode::Char('1') if !self.below_minimum() => {
-                        self.screen.choice = false;
+                        self.screen.overlay = Overlay::None;
                         self.submit();
                     }
                     KeyCode::Char('2') if !self.below_minimum() => self.save_thought(),
-                    KeyCode::Esc => self.screen.choice = false,
+                    KeyCode::Esc => self.screen.overlay = Overlay::None,
                     _ => {}
                 }
             }
@@ -1082,21 +1093,21 @@ impl BrainDump {
         }
         if key.code == KeyCode::Esc
             && self.handoff.saving()
-            && !self.screen.help
+            && !self.screen.overlay.help()
             && key.modifiers.is_empty()
         {
             if let Some(voice) = &mut self.voice {
                 voice.close();
             }
             self.handoff.leave_after_save();
-            self.notice = "Saving your goal; back to the menu once it's saved.".into();
+            self.tell("Saving your goal; back to the menu once it's saved.");
             return;
         }
         if help_view::handle_key(self, key) {
             return;
         }
         if self.review_below_minimum()
-            && !self.screen.leave_prompt
+            && !matches!(self.screen.overlay, Overlay::Leave)
             && !matches!(key.code, KeyCode::Esc | KeyCode::F(1))
         {
             return;
@@ -1106,9 +1117,7 @@ impl BrainDump {
                 return;
             }
             if key.code == KeyCode::F(1) {
-                self.screen.help = true;
-                self.screen.how = false;
-                self.screen.original_scroll = 0;
+                self.screen.open_help(false);
             } else if key.code == KeyCode::Esc {
                 self.request_leave();
             } else {
@@ -1119,7 +1128,8 @@ impl BrainDump {
         if self.voice_key(key) {
             return;
         }
-        if self.screen.leave_prompt && key.kind == KeyEventKind::Repeat {
+        let leave_prompt = matches!(self.screen.overlay, Overlay::Leave);
+        if leave_prompt && key.kind == KeyEventKind::Repeat {
             return;
         }
         // Ctrl-C never leaves: it copies a selection, or cancels a shaping call. A save
@@ -1127,15 +1137,14 @@ impl BrainDump {
         if ctrl && key.code == KeyCode::Char('c') {
             if let Some(text) = self.selected_text() {
                 self.copy = Some(text);
-            } else if self.shaping.job.is_some() && !self.screen.leave_prompt {
+            } else if self.shaping.job.is_some() && !leave_prompt {
                 self.shaping.job.take();
                 self.shaping.request = None;
-                self.notice =
-                    "Cancelled; original and previous board retained. Enter retries.".into();
+                self.notice = Notice::Cancelled;
             }
             return;
         }
-        if self.screen.leave_prompt {
+        if leave_prompt {
             match key.code {
                 KeyCode::Char('y' | 'Y')
                     if !key.modifiers.intersects(
@@ -1144,60 +1153,40 @@ impl BrainDump {
                 {
                     self.leave()
                 }
-                KeyCode::Char('n' | 'N') | KeyCode::Esc => self.screen.leave_prompt = false,
+                KeyCode::Char('n' | 'N') | KeyCode::Esc => self.screen.overlay = Overlay::None,
                 _ => {}
             }
             return;
         }
         if key.code == KeyCode::F(1) {
-            self.screen.actions.reset();
-            self.screen.help = true;
-            self.screen.how = false;
-            self.screen.original = false;
-            self.screen.details = false;
-            self.screen.original_scroll = 0;
+            self.screen.open_help(false);
             return;
         }
+        let covered = self.screen.overlay.covers();
         if self.handoff.review().is_some()
-            && !self.screen.help
-            && !self.screen.details
-            && !self.screen.original
+            && !covered
             && ctrl
             && matches!(key.code, KeyCode::PageUp | KeyCode::PageDown)
         {
             self.handle_source_key(key);
             return;
         }
-        if !self.screen.original && !self.screen.help && !self.screen.details && self.goal_key(key)
-        {
+        if !covered && self.goal_key(key) {
             return;
         }
-        if key.code == KeyCode::Esc
-            && self.shaping.job.is_some()
-            && !self.screen.original
-            && !self.screen.help
-            && !self.screen.details
-        {
+        if key.code == KeyCode::Esc && self.shaping.job.is_some() && !covered {
             self.shaping.job.take();
             self.shaping.request = None;
-            self.notice = "Cancelled; original and previous board retained. Enter retries.".into();
+            self.notice = Notice::Cancelled;
             return;
         }
-        if self.screen.original || self.screen.details {
+        if covered {
             if key.code == KeyCode::Char('h') && !ctrl {
-                self.screen.help = true;
-                self.screen.original = false;
-                self.screen.details = false;
-                self.screen.how = !self.screen.how;
-                self.screen.original_scroll = 0;
+                self.screen.open_help(true);
                 return;
             }
             match key.code {
-                KeyCode::Esc => {
-                    self.screen.original = false;
-                    self.screen.help = false;
-                    self.screen.details = false;
-                }
+                KeyCode::Esc => self.screen.overlay = Overlay::None,
                 KeyCode::PageDown | KeyCode::Down => {
                     self.screen.original_scroll = self.screen.original_scroll.saturating_add(5)
                 }
@@ -1281,25 +1270,27 @@ impl BrainDump {
     /// Says why an action did nothing. The reason shows where the person is looking until
     /// their next key or paste, then stays only as the last result in How it works.
     fn refuse(&mut self, why: impl Into<String>) {
-        self.notice = why.into();
-        self.screen.refused = Some(Refusal::Other);
+        self.notice = Notice::Refused(Refusal::Because(why.into()));
+    }
+    /// Says what an action did, only as the last result in How it works and Why.
+    fn tell(&mut self, what: impl Into<String>) {
+        self.notice = Notice::Quiet(what.into());
     }
     /// Skip the question in focus; F1 can bring it back.
     fn skip_question(&mut self) {
         if self.conversation.skip_focused() {
-            self.notice = "Question skipped. F1 can bring it back.".into();
+            self.notice = Notice::Receipt(layout::Receipt::QuestionSkipped);
         }
     }
     /// Switch the writing box between a new dump and an answer to the focused question.
     fn new_dump(&mut self) {
         self.add_more = !self.add_more;
         self.focus_writing();
-        self.notice = if self.add_more {
+        self.tell(if self.add_more {
             "Add to this conversation, not an answer. Enter sends; F1 returns to answering."
         } else {
             "Typing answers the focused question; Enter sends."
-        }
-        .into();
+        });
     }
     /// Copy the reading.
     fn copy_board(&mut self) {
@@ -1328,7 +1319,7 @@ impl BrainDump {
     }
     fn undo_skip(&mut self) {
         match self.conversation.undo_skip() {
-            Some(true) => self.notice = "Skip undone; question restored.".into(),
+            Some(true) => self.notice = Notice::Receipt(layout::Receipt::SkipUndone),
             Some(false) => {
                 self.refuse("That question has since been answered; it wasn't reopened.")
             }
@@ -1376,7 +1367,7 @@ impl BrainDump {
     /// Exact text of the active surface's nonempty selection: the original while it has
     /// focus, otherwise the writing box. Nothing is copied from a surface that is hidden.
     fn selected_text(&self) -> Option<String> {
-        if self.screen.original || self.screen.help || self.screen.details {
+        if self.screen.overlay.covers() {
             return None;
         }
         if !self.screen.board_focus {
@@ -1438,23 +1429,23 @@ impl BrainDump {
         if let Some(voice) = &mut self.voice {
             voice.close();
         }
-        if self.screen.leave_prompt
+        if matches!(self.screen.overlay, Overlay::Leave)
             || self.handoff.receipt().is_some()
             || (self.input.text.is_empty() && self.conversation.is_empty() && !self.running())
         {
             self.leave();
         } else {
-            self.screen.leave_prompt = true;
+            self.screen.show(Overlay::Leave);
         }
     }
     /// One mouse event in a terminal of size `area`. Ignored while asking whether to leave, or
     /// when the terminal has been resized since the last paint.
     pub fn handle_mouse(&mut self, event: MouseEvent, area: Rect) {
-        if self.screen.choice {
+        if matches!(self.screen.overlay, Overlay::Choice) {
             return;
         }
         self.shaping.encoded_bytes = None;
-        if self.screen.leave_prompt {
+        if matches!(self.screen.overlay, Overlay::Leave) {
             return;
         }
         if area != self.screen.area || self.review_below_minimum() {
@@ -1464,15 +1455,14 @@ impl BrainDump {
             && event.row == 1
             && event.column == area.width.saturating_sub(3)
         {
-            self.screen.help = !self.screen.help;
-            self.screen.actions.reset();
-            self.screen.how = false;
-            self.screen.original = false;
-            self.screen.details = false;
-            self.screen.original_scroll = 0;
+            if self.screen.overlay.help() {
+                self.screen.show(Overlay::None);
+            } else {
+                self.screen.open_help(false);
+            }
             return;
         }
-        if self.screen.help || self.screen.original || self.screen.details {
+        if self.screen.overlay.covers() {
             self.screen.input_drag = false;
             match event.kind {
                 MouseEventKind::ScrollDown => {
@@ -1496,7 +1486,7 @@ impl BrainDump {
                     .contains((event.column, event.row).into())
             {
                 self.handoff.close();
-                self.notice = "Review closed; nothing confirmed.".into();
+                self.tell("Review closed; nothing confirmed.");
                 return;
             }
             if matches!(
@@ -1820,7 +1810,12 @@ fn render_input(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
             }
         }
     }
-    if !app.screen.board_focus && !app.screen.original && !app.screen.help && !app.handoff.started()
+    if !app.screen.board_focus
+        && !matches!(
+            app.screen.overlay,
+            Overlay::Originals | Overlay::Help { .. }
+        )
+        && !app.handoff.started()
     {
         frame.set_cursor_position((
             app.screen.input_area.x

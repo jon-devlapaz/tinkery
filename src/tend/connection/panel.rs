@@ -318,7 +318,7 @@ impl Panel {
             let mut top = 1;
             if let Some(notice) = &self.notice {
                 frame.render_widget(
-                    Paragraph::new(crate::tend::history::display(notice))
+                    Paragraph::new(crate::shown(notice))
                         .wrap(Wrap { trim: false })
                         .style(palette.muted),
                     Rect::new(body.x, body.y + top, body.width, 3),
@@ -343,8 +343,7 @@ impl Panel {
                         "No current proposal. The saved correction can be replaced or cleared.\n",
                     );
                 }
-                let context = Paragraph::new(crate::tend::history::display(&context))
-                    .wrap(Wrap { trim: false });
+                let context = Paragraph::new(crate::shown(&context)).wrap(Wrap { trim: false });
                 let height = body.height.saturating_sub(top + 4).min(8);
                 self.editor_offset = self.editor_offset.min(
                     context
@@ -572,7 +571,7 @@ impl Panel {
                     .iter()
                     .map(|span| span.content.as_ref())
                     .collect::<String>();
-                crate::tend::history::display(&text)
+                crate::shown(&text)
                     .lines()
                     .map(|part| Line::styled(part.to_owned(), style))
                     .collect::<Vec<_>>()

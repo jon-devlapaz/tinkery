@@ -89,14 +89,14 @@ fn confirmed_goal_and_originals_are_read_back_without_a_skill_or_viewer() {
 
 #[test]
 fn session_operator_and_answers_share_the_authorized_actor() {
-    let agent: crate::think_record::GoalConfirmation = serde_json::from_value(json!({
+    let agent: crate::confirmation::GoalConfirmation = serde_json::from_value(json!({
         "by":"agent", "agent":"TEST-agent", "authorizing_operator":"TEST-person",
         "source":"TEST scoped goal and Shape permission", "class":{"door":"two_way",
         "door_reason":"TEST reversible", "blast_radius":"small", "blast_radius_reason":"TEST isolated"}
     })).unwrap();
     for (context, operator, authority) in [
         (
-            crate::think_record::GoalConfirmation::default(),
+            crate::confirmation::GoalConfirmation::default(),
             "human",
             "user",
         ),
@@ -107,13 +107,18 @@ fn session_operator_and_answers_share_the_authorized_actor() {
             .tempdir()
             .unwrap();
         let config = Config::new(Some(root.path().join("TEST-sessions")));
-        let receipt = config.confirm_as(affirmed(), &context).unwrap();
+        let receipt = config
+            .confirm_as(affirmed(), context.actor().unwrap())
+            .unwrap();
         let saved = ledger::load(&receipt.session).unwrap().to_json().unwrap();
         assert_eq!(saved["operator"], operator);
         assert_eq!(saved["nodes"][0]["authority"], authority);
         let before = fs::read(receipt.session.join("ledger.json")).unwrap();
         assert_eq!(
-            config.confirm_as(affirmed(), &context).unwrap().session,
+            config
+                .confirm_as(affirmed(), context.actor().unwrap())
+                .unwrap()
+                .session,
             receipt.session
         );
         assert_eq!(
@@ -128,7 +133,7 @@ fn session_operator_and_answers_share_the_authorized_actor() {
             version,
             answering::SAMPLE.0,
             "TEST exact answer\r\n ",
-            Some(&context),
+            context.actor().unwrap(),
         )
         .unwrap();
         let saved = ledger::load(&receipt.session).unwrap().to_json().unwrap();

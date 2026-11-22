@@ -1,6 +1,7 @@
 //! Closing protections, without models or the operator's sessions.
 
 use super::*;
+use crate::confirmation::Actor;
 use crate::seed_me::ledger::{self, TeachBackComparison, TeachBackRecord};
 
 fn value(text: &str) -> Value {
@@ -136,7 +137,7 @@ fn completion_review_is_verbatim_byte_bound_append_only_and_not_goal_evidence() 
         &seed,
         &TeachBackRecord::Review(&review),
         AT,
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     let saved = ledger::load(root.path()).unwrap();
@@ -199,7 +200,7 @@ fn completion_review_is_verbatim_byte_bound_append_only_and_not_goal_evidence() 
         &seed,
         &TeachBackRecord::Review(&review),
         AT,
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     let latest = ledger::load(root.path()).unwrap();
@@ -233,7 +234,7 @@ fn teach_back_preserves_words_and_mismatches_without_holding_confirmation() {
             &seed,
             &TeachBackRecord::Compared(&comparison),
             AT,
-            None
+            Actor::OPERATOR
         )
         .is_err()
     );
@@ -245,7 +246,7 @@ fn teach_back_preserves_words_and_mismatches_without_holding_confirmation() {
         &seed,
         &TeachBackRecord::Words(words),
         AT,
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     let comparison = TeachBackComparison {
@@ -258,7 +259,7 @@ fn teach_back_preserves_words_and_mismatches_without_holding_confirmation() {
         &seed,
         &TeachBackRecord::Compared(&comparison),
         AT,
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     let saved = ledger::load(root.path()).unwrap();
@@ -324,7 +325,7 @@ fn teach_back_does_not_reopen_goal_dependents_or_hide_real_evidence_changes() {
         &seed,
         &TeachBackRecord::Words("TEST teach-back is not new goal evidence"),
         AT,
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     let captured = ledger::load(root.path()).unwrap();
@@ -422,7 +423,7 @@ fn teach_back_refuses_stale_drafts_secrets_and_erasure() {
                 &text,
                 &TeachBackRecord::Words(words),
                 AT,
-                None
+                Actor::OPERATOR
             )
             .is_err()
         );
@@ -438,7 +439,7 @@ fn teach_back_refuses_stale_drafts_secrets_and_erasure() {
         &seed,
         &TeachBackRecord::Words("TEST original"),
         AT,
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     let saved = ledger::load(root.path()).unwrap();

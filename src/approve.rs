@@ -454,7 +454,7 @@ impl Approve {
             ));
             if let Some(Ok(found)) = &self.found {
                 for reason in &found.reasons {
-                    lines.push(Line::raw(display(reason)));
+                    lines.push(Line::raw(crate::shown_line(reason)));
                 }
             }
         } else {
@@ -471,7 +471,7 @@ impl Approve {
                     "Can't tell which Tinks have started; none are hidden.",
                     palette.muted,
                 ));
-                lines.push(Line::raw(display(reason)));
+                lines.push(Line::raw(crate::shown_line(reason)));
             }
             match &self.found {
                 None => lines.push(Line::raw(if self.waiting {
@@ -481,7 +481,7 @@ impl Approve {
                 })),
                 Some(Err(reason)) => {
                     lines.push(Line::raw("Ready Tinks unavailable."));
-                    lines.push(Line::raw(display(reason)));
+                    lines.push(Line::raw(crate::shown_line(reason)));
                 }
                 Some(Ok(found)) => {
                     if found.changed > 0 {
@@ -512,13 +512,13 @@ impl Approve {
                         ));
                         lines.push(Line::default());
                         for line in seed.goal.split('\n') {
-                            lines.push(Line::raw(display(line)));
+                            lines.push(Line::raw(crate::shown_line(line)));
                         }
                         lines.push(Line::default());
                         let acceptance =
                             crate::seed_me::ledger::readable_acceptance(&seed.acceptance);
                         for line in acceptance.split('\n') {
-                            lines.push(Line::raw(display(line)));
+                            lines.push(Line::raw(crate::shown_line(line)));
                         }
                         lines.push(Line::styled(
                             "Choose how to start · Tink confirmation is separate from build approval",
@@ -529,7 +529,7 @@ impl Approve {
                             .as_ref()
                             .and_then(|target| target.retry.as_ref())
                         {
-                            lines.push(Line::raw(display(&format!(
+                            lines.push(Line::raw(crate::shown_line(&format!(
                                 "Retry from {} in {}",
                                 base.head,
                                 base.checkout.display()
@@ -548,7 +548,7 @@ impl Approve {
                                     ("Made outside any repository.", palette.muted)
                                 }
                             };
-                            lines.push(Line::styled(display(text), style));
+                            lines.push(Line::styled(crate::shown_line(text), style));
                         }
                         if seed.commands.is_some() {
                             lines.push(Line::raw(
@@ -560,7 +560,7 @@ impl Approve {
                                 lines.push(Line::raw(line.to_owned()));
                             }
                         } else if let Err(reason) = &seed.retry_started {
-                            lines.push(Line::raw(display(reason)));
+                            lines.push(Line::raw(crate::shown_line(reason)));
                         } else if !matches!(reading.origin_note, Some(OriginNote::Different(_))) {
                             lines.push(Line::raw(concat!(
                                 "Cannot copy: a project with tink-sdlc is required. ",
@@ -647,7 +647,7 @@ fn origin_note(
             let checkout = repo.map_or(root, Repo::root);
             let origin_name = name(&other);
             let checkout_name = name(checkout);
-            let reason = if display(&origin_name) == display(&checkout_name) {
+            let reason = if crate::shown_line(&origin_name) == crate::shown_line(&checkout_name) {
                 format!(
                     "Using {checkout:?}. Reopen Tinkery with --sdlc-root naming {other:?}, where this Tink was made."
                 )
@@ -669,18 +669,6 @@ fn origin_note(
         MadeIn::Unknown => Some(OriginNote::Unknown),
         MadeIn::NoRepo => Some(OriginNote::NoRepo),
     }
-}
-
-fn display(text: &str) -> String {
-    text.chars()
-        .flat_map(|c| {
-            if c.is_control() || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}') {
-                c.escape_default().collect::<Vec<_>>()
-            } else {
-                vec![c]
-            }
-        })
-        .collect()
 }
 
 fn scroll(position: &mut u16, code: KeyCode, page: u16) {

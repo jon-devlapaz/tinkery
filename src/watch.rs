@@ -19,7 +19,8 @@ use std::{
 };
 
 use crate::Palette;
-use crate::sdlc::{self, DEADLINE, Goal, Read, SCRIPT};
+use crate::process::Task;
+use crate::sdlc::{self, DEADLINE, Goal, SCRIPT};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
     Frame,
@@ -71,6 +72,8 @@ enum Worker {
     Running,
     /// Its turn ended: someone has to read the report and complete the step.
     Ended,
+    /// The launcher stopped the worker and saved evidence; someone must record the stop.
+    AtCap,
     Unknown,
     /// A launch tink-sdlc couldn't confirm: someone has to inspect it before another starts.
     Uncertain,
@@ -82,6 +85,7 @@ impl Worker {
             Self::Idle => "no active worker step",
             Self::Running => "worker running",
             Self::Ended => "worker's turn ended",
+            Self::AtCap => "worker reached its response cap",
             Self::Unknown => "worker state unknown",
             Self::Uncertain => "launch unconfirmed; inspect it before starting another",
         }
@@ -99,7 +103,10 @@ impl Run {
                 a.gate
                     || a.owed > 0
                     || a.recheck > 0
-                    || matches!(a.worker, Some(Worker::Ended | Worker::Uncertain))
+                    || matches!(
+                        a.worker,
+                        Some(Worker::Ended | Worker::AtCap | Worker::Uncertain)
+                    )
             })
     }
 
@@ -332,7 +339,7 @@ fn parse_run_detail(parsed: &sdlc::Run) -> Result<Detail, String> {
 /// Read only details with the list's original slug and ID; refresh is always explicit.
 fn read_run(root: &Path, run: Run, deadline: Duration, codex: Option<CodexReport>) -> Load<Detail> {
     let root = root.to_path_buf();
-    Load::Reading(Read::task(move |cancel| {
+    Load::Reading(Task::start(move |cancel| {
         let output = sdlc::status(
             &root,
             &["status".into(), run.slug.clone(), "--json".into()],
@@ -368,7 +375,7 @@ fn ordered(runs: &[Run]) -> Vec<&Run> {
 
 /// A read that hasn't landed, or what it found and when.
 enum Load<T> {
-    Reading(Read<T>),
+    Reading(Task<T>),
     Done(Result<T, String>, Instant),
 }
 
@@ -379,7 +386,7 @@ impl<T: Send + 'static> Load<T> {
         deadline: Duration,
         parse: fn(&str) -> Result<T, String>,
     ) -> Self {
-        Self::Reading(Read::start(root, args, deadline, parse))
+        Self::Reading(sdlc::read(root, args, deadline, parse))
     }
 
     fn poll(&mut self) {
@@ -839,21 +846,7 @@ fn clip_line(line: &mut Line<'_>, mut remaining: usize) {
 
 fn goal_lines(goal: &str, palette: Palette) -> Vec<Line<'static>> {
     goal.split('\n')
-        .map(|line| {
-            let safe: String = line
-                .chars()
-                .flat_map(|c| {
-                    if c.is_control()
-                        || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
-                    {
-                        c.escape_default().collect::<Vec<_>>()
-                    } else {
-                        vec![c]
-                    }
-                })
-                .collect();
-            Line::styled(safe, palette.ink)
-        })
+        .map(|line| Line::styled(crate::shown_line(line), palette.ink))
         .collect()
 }
 
@@ -897,12 +890,19 @@ fn detail_text<'a>(slug: &str, detail: &Load<Detail>, palette: Palette) -> Text<
             ));
         }
         Load::Done(Ok(d), _) => {
-            lines.extend(goal_lines(goal_text(&d.goal), palette));
-            lines.push(Line::default());
+            let mut goal = goal_lines(goal_text(&d.goal), palette);
+            if d.attention.worker != Some(Worker::AtCap) {
+                lines.append(&mut goal);
+                lines.push(Line::default());
+            }
             lines.push(Line::styled(d.state.words(), palette.ink.bold()));
             lines.push(Line::styled(format!("SDLC next: {}", d.next), palette.ink));
             for step in d.steps.iter().flatten() {
                 lines.push(Line::styled(step.clone(), palette.ink));
+            }
+            if !goal.is_empty() {
+                lines.push(Line::default());
+                lines.extend(goal);
             }
             lines.push(Line::default());
             for (stage, status) in &d.gates {

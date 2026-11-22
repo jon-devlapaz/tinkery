@@ -524,11 +524,11 @@ fn leaving_closes_helper_preserves_unsaved_guard_and_can_reload_after_n() {
     start(&mut a, &fake);
     key(&mut a, KeyCode::Esc);
     assert!(
-        !a.voice_active() && !a.screen.leave_prompt,
+        !a.voice_active() && !matches!(a.screen.overlay, Overlay::Leave),
         "Esc cancels the take first"
     );
     key(&mut a, KeyCode::Esc);
-    assert!(a.screen.leave_prompt);
+    assert!(matches!(a.screen.overlay, Overlay::Leave));
     assert!(!a.quitting());
     assert!(fake.borrow().closed > 0);
     assert!(!a.voice_active());
@@ -593,7 +593,7 @@ fn active_voice_blocks_readiness_and_review_even_without_typed_text() {
     assert!(!a.goal_ready());
     a.review_goal();
     assert!(a.handoff.review().is_none());
-    assert!(a.notice.contains("Stop or cancel voice"));
+    assert!(a.notice().contains("Stop or cancel voice"));
     key(&mut a, KeyCode::Esc);
     assert!(a.goal_ready());
 }
@@ -623,10 +623,10 @@ fn voice_help_keeps_the_alias_and_local_label_visible_and_escape_cancellation() 
             .contains("Cancel voice")
     );
     key(&mut a, KeyCode::Esc);
-    assert!(!a.voice_active() && a.screen.help && !a.running());
+    assert!(!a.voice_active() && a.screen.overlay.help() && !a.running());
     assert_eq!(a.input.text, "my local draft");
     key(&mut a, KeyCode::Esc);
-    assert!(!a.screen.help);
+    assert!(!a.screen.overlay.help());
 }
 
 #[test]
@@ -827,7 +827,7 @@ fn recording_does_not_change_what_the_goal_line_says_is_open() {
     let screen = right(&mut a);
     assert!(screen.contains(ready), "{screen}");
     assert!(!screen.contains("remain open"));
-    a.screen.help = true;
+    a.screen.open_help(false);
     assert!(layout::help_text(&a).contains("Ready for your review."));
 }
 

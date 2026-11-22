@@ -6,7 +6,6 @@ use super::{
     goal,
     next::Pause,
     read::{Check, Item, ResultRow},
-    safe,
 };
 use crate::{Palette, sdlc::Goal};
 use ratatui::{
@@ -107,7 +106,7 @@ pub(super) fn list(
         } else {
             " · result unknown"
         };
-        let goal = safe(goal(&row.goal).split('\n').next().unwrap_or(""));
+        let goal = crate::shown_line(goal(&row.goal).split('\n').next().unwrap_or(""));
         let mut available = usize::from(width).saturating_sub(2 + suffix.width());
         let mut summary = vec![Span::styled(
             if index == selected { "› " } else { "  " },
@@ -120,7 +119,7 @@ pub(super) fn list(
             available -= separator.width();
             // Give the title priority and reserve a third of the line for a long goal.
             let goal_reserve = goal.width().min(available.div_ceil(3));
-            let title = crate::clipped(&safe(title), available - goal_reserve);
+            let title = crate::clipped(&crate::shown_line(title), available - goal_reserve);
             available -= title.width();
             summary.push(Span::styled(title, p.ink.add_modifier(Modifier::BOLD)));
             summary.push(Span::styled(separator, p.muted));
@@ -171,7 +170,7 @@ pub(super) fn list(
 fn chunks(text: &str, width: usize) -> Vec<String> {
     let mut rows = Vec::new();
     for logical in text.split('\n') {
-        let display = safe(logical);
+        let display = crate::shown_line(logical);
         let mut rest = display.as_str();
         if rest.is_empty() {
             rows.push(String::new());
@@ -280,7 +279,7 @@ fn built(row: &ResultRow) -> String {
         }
         .into();
     }
-    safe(
+    crate::shown_line(
         row.title
             .as_deref()
             .unwrap_or_else(|| row.url.as_deref().unwrap_or_else(|gap| gap.title)),
@@ -508,7 +507,13 @@ pub(super) fn label_form(
     // tink-sdlc's answer sits above the form so a refusal is never scrolled out of sight.
     if !note.is_empty() {
         lines.push(Line::default());
-        block(&mut lines, Span::raw("  "), &safe(note), width, p.ink);
+        block(
+            &mut lines,
+            Span::raw("  "),
+            &crate::shown_line(note),
+            width,
+            p.ink,
+        );
     }
     lines.push(Line::default());
     for (number, kind) in super::label::Kind::ALL.iter().enumerate() {
@@ -541,7 +546,7 @@ pub(super) fn label_form(
         block(
             &mut lines,
             Span::raw("  "),
-            &format!("{}▏", safe(&form.words)),
+            &format!("{}▏", crate::shown_line(&form.words)),
             width,
             p.ink,
         );
@@ -549,8 +554,8 @@ pub(super) fn label_form(
     lines.push(Line::default());
     let signed = match signer {
         None => "Checking who signs this label…".to_owned(),
-        Some(Ok(name)) => format!("Signed as {}.", safe(name)),
-        Some(Err(why)) => safe(why),
+        Some(Ok(name)) => format!("Signed as {}.", crate::shown_line(name)),
+        Some(Err(why)) => crate::shown_line(why),
     };
     block(
         &mut lines,

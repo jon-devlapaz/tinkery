@@ -14,6 +14,7 @@ use std::{
 };
 use tinkery::{
     Palette,
+    confirmation::Actor,
     pi::CallBudget,
     seed_me::ledger::{self, Value},
     shape::{Agent, Shape},
@@ -165,7 +166,7 @@ fn oversized_readings_are_refused_and_f2_changes_nothing() {
                 &seed,
                 &ledger::TeachBackRecord::Review(&review),
                 STAMP,
-                None,
+                Actor::OPERATOR,
             )
             .unwrap();
         }
