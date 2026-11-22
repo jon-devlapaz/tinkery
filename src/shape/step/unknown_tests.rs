@@ -16,7 +16,7 @@ pub(super) fn resolved_read_only_step(question_first: bool) {
         .prefix("TEST-resolved-read-only-")
         .tempdir()
         .unwrap();
-    let confirmation: crate::think_record::GoalConfirmation = serde_json::from_value(json!({
+    let confirmation: crate::confirmation::GoalConfirmation = serde_json::from_value(json!({
         "by":"agent", "agent":"TEST-agent", "authorizing_operator":"TEST-person",
         "source":"TEST permission to plan this disposable CLI",
         "class":{"door":"two_way", "door_reason":"TEST disposable plan",
@@ -33,7 +33,7 @@ pub(super) fn resolved_read_only_step(question_first: bool) {
                 context: "{}".into(),
                 source: confirmation.source(),
             },
-            &confirmation,
+            confirmation.actor().unwrap(),
         )
         .unwrap()
         .session;
@@ -44,7 +44,7 @@ pub(super) fn resolved_read_only_step(question_first: bool) {
         version,
         answering::SAMPLE.0,
         "TEST sample: one pasted line",
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     answering::probe(&session, version).unwrap().unwrap();

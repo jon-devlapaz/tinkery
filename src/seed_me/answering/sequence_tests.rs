@@ -57,7 +57,7 @@ fn answer_both(session: &Path, store: &str, sync: &str) {
         if let Some(next) = promote(session, v).unwrap() {
             v = next;
         }
-        answer(session, v, id, words, None).unwrap();
+        answer(session, v, id, words, Actor::OPERATOR).unwrap();
     }
 }
 
@@ -90,7 +90,7 @@ fn confirm(session: &Path, revision: &str) -> Result<(), Refusal> {
         revision,
         &seed(session),
         "TEST yes to this seed only",
-        None,
+        Actor::OPERATOR,
     )
 }
 
@@ -144,7 +144,7 @@ fn s1_ordinary_path_then_reopen_is_read_only_and_identical() {
     holds(&session, None);
     confirm(&session, &r1).unwrap();
     holds(&session, Some(("TEST local", "TEST never")));
-    end(&session, Ending::Completed, None).unwrap();
+    end(&session, Ending::Completed, Actor::OPERATOR).unwrap();
     holds(&session, Some(("TEST local", "TEST never")));
     let saved = files(&session);
     let shown = super::super::shaping::read(&session).unwrap();
@@ -155,16 +155,16 @@ fn s1_ordinary_path_then_reopen_is_read_only_and_identical() {
             v,
             "store",
             &ledger::AnswerAction::Revise("TEST synced".into()),
-            None,
+            Actor::OPERATOR,
         )
     });
-    refused(&session, || end(&session, Ending::Stopped, None));
+    refused(&session, || end(&session, Ending::Stopped, Actor::OPERATOR));
     refused(&session, || confirm(&session, &r1));
     refused(&session, || {
         ask(&session, v, &question("late", &[]), root.path())
     });
     // A repeat of the same ending is a no-op, not a second write.
-    end(&session, Ending::Completed, None).unwrap();
+    end(&session, Ending::Completed, Actor::OPERATOR).unwrap();
     assert_eq!(files(&session), saved);
     assert_eq!(super::super::shaping::read(&session).unwrap(), shown);
     holds(&session, Some(("TEST local", "TEST never")));
@@ -181,7 +181,7 @@ fn s2_decision_changed_after_draft_refuses_the_old_confirmation() {
         old_version,
         "store",
         &ledger::AnswerAction::Revise("TEST synced".into()),
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     // The dependent reopens; the old answer is gone from current state, kept in history.
@@ -195,7 +195,7 @@ fn s2_decision_changed_after_draft_refuses_the_old_confirmation() {
             &r1,
             &old_seed,
             "TEST yes",
-            None
+            Actor::OPERATOR
         )),
         Refusal::Stale
     );
@@ -204,7 +204,7 @@ fn s2_decision_changed_after_draft_refuses_the_old_confirmation() {
     let open = why(refused(&session, || confirm(&session, &r1)));
     assert!(open.contains("unresolved nodes remain: sync"), "{open}");
     let v = read(&session).unwrap().version();
-    answer(&session, v, "sync", "TEST hourly", None).unwrap();
+    answer(&session, v, "sync", "TEST hourly", Actor::OPERATOR).unwrap();
     holds(&session, None);
     // r1 now has every decision settled, but its Decisions block is stale.
     let stale = why(refused(&session, || confirm(&session, &r1)));
@@ -214,7 +214,7 @@ fn s2_decision_changed_after_draft_refuses_the_old_confirmation() {
     // The displayed r1 bytes, at the fresh version, are not the saved r2 draft.
     let v = read(&session).unwrap().version();
     let changed = why(refused(&session, || {
-        confirm_seed(&session, v, &r1, &old_seed, "TEST yes", None)
+        confirm_seed(&session, v, &r1, &old_seed, "TEST yes", Actor::OPERATOR)
     }));
     assert!(changed.contains("The draft changed"), "{changed}");
     confirm(&session, &r2).unwrap();
@@ -223,10 +223,12 @@ fn s2_decision_changed_after_draft_refuses_the_old_confirmation() {
     let confirmed = seed(&session);
     fs::write(session.join(SEED), format!("{confirmed} ")).unwrap();
     assert!(!verified(&session));
-    let tampered = why(refused(&session, || end(&session, Ending::Completed, None)));
+    let tampered = why(refused(&session, || {
+        end(&session, Ending::Completed, Actor::OPERATOR)
+    }));
     assert!(tampered.contains("Tink Contract changed"), "{tampered}");
     fs::write(session.join(SEED), confirmed).unwrap();
-    end(&session, Ending::Completed, None).unwrap();
+    end(&session, Ending::Completed, Actor::OPERATOR).unwrap();
     holds(&session, Some(("TEST synced", "TEST hourly")));
 }
 
@@ -243,7 +245,7 @@ fn s3_stale_retries_and_repeats_never_write() {
                 stale,
                 "store",
                 "TEST local",
-                None
+                Actor::OPERATOR
             )),
             Refusal::Stale
         );
@@ -252,14 +254,20 @@ fn s3_stale_retries_and_repeats_never_write() {
             Refusal::Stale
         );
     }
-    let v2 = answer(&session, v1, "store", "TEST local", None).unwrap();
+    let v2 = answer(&session, v1, "store", "TEST local", Actor::OPERATOR).unwrap();
     holds(&session, None);
     // A retry of the same answer, from the old or the current version, finds the question
     // settled and writes nothing. (Observed: the open-question check runs before the version
     // check, so the old-version retry says "no longer open", not Stale.)
     for (version, words) in [(v1, "TEST local"), (v2, "TEST local"), (v2, "TEST other")] {
         assert_eq!(
-            refused(&session, || answer(&session, version, "store", words, None)),
+            refused(&session, || answer(
+                &session,
+                version,
+                "store",
+                words,
+                Actor::OPERATOR
+            )),
             Refusal::Refused("The question store is no longer open.".into())
         );
     }
@@ -281,21 +289,25 @@ fn s4_decision_changed_after_confirmation_cannot_complete_and_keeps_the_goal() {
         v,
         "store",
         &ledger::AnswerAction::Revise("TEST synced".into()),
-        None,
+        Actor::OPERATOR,
     )
     .unwrap();
     holds(&session, Some(("TEST local", "TEST never")));
-    refused(&session, || end(&session, Ending::Completed, None));
+    refused(&session, || {
+        end(&session, Ending::Completed, Actor::OPERATOR)
+    });
     assert_eq!(
         seed(&session),
         confirmed_seed,
         "the confirmed seed was rewritten"
     );
     let v = read(&session).unwrap().version();
-    answer(&session, v, "sync", "TEST never", None).unwrap();
+    answer(&session, v, "sync", "TEST never", Actor::OPERATOR).unwrap();
     // Settling the same words again does not revive the r1 confirmation: store still differs.
     holds(&session, Some(("TEST local", "TEST never")));
-    refused(&session, || end(&session, Ending::Completed, None));
+    refused(&session, || {
+        end(&session, Ending::Completed, Actor::OPERATOR)
+    });
     // Shape shows the seed as unverified. Shape offers Revise only from a review flag, and a
     // flag needs a new finding, which no step adds after confirmation; this ledger-level
     // sequence is not an ordinary Shape path. Only stopping remains.
@@ -326,6 +338,6 @@ fn s4_decision_changed_after_confirmation_cannot_complete_and_keeps_the_goal() {
         redraft,
         Refusal::Refused("A Tink Contract already exists. Open it in Shape.".into())
     );
-    end(&session, Ending::Stopped, None).unwrap();
+    end(&session, Ending::Stopped, Actor::OPERATOR).unwrap();
     holds(&session, Some(("TEST local", "TEST never")));
 }

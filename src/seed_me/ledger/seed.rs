@@ -6,6 +6,7 @@ use super::{
     require, review_flags,
     value::{int, object},
 };
+use crate::confirmation::Actor;
 use regex::Regex;
 use sha2::{Digest, Sha256};
 use std::path::Path;
@@ -328,11 +329,9 @@ fn confirmation_record(directory: &Path) -> Option<Value> {
                 .compact(false)
                 .ok()
                 .and_then(|json| {
-                    serde_json::from_str::<crate::think_record::GoalConfirmation>(&json).ok()
+                    serde_json::from_str::<crate::confirmation::GoalConfirmation>(&json).ok()
                 })
-                .is_some_and(|actor| {
-                    matches!(actor.actor(), Ok(crate::think_record::Actor::Agent(_)))
-                })
+                .is_some_and(|actor| actor.actor().is_ok_and(|actor| actor.context().is_some()))
         });
     let mut allowed = fields.to_vec();
     if agent {
@@ -384,7 +383,7 @@ pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Value> {
         return refused("the confirmation revision is missing".into());
     };
     if record["schema_version"] == int(3) {
-        let Ok(actor) = serde_json::from_str::<crate::think_record::GoalConfirmation>(
+        let Ok(actor) = serde_json::from_str::<crate::confirmation::GoalConfirmation>(
             &record["actor"].compact(false)?,
         ) else {
             return refused("the Tink confirmation actor is invalid".into());
@@ -468,7 +467,7 @@ pub(super) fn confirmed_as(
     revision_label: &str,
     source: &str,
     timestamp: &str,
-    actor: crate::think_record::Actor<'_>,
+    actor: Actor<'_>,
 ) -> Result<(String, Value, Value)> {
     require(
         super::one_of(&super::operator(ledger), &["human", "agent"]),
@@ -628,7 +627,7 @@ fn confirmation_note(
     source: &str,
     label: &str,
     timestamp: &str,
-    actor: crate::think_record::Actor<'_>,
+    actor: Actor<'_>,
 ) -> Result<String> {
     let date = timestamp.get(..10).ok_or("Invalid confirmation date.")?;
     let attribution = actor.context().map_or(String::new(), |context| {

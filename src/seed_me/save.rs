@@ -1,5 +1,6 @@
 //! Confirmed-goal persistence: preserve exact originals and retry one session, never start a viewer.
 
+use crate::confirmation::Actor;
 use serde_json::json;
 use std::{
     path::PathBuf,
@@ -163,16 +164,12 @@ impl Config {
     /// Save through the shared Rust ledger and read back the exact goal and originals.
     /// Retries reuse the same session; an existing origin, ended session or seed is never replaced.
     pub fn confirm(&self, a: Affirmed) -> Result<Receipt, String> {
-        self.confirm_as(a, &crate::think_record::GoalConfirmation::default())
+        self.confirm_as(a, Actor::OPERATOR)
     }
 
-    /// Save with caller-declared authority; missing or invalid agent permission writes nothing.
-    pub fn confirm_as(
-        &self,
-        a: Affirmed,
-        context: &crate::think_record::GoalConfirmation,
-    ) -> Result<Receipt, String> {
-        self.confirm_with_origin(a, context, None)
+    /// Save as the resolved `actor`; an agent's save is the agent's, never the operator's.
+    pub fn confirm_as(&self, a: Affirmed, actor: Actor<'_>) -> Result<Receipt, String> {
+        self.confirm_with_origin(a, actor, None)
     }
 
     /// Bind an already owned staging session; never choose a replacement destination.
@@ -187,13 +184,12 @@ impl Config {
     pub(super) fn confirm_with_origin(
         &self,
         a: Affirmed,
-        context: &crate::think_record::GoalConfirmation,
+        actor: Actor<'_>,
         creation: Option<&super::connection::Origin>,
     ) -> Result<Receipt, String> {
         if let Some(origin) = creation {
             origin.validate(&a.goal)?;
         }
-        let actor = crate::think_record::Actor::authorize(Some(context))?;
         let delegation = actor.delegation();
         let root = self.root.as_ref().map_err(Clone::clone)?;
         let stamp = crate::calendar::now();

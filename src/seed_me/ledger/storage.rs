@@ -2,9 +2,10 @@
 //! The browser snapshot is not part of a ledger publication.
 
 use super::{Value, load, transition};
+use crate::confirmation::Actor;
 use std::{
     fs::{File, OpenOptions},
-    io::{self, Write},
+    io,
     os::fd::AsRawFd,
     path::Path,
 };
@@ -12,7 +13,7 @@ use std::{
 /// Create a private session with a unique folder identity and an empty validated ledger.
 /// Never replaces a session; no browser, provider or external helper is involved.
 pub fn initialize(root: &Path, timestamp: &str) -> Result<std::path::PathBuf, String> {
-    initialize_for(root, timestamp, crate::think_record::Actor::Operator)
+    initialize_for(root, timestamp, Actor::OPERATOR)
 }
 
 /// Create a session for the same authorized actor that will publish its goal and answers.
@@ -20,7 +21,7 @@ pub fn initialize(root: &Path, timestamp: &str) -> Result<std::path::PathBuf, St
 pub(crate) fn initialize_for(
     root: &Path,
     timestamp: &str,
-    actor: crate::think_record::Actor<'_>,
+    actor: Actor<'_>,
 ) -> Result<std::path::PathBuf, String> {
     crate::seed_me::migration::refuse_old_root(root)?;
     std::fs::create_dir_all(root)
@@ -48,7 +49,7 @@ pub(crate) fn initialize_at(
     path: &Path,
     id: &str,
     timestamp: &str,
-    actor: crate::think_record::Actor<'_>,
+    actor: Actor<'_>,
 ) -> Result<(), String> {
     if path.join("ledger.json").exists() {
         return Err("The staging ledger already exists.".into());
@@ -167,9 +168,8 @@ pub fn revalidate(
     id: &str,
     reason: &str,
     timestamp: &str,
-    actor: Option<&crate::think_record::GoalConfirmation>,
+    actor: Actor<'_>,
 ) -> Result<(), PublishError> {
-    let actor = crate::think_record::Actor::authorize(actor)?;
     let _writer = Writer::acquire(directory)?;
     let ledger = load(directory)?;
     let expected = super::value::int(expected);
@@ -204,9 +204,8 @@ pub fn respond(
     id: &str,
     action: &super::AnswerAction,
     timestamp: &str,
-    actor: Option<&crate::think_record::GoalConfirmation>,
+    actor: Actor<'_>,
 ) -> Result<Value, PublishError> {
-    let actor = crate::think_record::Actor::authorize(actor)?;
     let _writer = Writer::acquire(directory).map_err(|error| {
         if error.reason == "session already has a writer" {
             error
@@ -319,17 +318,10 @@ fn atomic_write(directory: &Path, bytes: &str) -> io::Result<()> {
 }
 
 fn atomic_text(path: &Path, bytes: &str, mode: Option<std::fs::Permissions>) -> io::Result<()> {
-    let mut temporary = tempfile::Builder::new()
-        .prefix(".ledger-")
-        .suffix(".tmp")
-        .tempfile_in(path.parent().expect("session file has a parent"))?;
-    temporary.write_all(bytes.as_bytes())?;
-    temporary.as_file().sync_all()?;
-    if let Some(mode) = mode {
-        temporary.as_file().set_permissions(mode)?;
-    }
-    temporary.persist(path).map_err(|e| e.error)?;
-    Ok(())
+    use crate::regular_file::Existing;
+    let existing = mode.map_or(Existing::Replace, Existing::ReplaceWith);
+    // A file in place is saved; session files never reported directory durability.
+    crate::regular_file::publish(path, bytes.as_bytes(), existing).map(|_| ())
 }
 
 fn commit(
@@ -421,9 +413,8 @@ pub fn record_teach_back(
     seed: &str,
     record: &super::TeachBackRecord<'_>,
     timestamp: &str,
-    actor: Option<&crate::think_record::GoalConfirmation>,
+    actor: Actor<'_>,
 ) -> Result<u64, PublishError> {
-    let actor = crate::think_record::Actor::authorize(actor)?;
     let _writer = Writer::acquire(directory).map_err(|_| {
         "The session cannot be locked. Reopen it before recording this review again.".to_owned()
     })?;
@@ -492,16 +483,16 @@ pub fn set_checks(directory: &Path, records: &Value) -> Result<Value, String> {
     ]))
 }
 
-/// Repair the selected check in the exact displayed draft, without a model.
-/// Preserve the statement and typed words; stale inputs and non-drafts refuse before writes.
+/// Repair the selected check in the exact displayed draft, without a model, for a resolved
+/// `_actor`; the repair records no attribution. Preserve the statement and typed words; stale
+/// inputs and non-drafts refuse before writes.
 pub(crate) fn repair_check(
     directory: &Path,
     expected: u64,
     seed: &str,
     edit: (&super::checks::DraftCheck, super::checks::CheckMethod, &str),
-    actor: Option<&crate::think_record::GoalConfirmation>,
+    _actor: Actor<'_>,
 ) -> Result<(), String> {
-    crate::think_record::Actor::authorize(actor)?;
     let (target, method, words) = edit;
     super::require(
         !words.trim().is_empty() && !words.contains('\0'),
@@ -556,7 +547,15 @@ pub fn confirm_seed(
     source: &str,
     timestamp: &str,
 ) -> Result<Value, String> {
-    confirm(directory, revision, source, timestamp, false, None, None)
+    confirm(
+        directory,
+        revision,
+        source,
+        timestamp,
+        false,
+        Actor::OPERATOR,
+        None,
+    )
 }
 
 /// Confirm after recording a missing teach-back as skipped. A completed comparison, including
@@ -567,7 +566,15 @@ pub fn confirm_with_teach_back(
     source: &str,
     timestamp: &str,
 ) -> Result<Value, String> {
-    confirm(directory, revision, source, timestamp, true, None, None)
+    confirm(
+        directory,
+        revision,
+        source,
+        timestamp,
+        true,
+        Actor::OPERATOR,
+        None,
+    )
 }
 
 /// Confirm a seed for the explicitly named agent; permission is checked before any write.
@@ -577,7 +584,7 @@ pub fn confirm_as(
     revision: &str,
     source: &str,
     timestamp: &str,
-    actor: Option<&crate::think_record::GoalConfirmation>,
+    actor: Actor<'_>,
 ) -> Result<Value, String> {
     confirm(directory, revision, source, timestamp, true, actor, None)
 }
@@ -591,7 +598,7 @@ pub fn confirm_displayed_as(
     seed: &str,
     source: &str,
     timestamp: &str,
-    actor: Option<&crate::think_record::GoalConfirmation>,
+    actor: Actor<'_>,
 ) -> Result<Value, String> {
     confirm(
         directory,
@@ -610,10 +617,9 @@ fn confirm(
     source: &str,
     timestamp: &str,
     record_skip: bool,
-    actor: Option<&crate::think_record::GoalConfirmation>,
+    actor: Actor<'_>,
     displayed: Option<(u64, &str)>,
 ) -> Result<Value, String> {
-    let actor = crate::think_record::Actor::authorize(actor)?;
     super::require(
         super::python::text(&revision.into()),
         "--revision is required: the displayed label",

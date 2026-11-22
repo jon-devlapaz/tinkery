@@ -25,9 +25,16 @@ fn reviews_check_the_displayed_version_under_the_writer_lock() {
     let (root, ledger, state) = fixture();
     let writer = Writer::acquire(root.path()).unwrap();
     assert_eq!(
-        revalidate(root.path(), 0, "TEST", "TEST reason", STAMP, None)
-            .unwrap_err()
-            .reason,
+        revalidate(
+            root.path(),
+            0,
+            "TEST",
+            "TEST reason",
+            STAMP,
+            Actor::OPERATOR
+        )
+        .unwrap_err()
+        .reason,
         "session already has a writer"
     );
     drop(writer);
@@ -42,9 +49,16 @@ fn reviews_check_the_displayed_version_under_the_writer_lock() {
     .unwrap();
     let before = fs::read(root.path().join("ledger.json")).unwrap();
     assert_eq!(
-        revalidate(root.path(), 0, "TEST", "TEST reason", STAMP, None)
-            .unwrap_err()
-            .reason,
+        revalidate(
+            root.path(),
+            0,
+            "TEST",
+            "TEST reason",
+            STAMP,
+            Actor::OPERATOR
+        )
+        .unwrap_err()
+        .reason,
         "stale publication version"
     );
     assert_eq!(fs::read(root.path().join("ledger.json")).unwrap(), before);
@@ -296,12 +310,13 @@ fn atomic_replace_is_private_and_leaves_no_temporary_file_and_noop_keeps_bytes()
         fs::metadata(&path).unwrap().permissions().mode() & 0o777,
         0o600
     );
-    assert!(!fs::read_dir(root.path()).unwrap().any(|p| {
-        p.unwrap()
+    assert!(
+        !fs::read_dir(root.path()).unwrap().any(|p| p
+            .unwrap()
             .file_name()
             .to_string_lossy()
-            .starts_with(".ledger-")
-    }));
+            .starts_with(".tmp"))
+    );
     let ledger = load(root.path()).unwrap();
     let bytes = fs::read(&path).unwrap();
     fs::set_permissions(&path, fs::Permissions::from_mode(0o640)).unwrap();

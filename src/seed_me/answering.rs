@@ -14,6 +14,7 @@
 //! The confirmed goal never changes. Calls block; run them off the paint path.
 
 use super::ledger;
+use crate::confirmation::Actor;
 use serde_json::{Value, json};
 use std::{
     path::Path,
@@ -649,7 +650,7 @@ pub fn answer(
     expected: u64,
     id: &str,
     words: &str,
-    actor: Option<&crate::think_record::GoalConfirmation>,
+    actor: Actor<'_>,
 ) -> Result<u64, Refusal> {
     settle(session, expected, id, words, actor, None)
 }
@@ -662,7 +663,7 @@ pub fn answer_relayed(
     expected: u64,
     id: &str,
     relay: &Relay,
-    actor: Option<&crate::think_record::GoalConfirmation>,
+    actor: Actor<'_>,
 ) -> Result<u64, Refusal> {
     settle(session, expected, id, &relay.words, actor, Some(relay))
 }
@@ -672,10 +673,9 @@ fn settle(
     expected: u64,
     id: &str,
     words: &str,
-    actor: Option<&crate::think_record::GoalConfirmation>,
+    actor: Actor<'_>,
     relay: Option<&Relay>,
 ) -> Result<u64, Refusal> {
-    let actor = crate::think_record::Actor::authorize(actor).map_err(Refusal::Refused)?;
     if relay.is_some() && actor.authority() != "delegated" {
         return Err(Refusal::Refused(
             "--relayed is for an agent relaying the operator's words; launch with --operator agent. Nothing was saved.".into(),
@@ -731,7 +731,7 @@ pub fn respond(
     expected: u64,
     id: &str,
     action: &ledger::AnswerAction,
-    actor: Option<&crate::think_record::GoalConfirmation>,
+    actor: Actor<'_>,
 ) -> Result<u64, Refusal> {
     let saved = ledger::respond(
         session,
@@ -809,7 +809,7 @@ pub fn keep(
     expected: u64,
     id: &str,
     reason: &str,
-    actor: Option<&crate::think_record::GoalConfirmation>,
+    actor: Actor<'_>,
 ) -> Result<(), Refusal> {
     ledger::revalidate(
         session,
@@ -829,9 +829,8 @@ pub fn recommend(
     expected: u64,
     id: &str,
     recommendation: &str,
-    actor: Option<&crate::think_record::GoalConfirmation>,
+    actor: Actor<'_>,
 ) -> Result<u64, Refusal> {
-    let actor = crate::think_record::Actor::authorize(actor).map_err(Refusal::Refused)?;
     let mut ledger = read(session)?;
     let node = ledger.state["nodes"]
         .as_array_mut()
@@ -893,13 +892,7 @@ fn assume(state: &mut Value, defaults: &[Assumption]) -> bool {
 /// The operator objects to assuming `text`, from `expected`: it leaves the ledger's `assumed` list
 /// and becomes an open decision, which blocks drafting until it's answered. Returns the new version.
 /// Refuses an assumption that isn't recorded.
-pub fn object(
-    session: &Path,
-    expected: u64,
-    text: &str,
-    actor: Option<&crate::think_record::GoalConfirmation>,
-) -> Result<u64, Refusal> {
-    let actor = crate::think_record::Actor::authorize(actor).map_err(Refusal::Refused)?;
+pub fn object(session: &Path, expected: u64, text: &str, actor: Actor<'_>) -> Result<u64, Refusal> {
     let mut ledger = read(session)?;
     let mut assumed = ledger.state["assumed"]
         .as_array()
@@ -945,9 +938,8 @@ pub fn change_draft(
     expected: u64,
     revision: &str,
     words: &str,
-    actor: Option<&crate::think_record::GoalConfirmation>,
+    actor: Actor<'_>,
 ) -> Result<u64, Refusal> {
-    let actor = crate::think_record::Actor::authorize(actor).map_err(Refusal::Refused)?;
     let mut ledger = read(session)?;
     let taken: Vec<String> = nodes(&ledger.state)
         .iter()
@@ -1149,7 +1141,7 @@ pub fn teach_back(
     revision: &str,
     seed: &str,
     record: &ledger::TeachBackRecord<'_>,
-    actor: Option<&crate::think_record::GoalConfirmation>,
+    actor: Actor<'_>,
 ) -> Result<u64, Refusal> {
     ledger::record_teach_back(
         session,
@@ -1171,7 +1163,7 @@ pub fn confirm_seed(
     revision: &str,
     seed: &str,
     words: &str,
-    actor: Option<&crate::think_record::GoalConfirmation>,
+    actor: Actor<'_>,
 ) -> Result<(), Refusal> {
     if words.trim().is_empty() || words.contains(['\n', '\r']) {
         return Err(Refusal::Refused(
@@ -1202,12 +1194,7 @@ pub enum Ending {
 
 /// End `session` through the ledger, after which it is read-only. Refuse completing a seed
 /// Tinkery can't verify or a conflicting ended status; completion never needs a viewer.
-pub fn end(
-    session: &Path,
-    ending: Ending,
-    actor: Option<&crate::think_record::GoalConfirmation>,
-) -> Result<(), Refusal> {
-    let actor = crate::think_record::Actor::authorize(actor).map_err(Refusal::Refused)?;
+pub fn end(session: &Path, ending: Ending, actor: Actor<'_>) -> Result<(), Refusal> {
     let (status, reason) = match ending {
         Ending::Completed => (
             "completed",

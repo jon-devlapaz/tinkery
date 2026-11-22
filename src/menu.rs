@@ -716,22 +716,11 @@ impl Home {
                     .root()
                     .to_path_buf();
                 let drafting = self.shape_agent.as_ref().map(|agent| agent.drafting());
-                let mut actor = drafting
+                let actor = drafting
                     .as_ref()
                     .and_then(|(_, _, actor)| actor.clone())
-                    .unwrap_or_else(|| crate::think_record::GoalConfirmation::Terminal {
-                        declaration: if self.agent {
-                            "declared: agent"
-                        } else {
-                            "not declared"
-                        }
-                        .into(),
-                        action: "pressed F2 to save the displayed Tend goal".into(),
-                        identity: "declaration is not verified identity".into(),
-                    });
-                if let crate::think_record::GoalConfirmation::Terminal { action, .. } = &mut actor {
-                    *action = "pressed F2 to save the displayed Tend goal".into();
-                }
+                    .unwrap_or_else(|| crate::confirmation::GoalConfirmation::launched(self.agent))
+                    .tend_save();
                 Ok::<_, String>(tend::connection::Context {
                     sessions,
                     records,

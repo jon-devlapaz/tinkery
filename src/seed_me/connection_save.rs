@@ -2,7 +2,7 @@
 //! another destination, never overwrites another operation, and never starts Shape or a model.
 
 use super::{Affirmed, Config, Receipt, connection::Origin, ledger};
-use crate::think_record::{Actor, GoalConfirmation};
+use crate::confirmation::GoalConfirmation;
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -31,7 +31,7 @@ impl Pending {
         actor: GoalConfirmation,
     ) -> Result<Self, String> {
         origin.validate(&origin.goal)?;
-        Actor::authorize(Some(&actor))?;
+        actor.actor()?;
         let root = root
             .canonicalize()
             .map_err(|_| "The sessions folder is unavailable.")?;
@@ -54,7 +54,7 @@ impl Pending {
 
     fn paths(&self) -> Result<(PathBuf, PathBuf), String> {
         self.origin.validate(&self.origin.goal)?;
-        Actor::authorize(Some(&self.actor))?;
+        self.actor.actor()?;
         if !self.id.starts_with("session-tend-")
             || self.id.len() != 61
             || !self.id[13..].bytes().all(|c| c.is_ascii_hexdigit())
@@ -88,7 +88,7 @@ impl Pending {
             Ok(_) => {
                 self.owned(&destination)?;
                 let value = ledger::load(&destination)?;
-                let actor = Actor::authorize(Some(&self.actor))?;
+                let actor = self.actor.actor()?;
                 let origin = value["nodes"]
                     .array()
                     .unwrap_or_default()
@@ -200,12 +200,8 @@ impl Pending {
             }
             fs::remove_file(entry.path()).map_err(|e| e.to_string())?;
         }
-        ledger::initialize_at(
-            &staging,
-            &self.id,
-            &crate::calendar::now(),
-            Actor::authorize(Some(&self.actor))?,
-        )?;
+        let actor = self.actor.actor()?;
+        ledger::initialize_at(&staging, &self.id, &crate::calendar::now(), actor)?;
         Config::at(self.root.clone(), staging.clone()).confirm_with_origin(
             Affirmed {
                 goal: self.origin.goal.clone(),
@@ -215,7 +211,7 @@ impl Pending {
                 context: self.origin.interpretation.clone(),
                 source: "Tend: explicit save of displayed connection goal".into(),
             },
-            &self.actor,
+            actor,
             Some(&self.origin),
         )?;
         sync(&staging)?;

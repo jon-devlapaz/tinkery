@@ -1,12 +1,14 @@
 //! One explicit teach-back capture and one budgeted comparison; no result changes F3 eligibility.
 
 use super::*;
+use crate::confirmation::Actor;
 use crate::seed_me::ledger::{TeachBackComparison, TeachBackRecord};
 
 pub(super) fn run(
     work: &Work,
     session: &Path,
     agent: &Agent,
+    actor: Actor<'_>,
     cancelled: &AtomicBool,
     saved: &AtomicBool,
 ) -> Result<Done, Failure> {
@@ -32,7 +34,7 @@ pub(super) fn run(
         revision,
         seed,
         &TeachBackRecord::Words(words),
-        agent.confirmation.as_ref(),
+        actor,
     )
     .map_err(refused(false))?;
     saved.store(true, Ordering::Relaxed);
@@ -63,7 +65,7 @@ pub(super) fn run(
         revision,
         seed,
         &TeachBackRecord::Compared(&comparison),
-        agent.confirmation.as_ref(),
+        actor,
     )
     .map_err(refused(true))?;
     Ok(Done::Compared)

@@ -28,7 +28,7 @@ fn draft() -> tempfile::TempDir {
     root
 }
 
-fn terminal_agent() -> crate::think_record::GoalConfirmation {
+fn terminal_agent() -> crate::confirmation::GoalConfirmation {
     serde_json::from_value(serde_json::json!({
         "by": "terminal", "declaration": "declared: agent",
         "action": "typed confirm at this terminal", "identity": "declaration is not verified identity"
@@ -49,14 +49,14 @@ fn saved_files(directory: &Path) -> std::collections::BTreeMap<std::ffi::OsStrin
 #[test]
 fn confirmation_keeps_source_whitespace_for_people_and_agents() {
     let agent = terminal_agent();
-    for actor in [None, Some(&agent)] {
+    for actor in [Actor::OPERATOR, agent.actor().unwrap()] {
         for source in ["  TEST source café  ", "\u{2003}\tTEST source 中\u{a0}"] {
             let root = draft();
             ledger::confirm_as(root.path(), "r1", source, STAMP, actor).unwrap();
             let receipt =
                 Value::parse(&fs::read_to_string(root.path().join(CONFIRMATION)).unwrap()).unwrap();
             assert_eq!(receipt["source"].string(), Some(source));
-            let (schema, operator, attribution) = if actor.is_some() {
+            let (schema, operator, attribution) = if actor.context().is_some() {
                 (
                     3,
                     "agent",
@@ -90,7 +90,7 @@ fn confirmation_keeps_source_whitespace_for_people_and_agents() {
 #[test]
 fn confirmation_still_refuses_blank_and_multiline_sources_without_writes() {
     let agent = terminal_agent();
-    for actor in [None, Some(&agent)] {
+    for actor in [Actor::OPERATOR, agent.actor().unwrap()] {
         for source in ["", " \t\u{2003}\u{a0}", "TEST\nwords", "TEST\rwords"] {
             let root = draft();
             let before = saved_files(root.path());
@@ -111,14 +111,14 @@ fn confirmation_still_refuses_blank_and_multiline_sources_without_writes() {
 #[test]
 fn historical_trimmed_confirmation_notes_and_receipts_still_verify_unchanged() {
     let agent = terminal_agent();
-    for actor in [None, Some(&agent)] {
+    for actor in [Actor::OPERATOR, agent.actor().unwrap()] {
         let root = draft();
         ledger::confirm_as(root.path(), "r1", "TEST confirmation only", STAMP, actor).unwrap();
         let mut receipt =
             Value::parse(&fs::read_to_string(root.path().join(CONFIRMATION)).unwrap()).unwrap();
         // Freeze the old source/note pair explicitly. Historical writers discarded
         // surrounding whitespace before storing both fields; reads cannot recover it.
-        let legacy_note = if actor.is_some() {
+        let legacy_note = if actor.context().is_some() {
             "Confirmed by: \"TEST confirmation only; caller-declared declared: agent; typed confirm at this terminal; declaration is not verified identity\" (revision r1, 2026-10-19). Not approved for implementation."
         } else {
             "Confirmed by: \"TEST confirmation only\" (revision r1, 2026-10-19). Not approved for implementation."
@@ -173,12 +173,19 @@ fn agent_sessions_require_verified_confirmation_to_complete() {
         .collect::<String>();
     fs::write(&seed_path, draft).unwrap();
     assert_blocked(directory, "not confirmed");
-    let actor = serde_json::from_value(serde_json::json!({
+    let actor: crate::confirmation::GoalConfirmation = serde_json::from_value(serde_json::json!({
         "by":"agent", "agent":"TEST-agent", "authorizing_operator":"TEST-person",
         "source":"TEST scoped seed permission", "class":{"door":"two_way",
         "door_reason":"TEST reversible", "blast_radius":"small", "blast_radius_reason":"TEST isolated"}
     })).unwrap();
-    ledger::confirm_as(directory, "r1", "TEST seed only", STAMP, Some(&actor)).unwrap();
+    ledger::confirm_as(
+        directory,
+        "r1",
+        "TEST seed only",
+        STAMP,
+        actor.actor().unwrap(),
+    )
+    .unwrap();
     assert!(verify_handoff(directory, &load(directory).unwrap()).unwrap()["verified"].truth());
     let confirmed = fs::read(&seed_path).unwrap();
     fs::write(&seed_path, [confirmed.as_slice(), b" "].concat()).unwrap();
