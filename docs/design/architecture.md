@@ -70,7 +70,7 @@ unconfirmed sessions or complete factory telemetry. The read-only
 | `tend/linking.rs` | The source and target selection state, link refusals and derived needs wording, independent of garden drawing. |
 | `tend/garden.rs` | The graph's framing: selected-line needs, read notes and explicit refusals. |
 | `tend/graph.rs` | Graf adapter: identity-keyed topology, deterministic layout, palette, labels, viewport and pointer geometry; no physics worker or writes. |
-| `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart. |
+| `tend/discovery.rs` | Scanning for sessions off the paint path, with unknown, complete, incomplete and failed kept apart, and the one ledger-id uniqueness rule that linking, the graph, readiness and connections read. |
 | `tend::needs` | Tinkery-owned needs links, strict atomic persistence and readiness derived from readable session identities; never writes session files. |
 | `seed_me/` | Session formats, goal saving and the one-time root migration. Goal initialization uses the Rust ledger; exit receipts retain data until printing, when the shared verifier supplies the current next step. Contract guidance is bundled, and copied intake commands name this Tinkery executable (shared). |
 | `seed_me/ledger` | Validation, transitions, explicit answer actions and cascading reopen, confirmation risks and completion-review coverage, byte-bound teach-back records, seed decisions and checks, confirmation receipts, verification and ending; shared writer lock and atomic saves. No phase policy, viewer or network connection. |
