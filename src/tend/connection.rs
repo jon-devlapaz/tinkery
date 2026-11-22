@@ -11,7 +11,7 @@ use crate::{
         connection::{Correction, Origin, Source, Support},
         connection_save::Pending,
     },
-    think_record::{self, MadeIn},
+    think_record::MadeIn,
 };
 pub(crate) use panel::Panel;
 use serde::{Deserialize, Serialize};
@@ -194,7 +194,7 @@ impl Context {
             );
         }
         let active: Vec<_> = found.sessions.iter().filter(|s| !s.stage.ended()).collect();
-        let origins = think_record::read_origins(
+        let origins = crate::seed_me::connection::origins(
             &self.records,
             &active
                 .iter()

@@ -238,7 +238,7 @@ impl Discovery {
                                 .iter()
                                 .map(|session| (session.path.as_path(), session.goal.as_str()))
                                 .collect();
-                            crate::think_record::read_origins(root, &goals).ok()
+                            crate::seed_me::connection::origins(root, &goals).ok()
                         })
                         .unwrap_or_else(|| {
                             vec![crate::think_record::MadeIn::Unknown; sessions.len()]

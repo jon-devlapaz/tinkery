@@ -22,7 +22,7 @@ use crate::{
         Session, Stage,
         ready::{self, ReadySeed},
     },
-    think_record::{self, MadeIn},
+    think_record::MadeIn,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
@@ -118,7 +118,7 @@ impl Reader {
                     .collect();
                 record_root
                     .ok()
-                    .and_then(|root| think_record::read_origins(&root, &selected).ok())
+                    .and_then(|root| crate::seed_me::connection::origins(&root, &selected).ok())
             });
             let origins = origins.unwrap_or_else(|| {
                 sessions

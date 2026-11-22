@@ -380,7 +380,8 @@ mod tests {
         );
         let records = temp.path().join("records");
         fs::create_dir(&records).unwrap();
-        let history = crate::think_record::read(&records, &receipt.session, &receipt.goal).unwrap();
+        let history =
+            super::super::connection::history(&records, &receipt.session, &receipt.goal).unwrap();
         assert!(
             history
                 .sequence
@@ -662,12 +663,64 @@ mod tests {
     }
 
     #[test]
+    fn a_think_record_naming_a_tend_session_must_agree_with_its_evidence() {
+        for (repo, goal, conflict) in [
+            ("tend", "exact", false),
+            ("other", "exact", true),
+            ("other", "TEST different goal", true),
+        ] {
+            let (temp, pending) = setup();
+            let receipt = pending.resume(|| Ok(())).unwrap();
+            let records = temp.path().join("records");
+            let other = temp.path().join("TEST-other-repo");
+            fs::create_dir(&other).unwrap();
+            let repo = if repo == "tend" {
+                pending.origin.repo.clone()
+            } else {
+                other.canonicalize().unwrap()
+            };
+            let record = crate::think_record::write(
+                &records,
+                &crate::think_record::Session {
+                    origin: &crate::think_record::Origin::simulated(),
+                    turns: &[],
+                    checks: vec![],
+                    goal: &receipt.goal,
+                    seed_me_session: &receipt.session,
+                    repo: Some(&repo),
+                    confirmed: std::time::SystemTime::now(),
+                },
+            )
+            .unwrap();
+            if goal != "exact" {
+                let mut value: serde_json::Value =
+                    serde_json::from_slice(&fs::read(&record).unwrap()).unwrap();
+                value["goal"] = goal.into();
+                fs::write(&record, value.to_string()).unwrap();
+            }
+            let origins = super::super::connection::origins(
+                &records,
+                &[(receipt.session.as_path(), receipt.goal.as_str())],
+            )
+            .unwrap();
+            let expected = if conflict {
+                crate::think_record::MadeIn::Invalid(
+                    "Think and Tend origins conflict or are ambiguous.".into(),
+                )
+            } else {
+                crate::think_record::MadeIn::Repo(pending.origin.repo.clone())
+            };
+            assert_eq!(origins, vec![expected], "TEST {goal}");
+        }
+    }
+
+    #[test]
     fn tend_origin_has_honest_history_and_invalid_evidence_is_distinct() {
         let (temp, pending) = setup();
         let records = temp.path().join("records");
         fs::create_dir(&records).unwrap();
         let receipt = pending.resume(|| Ok(())).unwrap();
-        let origins = crate::think_record::read_origins(
+        let origins = super::super::connection::origins(
             &records,
             &[(receipt.session.as_path(), receipt.goal.as_str())],
         )
@@ -678,7 +731,8 @@ mod tests {
                 pending.origin.repo.clone()
             )]
         );
-        let history = crate::think_record::read(&records, &receipt.session, &receipt.goal).unwrap();
+        let history =
+            super::super::connection::history(&records, &receipt.session, &receipt.goal).unwrap();
         assert!(history.turns.is_empty());
         assert_eq!(history.sequence, "Created from a Tend connection");
         let path = receipt.session.join("ledger.json");
@@ -691,7 +745,7 @@ mod tests {
             .find(|e| e["artifact"] == super::super::connection::ARTIFACT)
             .unwrap()["observed"] = "malformed".into();
         fs::write(path, serde_json::to_vec(&value).unwrap()).unwrap();
-        let origins = crate::think_record::read_origins(
+        let origins = super::super::connection::origins(
             &records,
             &[(receipt.session.as_path(), receipt.goal.as_str())],
         )
