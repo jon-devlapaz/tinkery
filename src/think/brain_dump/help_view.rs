@@ -10,21 +10,22 @@ use ratatui::{
 /// Handle help navigation, preferences and the numbered actions: a digit runs its row.
 /// Hidden writing/goal actions stay inert; Ctrl-C remains owned by the caller.
 pub(super) fn handle_key(app: &mut BrainDump, key: KeyEvent) -> bool {
-    if !app.screen.help
-        || app.screen.leave_prompt
-        || (key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c'))
-    {
+    let Overlay::Help { how, .. } = app.screen.overlay else {
+        return false;
+    };
+    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
         return false;
     }
-    if !app.screen.how && app.screen.actions.turn(app.rows().len(), key) {
-        app.screen.original_scroll = 0;
-        return true;
-    }
-    if !app.screen.how
-        && let Some(act) = app.screen.actions.pick(&app.rows(), key)
-    {
-        app.run(act);
-        return true;
+    let rows = if how { vec![] } else { app.rows() };
+    if let Overlay::Help { page, how: false } = &mut app.screen.overlay {
+        if page.turn(rows.len(), key) {
+            app.screen.original_scroll = 0;
+            return true;
+        }
+        if let Some(act) = page.pick(&rows, key) {
+            app.run(act);
+            return true;
+        }
     }
     if !key.modifiers.is_empty()
         || (key.kind == KeyEventKind::Repeat
@@ -36,24 +37,14 @@ pub(super) fn handle_key(app: &mut BrainDump, key: KeyEvent) -> bool {
         return true;
     }
     match key.code {
-        KeyCode::F(1) => {
-            app.screen.help = false;
-            app.screen.how = false;
-            app.screen.original_scroll = 0;
-        }
-        KeyCode::Char('h') => {
-            app.screen.how = !app.screen.how;
-            app.screen.original_scroll = 0;
-        }
+        KeyCode::F(1) => app.screen.show(Overlay::None),
+        KeyCode::Char('h') => app.screen.show_how(!how),
         KeyCode::Char('b') => app.screen.key_bar = !app.screen.key_bar,
         KeyCode::Esc if app.voice_active() => {
             app.voice_key(key);
         }
-        KeyCode::Esc if app.screen.how => {
-            app.screen.how = false;
-            app.screen.original_scroll = 0;
-        }
-        KeyCode::Esc => app.screen.help = false,
+        KeyCode::Esc if how => app.screen.show_how(false),
+        KeyCode::Esc => app.screen.show(Overlay::None),
         KeyCode::Down | KeyCode::PageDown => {
             app.screen.original_scroll = app.screen.original_scroll.saturating_add(5);
         }
@@ -69,10 +60,15 @@ pub(super) fn handle_key(app: &mut BrainDump, key: KeyEvent) -> bool {
 /// Long bodies scroll independently of the title and close/navigation hints.
 pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let area = frame.area();
-    if !app.screen.help || area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
+    let Overlay::Help { how, page } = &app.screen.overlay else {
+        return;
+    };
+    let how = *how;
+    if area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
         return;
     }
-    let raw = if app.screen.how {
+    let page_hint = (!how).then(|| page.hint(app.rows().len())).flatten();
+    let raw = if how {
         layout::how_text(app)
     } else {
         layout::help_text(app)
@@ -80,12 +76,12 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     let mut lines = raw.lines();
     let title = lines.next().unwrap_or("Help");
     let mut body: Vec<_> = lines.collect();
-    if app.screen.how {
+    if how {
         body.remove(0);
     } else {
         body.pop();
     }
-    let content = style_body(body.join("\n").trim(), app.screen.how, palette);
+    let content = style_body(body.join("\n").trim(), how, palette);
     let width = 58.min(area.width - area.width * 48 / 100 - 4);
     let content_width = width - 4;
     let paragraph = Paragraph::new(content).wrap(Wrap { trim: false });
@@ -98,14 +94,11 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         } else {
             area.height - 6
         };
-    let mut navigation = if app.screen.how {
+    let mut navigation = if how {
         vec![("h / Esc", "Back to help"), ("F1", "Close help")]
     } else {
         vec![("h", "How it works"), ("F1 / Esc", "Close help")]
     };
-    let page_hint = (!app.screen.how)
-        .then(|| app.screen.actions.hint(app.rows().len()))
-        .flatten();
     if let Some(hint) = &page_hint {
         navigation.insert(0, ("←/→", hint.as_str()));
     }
@@ -115,7 +108,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         None
     };
     if let Some(label) = cancel {
-        if app.screen.how {
+        if how {
             navigation[0] = ("h", "Back to help");
         } else {
             navigation[1] = ("F1", "Close help");

@@ -47,8 +47,7 @@ impl BrainDump {
         self.conversation.extract(source, start, end)?;
         self.shaping.encoded_bytes = None;
         self.place_card();
-        self.notice =
-            "Extracted by you; original intact. F1 shows cards; nothing confirmed.".into();
+        self.tell("Extracted by you; original intact. F1 shows cards; nothing confirmed.");
         Ok(())
     }
     pub(super) fn handle_source_key(&mut self, key: KeyEvent) -> bool {
@@ -259,8 +258,10 @@ pub(super) fn render_source(frame: &mut Frame, app: &mut BrainDump, area: Rect, 
     // P10: the original stays plain ink; only your own selection is drawn. The exact-quote
     // check still runs; evidence is shown on demand later (C13), never painted by default.
     if app.screen.board_focus
-        && !app.screen.original
-        && !app.screen.help
+        && !matches!(
+            app.screen.overlay,
+            Overlay::Originals | Overlay::Help { .. }
+        )
         && let Some((_, row, col)) = wrapped
             .positions
             .iter()
