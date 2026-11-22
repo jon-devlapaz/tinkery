@@ -4106,7 +4106,7 @@ print('TEST deliberately invalid reply')
     while !budget
         .attempts()
         .iter()
-        .any(|attempt| attempt.outcome == "reply")
+        .any(|attempt| attempt.outcome == crate::pi::Outcome::Reply)
     {
         assert!(Instant::now() < deadline, "Stub did not return its reply");
         std::thread::sleep(Duration::from_millis(10));

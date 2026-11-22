@@ -1,6 +1,7 @@
 //! Shape's F1 help: what the keys on screen do now, then how Shape works and what it never does.
 
 use super::*;
+use crate::pi::RESPONSE;
 
 impl Shape {
     /// Help for what is on screen now: what to do, then how it works with the paths it reads.
@@ -36,9 +37,9 @@ impl Shape {
                     },
                     |a| {
                         let step = if open.offers_teach_back() {
-                            "Each teach-back comparison uses one model response, without repository access."
+                            format!("Each teach-back comparison uses one {RESPONSE}, without repository access.")
                         } else {
-                            "Each model response counts; a step that reads files may use several. Manual actions use none."
+                            format!("Each {RESPONSE} counts; a step that reads files may use several. Manual actions use none.")
                         };
                         format!(
                             "{} {step}\n\
@@ -53,6 +54,12 @@ impl Shape {
                     }
                     _ => String::new(),
                 };
+                let teach_back = format!(
+                    "Say what will and won't be built in your own words. Enter saves and compares (one {RESPONSE}); Esc cancels. Mismatches are guesses and never block confirming."
+                );
+                let change = format!(
+                    "Say what should change in the draft. Enter saves your words as your decision and redrafts (one or more {RESPONSE}s); Esc cancels. Nothing is confirmed."
+                );
                 let now = match (agent, open.typing()) {
                     _ if open.running.is_some() => "A step is running. Esc stops it.",
                     _ if open.form.is_some() => {
@@ -77,18 +84,14 @@ impl Shape {
                             act: Act::TeachBack { .. },
                             ..
                         }),
-                    ) => {
-                        "Say what will and won't be built in your own words. Enter saves and compares (one model response); Esc cancels. Mismatches are guesses and never block confirming."
-                    }
+                    ) => &teach_back,
                     (
                         Some(_),
                         Some(Typing {
                             act: Act::Change { .. },
                             ..
                         }),
-                    ) => {
-                        "Say what should change in the draft. Enter saves your words as your decision and redrafts (one or more model responses); Esc cancels. Nothing is confirmed."
-                    }
+                    ) => &change,
                     (
                         Some(_),
                         Some(Typing {
@@ -134,7 +137,7 @@ impl Shape {
                     .map(|f| format!("\n{}", f.description()))
                     .unwrap_or_default();
                 (
-                    now,
+                    now.to_owned(),
                     format!(
                         "{failure}{model}{reads}{form}\nSession: {}",
                         open.session.display()
@@ -142,7 +145,7 @@ impl Shape {
                 )
             }
             None => (
-                "↑↓ / j k choose a goal waiting for a Tink · Enter opens it.",
+                "↑↓ / j k choose a goal waiting for a Tink · Enter opens it.".to_owned(),
                 match &self.list {
                     Some(Some(Err(error))) => format!("What went wrong:\n{error}"),
                     Some(Some(Ok(_))) if self.unreadable > 0 => self.discovery_help(),

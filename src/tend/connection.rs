@@ -5,7 +5,7 @@ mod correction;
 mod panel;
 use crate::{
     confirmation::GoalConfirmation,
-    pi::{Call, CallBudget, Request},
+    pi::{Call, CallBudget},
     seed_me::{
         self,
         connection::{Correction, Origin, Source, Support},
@@ -350,7 +350,7 @@ impl Context {
         call.folder = None;
         let reply = call.complete(
             budget,
-            Request::Connection,
+            "connection",
             serde_json::to_vec(input).map_err(|e| e.to_string())?,
             pi_prompt(),
             stop,

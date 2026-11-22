@@ -19,7 +19,10 @@ use ratatui::{
 };
 
 use super::{CALLS, Harness, Setup};
-use crate::{Palette, pi::CallBudget};
+use crate::{
+    Palette,
+    pi::{CallBudget, RESPONSE},
+};
 
 /// Drafting responses one `enter` on the Now row adds.
 const TOP_UP: usize = 10;
@@ -292,7 +295,7 @@ impl Controls {
         lines.extend([
             Line::default(),
             Line::styled(
-                "Each model response counts, including failures and cancellations.",
+                format!("Each {RESPONSE} counts, including failures and cancellations."),
                 palette.ink,
             ),
             Line::styled(

@@ -142,27 +142,31 @@ impl Harness {
     }
 }
 
-/// Which kind of request a call is, for a [`CallBudget`]'s record.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
+/// The unit every drafting allowance is counted and shown in. Callers render it, never their own copy.
+pub const RESPONSE: &str = "model response";
+
+/// How a request a [`CallBudget`] saw stands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Request {
-    /// The shaping call that reads the person's words.
-    Shaping,
-    /// The review that names decisions the reading settled silently.
-    DecisionReview,
-    /// One step of the seed interview: investigate, then draft the next question or the seed.
-    SeedStep,
-    /// One tool-free connection proposal across explicitly disclosed saved goals.
-    Connection,
+pub enum Outcome {
+    /// It is running and holds every response that was left.
+    Started,
+    /// It ended with a reply.
+    Reply,
+    /// It ended without one.
+    Failure,
+    /// It was refused before it started.
+    Refused,
 }
 
-/// One request a [`CallBudget`] saw: started (then `reply` or `failure`) or refused unstarted.
+/// One request a [`CallBudget`] saw: started (then a reply or a failure) or refused unstarted.
 #[derive(Clone, Debug, Serialize)]
 pub struct Attempt {
-    /// Which request it was.
-    pub kind: Request,
-    /// `started`, `reply`, `failure` or `refused`.
-    pub outcome: &'static str,
+    /// The caller's own name for the request; this module gives it no meaning.
+    #[serde(rename = "kind")]
+    pub label: &'static str,
+    /// How it stands.
+    pub outcome: Outcome,
     /// Why it failed or was refused.
     pub error: Option<String>,
     /// Model responses it counts: everything left while it runs, then what it used, at least one.
@@ -208,7 +212,7 @@ impl CallBudget {
             .lock()
             .unwrap()
             .iter()
-            .filter(|a| a.outcome != "started")
+            .filter(|a| a.outcome != Outcome::Started)
             .map(|a| a.responses)
             .sum()
     }
@@ -216,7 +220,7 @@ impl CallBudget {
     pub fn remaining(&self) -> usize {
         self.limit().saturating_sub(self.used())
     }
-    /// The allowance in the words both phases show: responses left out of the limit.
+    /// The allowance in the words every caller shows: responses left out of the limit.
     pub fn left(&self) -> String {
         format!(
             "Drafting responses left this launch: {} of {}.",
@@ -224,14 +228,17 @@ impl CallBudget {
             self.limit()
         )
     }
-    /// Holds every response left for one `kind` request, or refuses it when none is left. Returns
-    /// the slot that [`CallBudget::finish`] fills in and how many responses the request may use.
-    pub fn reserve(&self, kind: Request) -> Result<(usize, usize), String> {
+    /// Holds every response left for one request the caller calls `label`, or refuses it when
+    /// none is left. Returns the slot that [`CallBudget::finish`] fills in and how many responses
+    /// the request may use.
+    pub fn reserve(&self, label: &'static str) -> Result<(usize, usize), String> {
         let mut attempts = self.attempts.lock().unwrap();
         let limit = self.limit();
-        let left = limit.saturating_sub(used(&attempts));
+        // Running requests hold their responses too, so none is promised twice.
+        let held: usize = attempts.iter().map(|a| a.responses).sum();
+        let left = limit.saturating_sub(held);
         if left == 0 {
-            let error = if attempts.iter().any(|a| a.outcome == "started") {
+            let error = if attempts.iter().any(|a| a.outcome == Outcome::Started) {
                 "Another drafting request holds the responses left; this one was refused before it started. Send again when it ends.".to_owned()
             } else {
                 format!(
@@ -239,16 +246,16 @@ impl CallBudget {
                 )
             };
             attempts.push(Attempt {
-                kind,
-                outcome: "refused",
+                label,
+                outcome: Outcome::Refused,
                 error: Some(error.clone()),
                 responses: 0,
             });
             return Err(error);
         }
         attempts.push(Attempt {
-            kind,
-            outcome: "started",
+            label,
+            outcome: Outcome::Started,
             error: None,
             responses: left,
         });
@@ -257,15 +264,15 @@ impl CallBudget {
     /// Records how a reserved request ended and the responses it used, at least one.
     pub fn finish<T>(&self, slot: usize, result: &Result<T, String>, responses: usize) {
         if let Some(attempt) = self.attempts.lock().unwrap().get_mut(slot) {
-            attempt.outcome = if result.is_ok() { "reply" } else { "failure" };
+            attempt.outcome = if result.is_ok() {
+                Outcome::Reply
+            } else {
+                Outcome::Failure
+            };
             attempt.error = result.as_ref().err().cloned();
             attempt.responses = responses.max(1);
         }
     }
-}
-
-fn used(attempts: &[Attempt]) -> usize {
-    attempts.iter().map(|a| a.responses).sum()
 }
 
 /// How to start a host: which one, the executable, an explicit model, a thinking level (empty
@@ -347,7 +354,7 @@ pub fn pi_models(program: &Path) -> Result<Vec<String>, String> {
                 Failure::Late(_) | Failure::Cancelled | Failure::Halted(_) => {
                     "Pi took too long to list its models.".into()
                 }
-                Failure::TooMuch(_) => "Pi output exceeded 32 KiB.".into(),
+                Failure::TooMuch(_) => format!("Pi output exceeded {} KiB.", LIMIT / 1024),
                 Failure::Read(error) => format!("Cannot read Pi output: {error}"),
             },
         )?;
@@ -387,15 +394,15 @@ impl Call {
     /// A call cannot omit its budget:
     /// ```compile_fail,E0308
     /// use std::sync::atomic::AtomicBool;
-    /// use tinkery::pi::{Call, Request};
+    /// use tinkery::pi::Call;
     /// fn unbudgeted(call: Call) {
-    ///     let _ = call.complete(None, Request::Shaping, vec![], "TEST".into(), &AtomicBool::new(false));
+    ///     let _ = call.complete(None, "TEST", vec![], "TEST".into(), &AtomicBool::new(false));
     /// }
     /// ```
     pub fn complete(
         &self,
         budget: &CallBudget,
-        kind: Request,
+        label: &'static str,
         input: Vec<u8>,
         prompt: String,
         cancelled: &AtomicBool,
@@ -408,7 +415,7 @@ impl Call {
         if cancelled.load(Ordering::Relaxed) {
             return Err("Request cancelled.".into());
         }
-        let (slot, cap) = budget.reserve(kind)?;
+        let (slot, cap) = budget.reserve(label)?;
         let sessions = tempfile::Builder::new()
             .prefix("tinkery-pi-sessions-")
             .tempdir()
@@ -490,13 +497,13 @@ impl Call {
             Failure::Late(timeout) => {
                 format!("{host} timed out after {} seconds.", timeout.as_secs())
             }
-            Failure::TooMuch(_) => format!("{host} output exceeded 32 KiB."),
+            Failure::TooMuch(_) => format!("{host} output exceeded {} KiB.", LIMIT / 1024),
             Failure::Read(error) => format!("Cannot read {host} output: {error}"),
             Failure::Wait(error) => format!("Cannot wait for {host}: {error}"),
             Failure::Halted(why) => why,
         })?;
         if finished.stderr_cut {
-            return Err(format!("{host} output exceeded 32 KiB."));
+            return Err(format!("{host} output exceeded {} KiB.", LIMIT / 1024));
         }
         let (status, output, input_result) = (finished.status, finished.stdout, finished.input);
         let diagnostics = finished.stderr;
@@ -620,12 +627,8 @@ const POLL: Duration = Duration::from_millis(200);
 /// Why a request was stopped at the drafting response limit.
 fn cap_reached(host: &str, responses: usize) -> String {
     format!(
-        "{host} was stopped at the drafting response limit after {responses} model {}. No reply was kept. Add responses to keep going.",
-        if responses == 1 {
-            "response"
-        } else {
-            "responses"
-        }
+        "{host} was stopped at the drafting response limit after {responses} {RESPONSE}{}. No reply was kept. Add responses to keep going.",
+        if responses == 1 { "" } else { "s" }
     )
 }
 
@@ -741,7 +744,7 @@ fn claude_reply(
         || synthetic;
     if !failed {
         if text.len() > LIMIT {
-            return Err("Claude Code output exceeded 32 KiB.".into());
+            return Err(format!("Claude Code output exceeded {} KiB.", LIMIT / 1024));
         }
         return Ok(text.to_owned());
     }
@@ -806,7 +809,7 @@ mod tests {
         let budget = CallBudget::new(1);
         let result = call.complete(
             &budget,
-            Request::Shaping,
+            "TEST",
             b" TEST exact input\n ".to_vec(),
             "TEST instructions".into(),
             &AtomicBool::new(false),
@@ -817,7 +820,7 @@ mod tests {
         assert_eq!(budget.remaining(), 0);
         if exit == 0 {
             assert_eq!(result.unwrap(), " TEST reply café  \n");
-            assert_eq!(budget.attempts()[0].outcome, "reply");
+            assert_eq!(budget.attempts()[0].outcome, Outcome::Reply);
         } else {
             let error = result.unwrap_err();
             assert!(
@@ -828,7 +831,7 @@ mod tests {
                 error.ends_with("check the configured model and authentication."),
                 "{error}"
             );
-            assert_eq!(budget.attempts()[0].outcome, "failure");
+            assert_eq!(budget.attempts()[0].outcome, Outcome::Failure);
             assert_eq!(budget.attempts()[0].error.as_deref(), Some(error.as_str()));
         }
     }
@@ -866,14 +869,14 @@ mod tests {
         let budget = CallBudget::new(3);
         let reply = counting_pi(dir.path(), 3, true, 4).complete(
             &budget,
-            Request::SeedStep,
+            "TEST",
             b"TEST".to_vec(),
             "TEST instructions".into(),
             &AtomicBool::new(false),
         );
         assert_eq!(reply.unwrap(), "TEST reply\n");
         assert_eq!((budget.used(), budget.remaining()), (3, 0));
-        assert_eq!(budget.attempts()[0].outcome, "reply");
+        assert_eq!(budget.attempts()[0].outcome, Outcome::Reply);
     }
 
     #[test]
@@ -882,7 +885,7 @@ mod tests {
         let budget = CallBudget::new(5);
         let reply = counting_pi(dir.path(), 2, true, 0).complete(
             &budget,
-            Request::SeedStep,
+            "TEST",
             b"TEST".to_vec(),
             "TEST instructions".into(),
             &AtomicBool::new(false),
@@ -898,7 +901,7 @@ mod tests {
         let error = counting_pi(dir.path(), 3, false, 30)
             .complete(
                 &budget,
-                Request::SeedStep,
+                "TEST",
                 b"TEST".to_vec(),
                 "TEST instructions".into(),
                 &AtomicBool::new(false),
@@ -916,7 +919,7 @@ mod tests {
         let refused = counting_pi(dir.path(), 1, true, 0)
             .complete(
                 &budget,
-                Request::SeedStep,
+                "TEST",
                 b"TEST".to_vec(),
                 "TEST instructions".into(),
                 &AtomicBool::new(false),
@@ -951,7 +954,7 @@ mod tests {
         let request = || {
             call.complete(
                 &budget,
-                Request::SeedStep,
+                "TEST",
                 b"TEST".to_vec(),
                 "TEST instructions".into(),
                 &AtomicBool::new(false),
@@ -978,7 +981,7 @@ mod tests {
             missing
                 .complete(
                     &budget,
-                    Request::SeedStep,
+                    "TEST",
                     b"TEST".to_vec(),
                     "TEST instructions".into(),
                     &AtomicBool::new(false),
@@ -1005,7 +1008,7 @@ mod tests {
         let error = call
             .complete(
                 &budget,
-                Request::SeedStep,
+                "TEST",
                 words.clone(),
                 "TEST instructions".into(),
                 &AtomicBool::new(false),
@@ -1096,8 +1099,7 @@ time.sleep(10)
             };
             let budget = CallBudget::new(1);
             let started = Instant::now();
-            let result =
-                call.complete(&budget, Request::Shaping, vec![], "TEST".into(), &cancelled);
+            let result = call.complete(&budget, "TEST", vec![], "TEST".into(), &cancelled);
             let returned = Instant::now();
             let elapsed = returned.duration_since(started);
             let ready = ready.join().unwrap().unwrap_or_else(|| {
@@ -1161,7 +1163,7 @@ time.sleep(10)
             };
             assert!(error.starts_with(&expected), "{harness:?} {mode}: {error}");
             assert_eq!(budget.used(), 1);
-            assert_eq!(budget.attempts()[0].outcome, "failure");
+            assert_eq!(budget.attempts()[0].outcome, Outcome::Failure);
         }
         assert!(failures.is_empty(), "{}", failures.join("; "));
     }
@@ -1214,7 +1216,7 @@ sys.exit({exit})
         fn complete(&self, read_only_tools: bool) -> Result<String, String> {
             self.call(read_only_tools).complete(
                 &CallBudget::new(1),
-                Request::Shaping,
+                "TEST",
                 b"TEST words".to_vec(),
                 "TEST prompt".into(),
                 &AtomicBool::new(false),
@@ -1248,7 +1250,7 @@ sys.exit({exit})
         let budget = CallBudget::new(1);
         let result = fake.call(false).complete(
             &budget,
-            Request::Shaping,
+            "TEST",
             b"TEST words".to_vec(),
             "TEST prompt".into(),
             &AtomicBool::new(false),
@@ -1376,7 +1378,7 @@ sys.exit({exit})
         let error = missing
             .complete(
                 &budget,
-                Request::Shaping,
+                "TEST",
                 vec![],
                 "TEST".into(),
                 &AtomicBool::new(false),
