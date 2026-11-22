@@ -158,15 +158,23 @@ pub(super) const PRACTICE_STATUS: &str = "Simulating… (practice: no model)";
 pub(super) const STATUS_ROWS: u16 = 2;
 
 /// What a send in flight is doing. Practice says it simulates, so it never reads as a model call.
-fn thinking_status(app: &BrainDump) -> &'static str {
+fn thinking_status(app: &BrainDump) -> String {
     if !app.real {
-        return PRACTICE_STATUS;
+        return PRACTICE_STATUS.into();
     }
-    match app.host.call_in_flight() {
-        Some(Request::Shaping) => "Thinking… (run 1 of up to 2)",
-        Some(Request::DecisionReview) => "Reviewing decisions… (run 2 of up to 2)",
-        _ => "Thinking…",
-    }
+    let Some(request) = app.host.call_in_flight() else {
+        return "Thinking…".into();
+    };
+    let doing = match request {
+        Request::Shaping => "Thinking…",
+        Request::DecisionReview => "Reviewing decisions…",
+    };
+    let at = Request::ALL.iter().position(|r| *r == request).unwrap_or(0) + 1;
+    format!(
+        "{doing} ({} {at} of up to {})",
+        crate::pi::RESPONSE,
+        Request::ALL.len()
+    )
 }
 
 /// The one status line under the writing box: why the last action did nothing, else whether
@@ -176,7 +184,7 @@ fn status(app: &BrainDump) -> Option<String> {
     let board = app.conversation.board().is_some();
     match app.notice {
         Notice::Refused(_) => Some(app.notice()),
-        _ if app.running() && board => Some(thinking_status(app).into()),
+        _ if app.running() && board => Some(thinking_status(app)),
         Notice::Receipt(_) => Some(app.notice()),
         _ if !app.running()
             && !app.conversation.caught_up()
@@ -367,7 +375,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     } else if app.conversation.board().is_some() {
         String::new()
     } else if app.running() {
-        thinking_status(app).into()
+        thinking_status(app)
     } else if app.shaping.ready.is_some() {
         "Reply ready.".into()
     } else if !app.conversation.caught_up() {
@@ -618,7 +626,10 @@ pub(super) fn help_text(app: &BrainDump) -> String {
         "Type your answer.\nEnter sends."
     };
     let left = app.host.calls_left().map_or_else(String::new, |left| {
-        format!("\n{left}\nOne send may use two model responses: reading and decision review.")
+        format!(
+            "\n{left}\nOne send may use two {}s: reading and decision review.",
+            crate::pi::RESPONSE
+        )
     });
     let voice = if app.voice_available() {
         "\nF6 or Ctrl+Alt+Z (⌃⌥Z) speaks; your voice stays on this machine."

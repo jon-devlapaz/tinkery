@@ -638,11 +638,15 @@ else:
         a.paste("TEST words");
         a.submit();
         for (kind, phase, expected) in [
-            ("shape", Request::Shaping, "Thinking… (run 1 of up to 2)"),
+            (
+                "shape",
+                Request::Shaping,
+                "Thinking… (model response 1 of up to 2)",
+            ),
             (
                 "decision-review",
                 Request::DecisionReview,
-                "Reviewing decisions… (run 2 of up to 2)",
+                "Reviewing decisions… (model response 2 of up to 2)",
             ),
         ] {
             let until = Instant::now() + Duration::from_secs(10);

@@ -127,8 +127,9 @@ separately. The prior goal remains unchanged; no suggestion confirms a goal or s
 ### Drafting runs
 
 Each live send uses at most two drafting runs, one model response each: shaping, then decision review. While a run
-is in flight, the initial reading or refinement status says `Thinking… (run 1 of up
-to 2)`, then `Reviewing decisions… (run 2 of up to 2)`. These name phases, not a
+is in flight, the initial reading or refinement status says `Thinking… (model response 1
+of up to 2)`, then `Reviewing decisions… (model response 2 of up to 2)`. The unit comes from
+`pi::RESPONSE` and the count from Think's `Request::ALL`. These name phases, not a
 claim that both runs ran; unreadable shaping skips review. Practice claims no
 drafting responses: its status says `Simulating… (practice: no model)` (#614). Scope questions may use none. No runs follow display, and nothing
 retries automatically. With a model, Right now help and a failed reading say

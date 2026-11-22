@@ -14,11 +14,12 @@ use std::{
     sync::{Arc, Mutex, atomic::AtomicBool},
     time::{Duration, Instant},
 };
+use tinkery::pi::CallBudget;
 use tinkery::think::{
     brain_dump::{
         BoardHost, BoardRequest, BrainDump, DecisionReview, Guess, decision_review_input,
     },
-    drafting::{CallBudget, ModelHost, Request},
+    drafting::{ModelHost, Request},
 };
 use tinkery::think_record::hash;
 
@@ -92,7 +93,7 @@ struct Fake {
 impl Fake {
     fn request(&self, kind: Request) -> Result<String, String> {
         // The same budget as Pi: charged before the scripted reply is read.
-        let (slot, _) = self.budget.reserve(kind)?;
+        let (slot, _) = self.budget.reserve(kind.label())?;
         let result = match self.replies.lock().unwrap().pop_front() {
             Some(reply) if reply.kind == kind => match reply.result {
                 ReplyResult::Text(text) => Ok(text),
@@ -431,8 +432,10 @@ fn run(options: &Options) -> Result<Value, String> {
         checks.insert(name.into(), json!({"status": "unknown", "reason": reason}));
     }
     let attempts = budget.attempts();
-    let (refused, calls): (Vec<_>, Vec<_>) = attempts.iter().partition(|a| a.outcome == "refused");
-    let count = |kind| calls.iter().filter(|a| a.kind == kind).count();
+    let (refused, calls): (Vec<_>, Vec<_>) = attempts
+        .iter()
+        .partition(|a| a.outcome == tinkery::pi::Outcome::Refused);
+    let count = |kind: Request| calls.iter().filter(|a| a.label == kind.label()).count();
     let live = options.live.is_some();
     let source = std::process::Command::new("git")
         .args(["rev-parse", "HEAD"])
