@@ -385,7 +385,7 @@ fn run(options: &Options) -> Result<Value, String> {
         steps.push(json!({"capture": name, "notice": app.notice(),
             "input_accepted": accepted,
             "reading_applied": accepted && app.conversation().caught_up(),
-            "failure": if accepted { app.conversation().last_failure() } else { Some(app.notice()) }}));
+            "failure": if accepted { app.conversation().last_failure().map(str::to_owned) } else { Some(app.notice()) }}));
     }
     let exact = originals_match(&app, &supplied);
     let current = exact && app.conversation().caught_up();

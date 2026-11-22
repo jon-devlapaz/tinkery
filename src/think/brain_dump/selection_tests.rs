@@ -86,7 +86,7 @@ fn tab_does_nothing_without_an_original_or_inside_modal_views() {
     assert!(!empty.screen.board_focus && empty.input.text.is_empty());
     let mut a = ready();
     super::tests::choose(&mut a, "Show your originals");
-    assert!(a.screen.original);
+    assert!(matches!(a.screen.overlay, Overlay::Originals));
     key(&mut a, KeyCode::Tab);
     assert!(
         !a.screen.board_focus,
@@ -106,7 +106,7 @@ fn keyboard_only_selection_copies_exact_bytes_and_returns_to_writing() {
     shift_right(&mut a, 8);
     ctrl_c(&mut a);
     assert_eq!(a.take_copy_request().as_deref(), Some(&text[..8]));
-    assert!(!a.quitting() && !a.screen.leave_prompt);
+    assert!(!a.quitting() && !matches!(a.screen.overlay, Overlay::Leave));
     key(&mut a, KeyCode::Tab);
     assert!(
         !a.screen.board_focus && a.screen.selection.is_none(),
@@ -182,7 +182,11 @@ fn ctrl_c_without_a_selection_keeps_cancel_and_never_leaves() {
     let mut a = ready();
     key(&mut a, KeyCode::Tab);
     ctrl_c(&mut a);
-    assert!(a.take_copy_request().is_none() && !a.quitting() && !a.screen.leave_prompt);
+    assert!(
+        a.take_copy_request().is_none()
+            && !a.quitting()
+            && !matches!(a.screen.overlay, Overlay::Leave)
+    );
 }
 
 #[test]
@@ -223,7 +227,7 @@ fn shift_arrows_select_in_writing_and_ctrl_c_copies_exact_bytes() {
     }
     ctrl_c(&mut a);
     assert_eq!(a.take_copy_request().as_deref(), Some("hél"));
-    assert!(!a.quitting() && !a.screen.leave_prompt);
+    assert!(!a.quitting() && !matches!(a.screen.overlay, Overlay::Leave));
     key(&mut a, KeyCode::Right);
     assert_eq!(a.input.selection(), None);
     ctrl_c(&mut a);
@@ -385,7 +389,10 @@ fn a_selection_does_not_change_what_f10_guards() {
     assert_eq!(a.input.text, "all of this");
     key(&mut a, KeyCode::Esc);
     assert!(!a.quitting(), "unsent words still ask first");
-    assert!(a.screen.leave_prompt || a.quitting(), "F10 keeps its guard");
+    assert!(
+        matches!(a.screen.overlay, Overlay::Leave) || a.quitting(),
+        "F10 keeps its guard"
+    );
 }
 
 // ---- Repairs after dogfooding (#14): stale drags, board-focus letters, hidden originals, limit notice.
@@ -476,7 +483,7 @@ fn with_card() -> BrainDump {
 fn ordinary_letters_in_original_focus_return_to_writing_and_do_nothing_else() {
     for c in ['s', 'y', 'o', 'd', 'u', '?', 'e', 'q'] {
         let mut a = with_card();
-        let notice = a.notice.clone();
+        let notice = a.notice();
         key(&mut a, KeyCode::Tab);
         assert!(a.screen.board_focus);
         key(&mut a, KeyCode::Char(c));
@@ -485,10 +492,13 @@ fn ordinary_letters_in_original_focus_return_to_writing_and_do_nothing_else() {
         assert!(a.conversation.skipped().is_empty(), "{c} skipped nothing");
         assert!(a.take_copy_request().is_none(), "{c} copied nothing");
         assert!(
-            !a.screen.original && !a.screen.details && !a.screen.help && !a.screen.show_extractions,
+            !matches!(a.screen.overlay, Overlay::Originals)
+                && !matches!(a.screen.overlay, Overlay::Why)
+                && !a.screen.overlay.help()
+                && !a.screen.show_extractions,
             "{c}"
         );
-        assert_eq!(a.notice, notice, "{c} changed no state");
+        assert_eq!(a.notice(), notice, "{c} changed no state");
     }
 }
 
@@ -591,7 +601,7 @@ fn encoded_send_refusal_is_visible_at_every_size_and_next_input_clears_it() {
             "{w}x{h}\n{shown}"
         );
         key(&mut a, KeyCode::Left);
-        assert!(a.screen.refused.is_none());
+        assert!(!matches!(a.notice, Notice::Refused(_)));
         assert_eq!(a.input.text, before.0);
     }
 }

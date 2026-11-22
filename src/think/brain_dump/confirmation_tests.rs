@@ -280,7 +280,7 @@ fn typing_confirmation_keeps_a_fully_read_goal_at_the_end() {
             a.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
             snapshot(w, h, &mut a, no_color).unwrap();
             assert!(
-                a.notice
+                a.notice()
                     .contains("Type confirm, then Enter. Nothing saved.")
             );
             assert!(!a.handoff.saving());
@@ -374,13 +374,13 @@ fn hidden_review_keeps_input_and_read_progress_without_starting_a_save() {
             if !read {
                 a.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
                 assert!(!a.handoff.saving());
-                assert!(a.notice.starts_with("Read to the end first:"));
+                assert!(a.notice().starts_with("Read to the end first:"));
             }
             snapshot(w, h, &mut a, true).unwrap();
             a.handle_key(KeyEvent::new(KeyCode::F(1), KeyModifiers::NONE));
-            assert!(a.screen.help);
+            assert!(a.screen.overlay.help());
             a.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
-            assert!(!a.screen.help && a.handoff.review().is_some());
+            assert!(!a.screen.overlay.help() && a.handoff.review().is_some());
             a.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
             assert!(a.handoff.review().is_none() && !a.handoff.saving());
         }
@@ -456,7 +456,7 @@ fn bare_agent_declaration_saves_as_the_agent() {
         a.goal_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
     }
     a.goal_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
-    assert!(a.handoff.saving(), "{}", a.notice);
+    assert!(a.handoff.saving(), "{}", a.notice());
     super::tests::settle(&mut a);
     let receipt = a.saved().expect("confirmed TEST goal was saved");
     assert!(
@@ -564,4 +564,62 @@ fn a_receipt_records_the_frozen_agent_context_not_a_later_identity() {
     );
     assert_eq!(record["goal"], goal);
     assert_eq!(a.conversation.sources()[0].text, "An intact original");
+}
+
+#[test]
+fn the_review_cursor_follows_the_typed_word_whether_or_not_who_is_named() {
+    use std::time::{Duration, Instant};
+    struct Host(bool);
+    impl BoardHost for Host {
+        fn reshape(&self, request: BoardRequest, _: &AtomicBool) -> Result<Guess, String> {
+            let mut parts = serde_json::json!({
+                "outcome":"keep a repair log", "why":"I forget repairs",
+                "done_when":"I find an earlier repair"
+            });
+            if self.0 {
+                parts["who"] = "I".into();
+            }
+            Guess::decode(
+                &serde_json::json!({ "parts": parts }).to_string(),
+                &request,
+                &mut vec![],
+            )
+        }
+    }
+    for who in [true, false] {
+        let root = tempfile::tempdir().unwrap();
+        let mut app = BrainDump::with_host(Arc::new(Host(who)))
+            .with_sessions(Some(root.path().join("TEST-sessions")));
+        snapshot(100, 30, &mut app, true).unwrap();
+        app.paste("These exact TEST words stay mine.");
+        app.handle_key(KeyEvent::new(KeyCode::F(2), KeyModifiers::NONE));
+        app.handle_key(KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while app.running() && Instant::now() < deadline {
+            app.tick();
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        app.handle_key(KeyEvent::new(KeyCode::F(1), KeyModifiers::NONE));
+        app.handle_key(KeyEvent::new(KeyCode::Char('1'), KeyModifiers::NONE));
+        let review = snapshot(100, 30, &mut app, true).unwrap();
+        assert!(review.contains("You are confirming"), "{review}");
+        for c in "conf".chars() {
+            app.handle_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+        }
+        let mut t = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
+        t.draw(|f| render(f, &mut app, Palette::new(true))).unwrap();
+        let b = t.backend().buffer().clone();
+        let (y, x) = (0..30u16)
+            .find_map(|y| {
+                let line: String = (0..100).map(|x| b[(x, y)].symbol()).collect();
+                let start = line.find("conf").filter(|_| line.trim() == "conf")?;
+                Some((y, line[..start].chars().count() as u16))
+            })
+            .expect("the typed word is on screen");
+        assert_eq!(
+            t.get_cursor_position().unwrap(),
+            ratatui::layout::Position::new(x + 4, y),
+            "who named: {who}"
+        );
+    }
 }

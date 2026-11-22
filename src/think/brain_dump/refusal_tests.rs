@@ -219,3 +219,31 @@ fn a_misspelled_confirm_says_what_to_type() {
         assert!(shown(&mut a, w, h, false).contains("Type confirm, then Enter. Nothing saved."));
     }
 }
+
+#[test]
+fn a_copy_refusal_leaves_the_status_row_at_the_next_key() {
+    const WHY: &str = "Copy exceeds 128 KiB; not sent.";
+    let mut a = BrainDump::default();
+    snapshot(100, 30, &mut a, true).unwrap();
+    a.paste(&"TEST words for a copy that is too long. ".repeat(1800));
+    key(&mut a, KeyCode::F(2));
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while a.running() && std::time::Instant::now() < deadline {
+        a.tick();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+    assert!(!a.running() && a.conversation().board().is_some());
+    // One card of the whole original doubles the copy past its cap.
+    key(&mut a, KeyCode::Tab);
+    ctrl(&mut a, 'a');
+    ctrl(&mut a, 'e');
+    key(&mut a, KeyCode::Tab);
+    super::tests::choose(&mut a, "Copy the reading");
+    assert!(a.take_copy_request().is_none());
+    let screen = snapshot(100, 30, &mut a, true).unwrap();
+    assert!(screen.contains(WHY), "{screen}");
+    key(&mut a, KeyCode::Left);
+    let screen = snapshot(100, 30, &mut a, true).unwrap();
+    assert!(!screen.contains(WHY), "{screen}");
+    assert_eq!(a.notice(), WHY, "still the last result");
+}

@@ -205,10 +205,10 @@ fn one_key_map_reaches_every_action_through_f1_and_retired_keys_do_nothing() {
     for event in retired {
         a.handle_key(event);
         assert!(
-            !a.screen.help
-                && !a.screen.original
-                && !a.screen.details
-                && !a.screen.leave_prompt
+            !a.screen.overlay.help()
+                && !matches!(a.screen.overlay, Overlay::Originals)
+                && !matches!(a.screen.overlay, Overlay::Why)
+                && !matches!(a.screen.overlay, Overlay::Leave)
                 && !a.add_more
                 && a.conversation.skipped().is_empty()
                 && a.handoff.review().is_none()
@@ -240,10 +240,10 @@ fn one_key_map_reaches_every_action_through_f1_and_retired_keys_do_nothing() {
             .contains("Copy sent")
     );
     super::tests::choose(&mut a, "Show your originals");
-    assert!(a.screen.original);
+    assert!(matches!(a.screen.overlay, Overlay::Originals));
     key(&mut a, KeyCode::Esc);
     super::tests::choose(&mut a, "Why");
-    assert!(a.screen.details);
+    assert!(matches!(a.screen.overlay, Overlay::Why));
     key(&mut a, KeyCode::Esc);
     super::tests::choose(&mut a, "Review the goal");
     assert!(a.handoff.review().is_some());
@@ -261,9 +261,9 @@ fn one_key_map_reaches_every_action_through_f1_and_retired_keys_do_nothing() {
     );
     assert!(a.handoff.review().is_none() && !a.handoff.saving());
     key(&mut a, KeyCode::Esc);
-    assert!(a.screen.leave_prompt && !a.quitting());
+    assert!(matches!(a.screen.overlay, Overlay::Leave) && !a.quitting());
     key(&mut a, KeyCode::Esc);
-    assert!(!a.screen.leave_prompt);
+    assert!(!matches!(a.screen.overlay, Overlay::Leave));
     key(&mut a, KeyCode::Esc);
     key(&mut a, KeyCode::Char('y'));
     assert!(a.quitting());
@@ -313,7 +313,7 @@ fn practice_never_offers_review_it_would_refuse() {
         assert!(!super::tests::offers(&a, "Review the goal"));
         amend_board(&mut a, |g| g.questions.clear());
         assert!(!super::tests::offers(&a, "Review the goal"));
-        a.screen.help = true;
+        a.screen.open_help(false);
         let help = layout::help_text(&a);
         assert!(help.contains("Saving a goal needs real mode and a sessions folder."));
     }
@@ -475,7 +475,7 @@ fn encoded_cap_counts_metadata_keeps_unsent_words_and_near_cap_is_visible() {
     assert!(host.requests.lock().unwrap().is_empty());
     assert_eq!(a.conversation.sources()[0].text, source);
     assert_eq!(a.input.text, "new words stay local");
-    assert!(a.notice.contains("too long"));
+    assert!(a.notice().contains("too long"));
     assert_eq!(a.local_checks.last().unwrap().decision, "reject");
 }
 #[test]
@@ -517,7 +517,7 @@ fn model_prefix_is_removed_without_touching_originals_and_modified_keys_do_not_d
     let mut a = board();
     let original = a.conversation.sources()[0].text.clone();
     a.handle_key(KeyEvent::new(KeyCode::F(10), KeyModifiers::ALT));
-    assert!(!a.quitting() && !a.screen.leave_prompt);
+    assert!(!a.quitting() && !matches!(a.screen.overlay, Overlay::Leave));
     a.handle_key(KeyEvent::new(KeyCode::F(8), KeyModifiers::CONTROL));
     assert!(a.conversation.skipped().is_empty());
     let mut repeated = KeyEvent::new(KeyCode::F(8), KeyModifiers::NONE);
@@ -671,7 +671,7 @@ fn context_only_overflow_offers_copy_out_without_pruning_or_false_resend() {
     let old = a.conversation.board().unwrap().reading.clone();
     assert!(encoded(&a, "") > REQUEST_LIMIT);
     a.submit();
-    assert!(a.notice.starts_with("Earlier words"));
+    assert!(a.notice().starts_with("Earlier words"));
     assert!(layout::help_text(&a).contains("Shortening new words cannot"));
     assert_eq!(a.conversation.board().unwrap().reading, old);
     a.handle_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL));
@@ -687,15 +687,18 @@ fn context_only_overflow_offers_copy_out_without_pruning_or_false_resend() {
 
 #[test]
 fn overflow_help_uses_semantic_kind_after_notice_rewording_and_f1() {
-    for kind in [Refusal::DraftTooLong, Refusal::EarlierWordsTooLong] {
+    for earlier in [false, true] {
         let mut a = BrainDump::with_host(Arc::new(Counting::default()));
-        a.refuse("Notice wording can change completely.");
-        a.screen.refused = Some(kind);
+        a.notice = Notice::Refused(if earlier {
+            Refusal::EarlierWordsTooLong
+        } else {
+            Refusal::DraftTooLong
+        });
         key(&mut a, KeyCode::F(1));
         let help = layout::help_text(&a);
         assert!(help.contains("Nothing was sent") && help.contains("Ctrl-A then Ctrl-C"));
         assert!(!help.contains("KiB") && !help.contains("encoded") && !help.contains("context"));
-        if kind == Refusal::EarlierWordsTooLong {
+        if earlier {
             assert!(
                 help.contains("Shortening new words cannot") && help.contains("Ctrl-PgUp/PgDn")
             );
@@ -785,7 +788,7 @@ fn waiting_reply_contraction_sends_the_fitting_preview_once() {
         requests.len(),
         3,
         "fitting preview must send once, not refuse: {}",
-        a.notice
+        a.notice()
     );
     assert_eq!(serde_json::to_vec(&requests[2]).unwrap().len(), final_bytes);
     assert_eq!(
