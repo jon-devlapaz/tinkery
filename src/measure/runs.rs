@@ -7,7 +7,7 @@ mod records;
 mod tests;
 
 use super::visible;
-use crate::{Palette, clipped, sdlc};
+use crate::{Palette, clipped, process::Task, sdlc};
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     Frame,
@@ -37,7 +37,7 @@ pub(super) const HELP: &str = concat!(
 
 /// The postmortem screen inside Measure. Opening reads; leaving cancels the read.
 pub(super) struct Runs {
-    read: Option<sdlc::Read<Postmortem>>,
+    read: Option<Task<Postmortem>>,
     report: Option<Postmortem>,
     notice: String,
     selected: usize,
@@ -50,7 +50,7 @@ impl Runs {
     pub(super) fn start(root: &Path) -> Self {
         let root = root.to_path_buf();
         Self {
-            read: Some(sdlc::Read::task(move |stop| {
+            read: Some(Task::start(move |stop| {
                 records::read(&root, stop, sdlc::DEADLINE)
             })),
             report: None,
@@ -63,7 +63,7 @@ impl Runs {
 
     /// Receive the read; a cancelled read never delivers.
     pub(super) fn poll(&mut self) {
-        if let Some(result) = self.read.as_ref().and_then(sdlc::Read::poll) {
+        if let Some(result) = self.read.as_ref().and_then(Task::poll) {
             self.read = None;
             match result {
                 Ok(report) => {

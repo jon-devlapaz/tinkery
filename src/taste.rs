@@ -18,7 +18,8 @@ mod view;
 
 use crate::{
     Palette,
-    sdlc::{self, DEADLINE, Goal, Read},
+    process::{self, Task},
+    sdlc::{DEADLINE, Goal},
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
@@ -40,10 +41,10 @@ pub(crate) struct Taste {
     label: Option<label::Form>,
     /// The name the open form will sign with, as read when it opened or on a retry.
     signer: Option<Result<String, String>>,
-    signing: Option<Read<String>>,
-    labelling: Option<Read<String>>,
-    reading: Option<Read<(Vec<ResultRow>, usize)>>,
-    opening: Option<Read<()>>,
+    signing: Option<Task<String>>,
+    labelling: Option<Task<String>>,
+    reading: Option<Task<(Vec<ResultRow>, usize)>>,
+    opening: Option<Task<()>>,
     preview: Option<preview::Preview>,
     rows: Vec<ResultRow>,
     selected: usize,
@@ -109,12 +110,12 @@ impl Taste {
         self.notice.clear();
         self.at = None;
         self.scroll = 0;
-        self.reading = Some(Read::task(move |stop| read::collect(&root, stop)));
+        self.reading = Some(Task::start(move |stop| read::collect(&root, stop)));
     }
 
     /// Land only this visit's explicit read or navigation result; no automatic retries.
     pub(crate) fn poll(&mut self) {
-        if let Some(result) = self.reading.as_ref().and_then(Read::poll) {
+        if let Some(result) = self.reading.as_ref().and_then(Task::poll) {
             self.reading = None;
             match result {
                 Ok((rows, skipped)) => {
@@ -145,11 +146,11 @@ impl Taste {
                 }
             }
         }
-        if let Some(result) = self.signing.as_ref().and_then(Read::poll) {
+        if let Some(result) = self.signing.as_ref().and_then(Task::poll) {
             self.signing = None;
             self.signer = Some(result);
         }
-        if let Some(result) = self.labelling.as_ref().and_then(Read::poll) {
+        if let Some(result) = self.labelling.as_ref().and_then(Task::poll) {
             self.labelling = None;
             match result {
                 Ok(_) => {
@@ -172,7 +173,7 @@ impl Taste {
                 Err(why) => self.notice = format!("Not recorded. {why}"),
             }
         }
-        if let Some(result) = self.opening.as_ref().and_then(Read::poll) {
+        if let Some(result) = self.opening.as_ref().and_then(Task::poll) {
             self.opening = None;
             self.notice = if result.is_ok() {
                 "PR sent to browser; no verdict recorded."
@@ -285,10 +286,10 @@ impl Taste {
                     match &row.url {
                         Ok(url) => {
                             let (root, url) = (root.clone(), url.clone());
-                            self.opening = Some(Read::task(move |stop| {
+                            self.opening = Some(Task::start(move |stop| {
                                 let mut command = Command::new("gh");
                                 command.args(["pr", "view", &url, "--web"]);
-                                sdlc::execute(&root, command, "gh", stop, DEADLINE).map(|_| ())
+                                process::text(&root, command, "gh", stop, DEADLINE).map(|_| ())
                             }));
                         }
                         Err(_) if row.local().is_some() => {
@@ -338,7 +339,7 @@ impl Taste {
                 } else if let Some(root) = self.label_root() {
                     self.label = Some(label::Form::default());
                     self.signer = None;
-                    self.signing = Some(Read::task(move |stop| label::signer(&root, stop)));
+                    self.signing = Some(Task::start(move |stop| label::signer(&root, stop)));
                     self.pause = None;
                     self.draft = None;
                     self.evidence = false;
@@ -418,13 +419,13 @@ impl Taste {
                     }
                     (Ok(_), Some(Err(_))) => {
                         self.signer = None;
-                        self.signing = Some(Read::task(move |stop| label::signer(&root, stop)));
+                        self.signing = Some(Task::start(move |stop| label::signer(&root, stop)));
                         self.notice = "Checking your name again; press F2 once it shows.".into();
                     }
                     (Ok((kind, words)), Some(Ok(name))) => {
                         let (row, name) = (row.clone(), name.clone());
                         self.notice = "Saving your label…".into();
-                        self.labelling = Some(Read::task(move |stop| {
+                        self.labelling = Some(Task::start(move |stop| {
                             label::write(&root, &row, kind, &words, &name, stop)
                         }));
                     }

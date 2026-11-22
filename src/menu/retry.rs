@@ -3,16 +3,16 @@
 
 use super::*;
 use crate::{
-    sdlc::Read,
+    process::Task,
     taste::{Rejected, Reviewed},
 };
 
 /// A review can be cancelled until a save begins; a partial save never repeats automatically.
 pub(super) struct Review {
     rejected: Rejected,
-    reading: Option<Read<Reviewed>>,
+    reading: Option<Task<Reviewed>>,
     reviewed: Option<Reviewed>,
-    saving: Option<Read<PathBuf>>,
+    saving: Option<Task<PathBuf>>,
     notice: String,
     scroll: u16,
     page: u16,
@@ -23,7 +23,7 @@ impl Review {
         let source = rejected.clone();
         Self {
             rejected,
-            reading: Some(Read::task(move |stop| source.review(stop))),
+            reading: Some(Task::start(move |stop| source.review(stop))),
             reviewed: None,
             saving: None,
             notice: String::new(),
@@ -33,14 +33,14 @@ impl Review {
     }
 
     fn poll(&mut self) -> Option<PathBuf> {
-        if let Some(result) = self.reading.as_ref().and_then(Read::poll) {
+        if let Some(result) = self.reading.as_ref().and_then(Task::poll) {
             self.reading = None;
             match result {
                 Ok(read) => self.reviewed = Some(read),
                 Err(why) => self.notice = why,
             }
         }
-        if let Some(result) = self.saving.as_ref().and_then(Read::poll) {
+        if let Some(result) = self.saving.as_ref().and_then(Task::poll) {
             self.saving = None;
             match result {
                 Ok(session) => return Some(session),
@@ -171,7 +171,7 @@ impl Home {
                         return;
                     };
                     let source = view.rejected.clone();
-                    view.saving = Some(Read::task(move |stop| source.save(&review, &root, stop)));
+                    view.saving = Some(Task::start(move |stop| source.save(&review, &root, stop)));
                 }
             }
             _ => {}

@@ -112,7 +112,7 @@ fn visible(text: &str) -> String {
 /// A visit to Measure. No source is read until the operator presses the labelled read key.
 pub(crate) struct Measure {
     repo: Option<Repo>,
-    read: Option<read::Read>,
+    read: Option<crate::process::Task<Report>>,
     report: Option<Report>,
     notice: String,
     since: String,
@@ -169,7 +169,7 @@ impl Measure {
         if let Some(runs) = &mut self.runs {
             runs.poll();
         }
-        if let Some(result) = self.read.as_ref().and_then(read::Read::poll) {
+        if let Some(result) = self.read.as_ref().and_then(crate::process::Task::poll) {
             self.read = None;
             match result {
                 Ok(report) => {
@@ -218,7 +218,7 @@ impl Measure {
                     self.selected = 0;
                     self.scroll = 0;
                     self.notice = "Reading GitHub through gh… Esc cancels and goes back.".into();
-                    self.read = Some(read::Read::start(repo.root(), self.since.clone()));
+                    self.read = Some(read::start(repo.root(), self.since.clone()));
                 }
             }
             KeyCode::Char('p') if !self.detail && self.read.is_none() => {
