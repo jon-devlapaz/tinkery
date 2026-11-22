@@ -2,7 +2,7 @@
 //! a resume, a different session or a failed tool call cannot establish a first edit.
 
 use super::{Run, identity, read_status};
-use crate::sdlc;
+use crate::{process, sdlc};
 use serde::Deserialize;
 use serde_json::Value;
 use std::{
@@ -133,7 +133,7 @@ fn build_worktrees(root: &Path, cancel: &AtomicBool) -> HashMap<String, PathBuf>
         "-z",
     ]);
     let listing =
-        sdlc::execute(root, git, "git", cancel, Duration::from_secs(1)).unwrap_or_default();
+        process::text(root, git, "git", cancel, Duration::from_secs(1)).unwrap_or_default();
     listing
         .split("\0\0")
         .filter_map(|block| {
