@@ -956,3 +956,45 @@ fn contract_refuses_step_stop() {
         "A worker step Watch doesn't know; nothing is shown rather than a guess.",
     );
 }
+
+#[test]
+fn cap_stop_shows_saved_shell_result_without_calling_it_verification() {
+    let mut report = detail(vec![item("pending", false, false)]);
+    report["run"]["verification_status"] = "not-run".into();
+    report["run"]["next_action"] = "Review the saved evidence, then record the stop.".into();
+    report["run"]["steps"] = serde_json::json!([{
+        "name": "build", "state": "active", "turn": "not-ended",
+        "observed_turn": "not ended: stopped at its response cap",
+        "cap_stop": { "cap": 1, "changed_files": ["game.js"], "omitted_files": 0,
+            "shell": { "command": "node tests/wake-the-duck-browser.mjs",
+                "output": "PASS 21 browser-controlled moves", "error": false }}
+    }]);
+    let parsed = parse_detail(&report.to_string()).unwrap();
+    let shown = parsed.steps.unwrap().join("\n");
+    assert!(shown.contains("stopped at its response cap (1)"));
+    assert!(shown.contains("Local changes at stop: game.js"));
+    assert!(shown.contains("not Verify"));
+    assert!(shown.contains("PASS 21 browser-controlled moves"));
+    assert_eq!(parsed.attention.worker, Some(Worker::AtCap));
+    assert_eq!(parsed.state, State::NotRun);
+    assert_eq!(parsed.attention.owed, 1);
+    assert!(parsed.next.contains("record the stop"));
+}
+
+#[test]
+fn cap_reached_without_a_checkpoint_needs_attention_and_never_claims_proof() {
+    let mut report = detail(vec![item("pending", true, false)]);
+    report["run"]["verification_status"] = "not-run".into();
+    report["run"]["next_action"] = "Record the cap stop.".into();
+    report["run"]["steps"] = serde_json::json!([{
+        "name": "build", "state": "active", "turn": "not-ended",
+        "observed_turn": "TEST provider wording", "response_cap_reached": true
+    }]);
+    let parsed = parse_detail(&report.to_string()).unwrap();
+    assert_eq!(parsed.attention.worker, Some(Worker::AtCap));
+    let shown = parsed.steps.unwrap().join("\n");
+    assert!(shown.contains("reached its response cap"));
+    assert!(shown.contains("Saved evidence is not available yet"));
+    assert!(!shown.contains("Last shell result"));
+    assert_eq!(parsed.next, "Record the cap stop.");
+}

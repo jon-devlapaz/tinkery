@@ -1,10 +1,7 @@
 //! One next step after a report of external acceptance. Missing evidence stays unknown;
 //! only failed/stale checks or owed gates call for repair. No feature or permission is invented.
 
-use super::{
-    read::{Check, ResultRow},
-    safe,
-};
+use super::read::{Check, ResultRow};
 use crate::think_record::DraftSuggestion;
 
 pub(super) struct Pause {
@@ -41,20 +38,20 @@ pub(super) fn suggest(row: &ResultRow) -> Pause {
             format!(
                 "{} {}",
                 if repair { "Resolve" } else { "Check" },
-                safe(&item.label)
+                crate::shown_line(&item.label)
             ),
             "Check this completion condition against the accepted behavior and current result."
                 .to_owned(),
         )
     } else if let Some(gate) = row.gates.first() {
         (
-            format!("Resolve the owed action: {}", safe(gate)),
+            format!("Resolve the owed action: {}", crate::shown_line(gate)),
             "Obtain the required external decision; a draft cannot grant permission.".into(),
         )
     } else {
         let goal = super::goal(&row.goal).lines().next().unwrap_or("").trim();
         (
-            format!("Observe “{}”; choose the next slice from this goal", safe(goal)),
+            format!("Observe “{}”; choose the next slice from this goal", crate::shown_line(goal)),
             "Try the accepted behavior against the goal's completion conditions and report a counterexample.".into(),
         )
     };

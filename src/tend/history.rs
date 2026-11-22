@@ -10,7 +10,6 @@ use std::{
 
 use crate::{
     Palette,
-    goal::confirmed::is_direction_control,
     think_record::{self, Event, History, MadeIn, Unavailable},
 };
 use crossterm::event::KeyCode;
@@ -320,19 +319,6 @@ enum Tone {
     Guess,
 }
 
-/// Keep stored words unchanged. Escape terminal controls only in the display copy.
-pub(super) fn display(text: &str) -> String {
-    text.chars()
-        .flat_map(|c| {
-            if (c.is_control() && c != '\n') || is_direction_control(c) {
-                c.escape_default().collect::<Vec<_>>()
-            } else {
-                vec![c]
-            }
-        })
-        .collect()
-}
-
 /// Wrapped rows use usize, and only the visible rows reach the terminal renderer.
 struct Page {
     source: Vec<(String, Tone)>,
@@ -352,7 +338,7 @@ impl Page {
         Self {
             source: source
                 .into_iter()
-                .map(|(s, tone)| (display(&s), tone))
+                .map(|(s, tone)| (crate::shown(&s), tone))
                 .collect(),
             rows: vec![],
             width: 0,
