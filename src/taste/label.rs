@@ -3,7 +3,7 @@
 //! operator's verdict on the result; it approves, merges and gates nothing. The words are passed
 //! through verbatim, never trimmed or rewritten, and signed with the name the form showed.
 
-use super::read::{Check, commit};
+use super::read::Check;
 use crate::process::{self, Limits};
 use crate::sdlc::{self, DEADLINE};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -55,30 +55,32 @@ pub(super) struct Verdict {
 /// Unbound legacy labels remain readable but cannot cover a head; missing counts stay unknown.
 pub(super) fn read(
     root: &Path,
-    run: &Value,
+    parsed: &sdlc::Run,
     head: Option<&str>,
 ) -> Result<(Option<Check>, Option<Verdict>), String> {
-    let kinds = &run["labels"]["kinds"];
-    let Some((accepted, rejected)) = kinds["accepted"].as_u64().zip(kinds["rejected"].as_u64())
-    else {
+    let Some((accepted, rejected)) = parsed.labels.kinds else {
         return Ok((None, None));
     };
     if accepted == 0 && rejected == 0 {
         return Ok((Some(Check::AwaitingHuman), None));
     }
-    let count = run["labels"]["count"]
-        .as_u64()
-        .ok_or("Unreadable label count.")?;
-    let checkout = match run.get("checkout") {
-        None => root,
-        Some(value) => Path::new(value.as_str().ok_or("Verdict checkout is invalid.")?),
+    let count = parsed.labels.count.ok_or("Unreadable label count.")?;
+    let checkout = match &parsed.checkout {
+        Ok(path) => path.as_deref().unwrap_or(root),
+        Err(sdlc::CheckoutGap::NotText) => return Err("Verdict checkout is invalid.".into()),
+        Err(sdlc::CheckoutGap::Nul) => {
+            return Err("Cannot read this run's verdict words in its checkout.".into());
+        }
+        Err(sdlc::CheckoutGap::Relative) => {
+            return Err("Verdict checkout must be absolute.".into());
+        }
     };
     if !checkout.is_absolute() {
         return Err("Verdict checkout must be absolute.".into());
     }
     let path = checkout
         .join("runs")
-        .join(run["slug"].as_str().ok_or("Run name missing.")?)
+        .join(parsed.data["slug"].as_str().ok_or("Run name missing.")?)
         .join("labels.jsonl");
     if path.canonicalize().ok().as_ref() != Some(&path) {
         return Err("Cannot read this run's verdict words in its checkout.".into());
@@ -104,8 +106,8 @@ pub(super) fn read(
         let judged = record["source"]
             .as_str()
             .and_then(|s| s.strip_prefix("taste@"));
-        let judged = judged.and_then(commit);
-        let exact = judged.is_some() && judged == head;
+        let judged = judged.and_then(sdlc::Commit::parse);
+        let exact = judged.is_some_and(|judged| Some(judged.as_str()) == head);
         match record["kind"].as_str() {
             Some("accepted" | "rejected") => {
                 let pass = record["kind"] == "accepted";
@@ -319,7 +321,7 @@ mod tests {
                 "rejected": records.iter().filter(|r| r["kind"] == "rejected").count()
             }}
         });
-        read(&root, &run, head).unwrap()
+        read(&root, &crate::sdlc::Run::parse(&run), head).unwrap()
     }
 
     #[test]
