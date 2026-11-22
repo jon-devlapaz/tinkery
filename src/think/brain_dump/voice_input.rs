@@ -88,20 +88,20 @@ impl BrainDump {
             self.voice.as_mut().unwrap().missed();
             return;
         }
-        self.shaping.encoded_bytes = None;
-        self.input.collapse();
-        if let Err(error) = self.input.insert(&text) {
-            self.voice
-                .as_mut()
-                .unwrap()
-                .reject(Failure::new("capture", error));
-            return;
-        }
-        self.focus_writing();
-        self.conversation.forget_changes();
-        if result.send {
-            self.writing_action();
-        }
+        self.person_input(|app| {
+            app.input.collapse();
+            if let Err(error) = app.input.insert(&text) {
+                app.voice
+                    .as_mut()
+                    .unwrap()
+                    .reject(Failure::new("capture", error));
+                return;
+            }
+            app.focus_writing();
+            if result.send {
+                app.writing_action();
+            }
+        });
     }
 }
 
