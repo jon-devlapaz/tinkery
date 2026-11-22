@@ -1,5 +1,7 @@
-//! A fresh Shape session keeps the verified goal and its original attribution. Earlier
-//! decisions become assumptions. Only the operator's explicit save creates a session.
+//! The retry hand-off: the reviewed checkout and commit pinned in a new attempt's goal evidence,
+//! and the Git checks that hold a build to it. A fresh session keeps the verified goal and its
+//! original attribution; earlier decisions become assumptions. Only the operator's explicit save
+//! creates a session. Git checks read metadata only and run no script from the checkout.
 
 use super::ledger;
 use serde::{Deserialize, Serialize};
@@ -53,6 +55,134 @@ pub(crate) fn base(ledger: &ledger::Value) -> Result<Option<Base>, String> {
             "The rejected result's checkout or commit is unreadable. Inspect the original attempt."
                 .into()
         })
+}
+
+impl Base {
+    /// Require the reviewed candidate to remain a detached checkout of the named project.
+    /// Only Git metadata is read. No script from the candidate is executed.
+    pub(crate) fn check_checkout(&self, named: &Path) -> Result<(), String> {
+        if self.detached_head(named)? == self.head {
+            Ok(())
+        } else {
+            Err(self.moved())
+        }
+    }
+
+    fn moved(&self) -> String {
+        format!(
+            "The retry needs its detached checkout at {} on commit {}. Open the matching project and restore that checkout before starting.",
+            self.checkout.display(),
+            self.head
+        )
+    }
+
+    fn detached_head(&self, named: &Path) -> Result<String, String> {
+        if self.checkout.canonicalize().ok().as_deref() != Some(&self.checkout) {
+            return Err(self.moved());
+        }
+        let git = |root: &Path, args: &[&str]| {
+            crate::sdlc::git(
+                root,
+                &[&["rev-parse", "--path-format=absolute"][..], args].concat(),
+            )
+            .map_err(|_| self.moved())
+        };
+        let shared = git(named, &["--git-common-dir"])?;
+        let metadata = git(
+            &self.checkout,
+            &[
+                "--show-toplevel",
+                "--git-common-dir",
+                "HEAD",
+                "--abbrev-ref",
+                "HEAD",
+            ],
+        )?;
+        metadata
+            .strip_prefix(&format!("{}\n{}", self.checkout.display(), shared))
+            .and_then(|tail| tail.strip_suffix("\nHEAD\n"))
+            .map(str::to_owned)
+            .ok_or_else(|| self.moved())
+    }
+
+    /// A stage-3 build may include one direct commit containing only its own run evidence.
+    pub(crate) fn check_build(&self, root: &Path, slug: &str, head: &str) -> Result<(), String> {
+        use crate::sdlc::git;
+        if head == self.head {
+            return Ok(());
+        }
+        if git(root, &["show", "-s", "--format=%P", head])?.trim() != self.head {
+            return Err(self.moved());
+        }
+        let exclude = format!(":(exclude)runs/{slug}");
+        git(
+            root,
+            &[
+                "diff",
+                "--quiet",
+                "--no-ext-diff",
+                "--no-textconv",
+                &self.head,
+                head,
+                "--",
+                ".",
+                &exclude,
+            ],
+        )
+        .map(|_| ())
+        .map_err(|_| self.moved())
+    }
+
+    pub(super) fn started(&self, named: &Path, session: &Path, slug: &str) -> Result<bool, String> {
+        let head = self.detached_head(named)?;
+        let unknown = || {
+            format!(
+                "Cannot identify the retry intake. Open Watch with --sdlc-root {} and inspect run {slug}.",
+                self.checkout.display()
+            )
+        };
+        let mut directory = self.checkout.clone();
+        for component in ["runs", slug] {
+            directory.push(component);
+            match std::fs::symlink_metadata(&directory) {
+                Ok(meta) if meta.is_dir() => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    return if head == self.head {
+                        Ok(false)
+                    } else {
+                        Err(self.moved())
+                    };
+                }
+                _ => return Err(unknown()),
+            }
+        }
+        self.check_build(&self.checkout, slug, &head)?;
+        // Only the expected detached retry's intake record; never its runtime or steps.
+        let recorded = (|| {
+            let bytes = crate::regular_file::read_bounded(
+                &directory.join("run.json"),
+                4 * 1024 * 1024,
+                "run.json is not a regular file",
+            )
+            .ok()?
+            .bytes?;
+            let run: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+            let bound = &run["seed_contract"];
+            if run["schema"] != 1
+                || !crate::sdlc::canonical_run_id(run["run_id"].as_str()?)
+                || bound["path"].as_str()? != format!("runs/{slug}/seed-contract.md")
+                || bound.get("definitions_sha256").is_none()
+            {
+                return None;
+            }
+            crate::sdlc::Seed::parse(&run).ok().flatten()
+        })()
+        .ok_or_else(unknown)?;
+        if !super::runs::matches(&recorded, &super::ready::path(session))? {
+            return Err(unknown());
+        }
+        Ok(true)
+    }
 }
 
 /// Goal and source decisions as reviewed on the new-attempt screen.

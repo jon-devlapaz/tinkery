@@ -127,12 +127,12 @@ impl Receipt {
     /// A plain receipt after terminal restoration, with the next step read from the current
     /// session through the shared verifier, never inferred from this earlier goal save.
     pub fn text(&self) -> String {
-        use super::shaping::Shaped;
-        let next = match super::shaping::read(&self.session).map(|s| s.stage) {
-            Ok(Shaped::Ready { .. }) => "Next: take the confirmed Tink to Approve.",
-            Ok(Shaped::Drafted { .. }) => "Next: confirm the draft in Shape.",
-            Ok(Shaped::Waiting | Shaped::Question { .. }) => "Next: shape it into a Tink in Shape.",
-            Ok(Shaped::Ended { .. }) => "This session has ended.",
+        use super::ready::Stand;
+        let next = match super::ready::standing(&self.session).map(|s| s.stand) {
+            Ok(Stand::Ready { .. }) => "Next: take the confirmed Tink to Approve.",
+            Ok(Stand::Drafted(_)) => "Next: confirm the draft in Shape.",
+            Ok(Stand::Waiting | Stand::Question(_)) => "Next: shape it into a Tink in Shape.",
+            Ok(Stand::Ended(_)) => "This session has ended.",
             _ => "Next: check this session in Shape.",
         };
         format!(

@@ -1,7 +1,6 @@
 //! Session persistence and ledger rules: preserve goals and originals, refuse stale writes.
 //! Shared by every phase; no skill, helper process, viewer or model policy.
 
-pub mod answering;
 pub(crate) mod connection;
 pub(crate) mod connection_save;
 pub mod ledger;
@@ -11,7 +10,6 @@ pub(crate) mod retry;
 pub(crate) mod runs;
 mod save;
 mod session;
-pub mod shaping;
 #[cfg(test)]
 mod tests;
 

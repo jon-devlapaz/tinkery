@@ -1,8 +1,13 @@
-//! Where one session's seed stands, read only through Tinkery's ledger and seed verifier,
-//! plus the seed draft's text when one waits for confirmation. Read-only: it never publishes,
+//! Shape's view of where one session's seed stands: the shared classification, plus the question,
+//! findings, decisions, review lines and draft text Shape shows. Read-only: it never publishes,
 //! confirms or ends anything, and keeps no copy of the ledger.
 
 use super::answering::{AGAINST, OPTION_LABELS, UNFOUND, claim_suffix};
+use crate::seed_me::{
+    ledger,
+    ready::{self, Stand},
+    retry::Base,
+};
 use serde_json::Value;
 use std::path::Path;
 
@@ -10,7 +15,7 @@ use std::path::Path;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Shaping {
     /// Exact confirmed-seed identity from this verified read; navigation only, never permission.
-    pub ready_target: Option<super::ready::SeedTarget>,
+    pub ready_target: Option<ready::SeedTarget>,
     /// The ledger's confirmed goal, byte for byte; `None` when the session records none.
     pub goal: Option<String>,
     /// The saved record explicitly lacks a success criterion; unknown older records are not absence.
@@ -30,18 +35,18 @@ pub struct Shaping {
     /// The ledger's latest completed teach-back for the exact draft, with display labels.
     pub teach_back: Vec<String>,
     /// The single eligible deferred prerequisite, offered only while Waiting.
-    pub deferred: Option<super::ledger::DeferredPrerequisite>,
+    pub deferred: Option<ledger::DeferredPrerequisite>,
     /// The exact draft checks, in the order shown.
-    pub(crate) checks: Vec<super::ledger::DraftCheck>,
+    pub(crate) checks: Vec<ledger::DraftCheck>,
     /// Drafting guesses bound to the exact draft, or a notice when the receipt was invalid.
-    pub(crate) review: Option<Result<super::ledger::CompletionReview, &'static str>>,
+    pub(crate) review: Option<Result<ledger::CompletionReview, &'static str>>,
     /// The human sign-off the draft's or ready seed's judged checks require, if any.
     pub signoff: Option<String>,
 }
 
 impl Shaping {
     /// The draft's proposed failure for this check if its statement still matches.
-    pub(crate) fn failure_case(&self, check: &super::ledger::DraftCheck) -> Option<&str> {
+    pub(crate) fn failure_case(&self, check: &ledger::DraftCheck) -> Option<&str> {
         self.review
             .as_ref()
             .and_then(|review| review.as_ref().ok())
@@ -153,88 +158,32 @@ pub fn read(session: &Path) -> Result<Shaping, String> {
 }
 
 /// Include the retry checkout in the same reading, so Shape uses the source it displays.
-pub(crate) fn read_with_base(
-    session: &Path,
-) -> Result<(Shaping, Option<super::retry::Base>), String> {
-    read_session(session).map_err(|reason| format!("Tinkery refused: {reason}"))
-}
-
-fn read_session(session: &Path) -> Result<(Shaping, Option<super::retry::Base>), String> {
-    let ledger = super::ledger::load(session)?;
-    let flags = super::ledger::review_flags(&ledger["nodes"]);
-    let status = super::ledger::status_from_ledger(session, &ledger)?;
-    let revisable: Vec<_> = ledger["nodes"]
-        .array()
-        .unwrap_or(&[])
-        .iter()
-        .filter_map(|n| n["id"].string())
-        .filter(|id| super::ledger::can_revise(&ledger, id))
-        .map(str::to_owned)
-        .collect();
-    let waits: serde_json::Map<String, Value> = ledger["nodes"]
-        .array()
-        .unwrap_or(&[])
-        .iter()
-        .filter_map(|node| {
-            let id = node["id"].string()?;
-            Some((
-                id.to_owned(),
-                serde_json::json!(super::ledger::waiting_on(&ledger["nodes"], id)),
-            ))
-        })
-        .collect();
-    let confirmation = super::ledger::confirmation_summary(&ledger);
-    let saved = ledger;
-    let ledger = saved.to_json()?;
-    let mut status = status.to_json()?;
-    status["review_flags"] = flags.to_json()?;
-    status["revisable"] = serde_json::json!(revisable);
-    status["waiting_on"] = Value::Object(waits);
-    let mut shaping = classify(&ledger, &status);
-    let retry = super::retry::base(&saved)?;
-    if matches!(shaping.stage, Shaped::Ready { .. }) {
-        shaping.ready_target = (|| {
-            Some(super::ready::SeedTarget {
-                session: session.canonicalize().ok()?,
-                session_id: ledger["session_id"]
-                    .as_str()
-                    .filter(|id| !id.is_empty() && !id.chars().any(char::is_control))?
-                    .to_owned(),
-                retry: retry.clone(),
-                version: shaping.version?,
-                sha256: status["seed"]["sha256"].as_str()?.to_owned(),
-            })
-        })();
-        if retry.is_some() && shaping.ready_target.is_none() {
-            return Err("The retry has no verified session identity.".into());
-        }
-    }
-    shaping.confirmation = confirmation;
-    if matches!(shaping.stage, Shaped::Waiting) {
-        shaping.deferred = super::ledger::deferred_prerequisite(&saved)?;
-    }
-    if matches!(shaping.stage, Shaped::Ready { .. }) && status["handoff"]["operator"] == "agent" {
-        shaping.confirmation_note = Some("Agent-confirmed Tink. Intake requires tink-sdlc 1.38.0 or newer; this is not operator confirmation or implementation approval.".into());
-    }
+pub(crate) fn read_with_base(session: &Path) -> Result<(Shaping, Option<Base>), String> {
+    let standing = ready::standing(session)?;
+    let mut shaping = classify(&standing.json, &standing.status);
+    shaping.ready_target = standing.target;
+    shaping.confirmation = ledger::confirmation_summary(&standing.ledger);
+    shaping.deferred = standing.deferred;
+    shaping.confirmation_note = standing.note.map(Into::into);
     if matches!(shaping.stage, Shaped::Ready { .. })
-        && let Ok(records) = super::ledger::read_checks(session)
+        && let Ok(records) = ledger::read_checks(session)
     {
-        shaping.signoff = super::ledger::human_signoff(&records);
+        shaping.signoff = ledger::human_signoff(&records);
     }
     if let Shaped::Drafted { text, revision } = &mut shaping.stage {
-        *text = super::read_seed_text(&session.join("seed-contract.md")).ok();
+        *text = crate::seed_me::read_seed_text(&session.join("seed-contract.md")).ok();
         if let (Some(seed), Some(revision)) = (text.as_ref(), revision.as_ref()) {
-            if let Ok(records) = super::ledger::read_checks(session)
-                && super::ledger::checks_block(&records).is_ok_and(|block| seed.contains(&block))
+            if let Ok(records) = ledger::read_checks(session)
+                && ledger::checks_block(&records).is_ok_and(|block| seed.contains(&block))
             {
-                shaping.signoff = super::ledger::human_signoff(&records);
-                shaping.checks = super::ledger::draft_checks(&records).collect();
+                shaping.signoff = ledger::human_signoff(&records);
+                shaping.checks = ledger::draft_checks(&records).collect();
             }
-            shaping.teach_back = super::ledger::teach_back_report(&saved, revision, seed);
-            shaping.review = super::ledger::completion_review(&saved, revision, seed);
+            shaping.teach_back = ledger::teach_back_report(&standing.ledger, revision, seed);
+            shaping.review = ledger::completion_review(&standing.ledger, revision, seed);
         }
     }
-    Ok((shaping, retry))
+    Ok((shaping, standing.retry))
 }
 
 /// Where the seed stands, from the ledger and its verified `status`. An open question comes
@@ -300,63 +249,39 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         review: None,
         signoff: None,
     };
-    let unknown = |what: &str| shaping(goal.clone(), Shaped::Unknown { what: what.into() });
-    let Some(state) = text(status, "status") else {
-        return unknown("Tinkery read no session status.");
-    };
-    let ready = |status: &Value| {
-        let seed = status.get("seed").filter(|s| !s.is_null())?;
-        let confirmed = seed.get("line_1").and_then(Value::as_str)
-            == Some("status: confirmed for intake")
-            && status
-                .get("handoff")
-                .and_then(|h| h.get("verified"))
-                .and_then(Value::as_bool)
-                == Some(true);
-        confirmed.then(|| text(seed, "revision"))
-    };
-    if state == "completed"
-        && let Some(revision) = ready(status)
-    {
-        return shaping(
-            goal,
-            Shaped::Ready {
-                revision,
-                ended: true,
-            },
-        );
-    }
-    if state != "active" {
-        return shaping(goal, Shaped::Ended { status: state });
-    }
-    if goal.as_deref().is_none_or(|g| g.trim().is_empty()) {
-        return unknown("This session has no confirmed goal.");
-    }
-    if let Some(node) = nodes.iter().find(|n| {
-        n["id"]
-            .as_str()
-            .is_some_and(|id| status["review_flags"].get(id).is_some())
-    }) {
-        let id = text(node, "id").unwrap();
-        let found = status["review_flags"][&id]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .map(|flag| {
-                let source = flag["because"].as_str().unwrap_or("");
-                let answer = nodes
-                    .iter()
-                    .find(|n| n["id"] == source)
-                    .and_then(|n| n["answer"].as_str())
-                    .unwrap_or("");
-                format!(
-                    "{}: {source}: {answer}",
-                    flag["why"].as_str().unwrap_or("review")
-                )
-            })
-            .collect();
-        return shaping(
-            goal,
+    let stage = match ready::stand(ledger, status) {
+        Stand::Unknown(what) => Shaped::Unknown { what: what.into() },
+        Stand::Ended(status) => Shaped::Ended { status },
+        Stand::Ready { revision, ended } => Shaped::Ready { revision, ended },
+        Stand::Waiting => Shaped::Waiting,
+        Stand::Practice => Shaped::Practice,
+        Stand::Drafted(revision) => Shaped::Drafted {
+            revision,
+            text: None,
+        },
+        Stand::Unverified(reason) => Shaped::Unverified { reason },
+        Stand::Review(id) => {
+            let node = nodes
+                .iter()
+                .find(|n| n["id"] == id.as_str())
+                .unwrap_or(&Value::Null);
+            let found = status["review_flags"][&id]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|flag| {
+                    let source = flag["because"].as_str().unwrap_or("");
+                    let answer = nodes
+                        .iter()
+                        .find(|n| n["id"] == source)
+                        .and_then(|n| n["answer"].as_str())
+                        .unwrap_or("");
+                    format!(
+                        "{}: {source}: {answer}",
+                        flag["why"].as_str().unwrap_or("review")
+                    )
+                })
+                .collect();
             Shaped::Review {
                 revisable: status["revisable"]
                     .as_array()
@@ -365,48 +290,45 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
                 id,
                 answer: text(node, "answer").unwrap_or_default(),
                 found,
-            },
-        );
-    }
-    if let Some(id) = text(status, "current_question") {
-        let node = nodes.iter().find(|n| text(n, "id").as_deref() == Some(&id));
-        let Some(node) = node else {
-            return unknown("The current question isn't in its ledger.");
-        };
-        let Some(asked) = text(node, "question").or_else(|| text(node, "gate")) else {
-            return unknown("The current question has no wording.");
-        };
-        // Options and the case against are lines Tinkery adds under the ask; see `answering::Ask`.
-        let (mut ask, mut options, mut against) = (Vec::new(), Vec::new(), None);
-        for line in asked.lines() {
-            if OPTION_LABELS.iter().any(|l| line.starts_with(l)) {
-                options.push(line.to_owned());
-            } else if let Some(case) = line.strip_prefix(AGAINST) {
-                against = Some(case.to_owned());
-            } else {
-                ask.push(line);
             }
         }
-        let ask = ask.join("\n");
-        let hard = options.iter().any(|o| o.ends_with("Undo cost: hard."));
-        let found = std::iter::once(node)
-            .chain(
-                node["supported_by"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|id| nodes.iter().find(|n| n["id"] == *id)),
-            )
-            .flat_map(|node| {
-                node["evidence"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .filter_map(move |entry| format_finding(node, entry))
-            })
-            .collect();
-        return shaping(
-            goal,
+        Stand::Question(id) => {
+            let node = nodes
+                .iter()
+                .find(|n| text(n, "id").as_deref() == Some(&id))
+                .unwrap_or(&Value::Null);
+            let asked = text(node, "question")
+                .or_else(|| text(node, "gate"))
+                .unwrap_or_default();
+            // Options and the case against are lines Tinkery adds under the ask; see `answering::Ask`.
+            let (mut ask, mut options, mut against) = (Vec::new(), Vec::new(), None);
+            for line in asked.lines() {
+                if OPTION_LABELS.iter().any(|l| line.starts_with(l)) {
+                    options.push(line.to_owned());
+                } else if let Some(case) = line.strip_prefix(AGAINST) {
+                    against = Some(case.to_owned());
+                } else {
+                    ask.push(line);
+                }
+            }
+            let ask = ask.join("\n");
+            let hard = options.iter().any(|o| o.ends_with("Undo cost: hard."));
+            let found = std::iter::once(node)
+                .chain(
+                    node["supported_by"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|id| nodes.iter().find(|n| n["id"] == *id)),
+                )
+                .flat_map(|node| {
+                    node["evidence"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(move |entry| format_finding(node, entry))
+                })
+                .collect();
             Shaped::Question {
                 gate: text(node, "gate").unwrap_or_default(),
                 title: text(node, "label").unwrap_or_else(|| id.clone()),
@@ -417,38 +339,8 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
                 options,
                 against,
                 hard,
-            },
-        );
-    }
-    let seed = status.get("seed").filter(|s| !s.is_null());
-    let Some(seed) = seed else {
-        return shaping(goal, Shaped::Waiting);
-    };
-    let revision = text(seed, "revision");
-    let handoff = status.get("handoff");
-    let stage = match seed.get("line_1").and_then(Value::as_str) {
-        Some("status: draft") => Shaped::Drafted {
-            revision,
-            text: None,
-        },
-        Some("status: simulated") => Shaped::Practice,
-        Some("status: confirmed for intake") => match handoff
-            .and_then(|h| h.get("verified"))
-            .and_then(Value::as_bool)
-        {
-            Some(true) => Shaped::Ready {
-                revision,
-                ended: false,
-            },
-            _ => Shaped::Unverified {
-                reason: handoff
-                    .and_then(|h| text(h, "reason"))
-                    .unwrap_or_else(|| "Tinkery gave no reason.".into()),
-            },
-        },
-        _ => Shaped::Unknown {
-            what: "Tinkery cannot recognize the Tink Contract's status line.".into(),
-        },
+            }
+        }
     };
     shaping(goal, stage)
 }
