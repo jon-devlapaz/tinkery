@@ -259,7 +259,7 @@ fn next_dump_draft_is_unsent_and_edited_words_have_separate_provenance() {
     a.handle_key(KeyEvent::from(KeyCode::Char('1')));
     assert_eq!(a.conversation.sources()[0].text, "  TEST my correction\r\n");
     assert!(matches!(&a.conversation.turns()[0].event,
-        Event::DraftSuggested { text, provenance } if text == "TEST proposal" && provenance.contains("TEST provenance")));
+        Event::DraftSuggested(crate::think_record::DraftSuggestion { text, provenance }) if text == "TEST proposal" && provenance.contains("TEST provenance")));
     assert!(matches!(&a.conversation.turns()[1].event,
         Event::Words { text, .. } if text == "  TEST my correction\r\n"));
     let request = a.shaping.request.as_ref().unwrap();

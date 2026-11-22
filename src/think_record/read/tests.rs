@@ -1,6 +1,7 @@
 //! Synthetic saved sessions exercise attribution and refusal without operator files or providers.
 
 use super::*;
+use crate::confirmation::GoalConfirmation;
 use crate::think_record::{Origin, Session, Turn, write};
 use std::{
     fs::File,
@@ -69,10 +70,10 @@ fn turns() -> Vec<Turn> {
             source: 4,
             answer: "yes".into(),
         },
-        Event::DraftSuggested {
+        Event::DraftSuggested(crate::think_record::DraftSuggestion {
             text: "  TEST deterministic proposal\r\n".into(),
             provenance: "TEST run / PR / head; external acceptance unverified".into(),
-        },
+        }),
     ]
     .into_iter()
     .enumerate()
@@ -1002,5 +1003,97 @@ fn shape_context_keeps_only_exact_submissions_in_one_verified_scan() {
     assert_eq!(
         fs::read(session.join("ledger.json")).unwrap(),
         ledger_before
+    );
+}
+
+
+#[test]
+fn a_written_record_reads_back_with_its_keys_in_stored_order() {
+    let dir = tempfile::tempdir().unwrap();
+    let session = session(dir.path(), "TEST-readback");
+    let root = dir.path().join("TEST-records");
+    let path = record(&root, &session, 10);
+    let text = fs::read_to_string(&path).unwrap();
+    let keys: Vec<_> = text
+        .lines()
+        .filter_map(|line| line.strip_prefix("  \"")?.split_once('"'))
+        .map(|(key, _)| key)
+        .collect();
+    let mut sorted = keys.clone();
+    sorted.sort_unstable();
+    assert_eq!(keys, sorted, "stored records keep sorted keys");
+    assert!(text.contains("\"kind\": \"draft_suggested\""), "{text}");
+    let history = read(&root, &session, GOAL).unwrap();
+    assert_eq!(
+        history.turns.into_iter().map(|t| t.event).collect::<Vec<_>>(),
+        turns().into_iter().map(|t| t.event).collect::<Vec<_>>()
+    );
+    assert!(history.details.contains("Format: 3"));
+}
+
+/// A schema-2 record as older Tinkery stored it: no repository, source, context or confirmer.
+const SCHEMA_2: &str = r#"{
+  "checks": [],
+  "confirmed": "2026-01-01T00:00:10.000Z",
+  "goal": "GOAL",
+  "model": null,
+  "origin": "simulated",
+  "prompt_hash": null,
+  "schema": 2,
+  "seed_me_session": "TEST-id-TEST-legacy",
+  "seed_me_session_id": "TEST-id-TEST-legacy",
+  "seed_me_session_path": "PATH",
+  "started": "2026-01-01T00:00:01.000Z",
+  "thinking": null,
+  "tinkery": "0.1.0",
+  "turns": [
+    {"at": "2026-01-01T00:00:01.000Z", "kind": "words", "source": 1, "text": "  TEST words\n"},
+    {"at": "2026-01-01T00:00:02.000Z", "kind": "draft_suggested", "text": "TEST draft", "provenance": "TEST basis"}
+  ]
+}
+"#;
+
+#[test]
+fn stored_legacy_records_still_read() {
+    let dir = tempfile::tempdir().unwrap();
+    let session = session(dir.path(), "TEST-legacy");
+    let root = dir.path().join("TEST-records");
+    fs::create_dir_all(&root).unwrap();
+    let path = root.join("TEST-legacy.json");
+    let goal = serde_json::to_string(GOAL).unwrap();
+    let stored = SCHEMA_2
+        .replace("\"GOAL\"", &goal)
+        .replace("PATH", session.to_str().unwrap());
+    fs::write(&path, &stored).unwrap();
+    let history = read(&root, &session, GOAL).unwrap();
+    assert_eq!(history.made_in, MadeIn::Unknown);
+    assert_eq!(history.goal, GOAL);
+    assert_eq!(
+        history.turns.iter().map(|t| &t.event).collect::<Vec<_>>(),
+        [
+            &Event::Words {
+                source: 1,
+                text: "  TEST words\n".into()
+            },
+            &Event::DraftSuggested(crate::think_record::DraftSuggestion {
+                text: "TEST draft".into(),
+                provenance: "TEST basis".into()
+            }),
+        ]
+    );
+    assert!(history.details.contains("Format: 2"));
+    let schema_1 = stored
+        .replace("\"schema\": 2", "\"schema\": 1")
+        .replace("\"seed_me_session_id\": \"TEST-id-TEST-legacy\",\n", "");
+    fs::write(&path, schema_1).unwrap();
+    assert!(
+        read(&root, &session, GOAL)
+            .unwrap_err()
+            .message
+            .contains("older Think history")
+    );
+    assert_eq!(
+        read_origins(&root, &[(session.as_path(), GOAL)]).unwrap(),
+        vec![MadeIn::Unknown]
     );
 }
