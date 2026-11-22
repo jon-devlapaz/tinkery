@@ -2,6 +2,13 @@
 //! and derive reviews without changing answers. Seed confirmation binds bytes, decisions and checks;
 //! ending verifies that binding. No operation opens or refreshes a browser viewer.
 
+/// Ledger id of the pre-mortem probe; "not sure" is a fair answer to it.
+pub const PRE_MORTEM: &str = "probe-pre-mortem";
+/// Ledger id of the real-sample probe.
+pub const REAL_SAMPLE: &str = "probe-real-sample";
+/// Ledger id of the decision that records a need nobody has observed; its seed line says so.
+pub const UNOBSERVED_NEED: &str = "unobserved-need";
+
 mod teach_back;
 pub(crate) use teach_back::completion_review;
 pub use teach_back::{
@@ -1125,4 +1132,22 @@ pub fn transition(
         )?;
     }
     Ok(result)
+}
+
+/// Each decision in a parsed `ledger` that the operator has not answered in their own words: open,
+/// or settled or deferred by anyone else, including a decision a draft change added. The fixed
+/// probes never count; the unobserved need does. An empty list promises only that no recorded
+/// decision was settled without the operator; a gray choice Shape neither asked nor listed as a
+/// draft reading is not detected.
+pub fn gray(ledger: &serde_json::Value) -> Vec<serde_json::Value> {
+    let probes = [PRE_MORTEM, REAL_SAMPLE];
+    ledger["nodes"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|n| n["kind"] == "decision" && n["id"] != "goal")
+        .filter(|n| !probes.iter().any(|p| n["id"] == *p))
+        .filter(|n| n["status"] == "unresolved" || n["authority"] != "user")
+        .map(|n| serde_json::json!({"id": n["id"], "label": n["label"], "status": n["status"], "authority": n["authority"]}))
+        .collect()
 }

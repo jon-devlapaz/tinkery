@@ -13,8 +13,8 @@
 //! confirmation and ending belong to Tinkery's ledger; the host supplies unconfirmed prose.
 //! The confirmed goal never changes. Calls block; run them off the paint path.
 
-use super::ledger;
 use crate::confirmation::Actor;
+use crate::seed_me::ledger;
 use serde_json::{Value, json};
 use std::{
     path::Path,
@@ -440,7 +440,7 @@ pub const NOTHING_FOUND: &str = "- Nothing was recorded: no step said what it ch
 /// The reference is verbatim from Seed Me c9d766760dbeac0c05c92108165f9e968bec0a66.
 /// No installed skill or helper is read.
 pub fn contract() -> Result<String, Refusal> {
-    seed_reply::instructions(include_str!("seed-contract.txt"))
+    seed_reply::instructions(include_str!("../seed_me/seed-contract.txt"))
 }
 
 /// A refusal from Tinkery's own ledger, which saved nothing; it never credits Seed Me. An
@@ -478,24 +478,6 @@ fn published(error: ledger::PublishError) -> Refusal {
 
 fn json(text: &str) -> Result<Value, Refusal> {
     serde_json::from_str(text).map_err(|e| Refusal::Refused(format!("Invalid session JSON: {e}")))
-}
-
-/// Each decision in a parsed `ledger` that the operator has not answered in their own words: open,
-/// or settled or deferred by anyone else, including a decision a draft change added. The fixed
-/// probes never count; the unobserved need does. An empty list promises only that no recorded
-/// decision was settled without the operator; a gray choice Shape neither asked nor listed as a
-/// draft reading is not detected.
-pub fn gray(ledger: &Value) -> Vec<Value> {
-    let probes = [PROBE.0, SAMPLE.0];
-    ledger["nodes"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter(|n| n["kind"] == "decision" && n["id"] != "goal")
-        .filter(|n| !probes.iter().any(|p| n["id"] == *p))
-        .filter(|n| n["status"] == "unresolved" || n["authority"] != "user")
-        .map(|n| json!({"id": n["id"], "label": n["label"], "status": n["status"], "authority": n["authority"]}))
-        .collect()
 }
 
 /// Read `session`'s editable ledger at one version, without writing or calling the helper.

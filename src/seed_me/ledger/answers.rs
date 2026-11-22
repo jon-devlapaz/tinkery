@@ -110,7 +110,7 @@ pub fn leaves_open(id: &str, words: &str) -> bool {
         .trim()
         .to_lowercase()
         .replace('\u{2019}', "'");
-    id != crate::seed_me::answering::PROBE.0
+    id != super::PRE_MORTEM
         && [
             "",
             "not decided",

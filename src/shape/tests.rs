@@ -1,9 +1,7 @@
 use super::*;
-use crate::seed_me::{
-    ledger::fixtures::prose_reply,
-    shaping::{Decided, Shaped, Shaping},
-};
+use crate::seed_me::ledger::fixtures::prose_reply;
 use crossterm::event::KeyModifiers;
+use shaping::{Decided, Shaped, Shaping};
 use std::sync::Arc;
 
 const GOAL: &str = "TEST I can shape a goal calmly.\nWhy: I lose the thread between tools.\nDone when: I see the next question.\nMust: Keep my words.\nMust not: Run agents.";
@@ -1035,7 +1033,10 @@ fn the_reply_is_a_question_or_a_seed_and_never_a_confirmation() {
 
 #[test]
 fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
-    use crate::seed_me::{Affirmed, Config, answering};
+    use crate::{
+        seed_me::{Affirmed, Config},
+        shape::answering,
+    };
     let root = tempfile::Builder::new()
         .prefix("tinkery-TEST-214-")
         .tempdir()
@@ -1230,7 +1231,7 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
     );
     // #936: recorded drafts now carry cmd, so the operator edits one command instead.
     {
-        let check = crate::seed_me::shaping::read(&receipt.session)
+        let check = crate::shape::shaping::read(&receipt.session)
             .unwrap()
             .checks
             .into_iter()
@@ -1264,7 +1265,7 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
     );
     answering::confirm_seed(
         &receipt.session,
-        crate::seed_me::answering::read(&receipt.session)
+        crate::shape::answering::read(&receipt.session)
             .unwrap()
             .version(),
         "r2",
@@ -1274,9 +1275,7 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
     )
     .unwrap();
     assert!(matches!(
-        crate::seed_me::shaping::read(&receipt.session)
-            .unwrap()
-            .stage,
+        crate::shape::shaping::read(&receipt.session).unwrap().stage,
         Shaped::Ready { .. }
     ));
     let confirmation: serde_json::Value = serde_json::from_slice(
@@ -1287,9 +1286,7 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
     assert!(confirmation["checks_sha256"].as_str().is_some());
     std::fs::write(receipt.session.join("seed-checks.json"), "[]").unwrap();
     assert!(!matches!(
-        crate::seed_me::shaping::read(&receipt.session)
-            .unwrap()
-            .stage,
+        crate::shape::shaping::read(&receipt.session).unwrap().stage,
         Shaped::Ready { .. }
     ));
     assert!(
@@ -1300,7 +1297,7 @@ fn stacker_r1_draft_stores_records_instead_of_model_markdown() {
 
 #[test]
 fn issue_299_review_keeps_failure_cases_separate_from_success_criteria() {
-    use crate::seed_me::{Affirmed, Config, ledger, shaping};
+    use crate::seed_me::{Affirmed, Config, ledger};
 
     let cases = [
         (
@@ -1420,7 +1417,8 @@ fn missing_intake_sections(seed: &str, consumer: &str) -> Vec<String> {
 fn a_change_to_the_draft_is_the_operators_decision_and_the_redraft_carries_it() {
     use crate::{
         pi::CallBudget,
-        seed_me::{Affirmed, Config, shaping},
+        seed_me::{Affirmed, Config},
+        shape::shaping,
     };
     use std::{
         fs,
@@ -1527,7 +1525,8 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
 fn a_stub_step_preserves_a_check_or_operator_judgment_for_every_done_when() {
     use crate::{
         pi::CallBudget,
-        seed_me::{Affirmed, Config, answering, shaping},
+        seed_me::{Affirmed, Config},
+        shape::{answering, shaping},
     };
     use std::{
         fs,
@@ -1859,7 +1858,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
     );
     answering::confirm_seed(
         &receipt.session,
-        crate::seed_me::answering::read(&receipt.session)
+        crate::shape::answering::read(&receipt.session)
             .unwrap()
             .version(),
         "r9",
@@ -1880,7 +1879,8 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
 fn repository_checks_are_proposed_with_sources_but_never_executed() {
     use crate::{
         pi::CallBudget,
-        seed_me::{Affirmed, Config, answering, shaping},
+        seed_me::{Affirmed, Config},
+        shape::{answering, shaping},
     };
     use std::{
         fs,
@@ -2023,7 +2023,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
     assert!(!temp.path().join("TEST-future-check").exists());
     answering::confirm_seed(
         &receipt.session,
-        crate::seed_me::answering::read(&receipt.session)
+        crate::shape::answering::read(&receipt.session)
             .unwrap()
             .version(),
         "r1",
@@ -2110,7 +2110,8 @@ fn settled_intake_deferral_drafts_without_choosing_or_confirming() {
 fn assert_settled_intake_drafts(words: Option<&str>) {
     use crate::{
         pi::CallBudget,
-        seed_me::{Affirmed, Config, answering},
+        seed_me::{Affirmed, Config},
+        shape::answering,
     };
     use std::{
         fs,
@@ -2389,7 +2390,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
     assert!(seed.contains("The confirmed goal supplies the tool name tally."));
     assert!(seed.contains("executable invocation remains unknown"));
     assert!(!seed.contains("CLI name"));
-    let ledger = crate::seed_me::answering::read(&receipt.session).unwrap();
+    let ledger = crate::shape::answering::read(&receipt.session).unwrap();
     assert_eq!(ledger.goal(), Some(GOAL));
     assert!(ledger.context().contains(WORDS));
     assert_eq!(agent.remaining(), 0);
@@ -2823,11 +2824,8 @@ fn a_long_editor_follows_its_cursor_and_leaves_half_the_body_for_reading() {
 #[cfg(unix)]
 #[test]
 fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only() {
-    use crate::seed_me::{
-        Affirmed, Config,
-        answering::{self, Ending},
-        shaping,
-    };
+    use crate::seed_me::{Affirmed, Config};
+    use answering::Ending;
 
     let temp = tempfile::Builder::new()
         .prefix("tinkery-TEST-231-")
@@ -2864,7 +2862,7 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
     .unwrap();
     answering::confirm_seed(
         &session,
-        crate::seed_me::answering::read(&session).unwrap().version(),
+        crate::shape::answering::read(&session).unwrap().version(),
         &revision,
         &std::fs::read_to_string(session.join("seed-contract.md")).unwrap(),
         "TEST yes to this seed only",
@@ -3174,7 +3172,10 @@ fn assumptions_show_with_their_question_and_object_then_a_number_objects_to_one(
 #[cfg(unix)]
 #[test]
 fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
-    use crate::seed_me::{Affirmed, Config, answering, shaping};
+    use crate::{
+        seed_me::{Affirmed, Config},
+        shape::{answering, shaping},
+    };
 
     let temp = tempfile::Builder::new()
         .prefix("tinkery-TEST-233-")
@@ -3411,7 +3412,10 @@ fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
 #[cfg(unix)]
 #[test]
 fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
-    use crate::seed_me::{Affirmed, Config, answering, shaping};
+    use crate::{
+        seed_me::{Affirmed, Config},
+        shape::{answering, shaping},
+    };
 
     let temp = tempfile::Builder::new()
         .prefix("tinkery-TEST-232-")
@@ -3488,7 +3492,7 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
 /// A TEST session whose real-sample and pre-mortem probes the operator already answered, for
 /// steps about drafting.
 fn answered_probe(session: &Path) -> u64 {
-    use crate::seed_me::answering;
+    use crate::shape::answering;
     let mut version = answering::read(session).unwrap().version();
     for (id, words) in [
         (answering::SAMPLE.0, "TEST sample: one pasted line"),
@@ -3505,7 +3509,8 @@ fn answered_probe(session: &Path) -> u64 {
 fn the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model() {
     use crate::{
         pi::CallBudget,
-        seed_me::{Affirmed, Config, answering, shaping},
+        seed_me::{Affirmed, Config},
+        shape::{answering, shaping},
     };
     use std::{
         fs,
@@ -3658,7 +3663,8 @@ fn the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model
 fn a_no_sample_answer_stops_the_seed_until_the_operator_names_who_needs_it() {
     use crate::{
         pi::CallBudget,
-        seed_me::{Affirmed, Config, answering, ledger, shaping},
+        seed_me::{Affirmed, Config, ledger},
+        shape::{answering, shaping},
     };
     use std::{
         fs,
@@ -3741,7 +3747,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
     let gray = || {
         let saved: serde_json::Value =
             serde_json::from_str(&ledger::load(&session).unwrap().pretty().unwrap()).unwrap();
-        answering::gray(&saved)
+        ledger::gray(&saved)
             .iter()
             .map(|g| g["id"].as_str().unwrap().to_owned())
             .collect::<Vec<_>>()
@@ -4281,7 +4287,7 @@ fn issue_314_captured_goal_names_missing_success_before_any_call() {
             let host = agent(1);
             let mut shape = Shape::session(&session).with_agent(Some(host.clone()));
             shape.open.as_mut().unwrap().reading =
-                Reading::Done(Ok(crate::seed_me::shaping::read(&session).unwrap()));
+                Reading::Done(Ok(crate::shape::shaping::read(&session).unwrap()));
             let shown = screen(&mut shape, width, height, no_color);
             assert!(
                 shown.contains("The saved goal leaves Done when open."),
@@ -4307,7 +4313,8 @@ fn issue_314_captured_goal_names_missing_success_before_any_call() {
 fn stopping_after_a_reply_arrives_discards_its_retry_feedback() {
     use crate::{
         pi::CallBudget,
-        seed_me::{Affirmed, Config, answering},
+        seed_me::{Affirmed, Config},
+        shape::answering,
     };
     use std::{
         fs,

@@ -224,7 +224,7 @@ fn a_zero_height_reading_never_authorizes_confirmation() {
 
 #[test]
 fn public_shape_status_preserves_seed_and_confirmation_states() {
-    use tinkery::seed_me::shaping::{self, Shaped};
+    use tinkery::shape::shaping::{self, Shaped};
     let (_root, session) = fixture("TEST exact goal", "TEST small body");
     let assert_read_only = |session: &Path| {
         let before = files(session);
@@ -289,16 +289,16 @@ fn public_shape_status_preserves_seed_and_confirmation_states() {
         .unwrap()
         .as_u64()
         .unwrap();
-    let version = tinkery::seed_me::answering::probe(&session, current)
+    let version = tinkery::shape::answering::probe(&session, current)
         .unwrap()
         .unwrap();
     let (view, status) = assert_read_only(&session);
     assert_eq!(view.version, Some(version));
     assert!(
-        matches!(view.stage, Shaped::Question { ref id, .. } if id == tinkery::seed_me::answering::SAMPLE.0)
+        matches!(view.stage, Shaped::Question { ref id, .. } if id == tinkery::shape::answering::SAMPLE.0)
     );
     assert_eq!(
         status["current_question"].string(),
-        Some(tinkery::seed_me::answering::SAMPLE.0)
+        Some(tinkery::shape::answering::SAMPLE.0)
     );
 }

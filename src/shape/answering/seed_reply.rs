@@ -310,7 +310,7 @@ mod tests {
 
     #[test]
     fn attached_instructions_have_one_field_layout_and_no_markdown_writing_directions() {
-        let reference = include_str!("../seed-contract.txt");
+        let reference = include_str!("../../seed_me/seed-contract.txt");
         let instructions = instructions(reference).unwrap();
         for name in fields() {
             assert!(instructions.contains(&format!("\"{name}\":")));

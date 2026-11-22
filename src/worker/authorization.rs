@@ -4,7 +4,7 @@
 
 use super::{Config, Run};
 use crate::confirmation::{BlastRadius, ConfirmationClass, Door};
-use crate::seed_me::{answering, ledger, ready::SeedTarget};
+use crate::seed_me::{ledger, ready::SeedTarget};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::OpenOptions,
@@ -150,7 +150,7 @@ impl Gate {
             let saved: serde_json::Value =
                 serde_json::from_str(&ledger::load(&target.session)?.pretty()?)
                     .map_err(|e| e.to_string())?;
-            let gray = answering::gray(&saved);
+            let gray = ledger::gray(&saved);
             if !gray.is_empty() {
                 let labels: Vec<_> = gray.iter().filter_map(|g| g["label"].as_str()).collect();
                 return Err(format!(

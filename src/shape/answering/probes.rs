@@ -5,26 +5,27 @@
 //! stale version.
 
 use super::{Refusal, nodes, publish, read};
+use crate::seed_me::ledger;
 use serde_json::json;
 use std::path::Path;
 
 /// The probe the interview requires the operator to answer before the seed: its ledger id and wording.
 pub const PROBE: (&str, &str) = (
-    "probe-pre-mortem",
+    ledger::PRE_MORTEM,
     "Imagine this shipped and turned out wrong. What is the most likely reason?",
 );
 
 /// The probe that asks for real input before any seed, so checks are drafted against what the
 /// work will meet, not only invented fixtures (#740): its ledger id and wording.
 pub const SAMPLE: (&str, &str) = (
-    "probe-real-sample",
+    ledger::REAL_SAMPLE,
     "Paste one real example of what this will work on, or say where one lives. If there is none, type no sample and say why.",
 );
 
 /// The decision Shape records after a "no sample" answer, so a seed never treats an unobserved need
 /// as a fact (#952): its ledger id and wording.
 pub const UNOBSERVED: (&str, &str) = (
-    "unobserved-need",
+    ledger::UNOBSERVED_NEED,
     "You gave no sample, so nothing shows that anyone needs this. Who asked for it? If nobody did, say why to build it anyway.",
 );
 
