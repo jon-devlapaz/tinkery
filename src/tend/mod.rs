@@ -572,66 +572,9 @@ fn records(n: usize) -> String {
     }
 }
 
+/// A session's `updated` time in Unix seconds; `None` when it is not RFC 3339 or is before 1970.
 pub(super) fn timestamp(value: &str) -> Option<u64> {
-    let number = |a, b| value.get(a..b)?.parse::<i64>().ok();
-    if value.get(4..5)? != "-"
-        || value.get(7..8)? != "-"
-        || value.get(10..11)? != "T"
-        || value.get(13..14)? != ":"
-        || value.get(16..17)? != ":"
-    {
-        return None;
-    }
-    let (year, month, day, hour, minute, second) = (
-        number(0, 4)?,
-        number(5, 7)?,
-        number(8, 10)?,
-        number(11, 13)?,
-        number(14, 16)?,
-        number(17, 19)?,
-    );
-    let tail = value.get(19..)?;
-    let zone = if let Some(fraction) = tail.strip_prefix('.') {
-        let n = fraction.bytes().take_while(u8::is_ascii_digit).count();
-        if n == 0 {
-            return None;
-        }
-        fraction.get(n..)?
-    } else {
-        tail
-    };
-    let offset = if zone == "Z" {
-        0
-    } else {
-        if zone.len() != 6 || zone.get(3..4)? != ":" {
-            return None;
-        }
-        let h = zone.get(1..3)?.parse::<i64>().ok()?;
-        let m = zone.get(4..6)?.parse::<i64>().ok()?;
-        if !(0..24).contains(&h) || !(0..60).contains(&m) {
-            return None;
-        }
-        match zone.get(..1)? {
-            "+" => h * 3600 + m * 60,
-            "-" => -(h * 3600 + m * 60),
-            _ => return None,
-        }
-    };
-    let date = time::Date::from_calendar_date(
-        year.try_into().ok()?,
-        u8::try_from(month).ok()?.try_into().ok()?,
-        day.try_into().ok()?,
-    )
-    .ok()?;
-    let local = date
-        .with_hms(
-            hour.try_into().ok()?,
-            minute.try_into().ok()?,
-            second.try_into().ok()?,
-        )
-        .ok()?;
-    let offset = time::UtcOffset::from_whole_seconds(offset.try_into().ok()?).ok()?;
-    u64::try_from(local.assume_offset(offset).unix_timestamp()).ok()
+    u64::try_from(crate::calendar::parse(value)?.unix_timestamp()).ok()
 }
 fn relative_time(updated: &str, now: u64) -> String {
     let Some(at) = timestamp(updated) else {

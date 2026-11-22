@@ -28,7 +28,7 @@ use std::{
     ffi::OsStr,
     io::Write,
     path::{Path, PathBuf},
-    time::{SystemTime, UNIX_EPOCH},
+    time::SystemTime,
 };
 
 /// The record format's version. Renaming or removing a field changes it.
@@ -383,23 +383,14 @@ fn session_id(session: &Path) -> String {
 /// `t` in UTC as `2026-10-12T22:40:00.123Z`, with `sep` between hours, minutes and seconds
 /// (`-` keeps it safe in a file name).
 fn utc(t: SystemTime, sep: char) -> String {
-    let d = t.duration_since(UNIX_EPOCH).unwrap_or_default();
-    let secs = d.as_secs();
-    let date = crate::calendar::date((secs / 86_400) as i64);
-    let rem = secs % 86_400;
-    format!(
-        "{date}T{:02}{sep}{:02}{sep}{:02}.{:03}Z",
-        rem / 3600,
-        rem / 60 % 60,
-        rem % 60,
-        d.subsec_millis()
-    )
+    let (stamp, nanos) = crate::calendar::utc(t, sep);
+    format!("{stamp}.{:03}Z", nanos / 1_000_000)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
+    use std::time::{Duration, UNIX_EPOCH};
 
     fn at(secs: u64) -> SystemTime {
         UNIX_EPOCH + Duration::from_millis(secs * 1000 + 7)

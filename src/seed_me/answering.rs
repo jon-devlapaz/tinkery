@@ -358,7 +358,7 @@ pub const UNFOUND: &str = "; citation not found: ";
 
 /// Append proposed facts without guessing types, repairing references or duplicating ledger rules.
 fn facts(state: &mut Value, found: &[Found], folder: &Path) {
-    let at = now();
+    let at = crate::calendar::now();
     for f in found {
         let mut node = json!({
             "id": f.id, "kind": "fact", "status": "settled", "prerequisites": [],
@@ -563,24 +563,16 @@ fn publish_at(
 }
 
 fn publication_time(time: SystemTime) -> Result<String, Refusal> {
-    let elapsed = time
-        .duration_since(UNIX_EPOCH)
+    time.duration_since(UNIX_EPOCH)
         .map_err(|e| not_saved(e.to_string()))?;
-    let secs = elapsed.as_secs();
-    let rest = secs % 86_400;
-    let micros = elapsed.subsec_micros();
+    let (stamp, nanos) = crate::calendar::utc(time, ':');
+    let micros = nanos / 1000;
     let fraction = if micros == 0 {
         String::new()
     } else {
         format!(".{micros:06}")
     };
-    Ok(format!(
-        "{}T{:02}:{:02}:{:02}{fraction}+00:00",
-        crate::calendar::date((secs / 86_400) as i64),
-        rest / 3600,
-        rest % 3600 / 60,
-        rest % 60
-    ))
+    Ok(format!("{stamp}{fraction}+00:00"))
 }
 
 #[cfg(test)]
@@ -1141,7 +1133,7 @@ pub fn draft_seed(
         .as_str()
         .and_then(|g| g.lines().next())
         .unwrap_or("");
-    let date = local_date();
+    let date = crate::calendar::local_date();
     let text =
         format!("status: draft\n# Seed: {title}\nrevision: r{revision}\ndate: {date}\n\n{body}");
     ledger::save_draft(session, version, previous.as_deref(), &records, &text)
@@ -1260,74 +1252,9 @@ fn unique_id(wanted: &str, taken: &[String]) -> String {
     id
 }
 
-/// Now as an ISO 8601 UTC timestamp, as receipts need.
-pub(crate) fn now() -> String {
-    let secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs());
-    let rest = secs % 86_400;
-    format!(
-        "{}T{:02}:{:02}:{:02}+00:00",
-        crate::calendar::date((secs / 86_400) as i64),
-        rest / 3600,
-        rest % 3600 / 60,
-        rest % 60
-    )
-}
-
-/// Today's date where the operator is, for the seed's `date:` line; receipts keep UTC.
-fn local_date() -> String {
-    let secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs()) as i64;
-    crate::calendar::date((secs + utc_offset(secs)).div_euclid(86_400))
-}
-
-/// The local time zone's offset from UTC at `secs`, in seconds; 0 when it can't be read.
-#[cfg(unix)]
-fn utc_offset(secs: i64) -> i64 {
-    let time = secs as libc::time_t;
-    let mut tm: libc::tm = unsafe { std::mem::zeroed() };
-    // SAFETY: both pointers are valid for the call; localtime_r writes only `tm`.
-    if unsafe { libc::localtime_r(&time, &mut tm) }.is_null() {
-        return 0;
-    }
-    tm.tm_gmtoff as i64
-}
-
-#[cfg(not(unix))]
-fn utc_offset(_secs: i64) -> i64 {
-    0
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn the_seed_is_dated_where_the_operator_is_and_receipts_stay_utc() {
-        assert_eq!(crate::calendar::date(0), "1970-01-01");
-        assert_eq!(crate::calendar::date(-1), "1969-12-31");
-        assert_eq!(crate::calendar::date(11016), "2000-02-29");
-        let stamp = now();
-        assert!(
-            stamp.ends_with("+00:00") && stamp.starts_with("20"),
-            "receipts stay UTC: {stamp}"
-        );
-        // The operator's own clock says what today is; retry once across midnight.
-        let today = || {
-            let out = std::process::Command::new("date")
-                .arg("+%F")
-                .output()
-                .unwrap();
-            String::from_utf8(out.stdout).unwrap().trim().to_owned()
-        };
-        let (before, ours, after) = (today(), local_date(), today());
-        assert!(
-            ours == before || ours == after,
-            "{ours} vs {before}/{after}"
-        );
-    }
 
     #[test]
     fn option_lines_keep_single_punctuation_whatever_the_model_ends_with() {

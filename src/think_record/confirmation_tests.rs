@@ -1,6 +1,6 @@
 //! Attribution round trips and legacy controls use synthetic records in temporary TEST roots.
 use super::*;
-use std::fs;
+use std::{fs, time::UNIX_EPOCH};
 
 const GOAL: &str =
     "TEST I keep this goal.\nWhy: exact intent matters.\nDone when: all words survive.";

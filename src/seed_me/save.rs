@@ -196,7 +196,7 @@ impl Config {
         let actor = crate::think_record::Actor::authorize(Some(context))?;
         let delegation = actor.delegation();
         let root = self.root.as_ref().map_err(Clone::clone)?;
-        let stamp = super::answering::now();
+        let stamp = crate::calendar::now();
         let mut retained = self
             .session
             .lock()

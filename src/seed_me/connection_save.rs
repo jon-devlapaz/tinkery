@@ -203,7 +203,7 @@ impl Pending {
         ledger::initialize_at(
             &staging,
             &self.id,
-            &super::answering::now(),
+            &crate::calendar::now(),
             Actor::authorize(Some(&self.actor))?,
         )?;
         Config::at(self.root.clone(), staging.clone()).confirm_with_origin(

@@ -4,7 +4,7 @@
 use std::{fs::OpenOptions, io::Read, path::PathBuf};
 
 use serde::Deserialize;
-use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+use time::OffsetDateTime;
 
 /// A launch-only run/chat/file binding. It discovers no chat or report and reads only on demand.
 #[derive(Clone, Debug)]
@@ -66,8 +66,7 @@ impl CodexReport {
         if raw.schema_version != 1 || raw.run_id != self.run || raw.thread_id != self.chat {
             return Err("report version, run or chat does not match the binding".into());
         }
-        let at = OffsetDateTime::parse(&raw.observed_at, &Rfc3339)
-            .map_err(|_| "invalid observation time")?;
+        let at = crate::calendar::parse(&raw.observed_at).ok_or("invalid observation time")?;
         if at > OffsetDateTime::now_utc() {
             return Err("observation time is in the future".into());
         }
