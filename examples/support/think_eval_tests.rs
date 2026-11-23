@@ -162,16 +162,24 @@ fn review_input_preserves_all_shaping_decisions_and_their_coverage_indices() {
         {"part": "must_not", "text": "TEST sharing", "answers": ["local only", "may upload"]}
     ]);
     shape["decisions"] = decisions.clone();
-    let input: Value =
-        serde_json::from_slice(&decision_review_input(&request, &shape.to_string()).unwrap())
-            .unwrap();
+    // What the decision review receives, through the one read every host makes.
+    let review_input = |raw: String| {
+        let mut seen = None;
+        let _ = brain_dump::read(&request, |kind, input, _| match kind {
+            Request::Shaping => Ok(raw.clone()),
+            Request::DecisionReview => {
+                seen = Some(input);
+                Err("TEST review not run".into())
+            }
+        });
+        seen.unwrap()
+    };
+    let input: Value = serde_json::from_slice(&review_input(shape.to_string())).unwrap();
     assert_eq!(
         input["decisions"], decisions,
         "coverage indices must refer to every shaping choice in its original order"
     );
-    let empty: Value =
-        serde_json::from_slice(&decision_review_input(&request, &reading().to_string()).unwrap())
-            .unwrap();
+    let empty: Value = serde_json::from_slice(&review_input(reading().to_string())).unwrap();
     assert_eq!(empty["decisions"], json!([]));
 
     // Replay explicit coverage through the same fake runner and production merge.

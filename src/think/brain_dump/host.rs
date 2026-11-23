@@ -108,7 +108,7 @@ impl ModelHost {
         Ok(self)
     }
 
-    fn working_instructions(&self) -> &str {
+    fn working_instructions() -> &'static str {
         include_str!("../working-draft.txt")
             .split_once("### Shape the working draft")
             .expect("Bundled working-draft boundary")
@@ -166,7 +166,7 @@ impl BoardHost for ModelHost {
             thinking: (!self.thinking.is_empty()).then(|| self.thinking.clone()),
             prompt_hash: Some(record::hash(&format!(
                 "{}\n{}",
-                reading::prompt(self.working_instructions()),
+                reading::prompt(Self::working_instructions()),
                 reading::assemble(review::PROMPT)
             ))),
         }
@@ -178,58 +178,70 @@ impl BoardHost for ModelHost {
             .unwrap_or_default()
     }
     fn reshape(&self, request: BoardRequest, cancelled: &AtomicBool) -> Result<Guess, String> {
-        let started = std::time::Instant::now();
-        let prompt = reading::prompt(self.working_instructions());
-        let mut decision = checks::Decision::new(
-            "structure-spans-history",
-            checks::Verdict::Pass,
-            "Readable board, exact claimed spans and application-owned history. Not a meaning judgment."
-                .into(),
-            started,
-        );
-        decision.request_key = checks::request_key(&request);
-        let result: Result<Guess, String> = (|| {
-            let input = serde_json::to_vec(&request).map_err(|e| e.to_string())?;
-            let text = self.complete(Request::Shaping, input, prompt, cancelled)?;
-            // The decision review runs on the raw reply; when it finds nothing or cannot run,
-            // the reading stays as it was.
-            let review = review::input(&request, &text).and_then(|input| {
-                match self.complete(
-                    Request::DecisionReview,
-                    input,
-                    reading::assemble(review::PROMPT),
-                    cancelled,
-                ) {
-                    Ok(review) => Review::decode(&review, &mut decision.normalizations),
-                    Err(e) => {
-                        decision
-                            .normalizations
-                            .push(format!("Decision review skipped: {e}"));
-                        None
-                    }
-                }
-            });
-            decision.raw = Some(text.clone());
-            let guess = Guess::decode_reviewed(
-                &text,
-                review.as_ref(),
-                &request,
-                &mut decision.normalizations,
-            )?;
-            decision.candidate = Some(guess.clone());
-            decision.coverage = checks::coverage(&request, &guess);
-            Ok(guess)
-        })();
-        if let Err(e) = &result {
-            decision.decision = checks::Verdict::Reject;
-            decision.reason = e.clone();
-        }
-        decision.elapsed_ms = started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
+        let (result, decision) = read(&request, |kind, input, prompt| {
+            self.complete(kind, input, prompt, cancelled)
+        });
         if let Ok(mut history) = self.brain_history.lock() {
-            history.push(decision.clone());
+            history.push(decision);
         }
         result
     }
+}
+/// One send's reading, as every model host makes it: the shaping call, then the decision review
+/// on its raw reply, decoded into an unverified [`Guess`]. `call` makes each model request from
+/// its kind, input and prompt; the bytes it gets are the bytes a live host sends. Returns the
+/// guess, or why there is none, and the check it leaves for "Why".
+pub fn read(
+    request: &BoardRequest,
+    mut call: impl FnMut(Request, Vec<u8>, String) -> Result<String, String>,
+) -> (Result<Guess, String>, checks::Decision) {
+    let started = std::time::Instant::now();
+    let prompt = reading::prompt(ModelHost::working_instructions());
+    let mut decision = checks::Decision::new(
+        "structure-spans-history",
+        checks::Verdict::Pass,
+        "Readable board, exact claimed spans and application-owned history. Not a meaning judgment."
+            .into(),
+        started,
+    );
+    decision.request_key = checks::request_key(request);
+    let result: Result<Guess, String> = (|| {
+        let input = serde_json::to_vec(request).map_err(|e| e.to_string())?;
+        let text = call(Request::Shaping, input, prompt)?;
+        // The decision review runs on the raw reply; when it finds nothing or cannot run,
+        // the reading stays as it was.
+        let review = review::input(request, &text).and_then(|input| {
+            match call(
+                Request::DecisionReview,
+                input,
+                reading::assemble(review::PROMPT),
+            ) {
+                Ok(review) => Review::decode(&review, &mut decision.normalizations),
+                Err(e) => {
+                    decision
+                        .normalizations
+                        .push(format!("Decision review skipped: {e}"));
+                    None
+                }
+            }
+        });
+        decision.raw = Some(text.clone());
+        let guess = Guess::decode_reviewed(
+            &text,
+            review.as_ref(),
+            request,
+            &mut decision.normalizations,
+        )?;
+        decision.candidate = Some(guess.clone());
+        decision.coverage = checks::coverage(request, &guess);
+        Ok(guess)
+    })();
+    if let Err(e) = &result {
+        decision.decision = checks::Verdict::Reject;
+        decision.reason = e.clone();
+    }
+    decision.elapsed_ms = started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
+    (result, decision)
 }
 pub(super) struct Simulated;
 impl BoardHost for Simulated {

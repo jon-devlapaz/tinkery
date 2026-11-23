@@ -54,7 +54,7 @@ print('done')
         .is_err()
     );
     let before = std::fs::read_dir(directory.path()).unwrap().count();
-    let prompt = host.working_instructions().to_owned();
+    let prompt = ModelHost::working_instructions().to_owned();
     let output = host
         .complete(
             Request::Shaping,

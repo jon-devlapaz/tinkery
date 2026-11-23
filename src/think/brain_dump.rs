@@ -33,14 +33,13 @@ pub use suggestion::Suggestion;
 
 use board::agent_text;
 use host::Simulated;
-pub use host::{BoardHost, ModelHost};
+pub use host::{BoardHost, ModelHost, read};
 use layout::{Notice, Refusal};
 pub use reading::{
     Anchor, Approach, BoardRequest, Fragment, Framing, Guess, OpenDecision, Question, Settled,
     Source,
 };
 use review::Review;
-pub use review::{Review as DecisionReview, input as decision_review_input};
 
 /// Think: one place where the person writes, reads the reading, answers one question at a
 /// time, and confirms a goal. It routes keys, mouse and ticks to its parts: the
