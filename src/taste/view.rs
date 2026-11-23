@@ -5,7 +5,7 @@
 use super::{
     goal,
     next::Pause,
-    read::{Check, Item, ResultRow},
+    read::{Check, Gate, Item, Owner, ResultRow},
 };
 use crate::{Palette, seed_me::runs::Goal};
 use ratatui::{
@@ -80,10 +80,11 @@ fn status(item: &Item) -> String {
 }
 
 fn owed_item(row: &ResultRow, item: &Item) -> bool {
-    item.kind == "human attestation"
-        && row.gates.iter().any(|g| {
-            g == &item.label || g.strip_prefix("may need recheck: ") == Some(item.label.as_str())
-        })
+    item.owner == Owner::Human
+        && row
+            .gates
+            .iter()
+            .any(|g| matches!(g, Gate::Attestation { label, .. } if *label == item.label))
 }
 
 /// One compact block per result, with jade selection and no check wording or technical IDs.
@@ -427,7 +428,13 @@ pub(super) fn details(
         lines.push(Line::styled("  No source gate owed.", p.muted));
     }
     for gate in &row.gates {
-        block(&mut lines, Span::raw("  "), gate, width, p.jade);
+        block(
+            &mut lines,
+            Span::raw("  "),
+            &gate.to_string(),
+            width,
+            p.jade,
+        );
     }
     heading(&mut lines, "Checks", p.ink);
     for item in row.items.iter().filter(|item| !owed_item(row, item)) {
@@ -442,11 +449,11 @@ pub(super) fn details(
         block(
             &mut lines,
             Span::raw("  "),
-            &format!("Source: {}\nReported state: {}", item.kind, item.state),
+            &format!("Source: {}\nReported state: {}", item.owner, item.state),
             width,
             p.muted,
         );
-        let receipt = if item.kind == "automated" {
+        let receipt = if item.owner == Owner::Automated {
             item.evidence
                 .replace("; argv:", ";\nargv:")
                 .replace("; cwd:", ";\ncwd:")
@@ -580,12 +587,12 @@ mod tests {
             id: "TEST-run-id".into(), slug: "TEST-run".into(),
             goal: Goal::Matched(format!("{}\nWhy: TEST reason.\nDone when: TEST result.", "TEST café 👩‍💻 goal ".repeat(12))),
             url: Ok("https://github.com/TEST/example/pull/1".into()), title: None, head: Some("a".repeat(40)),
-            merged: true, local: Ok(None), pending_attestations: Vec::new(), preview: Err("No preview declared".into()), receipts_missing: false, seed: "TEST-seed".into(), gates: vec![human.into()], gaps: vec![], verification_failed: false, labelled: None, rejection: None,
+            merged: true, local: Ok(None), pending_attestations: Vec::new(), preview: Err("No preview declared".into()), receipts_missing: false, seed: "TEST-seed".into(), gates: vec![Gate::Attestation { label: human.into(), recheck: false }], gaps: vec![], verification_failed: false, labelled: None, rejection: None,
             items: vec![
                 Item { label: "Every original check word stays intact while this long sentence wraps with a hanging indent and no abbreviation.".into(),
-                    state: Check::Fail, kind: "automated".into(), evidence: "/TEST/log; argv: [TEST]".into() },
+                    state: Check::Fail, owner: Owner::Automated, evidence: "/TEST/log; argv: [TEST]".into() },
                 Item { label: human.into(), state: Check::AwaitingHuman,
-                    kind: "human attestation".into(), evidence: "No operator evidence recorded".into() },
+                    owner: Owner::Human, evidence: "No operator evidence recorded".into() },
             ],
         }
     }
@@ -749,6 +756,24 @@ mod tests {
     }
 
     #[test]
+    fn an_attestation_that_may_need_recheck_shows_once_as_owed() {
+        let mut row = row();
+        let human = row.items[1].label.clone();
+        row.gates = vec![Gate::Attestation {
+            label: human.clone(),
+            recheck: true,
+        }];
+        let full = details(&row, None, 200, Palette::new(true))
+            .iter()
+            .map(Line::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
+        let checks = &full[..full.find("\nGoal").unwrap()];
+        assert_eq!(checks.matches(human.as_str()).count(), 1, "{checks}");
+        assert!(checks.contains(&format!("  may need recheck: {human}")));
+    }
+
+    #[test]
     fn review_shows_what_was_built_the_goal_line_and_one_question_in_order() {
         let mut row = row();
         row.title = Some("TEST clinic comparison".into());
@@ -844,7 +869,7 @@ mod tests {
             let item = Item {
                 label: text.into(),
                 state: Check::MatchingEvidenceMissing,
-                kind: "automated".into(),
+                owner: Owner::Automated,
                 evidence: String::new(),
             };
             let mut lines = Vec::new();
