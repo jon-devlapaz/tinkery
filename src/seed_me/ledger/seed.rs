@@ -1,21 +1,17 @@
 //! Seed bytes, decisions and confirmation receipts share one verifier. Reads never upgrade old receipts.
 
 use super::{
-    Result, Value, checks, editable, load,
-    python::{text, whitespace},
-    require, review_flags,
+    Result, Value, checks, editable, load, require, review_flags,
+    text::{text, whitespace},
     value::{int, object},
 };
 use crate::confirmation::Actor;
+use crate::seed_me::files::{
+    CONFIRMATION, CONFIRMED, DRAFT, SEED as FILE, SIMULATED, revision_line as revision,
+};
 use regex::Regex;
 use sha2::{Digest, Sha256};
 use std::path::Path;
-
-pub(super) const FILE: &str = "seed-contract.md";
-pub(super) const CONFIRMATION: &str = "seed-confirmation.json";
-pub(super) const DRAFT: &str = "status: draft";
-pub(super) const CONFIRMED: &str = "status: confirmed for intake";
-pub(super) const SIMULATED: &str = "status: simulated";
 
 pub(super) fn sha256(data: &[u8]) -> String {
     format!("{:x}", Sha256::digest(data))
@@ -43,12 +39,6 @@ pub(super) fn seed_lines(directory: &Path) -> Result<Vec<String>> {
         .map(str::to_owned)
         .collect())
 }
-fn revision(line: &str) -> Option<&str> {
-    let rest = line
-        .strip_prefix("revision:")?
-        .trim_start_matches([' ', '\t']);
-    rest.split(whitespace).next().filter(|s| !s.is_empty())
-}
 pub(super) fn repr(value: &str) -> String {
     let quote = if value.contains('\'') && !value.contains('"') {
         '"'
@@ -66,7 +56,7 @@ pub(super) fn repr(value: &str) -> String {
                 out.push('\\');
                 out.push(c);
             }
-            c if !super::python::printable(c) => {
+            c if !super::text::printable(c) => {
                 let code = c as u32;
                 if code <= 0xff {
                     out.push_str(&format!("\\x{code:02x}"));

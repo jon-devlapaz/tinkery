@@ -149,7 +149,7 @@ impl Origin {
 pub(crate) fn read(session: &Path, goal: &str) -> Result<Option<Origin>, String> {
     // Legacy discovery accepts older ledgers that do not have the current full write schema.
     // Only a marked Tend origin enters the stricter new validation boundary.
-    let bytes = match super::read_regular(&session.join("ledger.json"), "goal ledger") {
+    let bytes = match super::read_regular(&session.join(super::files::LEDGER), "goal ledger") {
         Ok(bytes) => bytes,
         Err(_) => return Ok(None), // The existing session reader owns missing/unreadable ledger errors.
     };

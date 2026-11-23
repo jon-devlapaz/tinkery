@@ -1,0 +1,21 @@
+{
+  "session_id": "TEST-session",
+  "schema_version": 1,
+  "version": 1,
+  "revision": 0,
+  "created_at": "2026-10-19T00:00:00+00:00",
+  "updated_at": "2026-10-19T00:00:00+00:00",
+  "status": "active",
+  "draft": {
+    "goal": "TEST changé — 😀 \"q\" \\ \u0007",
+    "outcome": "éé😀\u001f/\t ",
+    "options": []
+  },
+  "goal": null,
+  "origin": null,
+  "current_question": null,
+  "frontier": [],
+  "nodes": [],
+  "assumed": [],
+  "operator": "human"
+}
