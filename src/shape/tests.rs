@@ -28,12 +28,12 @@ fn done(stage: Shaped) -> Shape {
             Decided {
                 title: "TEST where records live".into(),
                 answer: "Local for now.\nSynced later if I ask.".into(),
-                authority: "user".into(),
+                authority: Authority::User,
             },
             Decided {
                 title: "TEST format".into(),
                 answer: "Markdown, as the README says.".into(),
-                authority: "delegated".into(),
+                authority: Authority::Delegated,
             },
         ],
     }));
@@ -3400,7 +3400,7 @@ fn a_step_gives_exactly_two_options_with_a_known_undo_cost_or_none() {
     let two = r#"[{"choice":"Local","tradeoff":"TEST simple","undo":"Cheap"},{"choice":"Synced","tradeoff":"TEST shared","undo":"hard"}]"#;
     let ask = decode(two, "medium");
     assert_eq!(ask.options.len(), 2);
-    assert_eq!(ask.options[0].undo, "cheap");
+    assert_eq!(ask.options[0].undo, answering::Undo::Cheap);
     assert!(ask.hard());
     assert_eq!(ask.against.as_deref(), Some("TEST sync helps later"));
     assert_eq!(ask.recommendation().as_deref(), Some("Local."));
@@ -3544,7 +3544,7 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
         let option = |choice: &str, undo: &str| answering::Alternative {
             choice: choice.into(),
             tradeoff: format!("TEST {choice} trade-off"),
-            undo: undo.into(),
+            undo: answering::Undo::of(undo).unwrap(),
         };
         let ask = answering::Ask {
             prerequisites: None,

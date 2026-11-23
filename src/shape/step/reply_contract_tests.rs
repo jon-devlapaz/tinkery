@@ -5,6 +5,15 @@ use super::*;
 use crate::seed_me::{Affirmed, Config, ledger::fixtures::prose_reply};
 use std::{fs, os::unix::fs::PermissionsExt};
 
+/// The whole reason a refused step gives, a broken ledger rule included.
+fn refused(why: &Why) -> Option<String> {
+    match why {
+        Why::Refused(reason) => Some(reason.clone()),
+        Why::Rule(rule) => Some(rule.to_string()),
+        _ => None,
+    }
+}
+
 /// One step through the screen's controller, as its keys start it.
 fn run(
     work: &Work,
@@ -173,7 +182,8 @@ fn captured_missing_source_preserves_the_answer_and_recovers_on_next_look() {
     eprintln!("#296 missing-source: {error:?}");
     assert!(error.answer_saved && saved.load(Ordering::Relaxed));
     assert!(
-        matches!(error.why, Why::Refused(ref reason) if reason.contains("Source must name the confirmed goal")
+        refused(&error.why).is_some_and(|reason| reason
+            .contains("Source must name the confirmed goal")
             && reason.contains("Also: The Tink draft reply needs a typed completion review")
             && reason.contains("failure_cases must be a list of strings in check order")),
         "#432: both broken rules in one refusal: {error:?}"
@@ -207,7 +217,7 @@ fn captured_missing_source_preserves_the_answer_and_recovers_on_next_look() {
     .unwrap();
     let error = look_again(&session, root.path(), &agent).unwrap_err();
     assert!(
-        matches!(error.why, Why::Refused(ref reason) if reason.contains("check 1 missing fields: source"))
+        refused(&error.why).is_some_and(|reason| reason.contains("check 1 missing fields: source"))
     );
     // The same captured prose remains forbidden once check records are supplied.
     let reply = ordered_reply(MISSING_SOURCE);
@@ -250,11 +260,13 @@ fn captured_rechecks_refuse_without_changing_saved_answers_then_recover() {
         // #469: call 8 proposed the whole suite for three provisionals; both faults are heard.
         assert!(
             match &error.why {
-                Why::Refused(reason) if index == 2 =>
+                Why::Rule(rule) if index == 2 => {
+                    let reason = rule.to_string();
                     reason.contains(SHARED_SUITE)
                         && reason
                             .contains("Also: The Tink draft reply needs a typed completion review")
-                        && reason.contains(review),
+                        && reason.contains(review)
+                }
                 Why::Model(reason) => index != 2 && reason.contains(review),
                 _ => false,
             },
@@ -362,8 +374,8 @@ fn ordered_cases_pair_exact_statements_without_rewriting_and_keep_coverage_stric
             };
             assert!(
                 match &error.why {
-                    Why::Refused(reason) if index == 2 =>
-                        reason.contains(SHARED_SUITE) && reason.contains(counts),
+                    Why::Rule(rule) if index == 2 =>
+                        rule.rule.contains(SHARED_SUITE) && rule.rule.contains(counts),
                     Why::Model(reason) =>
                         index == 1 && reason.contains(counts) && reason.contains("failure mode"),
                     _ => false,
@@ -396,7 +408,8 @@ fn captured_checks_with_valid_prose_refuse_missing_source_without_inventing_it()
     let agent = provider(root.path(), &reply.to_string(), 2);
     let error = look_again(&session, root.path(), &agent).unwrap_err();
     assert!(
-        matches!(error.why, Why::Refused(ref reason) if reason.contains("check 1 missing fields: source") && reason.contains("never invent evidence")),
+        refused(&error.why).is_some_and(|reason| reason.contains("check 1 missing fields: source")
+            && reason.contains("never invent evidence")),
         "{error:?}"
     );
     assert_eq!(
@@ -712,7 +725,8 @@ fn a_done_when_line_changed_only_in_letter_case_is_saved_in_the_operator_words()
     let agent = provider(root.path(), &reply.to_string(), 1);
     let error = look_again(&session, root.path(), &agent).unwrap_err();
     assert!(
-        matches!(error.why, Why::Refused(ref reason) if reason.contains("keep this complete Done when line unchanged")),
+        refused(&error.why)
+            .is_some_and(|reason| reason.contains("keep this complete Done when line unchanged")),
         "{error:?}"
     );
     assert!(error.feedback.is_some());
@@ -737,7 +751,7 @@ fn a_reply_breaking_done_when_and_case_count_hears_both_in_one_refusal() {
     reply["review"]["failure_cases"] = json!(["TEST only one case"]);
     let agent = provider(root.path(), &reply.to_string(), 1);
     let error = look_again(&session, root.path(), &agent).unwrap_err();
-    let Why::Refused(reason) = &error.why else {
+    let Some(reason) = refused(&error.why) else {
         panic!("{error:?}")
     };
     assert!(
@@ -775,7 +789,9 @@ fn a_ledger_rule_the_reply_broke_becomes_retry_feedback_and_storage_never_does()
     let agent = provider(root.path(), &reply.to_string(), 1);
     let error = look_again(&session, root.path(), &agent).unwrap_err();
     assert!(
-        matches!(error.why, Why::Refused(ref reason) if reason.contains(&format!("duplicate node id {}", taken.as_str().unwrap()))),
+        refused(&error.why).is_some_and(
+            |reason| reason.contains(&format!("duplicate node id {}", taken.as_str().unwrap()))
+        ),
         "{error:?}"
     );
     assert!(
@@ -797,7 +813,7 @@ fn a_ledger_rule_the_reply_broke_becomes_retry_feedback_and_storage_never_does()
     let agent = provider(root.path(), &valid_reply().to_string(), 1);
     let error = look_again(&session, root.path(), &agent).unwrap_err();
     assert!(
-        matches!(error.why, Why::Refused(ref reason) if reason.contains("already has a writer")),
+        refused(&error.why).is_some_and(|reason| reason.contains("already has a writer")),
         "{error:?}"
     );
     assert!(error.feedback.is_none());
@@ -950,7 +966,7 @@ fn a_provisional_proposing_another_checks_command_is_refused_with_a_plain_reason
         change(&mut reply);
         let agent = provider(root.path(), &reply.to_string(), 1);
         let error = look_again(&session, root.path(), &agent).unwrap_err();
-        let Why::Refused(reason) = &error.why else {
+        let Some(reason) = refused(&error.why) else {
             panic!("{error:?}")
         };
         assert!(reason.contains(expected), "{reason}");
@@ -1085,8 +1101,8 @@ fn attached_cases_refuse_missing_malformed_or_mixed_coverage_without_writes() {
         let agent = provider(root.path(), &reply.to_string(), 1);
         let failure = look_again(&session, root.path(), &agent).unwrap_err();
         let detail = match &failure.why {
-            Why::Model(detail) | Why::Refused(detail) => detail,
-            other => panic!("{other:?}"),
+            Why::Model(detail) => detail.clone(),
+            other => refused(other).unwrap_or_else(|| panic!("{other:?}")),
         };
         assert!(detail.contains(reason), "{detail}");
         if reason.starts_with("check 2 proposes") {

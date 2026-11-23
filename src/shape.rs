@@ -34,7 +34,7 @@ use crate::{
     Palette,
     seed_me::{Session, Stage},
 };
-use answering::{Assumption, Ending, NOTHING_FOUND, OBJECTION, PROBE, SAMPLE, UNOBSERVED};
+use answering::{Assumption, Authority, Ending, OBJECTION, PROBE, SAMPLE, UNOBSERVED};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use forms::Form;
 use ratatui::{
@@ -43,7 +43,7 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::{Paragraph, Wrap},
 };
-use shaping::{Shaped, Shaping};
+use shaping::{Criteria, SeedLine, SeedView, Shaped, Shaping};
 use std::{
     path::{Path, PathBuf},
     sync::{Arc, mpsc},
@@ -1447,10 +1447,10 @@ fn render_so_far(
         lines.push(Line::styled("Decided", palette.muted));
     }
     for decided in &shaping.decided {
-        let by = match decided.authority.as_str() {
-            "user" => "you",
-            "simulated" => "practice",
-            other => other,
+        let by = match &decided.authority {
+            Authority::User => "you",
+            Authority::Simulated => "practice",
+            other => other.word(),
         };
         let rows: Vec<&str> = decided.answer.split('\n').collect();
         for (i, row) in rows.iter().enumerate() {
@@ -1698,16 +1698,12 @@ fn compose(open: &Opened, drafting: Option<&Agent>, held: bool, palette: Palette
         (
             Shaped::Drafted {
                 revision,
-                text: Some(seed),
+                text: Some(_),
             },
             _,
-        ) => Some(seed_view(
-            seed,
-            revision.as_deref(),
-            shaping,
-            agent && !held,
-            palette,
-        )),
+        ) => shaping
+            .seed_view()
+            .map(|view| seed_view(view, revision.as_deref(), shaping, agent && !held, palette)),
         _ => shaping
             .goal
             .as_deref()
@@ -1868,7 +1864,7 @@ fn compose(open: &Opened, drafting: Option<&Agent>, held: bool, palette: Palette
 
 /// Review the proposed checks first. Stored seed bytes and artifact order do not change.
 fn seed_view(
-    seed: &str,
+    view: SeedView,
     revision: Option<&str>,
     shaping: &Shaping,
     editable: bool,
@@ -1884,86 +1880,72 @@ fn seed_view(
         ),
         Line::default(),
     ];
-    let (before, criteria, after) = match seed.split_once("\n## Acceptance criteria\n") {
-        Some((before, section)) => {
-            let end = section.find("\n## ").map_or(section.len(), |end| end + 1);
-            (before, Some(&section[..end]), &section[end..])
-        }
-        None => (seed, None, ""),
-    };
-    if let Some(criteria) = criteria {
+    if let Some(criteria) = view.criteria {
         lines.push(Line::styled(
             "Pass/fail checks (proposed)",
             palette.ink.bold(),
         ));
-        if shaping.checks.is_empty() {
-            let readable = crate::seed_me::ledger::readable_acceptance(criteria);
-            lines.extend(Text::styled(readable.trim_end().to_owned(), palette.ink).lines);
-            lines.push(Line::default());
-        } else {
-            for check in &shaping.checks {
-                let n = check.index + 1;
-                lines.extend(
-                    Text::styled(format!("{n}. {}", check.statement()), palette.ink.bold()).lines,
-                );
-                if let Some(gap) = check.gap() {
-                    let edit = if editable {
-                        format!("  F1: Edit check {n}.")
-                    } else {
-                        String::new()
-                    };
-                    lines.push(Line::styled(
-                        format!("{}.{edit}", gap.missing()),
-                        palette.ink,
-                    ));
-                } else if editable {
-                    lines.push(Line::styled(format!("F1: Edit check {n}."), palette.muted));
-                }
-                if let Some(words) = check.words() {
-                    let method = match check.method() {
-                        CheckMethod::Command => "Command",
-                        CheckMethod::Manual => "Manual steps",
-                    };
-                    lines.extend(Text::styled(format!("{method}: {words}"), palette.ink).lines);
-                }
-                if let Some(cwd) = check.cwd() {
-                    lines.push(Line::styled(format!("From: {cwd}"), palette.muted));
-                }
-                if let Some(expected) = check.expected() {
-                    lines.extend(Text::styled(format!("Pass: {expected}"), palette.ink).lines);
-                }
-                if let Some(failure) = shaping.failure_case(check) {
-                    lines.extend(Text::styled(format!("Must fail: {failure}"), palette.ink).lines);
-                }
-                if let Some(prerequisite) = check.prerequisite() {
-                    lines.extend(
-                        Text::styled(
-                            format!("Needed before running: {prerequisite}"),
-                            palette.muted,
-                        )
-                        .lines,
-                    );
-                }
+        match criteria {
+            Criteria::Readable(readable) => {
+                lines.extend(Text::styled(readable, palette.ink).lines);
                 lines.push(Line::default());
+            }
+            Criteria::Checks(checks) => {
+                for check in checks {
+                    let n = check.index + 1;
+                    lines.extend(
+                        Text::styled(format!("{n}. {}", check.statement()), palette.ink.bold())
+                            .lines,
+                    );
+                    if let Some(gap) = check.gap() {
+                        let edit = if editable {
+                            format!("  F1: Edit check {n}.")
+                        } else {
+                            String::new()
+                        };
+                        lines.push(Line::styled(
+                            format!("{}.{edit}", gap.missing()),
+                            palette.ink,
+                        ));
+                    } else if editable {
+                        lines.push(Line::styled(format!("F1: Edit check {n}."), palette.muted));
+                    }
+                    if let Some(words) = check.words() {
+                        let method = match check.method() {
+                            CheckMethod::Command => "Command",
+                            CheckMethod::Manual => "Manual steps",
+                        };
+                        lines.extend(Text::styled(format!("{method}: {words}"), palette.ink).lines);
+                    }
+                    if let Some(cwd) = check.cwd() {
+                        lines.push(Line::styled(format!("From: {cwd}"), palette.muted));
+                    }
+                    if let Some(expected) = check.expected() {
+                        lines.extend(Text::styled(format!("Pass: {expected}"), palette.ink).lines);
+                    }
+                    if let Some(failure) = shaping.failure_case(check) {
+                        lines.extend(
+                            Text::styled(format!("Must fail: {failure}"), palette.ink).lines,
+                        );
+                    }
+                    if let Some(prerequisite) = check.prerequisite() {
+                        lines.extend(
+                            Text::styled(
+                                format!("Needed before running: {prerequisite}"),
+                                palette.muted,
+                            )
+                            .lines,
+                        );
+                    }
+                    lines.push(Line::default());
+                }
             }
         }
     }
-    let mut header = true;
-    for line in before
-        .lines()
-        .chain(after.trim_end_matches('\n').split_terminator('\n'))
-    {
-        header &= !line.trim().is_empty();
-        if header && (line.starts_with("status:") || line.starts_with("revision:")) {
-            continue;
-        }
-        lines.push(
-            match line.strip_prefix("## ").or_else(|| line.strip_prefix("# ")) {
-                Some(heading) => Line::styled(heading.to_owned(), palette.ink.bold()),
-                None => Line::styled(line.to_owned(), palette.ink),
-            },
-        );
-    }
+    lines.extend(view.prose.into_iter().map(|line| match line {
+        SeedLine::Heading(heading) => Line::styled(heading.to_owned(), palette.ink.bold()),
+        SeedLine::Words(words) => Line::styled(words.to_owned(), palette.ink),
+    }));
     Text::from(lines)
 }
 
@@ -2090,14 +2072,19 @@ fn said(result: Result<Done, Failure>, work: &Work, left: Option<String>) -> Opt
         ),
         // A rule the model's reply broke: the retry hears the full reason; the screen says
         // whose reply it was and the rule, without the ledger's node names (#649).
-        Why::Refused(reason) if feedback.is_some() => (
-            format!(
-                "{saved}The model's reply was refused, so nothing from it was saved: {}.{left}",
-                broken_rule(&reason)
-            ),
-            None,
-        ),
+        Why::Refused(reason) | Why::Rule(answering::Rule { rule: reason, .. })
+            if feedback.is_some() =>
+        {
+            (
+                format!(
+                    "{saved}The model's reply was refused, so nothing from it was saved: {}.{left}",
+                    reason.trim_end_matches('.')
+                ),
+                None,
+            )
+        }
         Why::Refused(reason) => (format!("{saved}{reason}{left}"), None),
+        Why::Rule(rule) => (format!("{saved}{rule}{left}"), None),
         Why::Stopped => (
             format!(
                 "{saved}Stopped before the next step finished. The drafting attempt still counts against this launch's allowance.{left}"
@@ -2106,16 +2093,6 @@ fn said(result: Result<Done, Failure>, work: &Work, left: Option<String>) -> Opt
         ),
     };
     Some(Notice::Said(said, next))
-}
-
-/// The rule in a refused reply's reason, without Tinkery's prefix or the node it names.
-fn broken_rule(reason: &str) -> &str {
-    let rule = reason.strip_prefix("Tinkery refused: ").unwrap_or(reason);
-    let rule = rule
-        .strip_prefix("node ")
-        .and_then(|named| named.split_once(": "))
-        .map_or(rule, |(_, rule)| rule);
-    rule.trim_end_matches('.')
 }
 
 fn plain(said: &str, next: &str, palette: Palette) -> Text<'static> {
@@ -2336,7 +2313,7 @@ fn standing(
                 ));
             }
             // Beside the words box, so a long seed can't scroll it away.
-            if !calm && text.as_deref().is_some_and(|t| t.contains(NOTHING_FOUND)) {
+            if !calm && shaping.seed_view().is_some_and(|view| view.nothing_found) {
                 flag = Some(Line::styled(
                     "Nothing found: this Tink Contract records nothing checked in the repository.",
                     palette.ink,

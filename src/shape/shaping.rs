@@ -2,7 +2,9 @@
 //! findings, decisions, review lines and draft text Shape shows. Read-only: it never publishes,
 //! confirms or ends anything, and keeps no copy of the ledger.
 
-use super::answering::{AGAINST, OPTION_LABELS, UNFOUND, claim_suffix};
+use super::answering::{
+    AGAINST, Authority, NOTHING_FOUND, OPTION_LABELS, UNFOUND, Undo, claim_suffix,
+};
 use crate::seed_me::{
     ledger,
     ready::{self, Stand},
@@ -65,6 +67,82 @@ impl Shaping {
         };
         lines.into_iter().chain(self.confirmation.iter().cloned())
     }
+
+    /// The draft as Shape shows it, when this is a draft whose text was read. The stored bytes
+    /// and their order don't change; only the view sets the criteria apart.
+    pub(crate) fn seed_view(&self) -> Option<SeedView<'_>> {
+        let Shaped::Drafted {
+            text: Some(seed), ..
+        } = &self.stage
+        else {
+            return None;
+        };
+        let (before, criteria, after) = match seed.split_once("\n## Acceptance criteria\n") {
+            Some((before, section)) => {
+                let end = section.find("\n## ").map_or(section.len(), |end| end + 1);
+                (before, Some(&section[..end]), &section[end..])
+            }
+            None => (seed.as_str(), None, ""),
+        };
+        let criteria = criteria.map(|criteria| {
+            if self.checks.is_empty() {
+                Criteria::Readable(ledger::readable_acceptance(criteria).trim_end().to_owned())
+            } else {
+                Criteria::Checks(&self.checks)
+            }
+        });
+        // The first block's status and revision lines are metadata, not the seed's words.
+        let mut header = true;
+        let prose = before
+            .lines()
+            .chain(after.trim_end_matches('\n').split_terminator('\n'))
+            .filter(|line| {
+                header &= !line.trim().is_empty();
+                !(header && (line.starts_with("status:") || line.starts_with("revision:")))
+            })
+            .map(
+                |line| match line.strip_prefix("## ").or_else(|| line.strip_prefix("# ")) {
+                    Some(heading) => SeedLine::Heading(heading),
+                    None => SeedLine::Words(line),
+                },
+            )
+            .collect();
+        Some(SeedView {
+            prose,
+            criteria,
+            nothing_found: seed.contains(NOTHING_FOUND),
+        })
+    }
+}
+
+/// A seed draft as Shape shows it: its criteria first, then its other words in order.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SeedView<'a> {
+    /// The seed's lines outside its acceptance criteria, in order, without its metadata lines.
+    pub prose: Vec<SeedLine<'a>>,
+    /// The acceptance criteria, when the seed has that section.
+    pub criteria: Option<Criteria<'a>>,
+    /// Whether the evidence section says no step recorded what it checked.
+    pub nothing_found: bool,
+}
+
+/// One line of a seed's words, exactly as saved apart from a heading's `#` marks.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum SeedLine<'a> {
+    /// A section or title heading.
+    Heading(&'a str),
+    /// Any other line, blank lines included.
+    Words(&'a str),
+}
+
+/// A draft's acceptance criteria: its exact check records, or the section's readable words when
+/// no records match the draft.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum Criteria<'a> {
+    /// The exact draft checks, in order.
+    Checks(&'a [ledger::DraftCheck]),
+    /// The section in readable words.
+    Readable(String),
 }
 
 /// One settled decision: what was decided, the answer as recorded, and who settled it.
@@ -74,8 +152,8 @@ pub struct Decided {
     pub title: String,
     /// The recorded answer, byte for byte.
     pub answer: String,
-    /// The ledger's authority word: `user` means the operator's own words; anything else isn't.
-    pub authority: String,
+    /// Who settled it: only [`Authority::User`] means the operator's own words.
+    pub authority: Authority,
 }
 
 /// Where a session's seed stands. Each says only what the ledger's files show; nothing is guessed.
@@ -220,7 +298,7 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
             Some(Decided {
                 title: text(n, "label").or_else(|| text(n, "id"))?,
                 answer: text(n, "answer")?,
-                authority: text(n, "authority").unwrap_or_else(|| "unrecorded".into()),
+                authority: Authority::of(text(n, "authority").as_deref()),
             })
         })
         .collect();
@@ -313,7 +391,7 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
                 }
             }
             let ask = ask.join("\n");
-            let hard = options.iter().any(|o| o.ends_with("Undo cost: hard."));
+            let hard = options.iter().any(|o| Undo::of_line(o) == Some(Undo::Hard));
             let found = std::iter::once(node)
                 .chain(
                     node["supported_by"]
@@ -510,12 +588,12 @@ mod tests {
                 Decided {
                     title: "Note format".into(),
                     answer: " Markdown,\nas written. ".into(),
-                    authority: "user".into(),
+                    authority: Authority::User,
                 },
                 Decided {
                     title: "lint".into(),
                     answer: "Clippy.".into(),
-                    authority: "delegated".into(),
+                    authority: Authority::Delegated,
                 },
             ]
         );
