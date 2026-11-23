@@ -82,8 +82,8 @@ pub enum Event {
         /// The take that failed, if only one did.
         #[serde(default)]
         take: Option<u64>,
-        /// A short machine-readable category, such as `permission` or `timeout`.
-        kind: String,
+        /// What kind of failure it was.
+        kind: Kind,
         /// One plain line for the operator.
         message: String,
     },
@@ -97,26 +97,26 @@ impl Event {
     pub fn parse(line: &[u8]) -> Result<Self, Failure> {
         if line.len() > MAX_LINE {
             return Err(Failure::new(
-                "protocol",
+                Kind::Protocol,
                 "Voice response exceeds its limit. Restart think.",
             ));
         }
         serde_json::from_slice(line)
-            .map_err(|_| Failure::new("protocol", "Malformed voice response. Restart think."))
+            .map_err(|_| Failure::new(Kind::Protocol, "Malformed voice response. Restart think."))
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// Why voice couldn't do something, as one line the operator can act on.
 pub struct Failure {
-    /// A short machine-readable category, as in [`Event::Error`].
-    pub kind: String,
+    /// What kind of failure it was.
+    pub kind: Kind,
     /// One plain line for the operator.
     pub message: String,
 }
 impl Failure {
     /// A failure of category `kind` saying `message`.
-    pub fn new(kind: &str, message: &str) -> Self {
+    pub fn new(kind: impl Into<Kind>, message: &str) -> Self {
         Self {
             kind: kind.into(),
             message: message.into(),
@@ -130,5 +130,97 @@ impl Failure {
             kind: self.kind,
             message: self.message,
         }
+    }
+}
+
+/// Why voice failed: a closed set shared across the wire. Each kind's name here is the one the
+/// helper sends; `KINDS` in `voice/setup.mjs` lists the helper's, and a test fails if the two
+/// drift. A name the helper sends that is not here is a malformed response.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(try_from = "String")]
+pub enum Kind {
+    /// No usable Node was found. Raised by Tinkery only.
+    NoNode,
+    /// A step outlived its deadline. Raised by Tinkery only.
+    Timeout,
+    /// The two sides disagreed about a message, or a pipe broke.
+    Protocol,
+    /// The voice config file is unreadable or invalid.
+    Config,
+    /// The speech model is missing.
+    NoModel,
+    /// The engine install failed.
+    Install,
+    /// The model download failed.
+    Download,
+    /// The engine could not load, or the helper exited.
+    EngineLoad,
+    /// The terminal may not use the microphone.
+    MicPermission,
+    /// No microphone is available.
+    MicUnavailable,
+    /// Another app holds the microphone.
+    MicBusy,
+    /// Recording failed or the take was too long.
+    Capture,
+    /// The engine could not turn speech into text.
+    Transcription,
+}
+impl Kind {
+    /// Every kind. The first two are Tinkery's own; the rest are the helper's.
+    pub(super) const ALL: [Self; 13] = [
+        Self::NoNode,
+        Self::Timeout,
+        Self::Protocol,
+        Self::Config,
+        Self::NoModel,
+        Self::Install,
+        Self::Download,
+        Self::EngineLoad,
+        Self::MicPermission,
+        Self::MicUnavailable,
+        Self::MicBusy,
+        Self::Capture,
+        Self::Transcription,
+    ];
+    /// The kind's name on the wire.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::NoNode => "no-node",
+            Self::Timeout => "timeout",
+            Self::Protocol => "protocol",
+            Self::Config => "config",
+            Self::NoModel => "no-model",
+            Self::Install => "install",
+            Self::Download => "download",
+            Self::EngineLoad => "engine-load",
+            Self::MicPermission => "mic-permission",
+            Self::MicUnavailable => "mic-unavailable",
+            Self::MicBusy => "mic-busy",
+            Self::Capture => "capture",
+            Self::Transcription => "transcription",
+        }
+    }
+}
+impl TryFrom<String> for Kind {
+    type Error = String;
+    fn try_from(name: String) -> Result<Self, String> {
+        Self::ALL
+            .into_iter()
+            .find(|kind| kind.name() == name)
+            .ok_or(name)
+    }
+}
+/// A kind named by a literal in code. An unknown name is a typo, not data, so it panics; data
+/// from the helper is checked when it is parsed.
+impl From<&str> for Kind {
+    fn from(name: &str) -> Self {
+        Self::try_from(name.to_owned()).expect("a known voice failure kind")
+    }
+}
+/// A kind equals its name on the wire.
+impl PartialEq<&str> for Kind {
+    fn eq(&self, name: &&str) -> bool {
+        self.name() == *name
     }
 }

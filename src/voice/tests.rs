@@ -13,7 +13,7 @@ impl VoiceHost for Rc<RefCell<Fake>> {
     fn send(&mut self, command: Command) -> Result<(), Failure> {
         let mut fake = self.borrow_mut();
         if fake.fail_send {
-            return Err(Failure::new("protocol", "Send failed."));
+            return Err(Failure::new(Kind::Protocol, "Send failed."));
         }
         fake.commands.push(command);
         Ok(())
@@ -53,7 +53,7 @@ fn typed_protocol_tolerates_extra_and_future_fields_not_broken_required_fields()
         br#"{"event":"ready"}"#,
         b"not json",
     ] {
-        assert_eq!(Event::parse(bad).unwrap_err().kind, "protocol");
+        assert_eq!(Event::parse(bad).unwrap_err().kind, Kind::Protocol);
     }
     assert!(Event::parse(&vec![b'x'; protocol::MAX_LINE + 1]).is_err());
     assert_eq!(
@@ -71,7 +71,7 @@ fn incompatible_version_disables_and_closes_helper() {
         .push_back(Event::Ready { version: 2 });
     voice.tick(now);
     assert!(!voice.available());
-    assert_eq!(voice.failure().unwrap().kind, "protocol");
+    assert_eq!(voice.failure().unwrap().kind, Kind::Protocol);
     assert!(fake.borrow().closed >= 2);
 }
 #[test]
@@ -152,7 +152,7 @@ fn cancel_discards_and_stale_events_cannot_touch_new_take() {
         },
         Event::Error {
             take: Some(1),
-            kind: "capture".into(),
+            kind: Kind::Capture,
             message: "stale".into(),
         },
         Event::Listening { take: 2 },
@@ -173,16 +173,20 @@ fn finalization_deadline_does_not_extend_and_late_final_cannot_send() {
     voice.toggle(now);
     voice.stop(true, now);
     voice.stop(true, now + Duration::from_secs(29));
-    assert!(voice.tick(now + Duration::from_secs(30)).is_none());
+    assert!(voice.tick(now + DEADLINE).is_none());
     assert!(!voice.available());
-    assert_eq!(voice.failure().unwrap().kind, "timeout");
+    assert_eq!(voice.failure().unwrap().kind, Kind::Timeout);
     fake.borrow_mut().events.push_back(Event::Final {
         take: 1,
         text: "late".into(),
     });
-    assert!(voice.tick(now + Duration::from_secs(31)).is_none());
+    assert!(
+        voice
+            .tick(now + DEADLINE + Duration::from_secs(1))
+            .is_none()
+    );
     assert!(!voice.active());
-    voice.toggle(now + Duration::from_secs(32));
+    voice.toggle(now + DEADLINE + Duration::from_secs(2));
     assert_eq!(fake.borrow().restarted, 1);
 }
 #[test]
@@ -190,7 +194,7 @@ fn loading_and_starting_are_bounded_but_listening_waits_for_explicit_stop() {
     let fake = Rc::new(RefCell::new(Fake::default()));
     let mut loading = Voice::new(Box::new(fake));
     loading.tick(Instant::now() + Duration::from_secs(31));
-    assert_eq!(loading.failure().unwrap().kind, "timeout");
+    assert_eq!(loading.failure().unwrap().kind, Kind::Timeout);
     let (mut voice, fake, now) = fixture();
     voice.toggle(now);
     fake.borrow_mut()
@@ -202,26 +206,13 @@ fn loading_and_starting_are_bounded_but_listening_waits_for_explicit_stop() {
 }
 #[test]
 fn every_failure_preserves_specific_kind_and_cancels_pending_send() {
-    for kind in [
-        "no-node",
-        "install",
-        "download",
-        "config",
-        "no-model",
-        "engine-load",
-        "mic-permission",
-        "mic-unavailable",
-        "mic-busy",
-        "capture",
-        "protocol",
-        "transcription",
-    ] {
+    for kind in Kind::ALL {
         let (mut voice, fake, now) = fixture();
         voice.toggle(now);
         voice.stop(true, now);
         fake.borrow_mut().events.push_back(Event::Error {
             take: Some(1),
-            kind: kind.into(),
+            kind,
             message: "Action\n\u{1b}required".into(),
         });
         assert!(voice.tick(now).is_none());
@@ -270,7 +261,7 @@ fn oversized_partial_cancels_without_silent_truncation() {
     voice.tick(now);
     assert!(!voice.active());
     assert!(voice.partial().is_empty());
-    assert_eq!(voice.failure().unwrap().kind, "capture");
+    assert_eq!(voice.failure().unwrap().kind, Kind::Capture);
 }
 #[test]
 fn shutdown_drop_and_restart_do_not_record() {
@@ -339,7 +330,7 @@ fn a_closed_voice_keeps_its_error_past_the_old_loading_deadline() {
         Event::Ready { version: 99 },
         Event::Error {
             take: None,
-            kind: "mic".into(),
+            kind: Kind::MicUnavailable,
             message: "TEST microphone missing".into(),
         },
     ] {
@@ -350,8 +341,8 @@ fn a_closed_voice_keeps_its_error_past_the_old_loading_deadline() {
         voice.tick(now);
         let notice = voice.notice().to_owned();
         let shutdowns = fake.borrow().closed;
-        voice.tick(now + Duration::from_secs(31));
-        voice.tick(now + Duration::from_secs(32));
+        voice.tick(now + DEADLINE + Duration::from_secs(1));
+        voice.tick(now + DEADLINE + Duration::from_secs(2));
         assert_eq!(voice.notice(), notice, "the real error stays");
         assert_eq!(
             fake.borrow().closed,
@@ -359,4 +350,39 @@ fn a_closed_voice_keeps_its_error_past_the_old_loading_deadline() {
             "no timeout fires after closing"
         );
     }
+}
+#[test]
+fn helper_failure_kinds_are_the_rust_kinds() {
+    let setup = include_str!("../../voice/setup.mjs");
+    let helper = include_str!("../../voice/helper.mjs");
+    let list = setup
+        .split_once("export const KINDS = [")
+        .and_then(|(_, rest)| rest.split_once(']'))
+        .expect("voice/setup.mjs lists KINDS")
+        .0;
+    let node: Vec<&str> = list
+        .split(',')
+        .map(|name| name.trim().trim_matches('\''))
+        .collect();
+    let rust: Vec<&str> = Kind::ALL[2..].iter().map(|kind| kind.name()).collect();
+    assert_eq!(
+        node, rust,
+        "KINDS in voice/setup.mjs must match voice::Kind"
+    );
+    for source in [setup, helper] {
+        for literal in source.split("issue('").skip(1) {
+            let name = literal.split('\'').next().unwrap();
+            assert!(node.contains(&name), "{name} is not in KINDS");
+        }
+    }
+    for kind in Kind::ALL {
+        let line = format!(
+            r#"{{"event":"error","kind":"{}","message":"m"}}"#,
+            kind.name()
+        );
+        assert!(
+            matches!(Event::parse(line.as_bytes()), Ok(Event::Error { kind: parsed, .. }) if parsed == kind)
+        );
+    }
+    assert!(Event::parse(br#"{"event":"error","kind":"mic","message":"m"}"#).is_err());
 }

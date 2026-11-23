@@ -2,7 +2,7 @@
 //! commands and events across its pipes on a worker thread, with bounded queues and line
 //! lengths. Think sees none of this; it talks to [`VoiceHost`].
 
-use super::{Command, Event, Failure, VoiceHost, protocol::MAX_LINE};
+use super::{Command, Event, Failure, Kind, VoiceHost, key_label, protocol::MAX_LINE};
 use crate::process;
 use std::{
     io::{BufRead, BufReader, Read, Write},
@@ -24,9 +24,22 @@ struct Node {
     executable: PathBuf,
 }
 static NODE: OnceLock<Node> = OnceLock::new();
+/// The oldest Node major the helper runs on; every Node message names it from here.
+const NODE_MAJOR: u32 = 22;
+fn needs_node() -> Failure {
+    Failure::new(
+        Kind::NoNode,
+        &format!("Voice needs Node {NODE_MAJOR} or later. Set TINKERY_NODE to its executable."),
+    )
+}
+/// `failure` and how to bring voice back, naming the voice key as the key bar does.
+fn reload(kind: Kind, failure: &str) -> Failure {
+    let key = key_label(std::env::consts::OS);
+    Failure::new(kind, &format!("{failure} {key} reloads voice."))
+}
 
 /// The real [`VoiceHost`]: the embedded Node helper, run and read on its own thread so think
-/// never waits on it. Without Node 22 or later, voice says how to point it at one instead.
+/// never waits on it. Without a recent enough Node, voice says how to point it at one instead.
 pub struct ProcessHost {
     commands: Option<SyncSender<Command>>,
     events: Receiver<Event>,
@@ -65,11 +78,11 @@ impl VoiceHost for ProcessHost {
     fn send(&mut self, command: Command) -> Result<(), Failure> {
         self.commands
             .as_ref()
-            .ok_or_else(|| Failure::new("protocol", "Voice is closed. F6 reloads voice."))?
+            .ok_or_else(|| reload(Kind::Protocol, "Voice is closed."))?
             .try_send(command)
             .map_err(|_| {
                 Failure::new(
-                    "protocol",
+                    Kind::Protocol,
                     "Voice command queue is unavailable. Restart think.",
                 )
             })
@@ -78,7 +91,7 @@ impl VoiceHost for ProcessHost {
         if self.overflow.swap(false, Ordering::SeqCst) {
             return Some(
                 Failure::new(
-                    "protocol",
+                    Kind::Protocol,
                     "Voice event queue exceeded its limit. Restart think.",
                 )
                 .event(),
@@ -112,7 +125,7 @@ fn push(output: &SyncSender<Event>, overflow: &AtomicBool, event: Event) {
 fn probe(command: Process, stop: &AtomicBool) -> Result<String, Failure> {
     let unread = || {
         Failure::new(
-            "no-node",
+            Kind::NoNode,
             "Could not read Node discovery result. Set TINKERY_NODE.",
         )
     };
@@ -124,16 +137,10 @@ fn probe(command: Process, stop: &AtomicBool) -> Result<String, Failure> {
     };
     let output = process::run(command, limits, stop).map_err(|failure| match failure {
         process::Failure::TooMuch(_) | process::Failure::Read(_) => unread(),
-        _ => Failure::new(
-            "no-node",
-            "Voice needs Node 22 or later. Set TINKERY_NODE to its executable.",
-        ),
+        _ => needs_node(),
     })?;
     if !output.status.success() {
-        return Err(Failure::new(
-            "no-node",
-            "Voice needs Node 22 or later. Set TINKERY_NODE to its executable.",
-        ));
+        return Err(needs_node());
     }
     String::from_utf8(output.stdout)
         .map(|text| text.trim().into())
@@ -146,11 +153,13 @@ fn version(path: &std::ffi::OsStr, stop: &AtomicBool) -> Result<String, Failure>
     let major = value
         .strip_prefix('v')
         .and_then(|v| v.split('.').next())
-        .filter(|v| v.parse::<u32>().is_ok_and(|v| v >= 22))
+        .filter(|v| v.parse::<u32>().is_ok_and(|v| v >= NODE_MAJOR))
         .ok_or_else(|| {
             Failure::new(
-                "no-node",
-                "Invalid Node version. Set TINKERY_NODE to a Node 22+ executable.",
+                Kind::NoNode,
+                &format!(
+                    "Invalid Node version. Set TINKERY_NODE to a Node {NODE_MAJOR}+ executable."
+                ),
             )
         })?;
     Ok(major.into())
@@ -161,18 +170,13 @@ fn default_node(stop: &AtomicBool) -> Result<Node, Failure> {
             executable: "node".into(),
         });
     }
-    let shell = std::env::var_os("SHELL").ok_or_else(|| {
-        Failure::new(
-            "no-node",
-            "Voice needs Node 22 or later. Set TINKERY_NODE to its executable.",
-        )
-    })?;
+    let shell = std::env::var_os("SHELL").ok_or_else(needs_node)?;
     let mut command = Process::new(shell);
     command.args(["-lc", "command -v node"]);
     let path = PathBuf::from(probe(command, stop)?);
     if !path.is_absolute() {
         return Err(Failure::new(
-            "no-node",
+            Kind::NoNode,
             "Login shell did not find Node. Set TINKERY_NODE.",
         ));
     }
@@ -228,7 +232,7 @@ mod tests {
         let start = Instant::now();
         assert_eq!(
             probe(command, &AtomicBool::new(true)).unwrap_err().kind,
-            "no-node"
+            Kind::NoNode
         );
         assert!(start.elapsed() < Duration::from_secs(1));
     }
@@ -241,7 +245,7 @@ mod tests {
             )
             .unwrap_err()
             .kind,
-            "no-node"
+            Kind::NoNode
         );
     }
 }
@@ -280,8 +284,10 @@ fn run(
                 &output,
                 &overflow,
                 Failure::new(
-                    "no-node",
-                    "Could not start Node. Set TINKERY_NODE to a Node 22+ executable.",
+                    Kind::NoNode,
+                    &format!(
+                        "Could not start Node. Set TINKERY_NODE to a Node {NODE_MAJOR}+ executable."
+                    ),
                 )
                 .event(),
             );
@@ -312,8 +318,11 @@ fn run(
                     push(
                         &reader_output,
                         &reader_overflow,
-                        Failure::new("protocol", "Could not read voice response. Restart think.")
-                            .event(),
+                        Failure::new(
+                            Kind::Protocol,
+                            "Could not read voice response. Restart think.",
+                        )
+                        .event(),
                     );
                     break;
                 }
@@ -328,7 +337,7 @@ fn run(
                 push(
                     &output,
                     &overflow,
-                    Failure::new("engine-load", "Voice helper exited. F6 reloads voice.").event(),
+                    reload(Kind::EngineLoad, "Voice helper exited.").event(),
                 );
                 break;
             }
@@ -344,8 +353,11 @@ fn run(
                     push(
                         &output,
                         &overflow,
-                        Failure::new("protocol", "Could not send voice command. Restart think.")
-                            .event(),
+                        Failure::new(
+                            Kind::Protocol,
+                            "Could not send voice command. Restart think.",
+                        )
+                        .event(),
                     );
                     break;
                 }
