@@ -16,12 +16,7 @@ pub(crate) use retry::{Rejected, Reviewed};
 mod tests;
 mod view;
 
-use crate::{
-    Palette,
-    process::{self, Task},
-    sdlc::DEADLINE,
-    seed_me::runs::Goal,
-};
+use crate::{Palette, github, process::Task, seed_me::runs::Goal};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
     Frame,
@@ -30,7 +25,7 @@ use ratatui::{
     widgets::{Paragraph, Wrap},
 };
 use read::ResultRow;
-use std::{path::PathBuf, process::Command, time::Instant};
+use std::{path::PathBuf, time::Instant};
 
 const HUMAN_VERDICT: &str = "Only a human can record the verdict.";
 
@@ -49,7 +44,7 @@ pub(crate) struct Taste {
     preview: Option<preview::Preview>,
     rows: Vec<ResultRow>,
     selected: usize,
-    selection: Option<(String, Option<String>)>,
+    selection: Option<(String, Option<github::PrUrl>)>,
     detail: bool,
     evidence: bool,
     scroll: usize,
@@ -287,11 +282,8 @@ impl Taste {
                     match &row.url {
                         Ok(url) => {
                             let (root, url) = (root.clone(), url.clone());
-                            self.opening = Some(Task::start(move |stop| {
-                                let mut command = Command::new("gh");
-                                command.args(["pr", "view", &url, "--web"]);
-                                process::text(&root, command, "gh", stop, DEADLINE).map(|_| ())
-                            }));
+                            self.opening =
+                                Some(Task::start(move |stop| github::open(&root, &url, stop)));
                         }
                         Err(_) if row.local().is_some() => {
                             self.notice =

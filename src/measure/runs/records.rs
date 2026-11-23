@@ -313,12 +313,9 @@ fn held(
         format!("--grep=This reverts commit {merge}"),
     ];
     // GitHub's revert button writes "Reverts OWNER/REPO#N"; #1 must not match #12.
-    if let Some((repo, number)) = pr
-        .and_then(|url| url.strip_prefix("https://github.com/"))
-        .and_then(|rest| rest.split_once("/pull/"))
-    {
-        let repo = repo.replace('.', "[.]");
-        args.push(format!("--grep=Reverts {repo}#{number}([^0-9]|$)"));
+    if let Some(url) = pr.and_then(crate::github::PrUrl::parse) {
+        let repo = url.repo().replace('.', "[.]");
+        args.push(format!("--grep=Reverts {repo}#{}([^0-9]|$)", url.number()));
     }
     args.push(format!("{merge}..HEAD"));
     match git(&args.iter().map(String::as_str).collect::<Vec<_>>()) {
