@@ -2,7 +2,6 @@
 //! explicit read contacts GitHub or the run records; navigation and details use memory, and
 //! leaving cancels the read without writing records.
 
-mod read;
 mod runs;
 #[cfg(test)]
 mod tests;
@@ -64,7 +63,7 @@ struct PullRequest {
     closed_at: Option<String>,
     merged_at: Option<String>,
     head_ref_oid: String,
-    status_check_rollup: Option<Vec<serde_json::Value>>,
+    status_check_rollup: Option<Vec<crate::github::Check>>,
 }
 
 struct Report {
@@ -212,7 +211,11 @@ impl Measure {
                     self.selected = 0;
                     self.scroll = 0;
                     self.notice = "Reading GitHub through gh… Esc cancels and goes back.".into();
-                    self.read = Some(read::start(repo.root(), self.since.clone()));
+                    let (root, since) = (repo.root().to_path_buf(), self.since.clone());
+                    // Dropping the task stops and reaps the read.
+                    self.read = Some(crate::process::Task::start(move |stop| {
+                        crate::github::list(&root, &since, stop).and_then(|text| parse(&text))
+                    }));
                 }
             }
             KeyCode::Char('p') if !self.detail && self.read.is_none() => {
@@ -329,16 +332,8 @@ impl Measure {
             match &pr.status_check_rollup {
                 Some(checks) if !checks.is_empty() => {
                     for check in checks {
-                        let name = check["name"]
-                            .as_str()
-                            .or(check["context"].as_str())
-                            .unwrap_or("unnamed check");
-                        let status = check["conclusion"]
-                            .as_str()
-                            .filter(|s| !s.is_empty())
-                            .or(check["status"].as_str())
-                            .or(check["state"].as_str())
-                            .unwrap_or("unknown");
+                        let name = check.name.as_deref().unwrap_or("unnamed check");
+                        let status = check.reported.as_deref().unwrap_or("unknown");
                         lines.push(format!(
                             "{}: {}",
                             crate::shown_line(name),
