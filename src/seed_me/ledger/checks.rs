@@ -7,7 +7,7 @@ use super::{
 use regex::Regex;
 use std::path::Path;
 
-use crate::seed_me::files::CHECKS as FILE;
+use crate::seed_me::files::{CHECKS as FILE, Section};
 
 /// Refuse unknown fields, blank values and non-relative working directories without coercion.
 pub fn validate_checks(records: &Value) -> Result<()> {
@@ -334,9 +334,7 @@ pub fn read_checks(directory: &Path) -> Result<Value> {
 }
 
 pub(super) fn digest(records: &Value) -> Result<String> {
-    Ok(super::seed::sha256(
-        records.sorted().compact(false)?.as_bytes(),
-    ))
+    Ok(super::seed::sha256(records.canonical(false)?.as_bytes()))
 }
 
 fn prose(value: &str) -> String {
@@ -469,24 +467,6 @@ pub(super) fn legacy_block(records: &Value) -> Result<String> {
     ))
 }
 
-/// The canonical Full artifact sequence; hosts derive their prose fields from this layout.
-pub(crate) const FULL: &[&str] = &[
-    "## You are confirming",
-    "## Problem statement",
-    "## Proposed outcome",
-    "## Acceptance criteria",
-    "## Affected users and systems",
-    "## Constraints and boundaries",
-    "## Decisions (from the ledger)",
-    "## Assumed (not confirmed by you)",
-    "## Knowledge map",
-    "## Evidence and uncertainty",
-    "## Suggested first slice",
-    "## Risks and verification",
-    "## Open questions and deferrals",
-    "## Owners and next steps",
-    "## Downstream handoff",
-];
 pub(super) const LEAN: &[&str] = &[
     "## You are confirming",
     "## Now  (the agent keeps these current)",
@@ -630,12 +610,16 @@ pub(super) fn require_seed_checks(
     )?;
     let titles: Vec<_> = headings.iter().skip(1).map(|(_, s)| s.as_str()).collect();
     require(
-        titles == FULL || titles == LEAN,
+        titles
+            .iter()
+            .copied()
+            .eq(Section::FULL.map(Section::heading))
+            || titles == LEAN,
         "checks refuse injected, missing, reordered or non-canonical headings; use the Full or Lean template",
     )?;
     let index = headings
         .iter()
-        .position(|(_, s)| s == "## Acceptance criteria")
+        .position(|(_, s)| s == Section::Acceptance.heading())
         .unwrap();
     let section = &body[headings[index].0..headings.get(index + 1).map_or(body.len(), |h| h.0)];
     require(

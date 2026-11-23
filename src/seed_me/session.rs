@@ -176,7 +176,7 @@ pub fn read(path: &Path) -> Record {
     {
         Stage::Unknown
     } else {
-        match super::read_seed_text(&path.join(super::files::SEED)) {
+        match super::files::read_seed_text(&path.join(super::files::SEED)) {
             Ok(seed) => Stage::from_files(status, Some(&seed)),
             Err(error) if error.kind() == NotFound => Stage::from_files(status, None),
             Err(_) => Stage::Unknown,

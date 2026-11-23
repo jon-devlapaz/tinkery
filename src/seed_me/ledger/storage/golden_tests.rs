@@ -4,6 +4,9 @@
 use super::*;
 use std::fs;
 
+/// Stored numbers that no check reads.
+const NUMBERS: &str = r#"{"z":{"b":[1e-07,2.5e-05,0.1,1e16,1.5e+300,-0.0,2E3],"a":"TEST café 😀 \u0007"},"big":[123456789012345678901234567890123456789012,-98765432109876543210987654321098765432109,18446744073709551616,-9223372036854775809,-7]}"#;
+
 const STAMP: &str = "2026-10-19T00:00:00+00:00";
 
 /// Publish a changed draft goal over `stored` and return the new file bytes or the refusal.
@@ -101,7 +104,14 @@ fn republished_ledgers_keep_their_golden_bytes() {
                 r#""outcome":"é\u00e9\ud83d\ude00\u001f\/\t\u2028\u007f""#,
             ),
         ),
-        ("probe", probe),
+        ("probe", probe.clone()),
+        (
+            "numbers",
+            probe.replace(
+                r#""label":"Pre-mortem""#,
+                &format!(r#""label":{}"#, NUMBERS),
+            ),
+        ),
     ] {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("src/seed_me/ledger/storage/goldens");

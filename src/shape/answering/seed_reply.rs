@@ -1,15 +1,10 @@
 //! Model prose fields follow the ledger's artifact layout; headings and recorded blocks belong to Tinkery.
 
 use super::{Refusal, Value, ledger};
+use crate::seed_me::files::Section;
 
 fn fields() -> impl Iterator<Item = &'static str> {
-    ledger::FULL.iter().filter_map(|heading| match *heading {
-        "## Acceptance criteria"
-        | "## Decisions (from the ledger)"
-        | "## Assumed (not confirmed by you)"
-        | "## Evidence and uncertainty" => None,
-        heading => heading.strip_prefix("## "),
-    })
+    Section::FULL.into_iter().filter_map(Section::prose)
 }
 
 pub(super) fn instructions(reference: &str) -> Result<String, Refusal> {
@@ -183,8 +178,8 @@ mod tests {
             "## You are confirming\n{}",
             artifact.split_once("## You are confirming\n").unwrap().1
         );
-        for heading in ledger::FULL {
-            assert!(historical.contains(heading));
+        for section in Section::FULL {
+            assert!(historical.contains(section.heading()));
         }
         let error = prose(&Value::String(historical)).unwrap_err().to_string();
         assert!(
