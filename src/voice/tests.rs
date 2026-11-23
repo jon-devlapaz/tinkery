@@ -235,7 +235,7 @@ fn transport_failure_and_global_error_disable_voice() {
     assert!(!voice.available());
     fake.borrow_mut()
         .events
-        .push_back(Failure::new("engine-load", "Engine exited.").event());
+        .push_back(Failure::new(Kind::EngineLoad, "Engine exited.").event());
     voice.tick(now);
     assert!(!voice.available());
     assert_eq!(voice.notice(), "Engine exited.");

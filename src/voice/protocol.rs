@@ -116,9 +116,9 @@ pub struct Failure {
 }
 impl Failure {
     /// A failure of category `kind` saying `message`.
-    pub fn new(kind: impl Into<Kind>, message: &str) -> Self {
+    pub fn new(kind: Kind, message: &str) -> Self {
         Self {
-            kind: kind.into(),
+            kind,
             message: message.into(),
         }
     }
@@ -209,18 +209,5 @@ impl TryFrom<String> for Kind {
             .into_iter()
             .find(|kind| kind.name() == name)
             .ok_or(name)
-    }
-}
-/// A kind named by a literal in code. An unknown name is a typo, not data, so it panics; data
-/// from the helper is checked when it is parsed.
-impl From<&str> for Kind {
-    fn from(name: &str) -> Self {
-        Self::try_from(name.to_owned()).expect("a known voice failure kind")
-    }
-}
-/// A kind equals its name on the wire.
-impl PartialEq<&str> for Kind {
-    fn eq(&self, name: &&str) -> bool {
-        self.name() == *name
     }
 }

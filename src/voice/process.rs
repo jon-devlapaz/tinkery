@@ -32,9 +32,9 @@ fn needs_node() -> Failure {
         &format!("Voice needs Node {NODE_MAJOR} or later. Set TINKERY_NODE to its executable."),
     )
 }
-/// `failure` and how to bring voice back, naming the voice key as the key bar does.
-fn reload(kind: Kind, failure: &str) -> Failure {
-    let key = key_label(std::env::consts::OS);
+/// `failure` and how to bring voice back, naming the voice key as the key bar on `platform` does.
+fn reload(platform: &str, kind: Kind, failure: &str) -> Failure {
+    let key = key_label(platform);
     Failure::new(kind, &format!("{failure} {key} reloads voice."))
 }
 
@@ -78,7 +78,7 @@ impl VoiceHost for ProcessHost {
     fn send(&mut self, command: Command) -> Result<(), Failure> {
         self.commands
             .as_ref()
-            .ok_or_else(|| reload(Kind::Protocol, "Voice is closed."))?
+            .ok_or_else(|| reload(std::env::consts::OS, Kind::Protocol, "Voice is closed."))?
             .try_send(command)
             .map_err(|_| {
                 Failure::new(
@@ -237,6 +237,12 @@ mod tests {
         assert!(start.elapsed() < Duration::from_secs(1));
     }
     #[test]
+    fn reload_names_the_voice_key_the_key_bar_shows() {
+        let closed = |platform| reload(platform, Kind::Protocol, "Voice is closed.").message;
+        assert_eq!(closed("macos"), "Voice is closed. ⌃⌥Z reloads voice.");
+        assert_eq!(closed("linux"), "Voice is closed. F6 reloads voice.");
+    }
+    #[test]
     fn absent_explicit_executable_is_no_node() {
         assert_eq!(
             version(
@@ -337,7 +343,12 @@ fn run(
                 push(
                     &output,
                     &overflow,
-                    reload(Kind::EngineLoad, "Voice helper exited.").event(),
+                    reload(
+                        std::env::consts::OS,
+                        Kind::EngineLoad,
+                        "Voice helper exited.",
+                    )
+                    .event(),
                 );
                 break;
             }

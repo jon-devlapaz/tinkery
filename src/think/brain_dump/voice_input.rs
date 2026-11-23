@@ -3,7 +3,7 @@
 //! like typed words.
 
 use super::*;
-use crate::voice::{Failure, Voice, VoiceHost, silence_filler};
+use crate::voice::{Failure, Kind, Voice, VoiceHost, silence_filler};
 use ratatui::text::{Line, Span, Text};
 use std::time::Instant;
 
@@ -94,7 +94,7 @@ impl BrainDump {
                 app.voice
                     .as_mut()
                     .unwrap()
-                    .reject(Failure::new("capture", error));
+                    .reject(Failure::new(Kind::Capture, error));
                 return;
             }
             app.focus_writing();
