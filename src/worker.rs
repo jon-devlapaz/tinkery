@@ -238,14 +238,15 @@ fn command(root: &Path, args: &[String], deadline: Duration) -> Result<String, S
     sdlc::command(root, args, &AtomicBool::new(false), deadline)
 }
 
+/// A checkout that cannot be the exact repository root it claims; never a guessed folder.
+const MOVED: &str = "The selected checkout moved or is not a canonical repository root. Reopen it.";
+
 fn canonical_root(root: &Path) -> Result<(), String> {
     if !root.is_absolute()
         || root.canonicalize().ok().as_deref() != Some(root)
         || Repo::enclosing(root).as_ref().map(Repo::root) != Some(root)
     {
-        return Err(
-            "The selected checkout moved or is not a canonical repository root. Reopen it.".into(),
-        );
+        return Err(MOVED.into());
     }
     if !sdlc::installed(root) {
         return Err("The named checkout has no SDLC runtime.".into());
@@ -286,9 +287,12 @@ fn identity(root: &Path, slug: &str, report: &sdlc::Run) -> Result<Run, String> 
         .as_str()
         .filter(|id| sdlc::canonical_run_id(id))
         .ok_or("The run has no stable identity.")?;
-    let root = match value.get("checkout") {
-        Some(value) => PathBuf::from(value.as_str().ok_or("The build checkout is unreadable.")?),
-        None => root.to_path_buf(),
+    let root = match &report.checkout {
+        Ok(path) => path.clone().unwrap_or_else(|| root.to_path_buf()),
+        Err(sdlc::CheckoutGap::NotText) => return Err("The build checkout is unreadable.".into()),
+        Err(sdlc::CheckoutGap::Nul | sdlc::CheckoutGap::Relative) => {
+            return Err(MOVED.into());
+        }
     };
     canonical_root(&root)?;
     Ok(Run {
@@ -540,9 +544,8 @@ fn act(gate: &Gate, run: &Run, action: Action) -> Result<Snapshot, String> {
             admit(gate, run, pin, false, seed.target.as_ref())?;
         }
         Action::Finish => {
-            if !value.verification.is(sdlc::Verification::Current)
-                || value.data["verification"]["passed"].as_bool() != Some(true)
-            {
+            // Only a machine-checked pass finishes; pending judgments are not passing checks.
+            if !(value.verification.is(sdlc::Verification::Current) && value.receipt_current) {
                 return Err("Verify first. Finish needs current passing checks; keep this worker available to repair failures.".into());
             }
             command(&run.root, &step("complete"), sdlc::DEADLINE)?;

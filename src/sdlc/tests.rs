@@ -226,3 +226,84 @@ fn generated_rules_are_dropped_only_from_well_formed_blocks() {
     }
     assert_eq!(without_generated_rules(authored), authored);
 }
+
+#[test]
+fn run_files_admit_resume_logs_only_when_asked_and_never_read_through_a_link() {
+    use super::{FileGap, RunFiles};
+    let dir = tempfile::Builder::new()
+        .prefix("tinkery-TEST-run-files-")
+        .tempdir()
+        .unwrap();
+    let steps = dir.path().join("runs/TEST-run/steps");
+    std::fs::create_dir_all(&steps).unwrap();
+    for name in [
+        "build.launch-1.pi.log",
+        "build.resume-2.pi.log",
+        "fix.resume-1.launch-3.pi.log",
+        "build.launch-.pi.log",
+        "build.launch-x.pi.log",
+        "build.json",
+    ] {
+        std::fs::write(steps.join(name), "{}\n").unwrap();
+    }
+    let files = RunFiles::open(dir.path(), "TEST-run").unwrap();
+    let found = |resume| {
+        let mut logs: Vec<_> = files
+            .logs(resume, true)
+            .unwrap()
+            .into_iter()
+            .map(|log| (log.step, log.time))
+            .collect();
+        logs.sort();
+        logs
+    };
+    assert_eq!(
+        found(false),
+        [("build".into(), 1), ("fix.resume-1".into(), 3)]
+    );
+    assert_eq!(
+        found(true),
+        [
+            ("build".into(), 1),
+            ("build".into(), 2),
+            ("fix.resume-1".into(), 3)
+        ]
+    );
+    assert_eq!(files.read("steps/build.json").unwrap(), b"{}\n");
+
+    // The same steps folder reached through a link is neither listed nor read.
+    let linked = dir.path().join("runs/TEST-linked");
+    std::fs::create_dir_all(&linked).unwrap();
+    std::os::unix::fs::symlink(&steps, linked.join("steps")).unwrap();
+    let files = RunFiles::open(dir.path(), "TEST-linked").unwrap();
+    assert!(files.logs(true, true).is_none());
+    assert_eq!(files.read("steps/build.json"), Err(FileGap::Unreachable));
+}
+
+#[test]
+fn run_files_refuse_a_linked_runs_folder_a_linked_run_folder_and_a_path_slug() {
+    use super::RunFiles;
+    let dir = tempfile::Builder::new()
+        .prefix("tinkery-TEST-run-links-")
+        .tempdir()
+        .unwrap();
+    let real = dir.path().join("real");
+    fs::create_dir_all(real.join("runs/TEST-run/steps")).unwrap();
+    assert!(RunFiles::open(&real, "TEST-run").is_some());
+
+    let linked_runs = dir.path().join("linked-runs");
+    fs::create_dir_all(&linked_runs).unwrap();
+    std::os::unix::fs::symlink(real.join("runs"), linked_runs.join("runs")).unwrap();
+    assert!(RunFiles::open(&linked_runs, "TEST-run").is_none());
+
+    std::os::unix::fs::symlink(real.join("runs/TEST-run"), real.join("runs/TEST-alias")).unwrap();
+    assert!(RunFiles::open(&real, "TEST-alias").is_none());
+
+    for slug in ["../real/runs/TEST-run", "TEST-run/steps", "..", ""] {
+        assert!(RunFiles::open(&real, slug).is_none(), "{slug}");
+    }
+
+    // A link in the checkout's own path is the operator's; it resolves.
+    std::os::unix::fs::symlink(&real, dir.path().join("checkout-link")).unwrap();
+    assert!(RunFiles::open(&dir.path().join("checkout-link"), "TEST-run").is_some());
+}

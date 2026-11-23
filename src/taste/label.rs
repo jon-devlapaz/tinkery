@@ -7,7 +7,6 @@ use super::read::Check;
 use crate::process::{self, Limits};
 use crate::sdlc::{self, DEADLINE};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use serde_json::Value;
 use std::{path::Path, process::Command, sync::atomic::AtomicBool};
 
 /// The operator's answer, on keys 1 and 2. Taste offers only these two of tink-sdlc's kinds.
@@ -78,31 +77,26 @@ pub(super) fn read(
     if !checkout.is_absolute() {
         return Err("Verdict checkout must be absolute.".into());
     }
-    let path = checkout
-        .join("runs")
-        .join(parsed.data["slug"].as_str().ok_or("Run name missing.")?)
-        .join("labels.jsonl");
-    if path.canonicalize().ok().as_ref() != Some(&path) {
-        return Err("Cannot read this run's verdict words in its checkout.".into());
-    }
-    let bytes = crate::regular_file::read_bounded(
-        &path,
-        4 * 1024 * 1024,
-        "The verdict words are not in a regular file.",
-    )
-    .map_err(|error| error.to_string())?
-    .bytes
-    .ok_or("The verdict record is too large or incomplete.")?;
-    if !bytes.ends_with(b"\n") {
-        return Err("The verdict record is too large or incomplete.".into());
-    }
+    let slug = parsed.data["slug"].as_str().ok_or("Run name missing.")?;
+    let records = sdlc::RunFiles::open(checkout, slug)
+        .ok_or(sdlc::FileGap::Unreachable)
+        .and_then(|files| files.labels())
+        .map_err(|gap| match gap {
+            sdlc::FileGap::Unreachable => {
+                "Cannot read this run's verdict words in its checkout.".to_owned()
+            }
+            sdlc::FileGap::NotRegular => "The verdict words are not in a regular file.".into(),
+            sdlc::FileGap::Io(why) => why,
+            sdlc::FileGap::TooLarge | sdlc::FileGap::Incomplete => {
+                "The verdict record is too large or incomplete.".into()
+            }
+        })?;
     let mut status = Check::Stale;
     let mut latest = None;
     let mut total = 0;
     let (mut passes, mut failures) = (0, 0);
-    for line in bytes[..bytes.len() - 1].split(|&byte| byte == b'\n') {
-        let record: Value =
-            serde_json::from_slice(line).map_err(|_| "Unreadable verdict record.")?;
+    for record in records {
+        let record = record.ok_or("Unreadable verdict record.")?;
         let judged = record["source"]
             .as_str()
             .and_then(|s| s.strip_prefix("taste@"));
@@ -299,7 +293,10 @@ mod tests {
         }
     }
 
-    fn recorded(records: &[Value], head: Option<&str>) -> (Option<Check>, Option<Verdict>) {
+    fn recorded(
+        records: &[serde_json::Value],
+        head: Option<&str>,
+    ) -> (Option<Check>, Option<Verdict>) {
         let dir = tempfile::Builder::new()
             .prefix("tinkery-TEST-labels-")
             .tempdir()
