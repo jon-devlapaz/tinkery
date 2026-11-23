@@ -9,11 +9,20 @@
 mod process;
 mod protocol;
 mod setup;
-pub use setup::{Consent, key_label};
+pub use setup::Consent;
 
 pub use process::ProcessHost;
-pub use protocol::{Command, Event, Failure};
+pub use protocol::{Command, Event, Failure, Kind};
 use std::time::{Duration, Instant};
+
+/// How long voice waits on the helper for any one step of loading or a take before it gives up.
+const DEADLINE: Duration = Duration::from_secs(30);
+
+/// The voice key as the key bar names it on `platform`: the chord on macOS, `F6` elsewhere,
+/// like every other function key on the bar. F6 and Ctrl+Alt+Z work everywhere either way.
+pub fn key_label(platform: &str) -> &'static str {
+    if platform == "macos" { "⌃⌥Z" } else { "F6" }
+}
 
 /// Where takes actually run. [`ProcessHost`] runs the Node helper; tests use fakes, so no test
 /// needs a microphone or a native engine.
@@ -87,7 +96,7 @@ impl Voice {
             take: None,
             partial: String::new(),
             pending_send: false,
-            deadline: Some(Instant::now() + Duration::from_secs(30)),
+            deadline: Some(Instant::now() + DEADLINE),
             notice: String::new(),
             failure: None,
         }
@@ -137,7 +146,11 @@ impl Voice {
     /// The one line to show about voice now. Missing Node is mentioned only on request.
     pub fn notice(&self) -> &str {
         let voice_requested = self.setup.requested || self.next_take > 0;
-        if !voice_requested && self.failure().is_some_and(|error| error.kind == "no-node") {
+        if !voice_requested
+            && self
+                .failure()
+                .is_some_and(|error| error.kind == Kind::NoNode)
+        {
             return "";
         }
         &self.notice
@@ -199,7 +212,7 @@ impl Voice {
             self.setup.requested = true;
             self.host.restart();
             self.phase = Phase::Loading;
-            self.deadline = Some(now + Duration::from_secs(30));
+            self.deadline = Some(now + DEADLINE);
         }
         if self.setup.need.is_some() && self.phase == Phase::Setup {
             self.request_setup(now);
@@ -217,7 +230,7 @@ impl Voice {
         self.phase = Phase::Starting;
         self.notice.clear();
         self.failure = None;
-        self.deadline = Some(now + Duration::from_secs(30));
+        self.deadline = Some(now + DEADLINE);
         self.command(Command::Start {
             take: self.next_take,
         });
@@ -231,7 +244,7 @@ impl Voice {
         self.pending_send |= send;
         if self.phase != Phase::Finalizing {
             self.phase = Phase::Finalizing;
-            self.deadline = Some(now + Duration::from_secs(30));
+            self.deadline = Some(now + DEADLINE);
             self.command(Command::Stop { take });
         }
     }
@@ -257,7 +270,7 @@ impl Voice {
         if self.deadline.is_some_and(|end| now >= end) {
             self.close();
             self.reject(Failure::new(
-                "timeout",
+                Kind::Timeout,
                 "Voice timed out. Press the voice key to retry.",
             ));
             return None;
@@ -282,7 +295,10 @@ impl Voice {
                 {
                     if size_mb == 0 || message.len() > 1024 {
                         self.close();
-                        self.reject(Failure::new("protocol", "Invalid voice setup response."));
+                        self.reject(Failure::new(
+                            Kind::Protocol,
+                            "Invalid voice setup response.",
+                        ));
                         continue;
                     }
                     self.setup.need = needed;
@@ -301,13 +317,13 @@ impl Voice {
                         && matches!(self.phase, Phase::Loading | Phase::Installing) =>
                 {
                     self.phase = Phase::Loading;
-                    self.deadline = Some(now + Duration::from_secs(30));
+                    self.deadline = Some(now + DEADLINE);
                 }
                 Event::Ready { version } if self.phase == Phase::Loading => {
                     if version != protocol::VERSION {
                         self.close();
                         self.reject(Failure::new(
-                            "protocol",
+                            Kind::Protocol,
                             "Incompatible voice protocol. Restart think.",
                         ));
                     } else {
@@ -328,7 +344,7 @@ impl Voice {
                 Event::Partial { take, text } if self.take == Some(take) => {
                     if text.len() > 4096 {
                         self.reject(Failure::new(
-                            "capture",
+                            Kind::Capture,
                             "Voice text exceeds 4096 bytes. Try a shorter take.",
                         ));
                     } else {
@@ -346,7 +362,7 @@ impl Voice {
                     message,
                 } if take.is_none() || take == self.take => {
                     let global = take.is_none();
-                    self.reject(Failure::new(&kind, &message));
+                    self.reject(Failure::new(kind, &message));
                     if global {
                         self.setup.prompt = false;
                         self.shut();

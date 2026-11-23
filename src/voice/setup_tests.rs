@@ -96,7 +96,7 @@ fn failure_requires_an_explicit_retry_key_but_not_repeating_unchanged_consent() 
     voice.answer_setup(true, now);
     fake.borrow_mut().events.push_back(
         Failure::new(
-            "install",
+            Kind::Install,
             "Voice install failed: registry unavailable. Press the voice key to retry.",
         )
         .event(),
@@ -161,7 +161,7 @@ fn install_deadline_closes_work_and_stale_ready_cannot_restart_it() {
     voice.toggle(now);
     voice.answer_setup(true, now);
     voice.tick(now + Duration::from_secs(600));
-    assert_eq!(voice.failure().unwrap().kind, "timeout");
+    assert_eq!(voice.failure().unwrap().kind, Kind::Timeout);
     fake.borrow_mut()
         .events
         .push_back(Event::Ready { version: 1 });

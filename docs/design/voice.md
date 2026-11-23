@@ -28,6 +28,9 @@ The Rust `VoiceHost` boundary keeps process handling out of think. The embedded
 setup/helper source runs via Node ESM `--eval`, not a runtime helper file.
 Commands/events are versioned JSON lines with take IDs so stale callbacks cannot
 modify a newer take. The helper stays goal-blind.
+Failure kinds are one closed list, `voice::Kind`. `KINDS` in `voice/setup.mjs` names the
+helper's share, and a Rust test fails if the two drift. A kind the helper sends outside the
+list is a malformed response.
 
 - macOS advertises `⌃⌥Z speak`; elsewhere `F6 speak`. F6 and Ctrl+Alt+Z work
   everywhere. The macOS Ω variant inserts no character and never undoes a skip.

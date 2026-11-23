@@ -80,8 +80,3 @@ impl Setup {
         self.message.clear();
     }
 }
-/// The voice key as the key bar names it on `platform`: the chord on macOS, `F6` elsewhere,
-/// like every other function key on the bar. F6 and Ctrl+Alt+Z work everywhere either way.
-pub fn key_label(platform: &str) -> &'static str {
-    if platform == "macos" { "⌃⌥Z" } else { "F6" }
-}

@@ -9,7 +9,12 @@ export const PACKAGES = { 'transcribe-cpp': '0.2.2', '@picovoice/pvrecorder-node
 export const MODEL_FILE = 'parakeet-unified-en-0.6b-Q8_0.gguf';
 const MODEL_BYTES = 731357568;
 const modelUrl = `https://huggingface.co/handy-computer/parakeet-unified-en-0.6b-gguf/resolve/main/${MODEL_FILE}`;
-const setupIssue = (kind, message) => Object.assign(new Error(message), { kind });
+// The helper's failure kinds, by the names `Kind` in src/voice/protocol.rs gives them; a Rust test fails if they drift.
+export const KINDS = ['protocol', 'config', 'no-model', 'install', 'download', 'engine-load', 'mic-permission', 'mic-unavailable', 'mic-busy', 'capture', 'transcription'];
+export const issue = (kind, message) => {
+  if (!KINDS.includes(kind)) throw new Error(`Unknown voice failure kind: ${kind}`);
+  return Object.assign(new Error(message), { kind });
+};
 export const shortReason = error => Array.from(String(error.message ?? error).replace(/[\x00-\x1f\x7f]/g, ' ')).slice(0, 100).join('').trim();
 export function voicePaths(home = setupHome(), env = process.env) {
   const root = env.TINKERY_VOICE_ROOT ? setupResolve(env.TINKERY_VOICE_ROOT) : setupJoin(home, '.local/share/tinkery/voice');
@@ -27,19 +32,19 @@ async function setupExists(path) {
 export async function readVoiceConfig(paths) {
   let config;
   try { config = JSON.parse(await setupFs.readFile(paths.config, 'utf8')); }
-  catch (error) { if (error.code === 'ENOENT') return { microphone: { type: 'system-default' }, language: 'en' }; throw setupIssue('config', 'Check ~/.config/tinkery/voice.json: invalid or unreadable JSON.'); }
+  catch (error) { if (error.code === 'ENOENT') return { microphone: { type: 'system-default' }, language: 'en' }; throw issue('config', 'Check ~/.config/tinkery/voice.json: invalid or unreadable JSON.'); }
   if (!config || typeof config !== 'object' || Array.isArray(config) || Object.keys(config).some(key => !['microphone', 'language', 'model'].includes(key)) ||
       (config.language !== undefined && (typeof config.language !== 'string' || !config.language.trim())) ||
       (config.model !== undefined && (typeof config.model !== 'string' || !config.model.trim())) ||
       (config.microphone !== undefined && (typeof config.microphone !== 'string' || !config.microphone.trim())))
-    throw setupIssue('config', 'Check ~/.config/tinkery/voice.json: microphone, language and model must be nonempty strings.');
+    throw issue('config', 'Check ~/.config/tinkery/voice.json: microphone, language and model must be nonempty strings.');
   return { microphone: config.microphone && config.microphone !== 'system-default' ? { type: 'device', name: config.microphone, occurrence: 0 } : { type: 'system-default' },
     language: config.language ?? 'en', model: config.model };
 }
 export async function findVoiceModel(paths, config, env = process.env) {
   const override = env.TINKERY_VOICE_MODEL ?? config.model;
   if (override !== undefined) {
-    if (!override.trim() || !await setupExists(override)) throw setupIssue('no-model', env.TINKERY_VOICE_MODEL !== undefined ? 'Voice model not found. Check TINKERY_VOICE_MODEL.' : 'Voice model not found. Check model in ~/.config/tinkery/voice.json.');
+    if (!override.trim() || !await setupExists(override)) throw issue('no-model', env.TINKERY_VOICE_MODEL !== undefined ? 'Voice model not found. Check TINKERY_VOICE_MODEL.' : 'Voice model not found. Check model in ~/.config/tinkery/voice.json.');
     return override;
   }
   let snapshots;

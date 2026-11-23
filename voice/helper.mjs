@@ -5,7 +5,6 @@ import { promisify } from 'node:util';
 const RATE = 16000, CHUNK = 8000, MAX_SAMPLES = RATE * 300, MAX_QUEUE = 8;
 const MAX_LINE = 32768;
 const permissionHelp = 'Allow microphone access for your terminal in System Settings → Privacy & Security → Microphone.';
-const issue = (kind, message) => Object.assign(new Error(message), { kind });
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const emit = event => {
   const line = JSON.stringify(event);
@@ -312,7 +311,7 @@ async function setupAction(action) {
     else await downloadVoiceModel(voicePaths());
     if (!closed) await prepareVoice();
   } catch (error) {
-    failEvent(issue(action === 'install' ? 'install' : 'download', `Voice ${action === 'install' ? 'install' : 'download'} failed: ${shortReason(error)}. Press the voice key to retry.`));
+    failEvent(issue(action, `Voice ${action} failed: ${shortReason(error)}. Press the voice key to retry.`));
   } finally { setupBusy = false; }
 }
 try { await prepareVoice(); }
