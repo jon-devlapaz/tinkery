@@ -49,6 +49,7 @@ const MODULES: &[(&str, &str)] = &[
     ("calendar", "shared"),
     ("confirmation", "shared"),
     ("data_roots", "shared"),
+    ("github", "shared"),
     ("goal", "shared"),
     ("measure", "measure"),
     ("menu", "menu"),
