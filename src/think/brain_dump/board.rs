@@ -281,16 +281,6 @@ impl Board {
     pub fn goal(&self) -> Option<&str> {
         self.reading.as_ref().map(|r| r.text.as_str())
     }
-    /// Test-only: replaces the displayed block, leaving the parts alone. Verification never
-    /// makes such a board; tests use it to prove consumers read the block instead of
-    /// recomposing it from the parts.
-    #[cfg(test)]
-    pub(super) fn with_displayed_goal(mut self, text: &str) -> Self {
-        if let Some(reading) = &mut self.0.reading {
-            reading.text = text.into();
-        }
-        self
-    }
     /// The board in the model's wire shape, sent back as `previous` so the next reading
     /// refines this one.
     pub fn wire(&self) -> Guess {

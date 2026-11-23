@@ -76,7 +76,7 @@ fn point(tend: &Tend, index: usize) -> (u16, u16) {
     let graph = guard.simulation.get_graph();
     let node = graph
         .node_weights()
-        .find(|n| n.data.id == slot(tend, index).to_string())
+        .find(|n| n.data.title == format!("Goal {index}"))
         .unwrap();
     let (x, y) = guard.viewport.world_to_screen(
         f64::from(node.location.x),
@@ -87,16 +87,6 @@ fn point(tend: &Tend, index: usize) -> (u16, u16) {
 }
 fn identity(session: &Session) -> crate::tend::Entry {
     crate::tend::Entry::Goal(session.path.clone())
-}
-/// Graf's node id for a session: its slot in Tend's sorted topology.
-fn slot(tend: &Tend, index: usize) -> usize {
-    let entry = identity(&tend.sessions[index]);
-    tend.graph
-        .topology
-        .0
-        .iter()
-        .position(|(e, _)| *e == entry)
-        .unwrap()
 }
 fn pointer(tend: &mut Tend, kind: MouseEventKind, at: (u16, u16), now: Instant) {
     tend.pointer(
