@@ -5,32 +5,16 @@ use crate::confirmation::Actor;
 use crate::seed_me::ledger::{TeachBackComparison, TeachBackRecord};
 
 pub(super) fn run(
-    work: &Work,
+    (revision, words, expected, seed): (&str, &str, u64, &str),
     session: &Path,
     agent: &Agent,
     actor: Actor<'_>,
     cancelled: &AtomicBool,
     saved: &AtomicBool,
 ) -> Result<Done, Failure> {
-    let Work::TeachBack {
-        revision,
-        words,
-        expected,
-        seed,
-    } = work
-    else {
-        unreachable!()
-    };
-    if agent.remaining() == 0 {
-        return Err(Failure {
-            answer_saved: false,
-            why: Why::Budget(agent.limit()),
-            feedback: None,
-        });
-    }
     let version = answering::teach_back(
         session,
-        *expected,
+        expected,
         revision,
         seed,
         &TeachBackRecord::Words(words),

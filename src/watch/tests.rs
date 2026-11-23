@@ -629,7 +629,11 @@ fn goal_display_keeps_exact_words_and_escapes_unsafe_controls_only() {
     let lines = goal_lines("TEST\u{1b}[31m\u{202e}", Palette::new(true));
     assert_eq!(lines[0].spans[0].content, "TEST\\u{1b}[31m\\u{202e}");
     assert!(
-        goal_lines(goal_text(&Goal::Unknown), Palette::new(true))[0].spans[0]
+        goal_lines(
+            crate::goal::confirmed::run_goal(&Goal::Unknown),
+            Palette::new(true)
+        )[0]
+        .spans[0]
             .content
             .starts_with("Goal unknown.")
     );

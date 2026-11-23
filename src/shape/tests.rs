@@ -1,4 +1,5 @@
 use super::*;
+use crate::confirmation::Actor;
 use crate::seed_me::ledger::fixtures::prose_reply;
 use crossterm::event::KeyModifiers;
 use shaping::{Decided, Shaped, Shaping};
@@ -1485,7 +1486,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
             folder: temp.path().into(),
         },
         receipt.session.clone(),
-        agent.clone(),
+        Some(agent.clone()),
     );
     let deadline = Instant::now() + Duration::from_secs(20);
     let result = loop {
@@ -1620,7 +1621,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
             folder: temp.path().into(),
         },
         receipt.session.clone(),
-        agent.clone(),
+        Some(agent.clone()),
     );
     let deadline = Instant::now() + Duration::from_secs(20);
     let result = loop {
@@ -1981,7 +1982,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
             folder: temp.path().into(),
         },
         receipt.session.clone(),
-        agent.clone(),
+        Some(agent.clone()),
     );
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
@@ -2250,7 +2251,7 @@ else:
             folder: temp.path().into(),
         },
     };
-    let running = step::Running::start(work, receipt.session.clone(), agent.clone());
+    let running = step::Running::start(work, receipt.session.clone(), Some(agent.clone()));
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
         if let Some(result) = running.poll() {
@@ -2374,7 +2375,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
             folder: temp.path().into(),
         },
         receipt.session.clone(),
-        agent.clone(),
+        Some(agent.clone()),
     );
     let until = Instant::now() + Duration::from_secs(20);
     loop {
@@ -2908,39 +2909,6 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
 }
 
 #[test]
-fn uncertain_endings_and_other_ledger_saves_never_claim_nothing_changed() {
-    // No key or file setup makes a save's read-back fail on demand, so this one result comes in
-    // where the ledger's own writer thread would deliver it.
-    let reason = "This may or may not have saved (TEST read-back failed). Reopen this session to see what it holds before trying again.";
-    for write in [
-        Write::End(Ending::Completed),
-        Write::Object("TEST default".into()),
-        Write::Recommend {
-            id: "TEST".into(),
-            text: "TEST".into(),
-        },
-    ] {
-        let mut shape = done(question());
-        let (sender, receiver) = std::sync::mpsc::channel();
-        shape.open.as_mut().unwrap().mode = Mode::Writing(write, receiver, Editor::Stage);
-        sender.send(Err(Refusal::Refused(reason.into()))).unwrap();
-        shape.tick();
-        assert_eq!(
-            shape
-                .open
-                .as_ref()
-                .unwrap()
-                .notice
-                .as_ref()
-                .unwrap()
-                .parts()
-                .0,
-            reason
-        );
-    }
-}
-
-#[test]
 fn ledger_refusals_of_endings_objections_and_suggestions_are_shown_unchanged() {
     // This fixture's session path doesn't exist, so each write the operator starts is refused.
     let path = Path::new("/tmp/TEST-shape/session");
@@ -3001,6 +2969,113 @@ fn ledger_refusals_of_endings_objections_and_suggestions_are_shown_unchanged() {
             "{row}"
         );
     }
+}
+
+#[test]
+fn a_saved_deferred_answer_without_a_usable_version_asks_to_reopen() {
+    use crate::seed_me::{Affirmed, Config};
+    use std::{
+        fs,
+        time::{Duration, Instant},
+    };
+
+    let temp = tempfile::tempdir().unwrap();
+    let session = Config::new(Some(temp.path().join("TEST-sessions")))
+        .confirm(Affirmed {
+            goal: GOAL.into(),
+            outcome: "TEST next question".into(),
+            options: vec![],
+            originals: vec![],
+            context: "{}".into(),
+            source: "TEST fixture, not real approval".into(),
+        })
+        .unwrap()
+        .session;
+    let ask = |id: &str, prerequisites| answering::Ask {
+        id: id.into(),
+        label: format!("TEST {id}"),
+        question: format!("TEST What about {id}?"),
+        gate: "TEST choice".into(),
+        against: None,
+        found: vec![],
+        assumed: vec![],
+        options: vec![],
+        suggestion: None,
+        resolves: None,
+        supported_by: None,
+        prerequisites,
+    };
+    let version = answering::read(&session).unwrap().version();
+    let version = answering::ask(&session, version, &ask("storage", None), temp.path()).unwrap();
+    let version = answering::ask(
+        &session,
+        version,
+        &ask("format", Some(serde_json::json!(["storage"]))),
+        temp.path(),
+    )
+    .unwrap();
+    answering::respond(
+        &session,
+        version,
+        "storage",
+        &AnswerAction::Defer {
+            reason: "TEST wait for scope".into(),
+            revisit: "TEST before choosing format".into(),
+        },
+        Actor::OPERATOR,
+    )
+    .unwrap();
+    // The ledger can save the next version, but Shape cannot read it as a u64.
+    let path = session.join("ledger.json");
+    let mut saved: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    saved["version"] = u64::MAX.into();
+    fs::write(&path, serde_json::to_vec(&saved).unwrap()).unwrap();
+
+    let mut shape = Shape::session(&session).with_agent(Some(agent(0)));
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !offers(&shape, "Answer deferred prerequisite") {
+        assert!(
+            Instant::now() < deadline,
+            "Shape did not offer the deferred question"
+        );
+        shape.tick();
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    choose(&mut shape, "Answer deferred prerequisite");
+    let answer = "TEST Keep the records local.";
+    shape.paste(answer);
+    shape.key(key(KeyCode::F(2)));
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        shape.tick();
+        let shown = screen(&mut shape, 100, 30, true);
+        let words = shown.split_whitespace().collect::<Vec<_>>().join(" ");
+        if words.contains("The answer may have saved. Reopen the session before trying again.") {
+            assert!(
+                !words.contains("Deferred prerequisite answered."),
+                "{shown}"
+            );
+            assert!(
+                !words.to_lowercase().contains("nothing was saved"),
+                "{shown}"
+            );
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "Shape omitted the recovery warning:\n{shown}"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let saved: serde_json::Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    let node = saved["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == "storage")
+        .unwrap();
+    assert_eq!(node["answer"], answer);
 }
 
 #[test]
@@ -3560,7 +3635,7 @@ fn the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model
             folder: temp.path().into(),
         },
         session.clone(),
-        agent.clone(),
+        Some(agent.clone()),
     );
     let deadline = Instant::now() + Duration::from_secs(20);
     let result = loop {
@@ -3720,7 +3795,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
         .unwrap(),
     );
     let step = |work| {
-        let running = step::Running::start(work, session.clone(), agent.clone());
+        let running = step::Running::start(work, session.clone(), Some(agent.clone()));
         let deadline = Instant::now() + Duration::from_secs(20);
         loop {
             if let Some(result) = running.poll() {

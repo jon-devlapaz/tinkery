@@ -2,6 +2,17 @@
 
 use super::*;
 
+/// One step through the screen's controller, as its keys start it.
+fn run(
+    work: &Work,
+    session: &Path,
+    agent: &Agent,
+    cancelled: &AtomicBool,
+    saved: &AtomicBool,
+) -> Result<Done, Failure> {
+    Steps::screen(Some(agent)).run(work, session, cancelled, saved)
+}
+
 /// Why a seed reply's completion review is unusable; decoding leaves that to the check rules.
 pub(super) fn review_error(reply: &Value) -> String {
     match decode(&reply.to_string(), "") {

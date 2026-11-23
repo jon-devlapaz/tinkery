@@ -76,7 +76,7 @@ fn point(tend: &Tend, index: usize) -> (u16, u16) {
     let graph = guard.simulation.get_graph();
     let node = graph
         .node_weights()
-        .find(|n| n.data.id == identity(&tend.sessions[index]))
+        .find(|n| n.data.id == slot(tend, index).to_string())
         .unwrap();
     let (x, y) = guard.viewport.world_to_screen(
         f64::from(node.location.x),
@@ -84,6 +84,19 @@ fn point(tend: &Tend, index: usize) -> (u16, u16) {
         tend.graph.area,
     );
     (x.round() as u16, y.round() as u16)
+}
+fn identity(session: &Session) -> crate::tend::Entry {
+    crate::tend::Entry::Goal(session.path.clone())
+}
+/// Graf's node id for a session: its slot in Tend's sorted topology.
+fn slot(tend: &Tend, index: usize) -> usize {
+    let entry = identity(&tend.sessions[index]);
+    tend.graph
+        .topology
+        .0
+        .iter()
+        .position(|(e, _)| *e == entry)
+        .unwrap()
 }
 fn pointer(tend: &mut Tend, kind: MouseEventKind, at: (u16, u16), now: Instant) {
     tend.pointer(
@@ -374,7 +387,7 @@ fn crowded_views_preserve_selected_identity_and_never_overlap_labels() {
                             }
                             true
                         }),
-                        "label cells must never be interleaved: {count}/{width}x{height} linking={linking} selected={selected} id={id} rect={rect:?} actual={:?}",
+                        "label cells must never be interleaved: {count}/{width}x{height} linking={linking} selected={selected} id={id:?} rect={rect:?} actual={:?}",
                         (rect.x..rect.right())
                             .map(|x| buffer[(x, rect.y)].symbol())
                             .collect::<String>()

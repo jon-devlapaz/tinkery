@@ -5,6 +5,17 @@ use super::*;
 use crate::seed_me::{Affirmed, Config, ledger::fixtures::prose_reply};
 use std::{fs, os::unix::fs::PermissionsExt};
 
+/// One step through the screen's controller, as its keys start it.
+fn run(
+    work: &Work,
+    session: &Path,
+    agent: &Agent,
+    cancelled: &AtomicBool,
+    saved: &AtomicBool,
+) -> Result<Done, Failure> {
+    Steps::screen(Some(agent)).run(work, session, cancelled, saved)
+}
+
 const MISSING_SOURCE: &str = include_str!("../../../tests/fixtures/shape-296/missing-source.json");
 const RECHECKS: [&str; 3] = [
     include_str!("../../../tests/fixtures/shape-296/call-6.json"),

@@ -63,19 +63,12 @@ pub(super) enum Overlay {
     How,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+/// One selectable garden node: a saved goal by its exact path or a thought by its exact words.
+/// Goals order before thoughts; that order places the graph's nodes.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum Entry {
     Goal(PathBuf),
     Thought(String),
-}
-
-impl Entry {
-    fn graph_id(&self) -> String {
-        match self {
-            Self::Goal(path) => format!("{path:?}"),
-            Self::Thought(words) => format!("thought:{words}"),
-        }
-    }
 }
 
 pub(crate) struct Tend {
@@ -376,16 +369,9 @@ impl Tend {
         if matches!(event.kind, MouseEventKind::Drag(_)) {
             self.last_press = None;
         }
-        let Some(id) = self.graph.pointer(event) else {
+        let Some(entry) = self.graph.pointer(event) else {
             return;
         };
-        let entry = self
-            .sessions
-            .iter()
-            .map(|s| Entry::Goal(s.path.clone()))
-            .chain(self.thought_entries().iter().cloned().map(Entry::Thought))
-            .find(|entry| entry.graph_id() == id);
-        let Some(entry) = entry else { return };
         if self.linking.is_some() {
             if matches!(entry, Entry::Thought(_)) {
                 self.graph.release();
@@ -458,6 +444,7 @@ impl Tend {
         } else {
             ""
         };
+        // Linking starts only from the garden, so it and detail are never on at once.
         if self.linking.is_some() {
             (
                 "Arrows / j k pick · Enter links or unlinks · Esc cancels.".into(),

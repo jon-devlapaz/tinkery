@@ -82,23 +82,39 @@ fn bare() -> Tend {
     )
 }
 
+/// Saved goals `goal 0` to `goal {count - 1}`, newest first.
+fn goals(count: usize) -> Vec<Session> {
+    (0..count)
+        .map(|i| sess(&i.to_string(), Stage::GoalSaved, "unknown"))
+        .collect()
+}
+
 fn garden(count: usize) -> H {
     let mut tend = bare();
-    tend.apply(
-        &found(
-            (0..count)
-                .map(|i| sess(&i.to_string(), Stage::GoalSaved, "unknown"))
-                .collect(),
-        ),
-        true,
-        1,
-    );
+    tend.apply(&found(goals(count)), true, 1);
     tend.current = true;
     H { tend, left: false }
 }
 
 fn selected(h: &H) -> usize {
     h.tend.selected
+}
+
+/// Whether the saved goal's read-only detail is on screen: only its key bar offers history.
+fn detail(h: &mut H) -> bool {
+    screen(h).contains("r history   esc back")
+}
+
+/// A state that is not the garden, entered the way the operator or a read gets there.
+fn enter(h: &mut H, state: &str) {
+    match state {
+        "detail" => h.handle_key(key(KeyCode::Enter)),
+        "reading" => h.tend.pending = true,
+        "wanted" => h.tend.open_session(Path::new("/TEST/wanted")),
+        "unavailable" => h.tend.error = Some("TEST unavailable".into()),
+        "empty" => h.tend.apply(&found(vec![]), true, h.tend.seen + 1),
+        _ => {}
+    }
 }
 
 fn press(h: &mut H, column: u16, row: u16, now: Instant) {
@@ -154,12 +170,11 @@ fn ended_goals_never_enter_garden_selection_keys_mouse_or_detail() {
         })
         .collect();
     tend.apply(&found(sessions), true, 1);
-    assert_eq!(
-        tend.sessions.iter().map(|s| s.stage).collect::<Vec<_>>(),
-        stages
-    );
     assert_eq!(tend.ended, 5);
     let frame = screen(&mut h);
+    for index in 0..stages.len() {
+        assert!(frame.contains(&format!("goal {index}")), "{frame}");
+    }
     assert!(frame.contains("5 ended not shown"), "{frame}");
     assert!(!frame.contains("goal ended"), "{frame}");
     for code in [
@@ -185,9 +200,8 @@ fn ended_goals_never_enter_garden_selection_keys_mouse_or_detail() {
         );
         assert_eq!(selected(&h), index);
         h.handle_key(key(KeyCode::Enter));
-        let tend = &h.tend;
-        assert!(tend.detail);
-        assert_eq!(tend.current().unwrap().stage, stage);
+        assert!(detail(&mut h));
+        assert_eq!(h.tend.current().unwrap().stage, stage);
         h.handle_key(key(KeyCode::Esc));
     }
 }
@@ -245,8 +259,7 @@ fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
                     h.handle_key(key(code));
                 }
                 press(&mut h, 3, 3, Instant::now());
-                let tend = &h.tend;
-                assert!(tend.current().is_none() && !tend.detail);
+                assert!(h.tend.current().is_none() && !detail(&mut h));
             }
         }
     }
@@ -259,24 +272,36 @@ fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
 
 #[test]
 fn wanted_session_is_matched_before_filtering_and_selected_by_path_after_it() {
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-wanted-alias-")
+        .tempdir()
+        .unwrap();
+    let dir = tmp.path().canonicalize().unwrap();
+    let target = dir.join("target");
+    std::fs::write(&target, "").unwrap();
+    std::os::unix::fs::symlink(&target, dir.join("alias")).unwrap();
     for stage in [Stage::GoalSaved, Stage::Completed] {
-        let mut tend = bare();
-        tend.want = Some(("/TEST/alias".into(), Some("/TEST/target".into())));
-        tend.apply(
-            &found(vec![
-                sess("ended", Stage::Completed, "unknown"),
-                sess("target", stage, "unknown"),
-            ]),
-            false,
-            1,
-        );
-        assert!(tend.want.is_none() && !tend.pending && tend.error.is_none());
-        assert_eq!(tend.detail, stage != Stage::Completed);
+        let mut h = H {
+            tend: bare(),
+            left: false,
+        };
+        h.tend.open_session(&dir.join("alias"));
+        let ended = sess("ended", Stage::Completed, "unknown");
+        let wanted = Session {
+            path: target.clone(),
+            ..sess("target", stage, "unknown")
+        };
+        h.tend.apply(&found(vec![ended, wanted]), false, 1);
+        h.tend.current = true;
+        let frame = screen(&mut h);
+        assert!(!frame.contains("Reading your sessions"), "{frame}");
+        assert!(!frame.contains("Saved session unavailable"), "{frame}");
+        assert_eq!(detail(&mut h), stage != Stage::Completed, "{frame}");
         if stage != Stage::Completed {
-            assert_eq!(tend.selected, 0);
-            assert_eq!(tend.current().unwrap().path, Path::new("/TEST/target"));
+            assert!(frame.contains("goal target"), "{frame}");
+            assert_eq!(h.tend.current().unwrap().path, target);
         } else {
-            assert!(tend.current().is_none());
+            assert!(h.tend.current().is_none());
         }
     }
 }
@@ -311,16 +336,14 @@ fn garden_keys_step_one_goal_in_newest_order_and_clamp_after_resize() {
     h.handle_key(key(KeyCode::Down));
     assert_eq!(selected(&h), 22);
     h.handle_key(key(KeyCode::Enter));
-    let tend = &h.tend;
-    assert!(tend.detail);
+    assert!(detail(&mut h));
     h.handle_key(key(KeyCode::Down));
     h.handle_key(key(KeyCode::Right));
     let tend = &h.tend;
     assert_eq!(tend.scroll, 1);
     assert_eq!(tend.selected, 22);
     h.handle_key(key(KeyCode::Esc));
-    let tend = &h.tend;
-    assert!(!tend.detail && tend.scroll == 0);
+    assert!(!detail(&mut h) && h.tend.scroll == 0);
     h.handle_key(key(KeyCode::F(1)));
     assert!(
         screen(&mut h)
@@ -376,8 +399,9 @@ fn linking_routes_keys_and_single_click_and_help_guards_hidden_actions() {
     screen(&mut h);
     h.handle_key(key(KeyCode::Char('l')));
     press_goal(&mut h, "goal 1", Instant::now());
+    assert!(!detail(&mut h));
     let tend = &h.tend;
-    assert!(!tend.is_linking() && !tend.detail);
+    assert!(!tend.is_linking());
     assert_eq!(selected(&h), 0);
     assert!(tend.needs.read().into_links().unwrap().contains("0", "1"));
     h.handle_key(key(KeyCode::Char('l')));
@@ -409,15 +433,7 @@ fn link_key_is_ignored_outside_garden_and_repeated_presses_do_not_start_linking(
                 h.handle_key(key(KeyCode::Char('h')));
             }
         }
-        let tend = &mut h.tend;
-        match state {
-            "detail" => tend.detail = true,
-            "reading" => tend.pending = true,
-            "wanted" => tend.want = Some(("/TEST/wanted".into(), None)),
-            "unavailable" => tend.error = Some("TEST unavailable".into()),
-            "empty" => tend.sessions.clear(),
-            _ => {}
-        }
+        enter(&mut h, state);
         let mut event = key(KeyCode::Char('l'));
         if state == "repeat" {
             event.kind = KeyEventKind::Repeat;
@@ -438,16 +454,14 @@ fn garden_press_selects_and_only_a_timely_same_session_press_opens() {
         press_goal(&mut h, "goal 1", now);
         assert_eq!(selected(&h), 1);
         press_goal(&mut h, "goal 1", now + Duration::from_millis(elapsed));
-        let tend = &h.tend;
-        assert_eq!(tend.detail, opens);
+        assert_eq!(detail(&mut h), opens);
     }
     let mut h = garden(7);
     screen(&mut h);
     press_goal(&mut h, "goal 1", now);
     press_goal(&mut h, "goal 2", now + Duration::from_millis(100));
-    let tend = &h.tend;
     assert!(
-        !tend.detail && tend.selected == 2,
+        !detail(&mut h) && selected(&h) == 2,
         "different goals aren't a double click"
     );
 }
@@ -459,26 +473,24 @@ fn late_read_cannot_redirect_a_double_press_to_a_different_session() {
     screen(&mut h);
     press_goal(&mut h, "goal 1", now);
     let tend = &mut h.tend;
-    let mut sessions = tend.sessions.clone();
+    let mut sessions = goals(7);
     sessions.insert(0, sess("new", Stage::GoalSaved, "unknown"));
     tend.apply(&found(sessions), true, 2);
     assert_eq!(tend.selected, 2);
     screen(&mut h);
     press_goal(&mut h, "goal 0", now + Duration::from_millis(100));
-    let tend = &h.tend;
-    assert!(!tend.detail && tend.current().unwrap().path == Path::new("/TEST/0"));
+    assert!(!detail(&mut h) && h.tend.current().unwrap().path == Path::new("/TEST/0"));
     // The same identity moving to another position still counts as a double press.
     let mut h = garden(7);
     screen(&mut h);
     press_goal(&mut h, "goal 1", now);
     let tend = &mut h.tend;
-    let mut sessions = tend.sessions.clone();
+    let mut sessions = goals(7);
     sessions.insert(0, sess("new", Stage::GoalSaved, "unknown"));
     tend.apply(&found(sessions), true, 2);
     screen(&mut h);
     press_goal(&mut h, "goal 1", now + Duration::from_millis(100));
-    let tend = &h.tend;
-    assert!(tend.detail && tend.current().unwrap().path == Path::new("/TEST/1"));
+    assert!(detail(&mut h) && h.tend.current().unwrap().path == Path::new("/TEST/1"));
 }
 
 #[test]
@@ -498,22 +510,13 @@ fn garden_presses_ignore_blank_rows_help_detail_and_discovery_states() {
         if state == "help" {
             h.handle_key(key(KeyCode::F(1)));
         }
-        let tend = &mut h.tend;
-        match state {
-            "detail" => tend.detail = true,
-            "reading" => tend.pending = true,
-            "wanted" => tend.want = Some(("/TEST/wanted".into(), None)),
-            "unavailable" => tend.error = Some("unavailable".into()),
-            "empty" => tend.sessions.clear(),
-            _ => {}
-        }
-        let detail = tend.detail;
+        enter(&mut h, state);
+        let before = screen(&mut h);
         let row = if state == "garden" { 26 } else { 3 };
         press(&mut h, 0, row, now);
         press(&mut h, 0, row, now + Duration::from_millis(100));
-        let tend = &h.tend;
-        assert_eq!(tend.selected, 0, "{state}");
-        assert_eq!(tend.detail, detail, "{state}");
+        assert_eq!(selected(&h), 0, "{state}");
+        assert_eq!(screen(&mut h), before, "{state}");
     }
     let mut h = garden(7);
     for (column, row) in [(0, 3), (99, 3), (2, 26), (2, 27), (2, 28), (2, 29)] {
@@ -526,7 +529,7 @@ fn garden_presses_ignore_blank_rows_help_detail_and_discovery_states() {
 fn garden_test_session_plain_text_renders() {
     let mut h = garden(7);
     let tend = &mut h.tend;
-    let mut sessions = tend.sessions.clone();
+    let mut sessions = goals(7);
     for (session, goal) in sessions.iter_mut().zip([
         "Find invoices",
         "Read a calm theme",
@@ -550,10 +553,13 @@ fn garden_test_session_plain_text_renders() {
 #[test]
 fn page_keys_move_a_screen_of_goal_detail_less_one_row() {
     let mut h = garden(1);
-    let tend = &mut h.tend;
-    tend.sessions[0].goal = (0..200).map(|i| format!("TEST line {i}\n")).collect();
-    tend.detail = true;
-    screen(&mut h);
+    let long = Session {
+        goal: (0..200).map(|i| format!("TEST line {i}\n")).collect(),
+        ..sess("0", Stage::GoalSaved, "unknown")
+    };
+    h.tend.apply(&found(vec![long]), true, 2);
+    h.handle_key(key(KeyCode::Enter));
+    assert!(detail(&mut h));
     let tend = &h.tend;
     let page = tend.page;
     assert!(page > 5, "{page} rows");
@@ -616,30 +622,33 @@ fn graph_selection_keys_reveal_the_goal_after_panning_it_offscreen() {
 
 #[test]
 fn a_toggles_only_tend_garden_and_never_repeats_or_conflicts_with_shape() {
+    // Only `goal 0` belongs to this repo, so `goal 1` shows only in the all-goals view.
+    let all = |h: &mut H| screen(h).contains("goal 1");
     let mut h = garden(2);
-    h.tend.repo_paths = Some([h.tend.sessions[0].path.clone()].into_iter().collect());
+    h.tend.repo_paths = Some([PathBuf::from("/TEST/0")].into_iter().collect());
     h.tend.toggle_scope(); // all
     h.tend.toggle_scope(); // this repo
-    assert_eq!(h.tend.sessions.len(), 1);
+    assert!(!all(&mut h));
     h.handle_key(KeyEvent::new_with_kind(
         KeyCode::Char('a'),
         KeyModifiers::NONE,
         KeyEventKind::Repeat,
     ));
-    assert_eq!(h.tend.sessions.len(), 1);
+    assert!(!all(&mut h));
     assert!(matches!(h.tend.key(key(KeyCode::Char('s'))), Next::Stay));
     h.handle_key(key(KeyCode::F(1)));
     h.handle_key(key(KeyCode::Char('a')));
     h.handle_key(key(KeyCode::Esc));
-    assert_eq!(h.tend.sessions.len(), 1, "help ignores a");
+    assert!(!all(&mut h), "help ignores a");
     h.handle_key(key(KeyCode::Char('a')));
-    assert_eq!(h.tend.sessions.len(), 2);
+    assert!(all(&mut h));
     h.handle_key(key(KeyCode::Enter));
     h.handle_key(key(KeyCode::Char('a')));
-    assert!(h.tend.detail && h.tend.sessions.len() == 2);
+    assert!(detail(&mut h));
     h.handle_key(key(KeyCode::Esc));
+    assert!(all(&mut h), "detail ignores a");
     h.handle_key(key(KeyCode::Char('a')));
-    assert_eq!(h.tend.sessions.len(), 1);
+    assert!(!all(&mut h));
     assert!(!h.left);
 }
 
