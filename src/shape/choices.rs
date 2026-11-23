@@ -210,7 +210,7 @@ impl Shape {
         match choice {
             Choice::Model => self.model = true,
             Choice::Approve(target) => self.approve = Some(target),
-            Choice::Reveal(id) => open.reveal(id),
+            Choice::Reveal(id) => open.reveal(id, self.agent.clone()),
             Choice::Object => {
                 open.mode = Mode::Objecting;
                 open.notice = Some(Notice::Said(
