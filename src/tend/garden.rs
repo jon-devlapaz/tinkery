@@ -18,20 +18,17 @@ pub(super) fn render(
     now: Option<u64>,
 ) {
     tend.sync_graph(body);
-    let selected = tend
-        .selected_entry()
-        .map(|entry| entry.graph_id())
-        .unwrap_or_default();
+    let selected = tend.selected_entry();
     let source_index = (0..tend.sessions.len())
         .find(|&i| tend.source_marked(i))
         .unwrap_or(tend.selected);
     let source = tend
         .sessions
         .get(source_index)
-        .map(|s| format!("{:?}", s.path))
-        .unwrap_or_default();
+        .map(|s| super::Entry::Goal(s.path.clone()));
     let linking = tend.is_linking();
-    tend.graph.draw(frame, palette, &selected, &source, linking);
+    tend.graph
+        .draw(frame, palette, selected.as_ref(), source.as_ref(), linking);
     let (goal, mut status) = tend.selected_line(usize::from(body.width), now);
     let thought_status = tend.thought_status();
     if !thought_status.is_empty() {
