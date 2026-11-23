@@ -107,7 +107,7 @@ impl Tend {
         ));
     }
 
-    pub(crate) fn step_selection(&mut self, forward: bool) {
+    pub(super) fn step_selection(&mut self, forward: bool) {
         self.selected = if forward {
             let count = if self.is_linking() {
                 self.sessions.len()
@@ -121,7 +121,7 @@ impl Tend {
         self.graph.followed = None;
     }
 
-    pub(crate) fn adjust_view(&mut self, key: char) {
+    pub(super) fn adjust_view(&mut self, key: char) {
         if let Some(state) = &self.graph.state {
             let direction = match key {
                 'K' => Some((0.0, 1.0)),

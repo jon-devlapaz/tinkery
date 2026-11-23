@@ -37,7 +37,7 @@ pub struct ReadySeed {
 
 /// The existing seed location for a session; resolving and checking it creates nothing.
 pub(crate) fn path(session: &Path) -> std::path::PathBuf {
-    session.join("seed-contract.md")
+    session.join(super::files::SEED)
 }
 
 /// Read the confirmed seed from its recorded path, refusing changed or unconfirmed session files.
@@ -207,7 +207,7 @@ pub(crate) fn stand(ledger: &Value, status: &Value) -> Stand {
     let seed = status.get("seed").filter(|s| !s.is_null());
     let line = seed.and_then(|s| s.get("line_1")).and_then(Value::as_str);
     let revision = seed.and_then(|s| text(s, "revision"));
-    if state == "completed" && line == Some("status: confirmed for intake") && verified {
+    if state == "completed" && line == Some(super::files::CONFIRMED) && verified {
         return Stand::Ready {
             revision,
             ended: true,
@@ -246,13 +246,13 @@ pub(crate) fn stand(ledger: &Value, status: &Value) -> Stand {
         return Stand::Waiting;
     }
     match line {
-        Some("status: draft") => Stand::Drafted(revision),
-        Some("status: simulated") => Stand::Practice,
-        Some("status: confirmed for intake") if verified => Stand::Ready {
+        Some(super::files::DRAFT) => Stand::Drafted(revision),
+        Some(super::files::SIMULATED) => Stand::Practice,
+        Some(super::files::CONFIRMED) if verified => Stand::Ready {
             revision,
             ended: false,
         },
-        Some("status: confirmed for intake") => Stand::Unverified(
+        Some(super::files::CONFIRMED) => Stand::Unverified(
             handoff
                 .and_then(|h| text(h, "reason"))
                 .unwrap_or_else(|| "Tinkery gave no reason.".into()),
@@ -272,7 +272,7 @@ fn read_with(
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(format!("Cannot read the Tink Contract: {e}")),
     };
-    if seed.lines().next() != Some("status: confirmed for intake") {
+    if seed.lines().next() != Some(super::files::CONFIRMED) {
         return Ok(None);
     }
     let ledger =

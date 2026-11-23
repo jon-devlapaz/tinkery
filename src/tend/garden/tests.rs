@@ -11,7 +11,12 @@ use ratatui::{
 use unicode_width::UnicodeWidthStr;
 
 fn tend(count: usize) -> Tend {
-    let mut tend = Tend::new(Err("TEST links unavailable".into()), None);
+    let mut tend = Tend::new(
+        Err("TEST links unavailable".into()),
+        None,
+        Err("TEST no records".into()),
+        Box::new(|| Err("TEST no connections".into())),
+    );
     tend.pending = false;
     tend.current = true;
     tend.sessions = (0..count)
@@ -242,9 +247,7 @@ fn empty_goal_view_discloses_unreadable_links() {
             tend.ended = usize::from(ended);
             let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
             terminal
-                .draw(|f| {
-                    super::super::render(f, &mut tend, body(width, height), Palette::new(true))
-                })
+                .draw(|f| tend.render(f, body(width, height), Palette::new(true)))
                 .unwrap();
             let buffer = terminal.backend().buffer();
             assert!(
@@ -320,7 +323,7 @@ fn unreadable_links_have_a_persistent_muted_note_with_other_notes() {
                 tend.step_selection(true);
             }
         }
-        tend.how = true;
+        tend.overlay = crate::tend::Overlay::How;
         assert!(tend.help_text().contains("Cannot read links"));
         assert_eq!(
             std::fs::read(root.join("needs.json")).unwrap(),

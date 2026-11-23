@@ -55,7 +55,6 @@ pub struct Home {
     receipts: Vec<seed_me::ExitReceipt>,
     discovery: Discovery,
     record_root: Result<PathBuf, String>,
-    history_reader: tend::history::Reader,
     repo: Option<crate::repo::Repo>,
     shape_agent: Option<Arc<crate::shape::Agent>>,
     sdlc_root: Option<PathBuf>,
@@ -72,7 +71,6 @@ pub struct Home {
     worker_authorization: Result<Option<crate::worker::Relay>, String>,
     worker_panel: Option<worker::Panel>,
     quit_after_worker: bool,
-    connection: Option<tend::connection::Panel>,
     thought_saved: Option<(String, bool)>,
 }
 
@@ -123,7 +121,6 @@ impl Home {
             receipts: Vec::new(),
             discovery,
             record_root: records,
-            history_reader: tend::history::Reader::default(),
             repo: None,
             shape_agent: None,
             sdlc_root: None,
@@ -137,7 +134,6 @@ impl Home {
             worker_authorization: Ok(None),
             worker_panel: None,
             quit_after_worker: false,
-            connection: None,
             thought_saved: None,
         }
     }
@@ -240,8 +236,14 @@ impl Home {
         if let View::Taste(taste) = &mut self.view {
             taste.poll();
         }
-        if let Some(receipt) = self.connection.as_mut().and_then(|panel| panel.poll()) {
-            self.connection = None;
+        self.poll_retry();
+        if !self.discovery.requested() {
+            self.request_sessions();
+        }
+        self.discovery.poll();
+        if let View::Tend(tend) = &mut self.view
+            && let Some(receipt) = tend.poll(&self.discovery, now)
+        {
             let shape = Shape::session(&receipt.session)
                 .with_agent(self.shape_agent.clone())
                 .held(self.shape_held);
@@ -251,12 +253,6 @@ impl Home {
                 record: None,
             });
         }
-        self.poll_retry();
-        if !self.discovery.requested() {
-            self.request_sessions();
-        }
-        self.discovery.poll();
-        self.sync_tend();
         self.sync_shape();
         self.sync_approve();
         self.approve_reader
@@ -265,13 +261,6 @@ impl Home {
             } else {
                 None
             });
-        self.update_stall(now);
-        if let Some(result) = self.history_reader.poll()
-            && let View::Tend(tend) = &mut self.view
-            && let Some(history) = &mut tend.history
-        {
-            history.finish(result);
-        }
         let mut tend_request = None;
         if let View::Think(dump) = &mut self.view {
             dump.tick();
@@ -294,28 +283,6 @@ impl Home {
         if let Some(path) = tend_request {
             self.open_tend_session(&path);
         }
-    }
-
-    /// Show the newest landed read in tend. Detail stays fixed unless explicitly requested
-    /// again on return from Shape; that return waits for the fresh read.
-    fn sync_tend(&mut self) {
-        let View::Tend(tend) = &mut self.view else {
-            return;
-        };
-        tend.current = self.discovery.fresh();
-        let Some(landed) = self.discovery.landed() else {
-            return;
-        };
-        let version = self.discovery.version();
-        if tend.seen == version
-            || ((tend.detail || tend.is_linking())
-                && (tend.want.is_none() || !self.discovery.fresh()))
-        {
-            return;
-        }
-        tend.repo_paths = landed.repo_paths.clone();
-        tend.repo_unknown = landed.repo_unknown;
-        tend.apply(&landed.outcome, self.discovery.fresh(), version);
     }
 
     /// Hand Shape the readable sessions and unreadable count from its fresh discovery result,
@@ -374,18 +341,6 @@ impl Home {
         }
     }
 
-    /// Let tend say when the read it waits on is taking a while. A check on the tick that
-    /// already runs: no timer, no new worker.
-    fn update_stall(&mut self, now: Instant) {
-        if let View::Tend(tend) = &mut self.view {
-            tend.note_wait(
-                self.discovery
-                    .running_since()
-                    .map(|since| now.saturating_duration_since(since)),
-            );
-        }
-    }
-
     /// Read once and wait a bounded time, for the non-interactive `--snapshot` view only.
     pub fn discover_for_snapshot(&mut self, wait: Duration) {
         if self.sessions_root.is_none() {
@@ -409,10 +364,7 @@ impl Home {
     }
 
     fn shape_from_tend(&mut self, shape: Shape) {
-        if let View::Tend(mut tend) = std::mem::replace(&mut self.view, View::Menu) {
-            if let Some(thoughts) = &mut tend.thoughts {
-                thoughts.clear_save_notice();
-            }
+        if let View::Tend(tend) = std::mem::replace(&mut self.view, View::Menu) {
             self.view = View::Shape(Box::new(shape), Some(tend));
         }
     }
@@ -420,11 +372,9 @@ impl Home {
     fn open_tend_session(&mut self, path: &Path) {
         self.open(Place::Tend);
         if let View::Tend(tend) = &mut self.view {
-            // One stat of a path the handoff just wrote; matching is otherwise by identity.
-            tend.want = Some((path.to_path_buf(), path.canonicalize().ok()));
-            tend.seen = 0;
+            tend.open_session(path);
+            tend.offer(&self.discovery);
         }
-        self.sync_tend();
     }
 
     /// Receipts from confirmed goals, printed after the terminal is restored.
@@ -445,19 +395,9 @@ impl Home {
 
     /// Paste literal words into the active editor. Pasting never submits, saves or launches.
     pub fn paste(&mut self, text: &str) {
-        if let View::Tend(tend) = &mut self.view
-            && let Some(thoughts) = &mut tend.thoughts
-            && thoughts.active()
-        {
-            // The thought reader never accepts edits.
-            return;
-        }
-        if let Some(panel) = &mut self.connection {
-            panel.paste(text);
-            return;
-        }
         match &mut self.view {
             View::Think(dump) => dump.paste(text),
+            View::Tend(tend) => tend.paste(text),
             View::Shape(shape, _) if !self.help => shape.paste(text),
             View::Taste(taste) if !self.help => taste.paste(text),
             _ => {}
@@ -508,7 +448,6 @@ impl Home {
         if self.quit {
             return;
         }
-        self.history_reader.cancel();
         self.approve_reader.cancel();
         self.approve_origin = None;
         self.selected = place;
@@ -522,9 +461,42 @@ impl Home {
             Place::Tend => {
                 // Deliberate reopening reads again; the last result shows meanwhile.
                 self.request_sessions();
+                let (sessions, records, store) = (
+                    self.sessions_root.clone(),
+                    self.record_root.clone(),
+                    self.link_root.clone(),
+                );
+                let repo = self.repo.as_ref().map(|repo| repo.root().to_path_buf());
+                let (shape_agent, agent) = (self.shape_agent.clone(), self.agent);
+                let connect: tend::Connect = Box::new(move || {
+                    let sessions = sessions
+                        .clone()
+                        .ok_or("The sessions folder is unavailable.")?;
+                    let records = records.clone()?;
+                    let store = store.clone()?;
+                    let repo = repo
+                        .clone()
+                        .ok_or("Open Tinkery inside a repository first.")?;
+                    let drafting = shape_agent.as_ref().map(|agent| agent.drafting());
+                    let actor = drafting
+                        .as_ref()
+                        .and_then(|(_, _, actor)| actor.clone())
+                        .unwrap_or_else(|| crate::confirmation::GoalConfirmation::launched(agent))
+                        .tend_save();
+                    Ok(tend::connection::Context {
+                        sessions,
+                        records,
+                        store,
+                        repo,
+                        call: drafting.map(|(call, budget, _)| (call, budget)),
+                        actor,
+                    })
+                });
                 let mut tend = Tend::new(
                     self.link_root.clone(),
                     self.repo.as_ref().map(|repo| repo.root()),
+                    self.record_root.clone(),
+                    connect,
                 );
                 if let Some((words, duplicate)) = self.thought_saved.take() {
                     tend.thought_saved(&words, duplicate);
@@ -552,7 +524,9 @@ impl Home {
             Place::Taste => View::Taste(Box::new(Taste::open(self.sdlc_root.clone(), self.agent))),
             Place::Measure => View::Measure(Box::new(measure::Measure::open(self.repo.clone()))),
         };
-        self.sync_tend();
+        if let View::Tend(tend) = &mut self.view {
+            tend.offer(&self.discovery);
+        }
         self.sync_shape();
         self.sync_approve();
     }
@@ -567,7 +541,6 @@ impl Home {
             tend,
             selected: self.selected,
         };
-        self.history_reader.cancel();
         self.approve_reader.cancel();
         self.request_sessions();
         self.selected = Place::Approve;
@@ -642,206 +615,34 @@ impl Home {
             self.view = View::Worker;
             return;
         }
-        if let View::Tend(tend) = &mut self.view
-            && let Some(thoughts) = &mut tend.thoughts
-        {
-            if thoughts.active() {
-                if let Some(words) = thoughts.key(key) {
+        if let View::Tend(tend) = &mut self.view {
+            match tend.key(key) {
+                tend::Next::Stay => {}
+                tend::Next::Menu => {
+                    self.view = View::Menu;
+                    self.help = false;
+                }
+                tend::Next::Think(None) => self.open(Place::Think),
+                tend::Next::Think(Some(words)) => {
                     let mut dump = (self.make_dump)()
                         .with_key_bar(self.key_bar)
                         .with_thoughts(self.link_root.clone(), self.repo.clone());
                     dump.paste(&words);
                     self.help = false;
                     self.view = View::Think(Box::new(dump));
-                } else if !thoughts.active() {
-                    tend.thought_reader_return();
                 }
-                return;
-            }
-            if self.connection.is_none()
-                && !tend.detail
-                && !tend.is_linking()
-                && tend.connection_scope()
-                && !self.help
-                && key.kind == KeyEventKind::Press
-                && key.modifiers == KeyModifiers::NONE
-            {
-                if key.code == KeyCode::Char('t') {
-                    self.open(Place::Think);
-                    return;
+                tend::Next::Shape(path) => {
+                    let shape = Shape::session(&path)
+                        .with_agent(self.shape_agent.clone())
+                        .held(self.shape_held);
+                    self.shape_from_tend(shape);
                 }
-                if key.code == KeyCode::Char('v') {
-                    tend.thoughts.as_mut().unwrap().view();
-                    return;
-                }
-            }
-        }
-        if let Some(panel) = &mut self.connection {
-            if panel.key(key) {
-                self.connection = None;
-            }
-            return;
-        }
-        if key.kind == KeyEventKind::Press
-            && key.modifiers == KeyModifiers::NONE
-            && key.code == KeyCode::Char('f')
-            && let View::Tend(tend) = &mut self.view
-            && !tend.detail
-            && !self.help
-        {
-            if tend.garden_showing() && tend.current().is_none() {
-                tend.notice = "Find connections uses goals, not thoughts.".into();
-                return;
-            }
-            if !tend.connection_scope() {
-                tend.notice =
-                    "Find connections is available only in this repository's garden.".into();
-                return;
-            }
-            let context = (|| {
-                let sessions = self
-                    .sessions_root
-                    .clone()
-                    .ok_or("The sessions folder is unavailable.")?;
-                let records = self.record_root.clone()?;
-                let store = self.link_root.clone()?;
-                let repo = self
-                    .repo
-                    .as_ref()
-                    .ok_or("Open Tinkery inside a repository first.")?
-                    .root()
-                    .to_path_buf();
-                let drafting = self.shape_agent.as_ref().map(|agent| agent.drafting());
-                let actor = drafting
-                    .as_ref()
-                    .and_then(|(_, _, actor)| actor.clone())
-                    .unwrap_or_else(|| crate::confirmation::GoalConfirmation::launched(self.agent))
-                    .tend_save();
-                Ok::<_, String>(tend::connection::Context {
-                    sessions,
-                    records,
-                    store,
-                    repo,
-                    call: drafting.map(|(call, budget, _)| (call, budget)),
-                    actor,
-                })
-            })();
-            match context {
-                Ok(context) => self.connection = Some(tend::connection::Panel::open(context)),
-                Err(reason) => tend.notice = reason,
             }
             return;
         }
         if let View::Think(dump) = &mut self.view {
             dump.handle_key(key);
             return;
-        }
-        if matches!(self.view, View::Tend(_)) {
-            let shifted_view_key = key.modifiers == KeyModifiers::SHIFT
-                && matches!(
-                    key.code,
-                    KeyCode::Char('H' | 'J' | 'K' | 'L' | '+' | '=' | '-')
-                );
-            if key.modifiers != KeyModifiers::NONE && !shifted_view_key
-                || key.kind == KeyEventKind::Repeat
-                    && matches!(
-                        key.code,
-                        KeyCode::Char('a' | 'c' | 'r' | 'l' | 's')
-                            | KeyCode::F(1)
-                            | KeyCode::F(10)
-                            | KeyCode::Enter
-                    )
-            {
-                return;
-            }
-            if let View::Tend(tend) = &mut self.view {
-                tend.release_pointer();
-            }
-            if key.code == KeyCode::F(10) {
-                self.history_reader.cancel();
-                self.view = View::Menu;
-                self.help = false;
-                return;
-            }
-            if matches!(key.code, KeyCode::F(1) | KeyCode::Char('?')) {
-                self.help = !self.help;
-                if let View::Tend(tend) = &mut self.view {
-                    tend.how = false;
-                    tend.help_scroll = 0;
-                    if let Some(history) = &mut tend.history {
-                        history.reset_help();
-                    }
-                }
-                return;
-            }
-            if self.help {
-                if let View::Tend(tend) = &mut self.view {
-                    if let Some(history) = &mut tend.history {
-                        match key.code {
-                            KeyCode::Char('h') => {
-                                tend.how = !tend.how;
-                                history.reset_help();
-                            }
-                            KeyCode::Esc if tend.how => {
-                                tend.how = false;
-                                history.reset_help();
-                            }
-                            KeyCode::Esc => self.help = false,
-                            code => history.scroll(code, true, tend.how),
-                        }
-                        return;
-                    }
-                    match key.code {
-                        KeyCode::Char('h') => {
-                            tend.how = !tend.how;
-                            tend.help_scroll = 0;
-                        }
-                        KeyCode::Esc if tend.how => {
-                            tend.how = false;
-                            tend.help_scroll = 0;
-                        }
-                        KeyCode::Esc => self.help = false,
-                        KeyCode::Down | KeyCode::PageDown => {
-                            tend.help_scroll = tend.help_scroll.saturating_add(5)
-                        }
-                        KeyCode::Up | KeyCode::PageUp => {
-                            tend.help_scroll = tend.help_scroll.saturating_sub(5)
-                        }
-                        _ => {}
-                    }
-                }
-                return;
-            }
-            if let View::Tend(tend) = &mut self.view {
-                if let Some(history) = &mut tend.history {
-                    if key.code == KeyCode::Esc {
-                        self.history_reader.cancel();
-                        tend.history = None;
-                    } else {
-                        history.scroll(key.code, false, false);
-                    }
-                    return;
-                }
-                if key.code == KeyCode::Char('r')
-                    && tend.detail
-                    && let Some(session) = tend.current()
-                {
-                    let mut history = tend::history::View::waiting();
-                    match &self.record_root {
-                        Ok(root) => self.history_reader.request(
-                            root.clone(),
-                            session.path.clone(),
-                            session.goal.clone(),
-                        ),
-                        Err(reason) => history.finish(Err(crate::think_record::Unavailable {
-                            message: "The Think record folder is not configured.".into(),
-                            details: reason.clone(),
-                        })),
-                    }
-                    tend.history = Some(history);
-                    return;
-                }
-            }
         }
         if let View::Approve(view) = &mut self.view {
             if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
@@ -938,52 +739,6 @@ impl Home {
                 }
                 _ => {}
             },
-            View::Tend(tend) => match key.code {
-                KeyCode::Char('a') => tend.toggle_scope(),
-                KeyCode::Char('l') => tend.start_link(),
-                KeyCode::Esc if tend.is_linking() => tend.cancel_link(),
-                KeyCode::Enter if tend.is_linking() => tend.commit_link(),
-                KeyCode::Esc if tend.detail => {
-                    tend.detail = false;
-                    tend.want = None;
-                    tend.scroll = 0;
-                    tend.notice.clear();
-                }
-                KeyCode::Esc => self.view = View::Menu,
-                KeyCode::Char('s')
-                    if tend.detail && tend.current().is_some_and(|s| s.stage.can_shape()) =>
-                {
-                    let shape = Shape::session(&tend.current().unwrap().path)
-                        .with_agent(self.shape_agent.clone())
-                        .held(self.shape_held);
-                    self.shape_from_tend(shape);
-                }
-                KeyCode::Down | KeyCode::Char('j') if tend.detail => {
-                    tend.scroll = tend.scroll.saturating_add(1)
-                }
-                KeyCode::Up | KeyCode::Char('k') if tend.detail => {
-                    tend.scroll = tend.scroll.saturating_sub(1)
-                }
-                KeyCode::PageDown if tend.detail => {
-                    tend.scroll = tend.scroll.saturating_add(crate::page(tend.page))
-                }
-                KeyCode::PageUp if tend.detail => {
-                    tend.scroll = tend.scroll.saturating_sub(crate::page(tend.page))
-                }
-                KeyCode::Right | KeyCode::Down | KeyCode::Char('j') if tend.garden_showing() => {
-                    tend.step_selection(true)
-                }
-                KeyCode::Left | KeyCode::Up | KeyCode::Char('k') if tend.garden_showing() => {
-                    tend.step_selection(false)
-                }
-                KeyCode::Char(c @ ('+' | '=' | '-' | 'H' | 'J' | 'K' | 'L'))
-                    if tend.garden_showing() =>
-                {
-                    tend.adjust_view(c);
-                }
-                KeyCode::Enter if tend.garden_showing() => tend.open_entry(),
-                _ => {}
-            },
             View::Measure(measure) => {
                 if self.help {
                     if key.code == KeyCode::Char('q') {
@@ -1008,7 +763,7 @@ impl Home {
             }
             View::Taste(_) => self.taste_key(key),
             View::Retry(..) => {}
-            View::Think(_) | View::Shape(..) | View::Approve(_) | View::Worker => {}
+            View::Think(_) | View::Tend(_) | View::Shape(..) | View::Approve(_) | View::Worker => {}
         }
     }
 
@@ -1077,10 +832,10 @@ impl Home {
                         unreachable!()
                     };
                     if let Some(mut tend) = back {
-                        tend.want = tend.current().map(|s| (s.path.clone(), None));
-                        self.view = View::Tend(tend);
+                        tend.returned();
                         self.request_sessions();
-                        self.sync_tend();
+                        tend.offer(&self.discovery);
+                        self.view = View::Tend(tend);
                     }
                 }
             }
@@ -1101,19 +856,12 @@ impl Home {
 
     /// [`Home::handle_mouse`] with the clock as an input, so double-click tests never sleep.
     fn handle_mouse_at(&mut self, event: MouseEvent, area: Rect, now: Instant) {
-        if self.connection.is_some()
-            || matches!(&self.view, View::Tend(tend) if tend.thoughts.as_ref().is_some_and(|t| t.active()))
-        {
-            return;
-        }
         if let View::Think(dump) = &mut self.view {
             dump.handle_mouse(event, area);
             return;
         }
         if let View::Tend(tend) = &mut self.view {
-            if !self.help {
-                tend.pointer(event, body(area), now);
-            }
+            tend.pointer(event, body(area), now);
             return;
         }
         if event.kind != MouseEventKind::Down(MouseButton::Left) {
@@ -1206,23 +954,6 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         );
     }
     let body = body(area);
-    if let View::Tend(tend) = &mut home.view
-        && let Some(thoughts) = &mut tend.thoughts
-        && thoughts.active()
-    {
-        thoughts.render(frame, body, palette);
-        return;
-    }
-    if let Some(panel) = &mut home.connection {
-        panel.render(frame, body, palette);
-        return;
-    }
-    if let View::Tend(tend) = &mut home.view
-        && let Some(history) = &mut tend.history
-    {
-        history.render(frame, body, palette, home.help, tend.how);
-        return;
-    }
     if matches!(home.view, View::Worker) {
         if let Some(panel) = &mut home.worker_panel {
             panel.render(frame, body, palette);
@@ -1268,17 +999,6 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
                     .wrap(Wrap { trim: false }),
                 body,
             );
-            return;
-        }
-        if let View::Tend(tend) = &mut home.view {
-            let p = Paragraph::new(tend.help_text())
-                .wrap(Wrap { trim: false })
-                .style(palette.ink);
-            let max = p
-                .line_count(body.width)
-                .saturating_sub(body.height as usize) as u16;
-            tend.help_scroll = tend.help_scroll.min(max);
-            frame.render_widget(p.scroll((tend.help_scroll, 0)), body);
             return;
         }
     }
@@ -1339,7 +1059,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
                 );
             }
         }
-        View::Tend(tend) => tend::render(frame, tend, body, palette),
+        View::Tend(tend) => tend.render(frame, body, palette),
         View::Shape(shape, _) => shape.render(frame, body, palette),
         View::Measure(_) | View::Retry(..) => unreachable!(),
         View::Watch(watch) => watch.render(frame, body, palette),
@@ -1426,6 +1146,7 @@ mod measure_tests;
 mod menu_tests;
 #[cfg(test)]
 mod tests {
+    use super::menu_tests::{how_it_works, in_detail, selected_line};
     use super::*;
     use crate::tend::{Stage, load_sessions};
     use serde_json::Value;
@@ -1779,49 +1500,6 @@ mod tests {
     }
 
     #[test]
-    fn a_toggles_only_tend_garden_and_never_repeats_or_conflicts_with_shape() {
-        let tmp = tempfile::tempdir().unwrap();
-        for id in ["a", "b"] {
-            session(tmp.path(), id, "active", "2026-10-17T00:00:00Z", None);
-        }
-        let mut h = home(tmp.path());
-        h.open(Place::Tend);
-        settle(&mut h);
-        let View::Tend(tend) = &mut h.view else {
-            panic!()
-        };
-        tend.repo_paths = Some([tend.sessions[0].path.clone()].into_iter().collect());
-        tend.toggle_scope(); // all
-        tend.toggle_scope(); // this repo
-        assert_eq!(tend.sessions.len(), 1);
-        h.handle_key(KeyEvent::new_with_kind(
-            KeyCode::Char('a'),
-            KeyModifiers::NONE,
-            KeyEventKind::Repeat,
-        ));
-        let View::Tend(tend) = &h.view else { panic!() };
-        assert_eq!(tend.sessions.len(), 1);
-        h.handle_key(key(KeyCode::Char('s')));
-        assert!(matches!(h.view, View::Tend(_)));
-        h.handle_key(key(KeyCode::F(1)));
-        h.handle_key(key(KeyCode::Char('a')));
-        h.handle_key(key(KeyCode::Esc));
-        let View::Tend(tend) = &h.view else { panic!() };
-        assert_eq!(tend.sessions.len(), 1, "help ignores a");
-        h.handle_key(key(KeyCode::Char('a')));
-        let View::Tend(tend) = &h.view else { panic!() };
-        assert_eq!(tend.sessions.len(), 2);
-        h.handle_key(key(KeyCode::Enter));
-        h.handle_key(key(KeyCode::Char('a')));
-        let View::Tend(tend) = &h.view else { panic!() };
-        assert!(tend.detail && tend.sessions.len() == 2);
-        h.handle_key(key(KeyCode::Esc));
-        h.handle_key(key(KeyCode::Char('a')));
-        let View::Tend(tend) = &h.view else { panic!() };
-        assert_eq!(tend.sessions.len(), 1);
-    }
-
-    #[test]
     fn s_in_tend_detail_opens_shape_and_esc_restores_the_same_detail() {
         let tmp = tempfile::tempdir().unwrap();
         session(tmp.path(), "a", "active", "2026-10-09T10:00:00Z", None);
@@ -1847,9 +1525,9 @@ mod tests {
         h.handle_key(shifted);
         assert!(!h.help, "Shift+? closes help");
         h.handle_key(key(KeyCode::Esc));
-        let View::Tend(tend) = &h.view else { panic!() };
-        assert!(tend.detail);
-        assert!(tend.current().unwrap().path.ends_with("a"));
+        assert!(in_detail(&mut h));
+        settle(&mut h);
+        assert!(snapshot(100, 30, &mut h, true).unwrap().contains("goal a"));
         fs::write(tmp.path().join("a/ledger.json"), r#"{"status": "active"}"#).unwrap();
         h.handle_key(key(KeyCode::Esc));
         h.open(Place::Tend);
@@ -1895,11 +1573,13 @@ mod tests {
             session(tmp.path(), "b", "active", "2026-10-09T12:00:00Z", None);
             h.handle_key(key(KeyCode::Esc));
             settle(&mut h);
-            let View::Tend(tend) = &h.view else { panic!() };
-            assert!(tend.detail);
-            assert!(tend.current().unwrap().path.ends_with("a"));
-            assert_eq!(tend.current().unwrap().stage, stage);
+            assert!(in_detail(&mut h));
             let screen = snapshot(80, 24, &mut h, true).unwrap();
+            assert!(
+                screen.contains("goal a") && !screen.contains("goal b"),
+                "{screen}"
+            );
+            assert_eq!(screen.contains("s shape"), stage.can_shape(), "{screen}");
             assert!(screen.contains(next), "{screen}");
             h.handle_key(key(KeyCode::Esc));
             let screen = snapshot(80, 24, &mut h, true).unwrap();
@@ -2007,13 +1687,18 @@ mod tests {
         h.handle_key(key(KeyCode::Char('s')));
         h.tick();
         settle(&mut h);
-        let View::Tend(tend) = &h.view else { panic!() };
-        assert_eq!(tend.selected, 1);
-        assert_eq!(
-            tend.sessions[tend.selected].path,
-            path.canonicalize().unwrap()
+        let frame = snapshot(100, 30, &mut h, true).unwrap();
+        assert!(
+            in_detail(&mut h) && !frame.contains("unavailable"),
+            "{frame}"
         );
-        assert!(tend.detail && tend.error.is_none());
+        assert!(frame.contains("goal old"), "{frame}");
+        h.handle_key(key(KeyCode::Esc));
+        assert!(
+            selected_line(&mut h).starts_with("goal old "),
+            "selection follows the path"
+        );
+        h.handle_key(key(KeyCode::Enter));
         assert_eq!(fs::read(path.join("ledger.json")).unwrap(), before);
         #[cfg(unix)]
         {
@@ -2022,37 +1707,25 @@ mod tests {
             h.sessions_root = Some(alias);
             h.open_tend_session(&path.canonicalize().unwrap());
             settle(&mut h);
-            let View::Tend(tend) = &h.view else { panic!() };
-            assert_eq!(tend.selected, 1);
-            assert_eq!(
-                tend.sessions[tend.selected].path.canonicalize().unwrap(),
-                path.canonicalize().unwrap()
+            assert!(in_detail(&mut h));
+            assert!(
+                snapshot(100, 30, &mut h, true)
+                    .unwrap()
+                    .contains("goal old")
             );
             h.sessions_root = Some(tmp.path().to_path_buf());
         }
         h.open_tend_session(&tmp.path().join("missing"));
         settle(&mut h);
-        let View::Tend(tend) = &h.view else { panic!() };
-        assert!(tend.sessions.is_empty());
-        assert!(
-            tend.error
-                .as_ref()
-                .unwrap()
-                .contains("Saved session is unavailable")
-        );
+        assert!(how_it_works(&mut h).contains("Saved session is unavailable"));
+        assert!(!in_detail(&mut h));
         h.sessions_root = Some(tmp.path().join("not-a-directory"));
         fs::write(h.sessions_root.as_ref().unwrap(), "not a directory").unwrap();
         h.open_tend_session(&path);
         settle(&mut h);
-        let View::Tend(tend) = &h.view else { panic!() };
-        assert!(
-            tend.error.is_some() && tend.sessions.is_empty(),
-            "{:?} {:?} {} {}",
-            tend.error,
-            tend.want,
-            tend.pending,
-            tend.sessions.len()
-        );
+        let frame = snapshot(100, 30, &mut h, true).unwrap();
+        assert!(frame.contains("Saved session unavailable."), "{frame}");
+        assert!(!in_detail(&mut h));
     }
 
     #[test]
@@ -2157,8 +1830,6 @@ mod tests {
             for line in receipt.goal.lines() {
                 assert!(normalized.contains(line), "{screen}");
             }
-            let View::Tend(tend) = &h.view else { panic!() };
-            assert_eq!(tend.current().unwrap().goal, receipt.goal);
             for label in ["Why:", "Done when:", "Must:", "Must not:"] {
                 assert!(
                     screen
@@ -2185,14 +1856,10 @@ mod tests {
                     .unwrap()
                     .contains(path.to_str().unwrap())
             );
-            h.handle_key(key(KeyCode::Char('h')));
-            let View::Tend(tend) = &h.view else { panic!() };
-            assert!(tend.help_text().contains(path.to_str().unwrap()));
+            h.handle_key(key(KeyCode::F(1)));
+            assert!(how_it_works(&mut h).contains(path.to_str().unwrap()));
             h.handle_key(key(KeyCode::Esc));
-            h.handle_key(key(KeyCode::Esc));
-            h.handle_key(key(KeyCode::Esc));
-            let View::Tend(tend) = &h.view else { panic!() };
-            assert!(!tend.detail);
+            assert!(!in_detail(&mut h));
             h.handle_key(key(KeyCode::Enter));
             h.handle_key(key(KeyCode::F(10)));
             assert!(matches!(h.view, View::Menu) && !h.quit);

@@ -224,7 +224,7 @@ fn ending_requires_confirmation_record() {
     assert!(
         result
             .unwrap_err()
-            .reason
+            .to_string()
             .contains("no confirmation record")
     );
     assert_eq!(fs::read(root.path().join("ledger.json")).unwrap(), before);
@@ -299,7 +299,7 @@ fn confirming_preserves_seed_mode_and_refuses_a_busy_writer() {
     assert_eq!(
         ledger::end(root.path(), "completed", "TEST complete", STAMP)
             .unwrap_err()
-            .reason,
+            .to_string(),
         "session already has a writer"
     );
     drop(lock);

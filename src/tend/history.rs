@@ -8,6 +8,7 @@ use std::{
     },
 };
 
+use super::Overlay;
 use crate::{
     Palette,
     think_record::{self, DraftSuggestion, Event, History, MadeIn, Unavailable},
@@ -185,13 +186,11 @@ impl View {
         }
     }
 
-    fn page(&mut self, help: bool, how: bool) -> &mut Page {
-        if !help {
-            &mut self.body
-        } else if how {
-            &mut self.details
-        } else {
-            &mut self.help
+    fn page(&mut self, overlay: Overlay) -> &mut Page {
+        match overlay {
+            Overlay::Closed => &mut self.body,
+            Overlay::How => &mut self.details,
+            Overlay::Help => &mut self.help,
         }
     }
 
@@ -200,8 +199,8 @@ impl View {
         self.details.offset = 0;
     }
 
-    pub(crate) fn scroll(&mut self, key: KeyCode, help: bool, how: bool) {
-        let page = self.page(help, how);
+    pub(crate) fn scroll(&mut self, key: KeyCode, overlay: Overlay) {
+        let page = self.page(overlay);
         page.offset = match key {
             KeyCode::Down | KeyCode::Char('j') => page.offset.saturating_add(1),
             KeyCode::Up | KeyCode::Char('k') => page.offset.saturating_sub(1),
@@ -222,9 +221,9 @@ impl View {
         frame: &mut Frame,
         area: Rect,
         palette: Palette,
-        help: bool,
-        how: bool,
+        overlay: Overlay,
     ) {
+        let (help, how) = (overlay != Overlay::Closed, overlay == Overlay::How);
         let title = if !help {
             if self.failed {
                 "Think history unavailable"
@@ -249,7 +248,7 @@ impl View {
             area.width,
             area.height.saturating_sub(2),
         );
-        let scrolls = self.page(help, how).render(frame, content, palette);
+        let scrolls = self.page(overlay).render(frame, content, palette);
         let keys = if !help {
             if scrolls {
                 "↑↓ scroll   esc back   ? help"

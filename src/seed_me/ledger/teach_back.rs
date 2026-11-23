@@ -51,13 +51,11 @@ fn identity(revision: &str, seed: &str, label: &str) -> String {
 
 pub(super) fn require_draft(seed: &str, revision: &str) -> Result<(), String> {
     require(
-        seed.lines().next() == Some("status: draft"),
+        seed.lines().next() == Some(crate::seed_me::files::DRAFT),
         "A review needs an unconfirmed draft. Reopen Shape.",
     )?;
     require(
-        seed.lines()
-            .find_map(|line| line.strip_prefix("revision:"))
-            .is_some_and(|r| r.trim() == revision),
+        crate::seed_me::files::revision(seed) == Some(revision),
         "The draft revision changed. Reopen Shape before trying again.",
     )
 }

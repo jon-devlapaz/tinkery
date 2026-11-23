@@ -11,7 +11,12 @@ fn fixture(count: usize) -> (tempfile::TempDir, Tend) {
         .prefix("tinkery-TEST-graph-")
         .tempdir()
         .unwrap();
-    let mut tend = Tend::new(Ok(tmp.path().join("TEST-links")), None);
+    let mut tend = Tend::new(
+        Ok(tmp.path().join("TEST-links")),
+        None,
+        Err("TEST no records".into()),
+        Box::new(|| Err("TEST no connections".into())),
+    );
     tend.current = true;
     tend.apply(
         &Ok(Found {
@@ -122,12 +127,7 @@ fn thought_diamonds_keep_violet_and_hollow_geometry_in_both_themes_and_without_c
                 terminal
                     .draw(|frame| {
                         frame.render_widget(Paragraph::new("").style(palette.ink), frame.area());
-                        crate::tend::render(
-                            frame,
-                            &mut tend,
-                            Rect::new(2, 3, width - 4, height - 4),
-                            palette,
-                        );
+                        tend.render(frame, Rect::new(2, 3, width - 4, height - 4), palette);
                     })
                     .unwrap();
                 let buffer = terminal.backend().buffer();

@@ -29,7 +29,7 @@ pub use probes::{PROBE, SAMPLE, UNOBSERVED, probe};
 
 use citations::unfound;
 
-const SEED: &str = "seed-contract.md";
+use crate::seed_me::files::SEED;
 
 /// Why a change wasn't completed. A later IO failure can leave unconfirmed check records;
 /// only the ledger's verified confirmation permits handoff.
@@ -463,15 +463,19 @@ fn not_saved(reason: String) -> Refusal {
 }
 
 fn published(error: ledger::PublishError) -> Refusal {
-    let reason = error.reason.lines().next().unwrap_or("");
+    let reason = error.to_string();
+    let first = |text: &str| text.lines().next().unwrap_or("").to_owned();
     match error.save_state {
         ledger::SaveState::NotSaved if error.stale() => Refusal::Stale,
-        ledger::SaveState::NotSaved => Refusal::Refused(format!("Tinkery refused: {reason}")),
+        ledger::SaveState::NotSaved => {
+            Refusal::Refused(format!("Tinkery refused: {}", first(&reason)))
+        }
         ledger::SaveState::Unknown => Refusal::Refused(format!(
             "This may or may not have saved ({}). Reopen this session to see what it holds before trying again.",
-            reason
-                .strip_prefix("could not save the ledger: ")
-                .unwrap_or(reason)
+            match &error.kind {
+                ledger::PublishKind::Unverified(cause) => first(cause),
+                _ => first(&reason),
+            }
         )),
     }
 }
@@ -530,10 +534,10 @@ fn publish_at(
     .map_err(published)?;
     // The ledger is saved by now, so an unusable version must not read as "not saved".
     let unknown = |reason: String| {
-        published(ledger::PublishError {
+        published(ledger::PublishError::said(
             reason,
-            save_state: ledger::SaveState::Unknown,
-        })
+            ledger::SaveState::Unknown,
+        ))
     };
     saved["version"]
         .pretty()
@@ -1043,12 +1047,9 @@ pub fn draft_seed(
             )),
         };
     let revision = match previous.as_deref() {
-        Some(existing) if existing.lines().next() == Some("status: draft") => {
-            let last = existing
-                .lines()
-                .find_map(|l| l.strip_prefix("revision:"))
-                .and_then(|r| r.split_whitespace().next()?.strip_prefix('r'))
-                .and_then(|n| n.parse::<u64>().ok())
+        Some(existing) if existing.lines().next() == Some(crate::seed_me::files::DRAFT) => {
+            let last = crate::seed_me::files::revision(existing)
+                .and_then(|r| r.strip_prefix('r')?.parse::<u64>().ok())
                 .unwrap_or(0);
             last + 1
         }
@@ -1106,8 +1107,10 @@ pub fn draft_seed(
         .and_then(|g| g.lines().next())
         .unwrap_or("");
     let date = crate::calendar::local_date();
-    let text =
-        format!("status: draft\n# Seed: {title}\nrevision: r{revision}\ndate: {date}\n\n{body}");
+    let text = format!(
+        "{}\n# Seed: {title}\nrevision: r{revision}\ndate: {date}\n\n{body}",
+        crate::seed_me::files::DRAFT
+    );
     ledger::save_draft(session, version, previous.as_deref(), &records, &text)
         .map_err(not_saved)?;
     Ok(format!("r{revision}"))

@@ -53,7 +53,7 @@ impl Tend {
     }
 
     /// Open the selected original, never infer a goal from a thought.
-    pub(crate) fn open_entry(&mut self) {
+    pub(super) fn open_entry(&mut self) {
         if let Some(Entry::Thought(words)) = self.selected_entry() {
             let thoughts = self.thoughts.as_mut().unwrap();
             thoughts.view();
@@ -76,7 +76,7 @@ impl Tend {
     }
 
     /// Keep the last viewed thought selected when the reader closes.
-    pub(crate) fn thought_reader_return(&mut self) {
+    pub(super) fn thought_reader_return(&mut self) {
         let entry = self
             .thoughts
             .as_ref()

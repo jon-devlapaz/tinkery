@@ -30,7 +30,7 @@ fn wait(reader: &mut Reader) -> Outcome {
     }
 }
 
-fn screen(view: &mut View, size: (u16, u16), help: bool, how: bool) -> String {
+fn screen(view: &mut View, size: (u16, u16), overlay: Overlay) -> String {
     let mut terminal = Terminal::new(TestBackend::new(size.0, size.1)).unwrap();
     terminal
         .draw(|frame| {
@@ -38,8 +38,7 @@ fn screen(view: &mut View, size: (u16, u16), help: bool, how: bool) -> String {
                 frame,
                 Rect::new(2, 3, size.0 - 4, size.1 - 4),
                 Palette::new(true),
-                help,
-                how,
+                overlay,
             )
         })
         .unwrap();
@@ -136,7 +135,7 @@ fn history_keeps_words_and_only_details_disclose_technical_records() {
         sequence: "Reading sequence was not recorded.".into(),
         readings: vec![],
     }));
-    let body = screen(&mut view, (100, 30), false, false);
+    let body = screen(&mut view, (100, 30), Overlay::Closed);
     assert!(body.contains("  Café 👩‍💻"));
     assert!(body.contains("Keep my words.  "));
     assert!(body.contains("Original words 1"));
@@ -148,7 +147,7 @@ fn history_keeps_words_and_only_details_disclose_technical_records() {
         !body.contains("Readings · Tinkery's guesses"),
         "missing context added an empty section"
     );
-    assert!(screen(&mut view, (100, 30), true, true).contains("MODEL-ONLY-HERE"));
+    assert!(screen(&mut view, (100, 30), Overlay::How).contains("MODEL-ONLY-HERE"));
     assert!(body.contains("Made in") && body.contains("TEST-repo"));
 }
 
@@ -164,7 +163,7 @@ fn no_known_repository_adds_nothing_to_history() {
             sequence: "Reading sequence was not recorded.".into(),
             readings: vec![],
         }));
-        let body = screen(&mut view, (100, 30), false, false);
+        let body = screen(&mut view, (100, 30), Overlay::Closed);
         assert!(!body.contains("Made in"), "{body}");
     }
 }
@@ -177,16 +176,16 @@ fn long_unicode_history_and_help_reach_the_end_and_resize_back() {
         "DETAIL START\n{}\nDETAIL END",
         "details\n".repeat(70_000)
     ));
-    view.scroll(KeyCode::End, false, false);
-    assert!(screen(&mut view, (80, 24), false, false).contains("THE END"));
+    view.scroll(KeyCode::End, Overlay::Closed);
+    assert!(screen(&mut view, (80, 24), Overlay::Closed).contains("THE END"));
     assert!(view.body.offset > 65_535);
-    view.scroll(KeyCode::End, true, true);
-    assert!(screen(&mut view, (80, 24), true, true).contains("DETAIL END"));
-    view.scroll(KeyCode::Home, false, false);
-    assert!(screen(&mut view, (320, 40), false, false).contains("START"));
-    assert!(screen(&mut view, (100, 30), true, true).contains("DETAIL END"));
+    view.scroll(KeyCode::End, Overlay::How);
+    assert!(screen(&mut view, (80, 24), Overlay::How).contains("DETAIL END"));
+    view.scroll(KeyCode::Home, Overlay::Closed);
+    assert!(screen(&mut view, (320, 40), Overlay::Closed).contains("START"));
+    assert!(screen(&mut view, (100, 30), Overlay::How).contains("DETAIL END"));
     view.reset_help();
-    assert!(screen(&mut view, (100, 30), true, true).contains("DETAIL START"));
+    assert!(screen(&mut view, (100, 30), Overlay::How).contains("DETAIL START"));
 }
 
 #[test]
@@ -208,12 +207,12 @@ fn page_keys_move_a_screen_of_history_less_one_row() {
     for size in [(80, 24), (100, 30), (160, 40)] {
         let mut view = View::waiting();
         view.body = Page::plain(&(0..500).map(|i| format!("row {i}\n")).collect::<String>());
-        screen(&mut view, size, false, false);
+        screen(&mut view, size, Overlay::Closed);
         let height = view.body.height;
         assert!(height > 5, "{size:?}: {height} rows");
-        view.scroll(KeyCode::PageDown, false, false);
+        view.scroll(KeyCode::PageDown, Overlay::Closed);
         assert_eq!(view.body.offset, usize::from(height - 1));
-        view.scroll(KeyCode::PageUp, false, false);
+        view.scroll(KeyCode::PageUp, Overlay::Closed);
         assert_eq!(view.body.offset, 0);
     }
 }
@@ -299,7 +298,7 @@ fn room_to_choose_sequence_is_first_and_numbered_originals_remain_whole() {
     for size in [(80, 24), (140, 42)] {
         let mut view = View::waiting();
         view.finish(Ok(history.clone()));
-        let first = screen(&mut view, size, false, false);
+        let first = screen(&mut view, size, Overlay::Closed);
         let entries = [
             "Original words 1",
             "Reading 1 shown",
@@ -324,8 +323,8 @@ fn room_to_choose_sequence_is_first_and_numbered_originals_remain_whole() {
             .join("\n");
         let mut previous = first;
         for _ in 0..200 {
-            view.scroll(KeyCode::Down, false, false);
-            let next = screen(&mut view, size, false, false);
+            view.scroll(KeyCode::Down, Overlay::Closed);
+            let next = screen(&mut view, size, Overlay::Closed);
             if next == previous {
                 break;
             }
@@ -384,11 +383,11 @@ fn room_to_choose_sequence_is_first_and_numbered_originals_remain_whole() {
         for text in fixture["readings"][1]["parts"]["must"].as_array().unwrap() {
             assert!(compact(second_reading).contains(&compact(text.as_str().unwrap())));
         }
-        view.scroll(KeyCode::End, false, false);
-        assert!(screen(&mut view, size, false, false).contains("Change tool configuration."));
-        assert!(screen(&mut view, size, true, true).contains("Think record:"));
-        view.scroll(KeyCode::Home, false, false);
-        assert!(screen(&mut view, size, false, false).contains("Recorded sequence"));
+        view.scroll(KeyCode::End, Overlay::Closed);
+        assert!(screen(&mut view, size, Overlay::Closed).contains("Change tool configuration."));
+        assert!(screen(&mut view, size, Overlay::How).contains("Think record:"));
+        view.scroll(KeyCode::Home, Overlay::Closed);
+        assert!(screen(&mut view, size, Overlay::Closed).contains("Recorded sequence"));
     }
     assert_eq!(
         std::fs::read(path).unwrap(),
@@ -435,7 +434,7 @@ fn reading_guesses_are_italic_and_preserve_partial_groups_without_changing_origi
         let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
         let mut seen = String::new();
         let mut item_boundaries = false;
-        view.scroll(KeyCode::Home, false, false);
+        view.scroll(KeyCode::Home, Overlay::Closed);
         let mut previous = String::new();
         for _ in 0..100 {
             terminal
@@ -444,8 +443,7 @@ fn reading_guesses_are_italic_and_preserve_partial_groups_without_changing_origi
                         frame,
                         Rect::new(2, 3, 76, 20),
                         Palette::new(no_color),
-                        false,
-                        false,
+                        Overlay::Closed,
                     )
                 })
                 .unwrap();
@@ -485,7 +483,7 @@ fn reading_guesses_are_italic_and_preserve_partial_groups_without_changing_origi
                 break;
             }
             previous = current;
-            view.scroll(KeyCode::Down, false, false);
+            view.scroll(KeyCode::Down, Overlay::Closed);
         }
         assert!(item_boundaries, "other-goal item boundaries disappeared");
         assert!(seen.contains("  TEST MAIN Café  "));
