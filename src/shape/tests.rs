@@ -1,4 +1,5 @@
 use super::*;
+use crate::confirmation::Actor;
 use crate::seed_me::ledger::fixtures::prose_reply;
 use crossterm::event::KeyModifiers;
 use shaping::{Decided, Shaped, Shaping};
@@ -1485,7 +1486,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
             folder: temp.path().into(),
         },
         receipt.session.clone(),
-        agent.clone(),
+        Some(agent.clone()),
     );
     let deadline = Instant::now() + Duration::from_secs(20);
     let result = loop {
@@ -1620,7 +1621,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
             folder: temp.path().into(),
         },
         receipt.session.clone(),
-        agent.clone(),
+        Some(agent.clone()),
     );
     let deadline = Instant::now() + Duration::from_secs(20);
     let result = loop {
@@ -1981,7 +1982,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
             folder: temp.path().into(),
         },
         receipt.session.clone(),
-        agent.clone(),
+        Some(agent.clone()),
     );
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
@@ -2250,7 +2251,7 @@ else:
             folder: temp.path().into(),
         },
     };
-    let running = step::Running::start(work, receipt.session.clone(), agent.clone());
+    let running = step::Running::start(work, receipt.session.clone(), Some(agent.clone()));
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
         if let Some(result) = running.poll() {
@@ -2374,7 +2375,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
             folder: temp.path().into(),
         },
         receipt.session.clone(),
-        agent.clone(),
+        Some(agent.clone()),
     );
     let until = Instant::now() + Duration::from_secs(20);
     loop {
@@ -2905,39 +2906,6 @@ fn ending_completes_only_a_verified_seed_keeps_it_ready_and_leaves_it_read_only(
             status: "stopped".into()
         }
     );
-}
-
-#[test]
-fn uncertain_endings_and_other_ledger_saves_never_claim_nothing_changed() {
-    // No key or file setup makes a save's read-back fail on demand, so this one result comes in
-    // where the ledger's own writer thread would deliver it.
-    let reason = "This may or may not have saved (TEST read-back failed). Reopen this session to see what it holds before trying again.";
-    for write in [
-        Write::End(Ending::Completed),
-        Write::Object("TEST default".into()),
-        Write::Recommend {
-            id: "TEST".into(),
-            text: "TEST".into(),
-        },
-    ] {
-        let mut shape = done(question());
-        let (sender, receiver) = std::sync::mpsc::channel();
-        shape.open.as_mut().unwrap().mode = Mode::Writing(write, receiver, Editor::Stage);
-        sender.send(Err(Refusal::Refused(reason.into()))).unwrap();
-        shape.tick();
-        assert_eq!(
-            shape
-                .open
-                .as_ref()
-                .unwrap()
-                .notice
-                .as_ref()
-                .unwrap()
-                .parts()
-                .0,
-            reason
-        );
-    }
 }
 
 #[test]
@@ -3560,7 +3528,7 @@ fn the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model
             folder: temp.path().into(),
         },
         session.clone(),
-        agent.clone(),
+        Some(agent.clone()),
     );
     let deadline = Instant::now() + Duration::from_secs(20);
     let result = loop {
@@ -3720,7 +3688,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
         .unwrap(),
     );
     let step = |work| {
-        let running = step::Running::start(work, session.clone(), agent.clone());
+        let running = step::Running::start(work, session.clone(), Some(agent.clone()));
         let deadline = Instant::now() + Duration::from_secs(20);
         loop {
             if let Some(result) = running.poll() {

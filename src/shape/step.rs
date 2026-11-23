@@ -9,7 +9,7 @@
 //! before the model starts; with none left it refuses before writing anything.
 
 use crate::{
-    confirmation::Actor,
+    confirmation::{Actor, GoalConfirmation},
     pi::{self, Call, CallBudget, Harness},
     seed_me::ledger,
     shape::answering::{self, Alternative, Ask, Assumption, Found, Refusal},
@@ -189,11 +189,6 @@ impl Agent {
         self
     }
 
-    /// Resolve this run's caller context once into who writes; invalid context refuses.
-    fn actor(&self) -> Result<Actor<'_>, String> {
-        Actor::authorize(self.confirmation.as_ref())
-    }
-
     /// Share the configured transport and allowance through the menu. This starts no call.
     pub(crate) fn drafting(
         &self,
@@ -258,8 +253,18 @@ impl Agent {
     }
 }
 
-/// What one key asked for.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// A correction stays bound to what was shown, even if a failed save refreshes the draft.
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct CheckEdit {
+    pub(super) expected: u64,
+    pub(super) seed: String,
+    pub(super) target: ledger::DraftCheck,
+    pub(super) method: ledger::CheckMethod,
+}
+
+/// What one key asked for: a model step, a confirmation, or a change the ledger makes without a
+/// model. Every one runs through [`Steps::run`].
+#[derive(Debug, Clone, PartialEq)]
 pub(super) enum Work {
     /// Save the operator's answer to question `id`, then look into the next question in `folder`.
     Answer {
@@ -273,7 +278,7 @@ pub(super) enum Work {
     /// Publish the operator's explicit action, then look into the next.
     Respond {
         id: String,
-        action: crate::seed_me::ledger::AnswerAction,
+        action: ledger::AnswerAction,
         expected: u64,
         folder: PathBuf,
     },
@@ -305,6 +310,44 @@ pub(super) enum Work {
         expected: u64,
         seed: String,
     },
+    /// Replace one draft check's command or how-to-judge words. No model runs.
+    RepairCheck { edit: CheckEdit, words: String },
+    /// Answer a deferred prerequisite. No model runs.
+    Revisit {
+        id: String,
+        expected: u64,
+        words: String,
+    },
+    /// Keep flagged node `id` with the operator's reason. No model runs.
+    Keep {
+        id: String,
+        expected: u64,
+        reason: String,
+    },
+    /// End the session for good. No model runs.
+    End(answering::Ending),
+    /// Make an assumed default an open question. No model runs.
+    Object { expected: u64, text: String },
+    /// Record the withheld suggestion on question `id`. No model runs.
+    Recommend {
+        id: String,
+        expected: u64,
+        text: String,
+    },
+}
+
+impl Work {
+    /// Whether this work calls a model, and so needs an agent with responses left.
+    pub(super) fn calls_model(&self) -> bool {
+        matches!(
+            self,
+            Self::Answer { .. }
+                | Self::Respond { .. }
+                | Self::Look { .. }
+                | Self::TeachBack { .. }
+                | Self::Change { .. }
+        )
+    }
 }
 
 /// What a finished step did.
@@ -318,6 +361,8 @@ pub(super) enum Done {
     Compared,
     /// The seed is confirmed.
     Confirmed,
+    /// A change without a model was saved.
+    Wrote,
 }
 
 /// What the step that asked a question leaves for the screen, beyond what the ledger records.
@@ -378,14 +423,15 @@ pub(super) struct Running {
 }
 
 impl Running {
-    /// Start `work` on `session`.
-    pub(super) fn start(work: Work, session: PathBuf, agent: Arc<Agent>) -> Self {
+    /// Start `work` on `session` off the calling thread, through the screen's [`Steps`].
+    pub(super) fn start(work: Work, session: PathBuf, agent: Option<Arc<Agent>>) -> Self {
         let cancelled = Arc::new(AtomicBool::new(false));
         let saved = Arc::new(AtomicBool::new(false));
         let (flag, answered) = (cancelled.clone(), saved.clone());
         let (sender, result) = mpsc::channel();
         std::thread::spawn(move || {
-            let _ = sender.send(run(&work, &session, &agent, &flag, &answered));
+            let steps = Steps::screen(agent.as_deref());
+            let _ = sender.send(steps.run(&work, &session, &flag, &answered));
         });
         Self {
             cancelled,
@@ -448,111 +494,251 @@ fn refused(answer_saved: bool) -> impl Fn(Refusal) -> Failure {
     }
 }
 
-/// Run `work` to its end on the calling thread. It makes at most the calls the agent's budget
-/// allows and writes nothing after a refusal.
-pub(super) fn run(
-    work: &Work,
-    session: &Path,
-    agent: &Agent,
-    cancelled: &AtomicBool,
-    saved: &AtomicBool,
-) -> Result<Done, Failure> {
-    let actor = agent.actor().map_err(|reason| Failure {
-        answer_saved: false,
-        why: Why::Refused(reason),
-        feedback: None,
-    })?;
-    match work {
-        Work::Answer {
-            id,
-            words,
-            relay,
-            expected,
-            folder,
-        } => {
-            if agent.remaining() == 0 {
-                return Err(Failure {
-                    answer_saved: false,
-                    why: Why::Budget(agent.limit()),
-                    feedback: None,
-                });
-            }
-            let version = match relay {
-                Some(relay) => answering::answer_relayed(session, *expected, id, relay, actor),
-                None => answering::answer(session, *expected, id, words, actor),
-            }
-            .map_err(refused(false))?;
-            saved.store(true, Ordering::Relaxed);
-            look(session, version, folder, agent, cancelled, true, None)
-        }
-        Work::Respond {
-            id,
-            action,
-            expected,
-            folder,
-        } => {
-            if agent.remaining() == 0 {
-                return Err(Failure {
-                    answer_saved: false,
-                    why: Why::Budget(agent.limit()),
-                    feedback: None,
-                });
-            }
-            let version = answering::respond(session, *expected, id, action, actor)
-                .map_err(refused(false))?;
-            saved.store(true, Ordering::Relaxed);
-            look(session, version, folder, agent, cancelled, true, None)
-        }
-        Work::Look {
-            expected,
-            folder,
-            feedback,
-        } => look(
-            session,
-            *expected,
-            folder,
+/// The refusal when a model step has no drafting agent.
+pub(super) const NO_AGENT: &str = "This step needs drafting: put --shape-pi, --model and --shape-budget before seed. Nothing was changed.";
+
+/// One Shape session's controller, shared by the screen and the command: who every write is
+/// attributed to, the folder a step reads, the one budget check and the one runner for each
+/// [`Work`]. It holds no screen state and decides no wording.
+#[derive(Clone, Copy)]
+pub(super) struct Steps<'a> {
+    agent: Option<&'a Agent>,
+    confirmation: Option<&'a GoalConfirmation>,
+}
+
+impl<'a> Steps<'a> {
+    /// The screen's steps. Attribution is decided here: the drafting agent's caller context, or
+    /// the operator's when there is no agent (an agent launch without one is held instead).
+    pub(super) fn screen(agent: Option<&'a Agent>) -> Self {
+        Self {
             agent,
-            cancelled,
-            false,
-            feedback.as_ref(),
-        ),
-        Work::TeachBack { .. } => teach_back::run(work, session, agent, actor, cancelled, saved),
-        Work::Change {
-            revision,
-            words,
-            expected,
-            folder,
-        } => {
-            if agent.remaining() == 0 {
-                return Err(Failure {
-                    answer_saved: false,
-                    why: Why::Budget(agent.limit()),
-                    feedback: None,
-                });
-            }
-            let version = answering::change_draft(session, *expected, revision, words, actor)
-                .map_err(refused(false))?;
-            saved.store(true, Ordering::Relaxed);
-            look(session, version, folder, agent, cancelled, true, None)
-        }
-        Work::Confirm {
-            revision,
-            words,
-            expected,
-            seed,
-        } => {
-            answering::confirm_seed(session, *expected, revision, seed, words, actor)
-                .map_err(refused(false))?;
-            Ok(Done::Confirmed)
+            confirmation: agent.and_then(|agent| agent.confirmation.as_ref()),
         }
     }
+
+    /// The command's steps, attributed as the launch's declared `confirmation`.
+    pub(super) fn command(agent: Option<&'a Agent>, confirmation: &'a GoalConfirmation) -> Self {
+        Self {
+            agent,
+            confirmation: Some(confirmation),
+        }
+    }
+
+    /// The folder a step for `session` reads: the session's base checkout, else where its
+    /// `goal` was made (see [`Agent::folder`]). Without an agent or goal, only the base. Where
+    /// the goal was made is always checked with an agent, so a broken origin refuses. Blocks.
+    pub(super) fn folder(
+        self,
+        session: &Path,
+        goal: Option<&str>,
+        base: Option<PathBuf>,
+    ) -> Result<Option<PathBuf>, String> {
+        let made = self
+            .agent
+            .zip(goal)
+            .map(|(agent, goal)| agent.folder(session, goal))
+            .transpose()?;
+        Ok(base.or(made))
+    }
+
+    /// Whether `work` may start: a model step needs an agent with a response left. Checked
+    /// before anything is written; other work always may.
+    pub(super) fn admit(self, work: &Work) -> Result<(), Failure> {
+        if !work.calls_model() {
+            return Ok(());
+        }
+        match self.agent {
+            Some(agent) => left(agent, false),
+            None => Err(Failure {
+                answer_saved: false,
+                why: Why::Refused(NO_AGENT.into()),
+                feedback: None,
+            }),
+        }
+    }
+
+    /// Run `work` to its end on the calling thread. It makes at most the calls the agent's
+    /// budget allows and writes nothing after a refusal.
+    pub(super) fn run(
+        self,
+        work: &Work,
+        session: &Path,
+        cancelled: &AtomicBool,
+        saved: &AtomicBool,
+    ) -> Result<Done, Failure> {
+        let actor = Actor::authorize(self.confirmation).map_err(|reason| Failure {
+            answer_saved: false,
+            why: Why::Refused(reason),
+            feedback: None,
+        })?;
+        // A look checks the budget only after the ledger's own questions, which need no model.
+        if !matches!(work, Work::Look { .. }) {
+            self.admit(work)?;
+        }
+        let agent = || {
+            self.agent.ok_or_else(|| Failure {
+                answer_saved: false,
+                why: Why::Refused(NO_AGENT.into()),
+                feedback: None,
+            })
+        };
+        let wrote =
+            |result: Result<(), Refusal>| result.map(|()| Done::Wrote).map_err(refused(false));
+        match work {
+            Work::Answer {
+                id,
+                words,
+                relay,
+                expected,
+                folder,
+            } => {
+                let version = match relay {
+                    Some(relay) => answering::answer_relayed(session, *expected, id, relay, actor),
+                    None => answering::answer(session, *expected, id, words, actor),
+                }
+                .map_err(refused(false))?;
+                saved.store(true, Ordering::Relaxed);
+                look(
+                    session,
+                    version,
+                    folder,
+                    (agent()?, actor),
+                    cancelled,
+                    true,
+                    None,
+                )
+            }
+            Work::Respond {
+                id,
+                action,
+                expected,
+                folder,
+            } => {
+                let version = answering::respond(session, *expected, id, action, actor)
+                    .map_err(refused(false))?;
+                saved.store(true, Ordering::Relaxed);
+                look(
+                    session,
+                    version,
+                    folder,
+                    (agent()?, actor),
+                    cancelled,
+                    true,
+                    None,
+                )
+            }
+            Work::Look {
+                expected,
+                folder,
+                feedback,
+            } => look(
+                session,
+                *expected,
+                folder,
+                (agent()?, actor),
+                cancelled,
+                false,
+                feedback.as_ref(),
+            ),
+            Work::TeachBack {
+                revision,
+                words,
+                expected,
+                seed,
+            } => teach_back::run(
+                (revision, words, *expected, seed),
+                session,
+                agent()?,
+                actor,
+                cancelled,
+                saved,
+            ),
+            Work::Change {
+                revision,
+                words,
+                expected,
+                folder,
+            } => {
+                let version = answering::change_draft(session, *expected, revision, words, actor)
+                    .map_err(refused(false))?;
+                saved.store(true, Ordering::Relaxed);
+                look(
+                    session,
+                    version,
+                    folder,
+                    (agent()?, actor),
+                    cancelled,
+                    true,
+                    None,
+                )
+            }
+            Work::Confirm {
+                revision,
+                words,
+                expected,
+                seed,
+            } => {
+                answering::confirm_seed(session, *expected, revision, seed, words, actor)
+                    .map_err(refused(false))?;
+                Ok(Done::Confirmed)
+            }
+            Work::RepairCheck { edit, words } => wrote(
+                ledger::repair_check(
+                    session,
+                    edit.expected,
+                    &edit.seed,
+                    (&edit.target, edit.method, words),
+                    actor,
+                )
+                .map_err(Refusal::Refused),
+            ),
+            Work::Revisit {
+                id,
+                expected,
+                words,
+            } => wrote(
+                answering::respond(
+                    session,
+                    *expected,
+                    id,
+                    &ledger::AnswerAction::Revisit(words.clone()),
+                    actor,
+                )
+                .map(|_| ()),
+            ),
+            Work::Keep {
+                id,
+                expected,
+                reason,
+            } => wrote(answering::keep(session, *expected, id, reason, actor)),
+            Work::End(ending) => wrote(answering::end(session, *ending, actor)),
+            Work::Object { expected, text } => {
+                wrote(answering::object(session, *expected, text, actor).map(|_| ()))
+            }
+            Work::Recommend { id, expected, text } => {
+                wrote(answering::recommend(session, *expected, id, text, actor).map(|_| ()))
+            }
+        }
+    }
+}
+
+/// The one budget check: refuses when `agent` has no response left.
+fn left(agent: &Agent, answer_saved: bool) -> Result<(), Failure> {
+    if agent.remaining() == 0 {
+        return Err(Failure {
+            answer_saved,
+            why: Why::Budget(agent.limit()),
+            feedback: None,
+        });
+    }
+    Ok(())
 }
 
 fn look(
     session: &Path,
     expected: u64,
     folder: &Path,
-    agent: &Agent,
+    (agent, actor): (&Agent, Actor<'_>),
     cancelled: &AtomicBool,
     answer_saved: bool,
     feedback: Option<&RetryFeedback>,
@@ -587,9 +773,7 @@ fn look(
     {
         return Ok(Done::Asked(Asked::default()));
     }
-    if agent.remaining() == 0 {
-        return Err(fail(Why::Budget(agent.limit())));
-    }
+    left(agent, answer_saved)?;
     let goal = ledger.goal().unwrap_or("").to_owned();
     let settled = think(agent.records.as_deref(), session, &goal);
     let mut input = input(&ledger, settled);
@@ -679,7 +863,7 @@ fn look(
                 &revision,
                 &seed,
                 &crate::seed_me::ledger::TeachBackRecord::Review(&review),
-                agent.actor().map_err(|reason| fail(Why::Refused(reason)))?,
+                actor,
             )
             .map_err(refused(answer_saved))?;
             Ok(Done::Drafted)

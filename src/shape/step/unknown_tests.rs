@@ -2,6 +2,17 @@
 
 use super::*;
 
+/// One step through the screen's controller, as its keys start it.
+fn run(
+    work: &Work,
+    session: &Path,
+    agent: &Agent,
+    cancelled: &AtomicBool,
+    saved: &AtomicBool,
+) -> Result<Done, Failure> {
+    Steps::screen(Some(agent)).run(work, session, cancelled, saved)
+}
+
 const UNKNOWN: &str = "This investigation has not established whether the operator expects tally to guarantee read-only behavior for input files.";
 const ANSWER: &str = "Most likely it would count words inconsistently or mishandle paths. Settle these choices now: Python 3 standard library only; words are non-empty whitespace-separated tokens using str.split; one or more explicit file paths, never stdin; directories are refused with a plain error. UTF-8 text only. Strictly read-only: never modify input files. On unreadable or invalid UTF-8 input, print a plain error to stderr and exit nonzero. Print COUNT PATH for each file and COUNT total at the end, including for one file. Supply tally.py invoked with python3 tally.py, unittest tests, and a short README example. No packaging or installation needed.";
 

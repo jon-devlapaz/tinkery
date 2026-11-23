@@ -11,9 +11,9 @@ use std::sync::atomic::AtomicBool;
 
 use sha2::{Digest, Sha256};
 
-use super::step::{self, Agent, Done, Why, Work};
+use super::step::{Agent, Done, NO_AGENT, Steps, Why, Work};
 use super::{
-    answering::{self, Refusal},
+    answering,
     shaping::{self, Shaped},
 };
 use crate::confirmation::GoalConfirmation;
@@ -117,7 +117,7 @@ pub fn show(session: &Path) -> Result<serde_json::Value, String> {
         Shaped::Waiting => serde_json::json!({"stage": "waiting", "next": "seed step DIR look"}),
         Shaped::Drafted { revision, text } => serde_json::json!({
             "stage": "draft", "revision": revision,
-            "sha256": text.as_ref().map(|text| format!("{:x}", Sha256::digest(text.as_bytes()))),
+            "sha256": text.as_deref().map(sha256),
             "text": text, "needs_check": shaping.checks.iter().find(|check| check.gap().is_some()).map(|check| check.statement()), "signoff": shaping.signoff,
             "risks": shaping.review_lines(false).collect::<Vec<_>>(),
         }),
@@ -159,86 +159,87 @@ pub fn step(
     action: Action,
 ) -> Result<Vec<String>, String> {
     let (shaping, base) = shaping::read_with_base(session)?;
+    let mut reads = None;
     let expected = shaping
         .version
         .ok_or("This session's ledger version is unknown; nothing was changed.")?;
-    if let Action::Confirm(sha256) = &action {
+    let steps = Steps::command(agent, confirmation);
+    let work = if let Action::Confirm(sha) = &action {
         let Shaped::Drafted {
             revision: Some(revision),
             text: Some(seed),
-        } = &shaping.stage
+        } = shaping.stage
         else {
             return Err("There is no draft to confirm; read `tinkery seed show DIR`. Nothing was confirmed.".into());
         };
-        if format!("{:x}", Sha256::digest(seed.as_bytes())) != *sha256 {
+        if sha256(&seed) != *sha {
             return Err(
                 "That SHA-256 is not the current draft's; read the draft again. Nothing was confirmed."
                     .into(),
             );
         }
-        // The source names the real act: a command, not typed words.
-        let source = format!("tinkery seed step confirm {sha256}");
-        return match answering::confirm_seed(
-            session,
-            expected,
+        Work::Confirm {
             revision,
-            seed,
-            &source,
-            confirmation.actor()?,
-        ) {
-            Ok(()) => Ok(Vec::new()),
-            Err(Refusal::Stale) => Err(STALE.into()),
-            Err(Refusal::Refused(reason) | Refusal::Rejected(reason)) => Err(reason),
-        };
-    }
-    let agent = agent.ok_or(
-        "This step needs drafting: put --shape-pi, --model and --shape-budget before seed. Nothing was changed.",
-    )?;
-    let goal = shaping.goal.as_deref().unwrap_or_default();
-    let origin_folder = agent.folder(session, goal)?;
-    let folder = base.map_or(origin_folder, |base| base.checkout);
-    let reads = format!("A model step reads only this folder: {}", folder.display());
-    let work = match (action, shaping.stage) {
-        (Action::Look, Shaped::Waiting) => Work::Look {
+            // The source names the real act: a command, not typed words.
+            words: format!("tinkery seed step confirm {sha}"),
             expected,
-            folder,
-            feedback: None,
-        },
-        (Action::Answer(words), Shaped::Question { id, .. }) if !words.trim().is_empty() => {
-            Work::Answer {
-                id,
-                words,
-                relay: None,
+            seed,
+        }
+    } else {
+        if agent.is_none() {
+            return Err(NO_AGENT.into());
+        }
+        let goal = shaping.goal.as_deref().unwrap_or_default();
+        let folder = steps
+            .folder(session, Some(goal), base.map(|base| base.checkout))?
+            .unwrap_or_default();
+        reads = Some(format!(
+            "A model step reads only this folder: {}",
+            folder.display()
+        ));
+        match (action, shaping.stage) {
+            (Action::Look, Shaped::Waiting) => Work::Look {
                 expected,
                 folder,
+                feedback: None,
+            },
+            (Action::Answer(words), Shaped::Question { id, .. }) if !words.trim().is_empty() => {
+                Work::Answer {
+                    id,
+                    words,
+                    relay: None,
+                    expected,
+                    folder,
+                }
             }
-        }
-        (Action::Relayed(relay), Shaped::Question { id, .. }) => Work::Answer {
-            id,
-            words: relay.words().to_owned(),
-            relay: Some(relay),
-            expected,
-            folder,
-        },
-        (Action::Delegate, Shaped::Question { id, .. }) => Work::Respond {
-            id,
-            action: AnswerAction::Delegate,
-            expected,
-            folder,
-        },
-        (Action::Answer(_), Shaped::Question { .. }) => {
-            return Err("The answer is empty; nothing was saved.".into());
-        }
-        _ => {
-            return Err(
-                "That action does not fit the status of this Tink; read `tinkery seed show DIR`. Nothing was changed."
-                    .into(),
-            );
+            (Action::Relayed(relay), Shaped::Question { id, .. }) => Work::Answer {
+                id,
+                words: relay.words().to_owned(),
+                relay: Some(relay),
+                expected,
+                folder,
+            },
+            (Action::Delegate, Shaped::Question { id, .. }) => Work::Respond {
+                id,
+                action: AnswerAction::Delegate,
+                expected,
+                folder,
+            },
+            (Action::Answer(_), Shaped::Question { .. }) => {
+                return Err("The answer is empty; nothing was saved.".into());
+            }
+            _ => {
+                return Err(
+                    "That action does not fit the status of this Tink; read `tinkery seed show DIR`. Nothing was changed."
+                        .into(),
+                );
+            }
         }
     };
     let (stopped, saved) = (AtomicBool::new(false), AtomicBool::new(false));
-    match step::run(&work, session, agent, &stopped, &saved) {
-        Ok(Done::Asked(asked)) => Ok(std::iter::once(reads)
+    match steps.run(&work, session, &stopped, &saved) {
+        Ok(Done::Asked(asked)) => Ok(reads
+            .into_iter()
             .chain(
                 asked
                     .assumed
@@ -251,7 +252,7 @@ pub fn step(
                     .map(|s| format!("Suggestion, not recorded: {s}")),
             )
             .collect()),
-        Ok(_) => Ok(vec![reads]),
+        Ok(_) => Ok(reads.into_iter().collect()),
         Err(failure) => Err(format!(
             "{}{}",
             if failure.answer_saved {
@@ -270,4 +271,9 @@ pub fn step(
             }
         )),
     }
+}
+
+/// The SHA-256 that names a draft's exact bytes, as `show` prints it and `Action::Confirm` names it.
+fn sha256(text: &str) -> String {
+    format!("{:x}", Sha256::digest(text.as_bytes()))
 }

@@ -84,8 +84,8 @@ unconfirmed sessions or complete factory telemetry. The read-only
 | `shape/shaping.rs` | Shape's view of where a seed stands: questions, findings, decisions and review lines over the shared classification; no subprocess or mutation. |
 | `shape/forms.rs` | Unsaved deferral and replacement-answer fields, navigation and cancellation; no validation or publication policy. |
 | `words.rs` | Exact-word textarea for Shape: editing, selection, cursor-following and original line-ending provenance; no save or agent policy. |
-| `shape/command.rs` | Shape without a screen: saving a goal's exact words, showing where a seed stands as JSON and taking one explicit step; it builds the same work the screen does and adds no ledger rule. |
-| `shape/step.rs`, `shape/prompt.txt` | The step's budget check, folder, model input, prompt, reply decoding and recording through the shared session boundary. Replies contain findings with a question or named seed prose fields; `seed_me` alone owns their layout and validation. |
+| `shape/command.rs` | Shape without a screen: saving a goal's exact words, showing where a seed stands as JSON and taking one explicit step; it builds the same work the screen does, runs it through the same controller and adds no ledger rule. |
+| `shape/step.rs`, `shape/prompt.txt` | The one session controller the screen and the command share: who each write is attributed to, the folder a step reads, the one budget check, and one runner and outcome for every model step, confirmation and no-model change. Also the model input, prompt, reply decoding and recording through the shared session boundary. Replies contain findings with a question or named seed prose fields; `seed_me` alone owns their layout and validation. |
 | `goal/mod.rs` | Goal parts, constraint normalisation and composing the goal block (shared). |
 | `goal/confirmed.rs` | Rendering a confirmed goal the same way in review, receipt and tend detail (shared). |
 | `think/brain_dump.rs` | Think's `BrainDump`, which routes keys, mouse and ticks to its four parts, paints them, and reports one `Exit` to the menu. |
