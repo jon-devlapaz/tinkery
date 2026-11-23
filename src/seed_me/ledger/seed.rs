@@ -7,7 +7,7 @@ use super::{
 };
 use crate::confirmation::Actor;
 use crate::seed_me::files::{
-    CONFIRMATION, CONFIRMED, DRAFT, SEED as FILE, SIMULATED, revision_line as revision,
+    CONFIRMATION, CONFIRMED, DRAFT, SEED as FILE, SIMULATED, Section, revision_line as revision,
 };
 use regex::Regex;
 use sha2::{Digest, Sha256};
@@ -33,7 +33,7 @@ pub(super) fn seed_lines(directory: &Path) -> Result<Vec<String>> {
             path.display()
         ),
     )?;
-    Ok(super::super::read_seed_text(&path)
+    Ok(crate::seed_me::files::read_seed_text(&path)
         .map_err(|e| e.to_string())?
         .split_inclusive('\n')
         .map(str::to_owned)
@@ -90,7 +90,7 @@ fn require_seed_body(directory: &Path, refusal: &str) -> Result<()> {
         })
         .collect();
     let index = lines.iter().enumerate().position(|(i, s)| {
-        i > 0 && !fenced[i] && s.trim_end_matches(whitespace) == "## You are confirming"
+        i > 0 && !fenced[i] && s.trim_end_matches(whitespace) == Section::Confirming.heading()
     });
 
     let valid = index.is_some_and(|index| {
@@ -287,7 +287,7 @@ pub fn seed_summary(directory: &Path) -> Result<Value> {
     if !path.is_file() {
         return Ok(Value::Null);
     }
-    let data = super::super::read_seed(&path).map_err(|e| e.to_string())?;
+    let data = crate::seed_me::files::read_seed(&path).map_err(|e| e.to_string())?;
     let text = String::from_utf8_lossy(&data);
     let lines: Vec<_> = text.split('\n').collect();
     let label = lines.iter().skip(1).find_map(|s| revision(s));

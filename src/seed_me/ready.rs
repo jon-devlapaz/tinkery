@@ -267,18 +267,18 @@ fn read_with(
     inspect: impl FnOnce() -> Result<Standing, String>,
 ) -> Result<Option<ReadySeed>, String> {
     let seed_path = path(session);
-    let seed = match super::read_seed_text(&seed_path) {
+    let seed = match super::files::read_seed_text(&seed_path) {
         Ok(seed) => seed,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(format!("Cannot read the Tink Contract: {e}")),
     };
-    if seed.lines().next() != Some(super::files::CONFIRMED) {
+    if super::files::status(&seed) != Some(super::files::Status::Confirmed) {
         return Ok(None);
     }
     let ledger =
         super::ledger::read_bytes(session).map_err(|e| format!("Cannot read the ledger: {e}"))?;
     let shaped = inspect()?;
-    if super::read_seed(&seed_path).map_err(|e| e.to_string())? != seed.as_bytes()
+    if super::files::read_seed(&seed_path).map_err(|e| e.to_string())? != seed.as_bytes()
         || super::ledger::read_bytes(session).map_err(|e| e.to_string())? != ledger
     {
         return Err(
@@ -304,7 +304,7 @@ fn read_with(
     };
     let commands = if matches!(retry_started, Ok(false)) {
         root.and_then(|named| {
-            let title = seed.lines().find_map(|line| line.strip_prefix("# "))?;
+            let title = super::files::title(&seed)?;
             let run = run_name(title, shaped.target.as_ref())?;
             let checkout = retry.map_or(named, |base| base.checkout.as_path());
             crate::sdlc::installed(checkout).then_some(())?;
@@ -406,12 +406,13 @@ pub(crate) fn execution(target: &SeedTarget, root: &Path) -> Result<(Intake, Str
     let ready = read(&target.session, None)?
         .filter(|ready| ready.target.as_ref() == Some(target))
         .ok_or("The selected Tink changed or is no longer confirmed. Reopen Approve.")?;
-    let bytes = super::read_seed(&path(&target.session)).map_err(|error| error.to_string())?;
+    let bytes =
+        super::files::read_seed(&path(&target.session)).map_err(|error| error.to_string())?;
     if format!("{:x}", Sha256::digest(&bytes)) != target.sha256 {
         return Err("The selected Tink changed before intake. Reopen Approve.".into());
     }
     let text = std::str::from_utf8(&bytes).map_err(|error| error.to_string())?;
-    let title = text.lines().find_map(|line| line.strip_prefix("# "));
+    let title = super::files::title(text);
     let run = title
         .and_then(|title| run_name(title, Some(target)))
         .ok_or("The selected Tink has no usable run name.")?;

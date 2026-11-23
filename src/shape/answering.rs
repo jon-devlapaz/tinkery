@@ -29,7 +29,7 @@ pub use probes::{PROBE, SAMPLE, UNOBSERVED, probe};
 
 use citations::unfound;
 
-use crate::seed_me::files::SEED;
+use crate::seed_me::files::{SEED, Section};
 
 /// Why a change wasn't completed. A later IO failure can leave unconfirmed check records;
 /// only the ledger's verified confirmation permits handoff.
@@ -1032,7 +1032,10 @@ pub fn draft_seed(
             )),
         };
     let revision = match previous.as_deref() {
-        Some(existing) if existing.lines().next() == Some(crate::seed_me::files::DRAFT) => {
+        Some(existing)
+            if crate::seed_me::files::status(existing)
+                == Some(crate::seed_me::files::Status::Draft) =>
+        {
             let last = crate::seed_me::files::revision(existing)
                 .and_then(|r| r.strip_prefix('r')?.parse::<u64>().ok())
                 .unwrap_or(0);
@@ -1062,22 +1065,22 @@ pub fn draft_seed(
         ledger::decisions_block(&ledger::load(session).map_err(not_saved)?).map_err(not_saved)?;
     let today = today(&grounding);
     let mut body = String::new();
-    for heading in ledger::FULL {
-        match *heading {
-            "## Acceptance criteria" => body.push_str(&rendered),
-            "## Decisions (from the ledger)" => {
+    for section in Section::FULL {
+        match section {
+            Section::Acceptance => body.push_str(&rendered),
+            Section::Decisions => {
                 body.push_str(&decisions);
                 body.push('\n');
             }
-            "## Assumed (not confirmed by you)" => {}
-            "## Evidence and uncertainty" => {
+            Section::Assumed => {}
+            Section::Evidence => {
                 body.push_str(&today);
                 body.push('\n');
             }
-            heading => {
-                let name = heading.strip_prefix("## ").unwrap();
+            section => {
+                let name = section.prose().unwrap();
                 let text = prose.iter().find(|(field, _)| *field == name).unwrap().1;
-                body.push_str(heading);
+                body.push_str(section.heading());
                 body.push('\n');
                 body.push_str(text);
                 if !text.ends_with('\n') {

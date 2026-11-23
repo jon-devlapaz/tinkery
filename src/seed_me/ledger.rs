@@ -29,18 +29,17 @@ pub use questions::{next_question, queue_question, waiting_on};
 pub(crate) mod fixtures;
 mod seed;
 mod storage;
+pub(crate) use checks::prose_headings;
 pub(crate) use checks::{
     CheckMethod, DraftCheck, draft_checks, goal_criteria, human_signoff, keeps_criterion,
     validate_new_draft_checks,
 };
-pub(crate) use checks::{FULL, prose_headings};
 pub use checks::{checks_block, read_checks, readable_acceptance, validate_checks};
 pub(crate) use seed::status_from_ledger;
 pub use seed::{Handoff, decisions_block, seed_summary, status, verify_handoff};
 pub use storage::{
-    PublishError, PublishKind, SaveState, confirm_as, confirm_displayed_as, confirm_seed,
-    confirm_with_teach_back, end, initialize, publish, record_teach_back, respond, revalidate,
-    set_checks,
+    PublishError, PublishKind, SaveState, confirm_as, confirm_displayed_as, confirm_seed, end,
+    initialize, publish, record_teach_back, respond, revalidate, set_checks,
 };
 pub(crate) use storage::{initialize_at, initialize_for, repair_check, save_draft};
 mod text;

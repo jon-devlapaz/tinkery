@@ -214,11 +214,45 @@ fn completion_review_is_verbatim_byte_bound_append_only_and_not_goal_evidence() 
             .any(|line| line.ends_with("Nothing observed done."))
     );
     assert!(ledger::teach_back_report(&latest, "r1", &seed).is_empty());
-    ledger::confirm_with_teach_back(root.path(), "r1", "TEST confirm review", AT).unwrap();
+    ledger::confirm_as(
+        root.path(),
+        "r1",
+        "TEST confirm review",
+        AT,
+        crate::confirmation::Actor::OPERATOR,
+    )
+    .unwrap();
     assert!(
         ledger::verify_handoff(root.path(), &ledger::load(root.path()).unwrap())
             .unwrap()
             .verified
+    );
+}
+
+#[test]
+fn teach_back_trims_the_displayed_label_as_confirmation_does() {
+    let (root, seed) = draft();
+    let version = ledger::load(root.path()).unwrap()["version"]
+        .counter()
+        .unwrap();
+    ledger::record_teach_back(
+        root.path(),
+        version,
+        " r1\t",
+        &seed,
+        &TeachBackRecord::Words("TEST padded label words"),
+        AT,
+        Actor::OPERATOR,
+    )
+    .unwrap();
+    let saved = ledger::load(root.path()).unwrap();
+    let receipt = &saved["nodes"].items()[0]["evidence"].items()[0];
+    assert!(
+        receipt["checked"]
+            .string()
+            .unwrap()
+            .starts_with("Teach-back r1 · "),
+        "{receipt:?}"
     );
 }
 
@@ -287,8 +321,14 @@ fn teach_back_preserves_words_and_mismatches_without_holding_confirmation() {
     assert!(report[0].contains(words));
     assert!(report[1].contains(&comparison.mismatches[0]));
     assert!(ledger::teach_back_report(&saved, "r1", &(seed.clone() + "changed")).is_empty());
-    ledger::confirm_with_teach_back(root.path(), "r1", "TEST confirm despite mismatch", AT)
-        .unwrap();
+    ledger::confirm_as(
+        root.path(),
+        "r1",
+        "TEST confirm despite mismatch",
+        AT,
+        crate::confirmation::Actor::OPERATOR,
+    )
+    .unwrap();
     assert!(
         ledger::verify_handoff(root.path(), &ledger::load(root.path()).unwrap())
             .unwrap()
@@ -365,11 +405,12 @@ fn teach_back_does_not_reopen_goal_dependents_or_hide_real_evidence_changes() {
         ),
         "{error}"
     );
-    ledger::confirm_with_teach_back(
+    ledger::confirm_as(
         root.path(),
         "r1",
         "TEST confirmation with captured words and skip",
         AT,
+        crate::confirmation::Actor::OPERATOR,
     )
     .unwrap();
     let confirmed = ledger::load(root.path()).unwrap();
@@ -389,13 +430,28 @@ fn teach_back_does_not_reopen_goal_dependents_or_hide_real_evidence_changes() {
 fn teach_back_skip_is_recorded_verbatim_only_after_a_valid_confirmation() {
     let (root, seed) = draft();
     let before = std::fs::read(root.path().join("ledger.json")).unwrap();
-    assert!(ledger::confirm_with_teach_back(root.path(), "r2", "TEST wrong revision", AT).is_err());
+    assert!(
+        ledger::confirm_as(
+            root.path(),
+            "r2",
+            "TEST wrong revision",
+            AT,
+            crate::confirmation::Actor::OPERATOR
+        )
+        .is_err()
+    );
     assert_eq!(
         std::fs::read(root.path().join("ledger.json")).unwrap(),
         before
     );
-    ledger::confirm_with_teach_back(root.path(), "r1", "TEST confirm without teach-back", AT)
-        .unwrap();
+    ledger::confirm_as(
+        root.path(),
+        "r1",
+        "TEST confirm without teach-back",
+        AT,
+        crate::confirmation::Actor::OPERATOR,
+    )
+    .unwrap();
     let saved = ledger::load(root.path()).unwrap();
     let receipts = saved["nodes"].items()[0]["evidence"].items();
     assert_eq!(receipts.len(), 1);
