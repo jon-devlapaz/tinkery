@@ -1,6 +1,7 @@
 //! Explicit repo declarations and one cancellable exact-head preview. No command inference,
 //! public URL, operator checkout, agent or durable preview record is supported.
 
+use crate::github::{self, PrUrl};
 use crate::process::{self, Task};
 use crate::sdlc::{self, DEADLINE};
 use serde::Deserialize;
@@ -164,7 +165,7 @@ impl Local {
 /// An explicit PR result or a fresh machine-checked local result; never a guessed repository.
 #[derive(Clone, Debug)]
 pub(super) enum Source {
-    GitHub { url: String, head: String },
+    GitHub { url: PrUrl, head: String },
     Local(Local),
 }
 
@@ -242,36 +243,17 @@ impl Spec {
 /// Read only the declared file at this snapshot's commit; absence is not inferred from scripts.
 pub(super) fn declaration(
     root: &Path,
-    url: &str,
+    url: &PrUrl,
     head: &str,
     stop: &AtomicBool,
 ) -> Result<Option<Spec>, String> {
-    let repo = repository(url)?;
-    let mut command = Command::new("gh");
-    command.args([
-        "api",
-        "-H",
-        "Accept: application/vnd.github.raw+json",
-        &format!("repos/{repo}/contents/tinkery.preview?ref={head}"),
-    ]);
-    command.current_dir(root);
-    let unread = || "Couldn't read tinkery.preview at this commit. Check gh access and press r.";
-    let output =
-        process::run(command, process::Limits::text(DEADLINE), stop).map_err(|_| unread())?;
-    if output.status.success() {
-        let source = String::from_utf8(output.stdout).map_err(|_| unread())?;
-        return Spec::parse(&source).map(Some);
+    match github::file(root, url, "tinkery.preview", head, stop) {
+        Ok(Some(source)) => Spec::parse(&source).map(Some),
+        Ok(None) => Ok(None),
+        Err(()) => {
+            Err("Couldn't read tinkery.preview at this commit. Check gh access and press r.".into())
+        }
     }
-    if output.said().contains("HTTP 404") {
-        return Ok(None);
-    }
-    Err(unread().into())
-}
-
-fn repository(url: &str) -> Result<&str, String> {
-    url.strip_prefix("https://github.com/")
-        .and_then(|s| s.split_once("/pull/").map(|(repo, _)| repo))
-        .ok_or_else(|| "Result repository unknown; press r.".into())
 }
 
 /// Own the preview through readiness and browser navigation; dropping stops and reaps it.
@@ -363,9 +345,7 @@ fn run(
         .map_err(|e| e.to_string())?;
     let root = temp.path();
     let (repository, github) = match source {
-        Source::GitHub { url, .. } => {
-            (format!("https://github.com/{}.git", repository(url)?), true)
-        }
+        Source::GitHub { url, .. } => (format!("https://github.com/{}.git", url.repo()), true),
         Source::Local(local) => (local.checkout.to_string_lossy().into_owned(), false),
     };
     let head = source.head();
