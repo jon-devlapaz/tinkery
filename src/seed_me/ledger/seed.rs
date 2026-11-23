@@ -138,7 +138,7 @@ fn decisions_digest(ledger: &Value) -> Result<String> {
     let covered = object(
         &["draft", "goal", "origin", "nodes", "assumed", "operator"].map(|k| (k, state[k].clone())),
     );
-    Ok(sha256(covered.sorted().compact(false)?.as_bytes()))
+    Ok(sha256(covered.canonical(false)?.as_bytes()))
 }
 fn one_line(s: &str) -> String {
     s.split(whitespace)
@@ -181,7 +181,7 @@ fn decisions_lines(ledger: &Value) -> Result<Vec<(String, String)>> {
                     id.into(),
                     format!(
                         "  Delegation (caller-declared, not authenticated): {}",
-                        d.sorted().compact(true)?
+                        d.canonical(true)?
                     ),
                 ));
             }
@@ -316,10 +316,10 @@ fn confirmation_record(directory: &Path) -> Option<Value> {
         && record["operator"].is("agent")
         && record.get("actor").is_some_and(|actor| {
             actor
-                .compact(false)
+                .to_json()
                 .ok()
                 .and_then(|json| {
-                    serde_json::from_str::<crate::confirmation::GoalConfirmation>(&json).ok()
+                    serde_json::from_value::<crate::confirmation::GoalConfirmation>(json).ok()
                 })
                 .is_some_and(|actor| actor.actor().is_ok_and(|actor| actor.context().is_some()))
         });
@@ -336,14 +336,37 @@ fn confirmation_record(directory: &Path) -> Option<Value> {
     .then_some(record)
 }
 
+/// Whether a session's confirmed Tink still matches its receipt, and why.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Handoff {
+    /// True only when the receipt, seed bytes, decisions and checks all match.
+    pub verified: bool,
+    /// The confirming operator, present only on a verified handoff.
+    pub operator: Option<String>,
+    /// Why the handoff is or is not verified, in the words to show.
+    pub reason: String,
+}
+
+impl Handoff {
+    fn value(&self) -> Value {
+        let mut value = object(&[("verified", Value::Bool(self.verified))]);
+        if let Some(operator) = &self.operator {
+            value.set("operator", operator.as_str().into());
+        }
+        value.set("reason", self.reason.as_str().into());
+        value
+    }
+}
+
 /// Verify matching operator or named-agent receipts, seed bytes, decisions and acceptance records.
 /// Legacy or interrupted confirmation stays unverified; this proves content, not identity or truth.
-pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Value> {
+pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Handoff> {
     let refused = |reason: String| {
-        Ok(object(&[
-            ("verified", Value::Bool(false)),
-            ("reason", reason.as_str().into()),
-        ]))
+        Ok(Handoff {
+            verified: false,
+            operator: None,
+            reason,
+        })
     };
     if !super::one_of(&super::operator(ledger), &["human", "agent"]) {
         return refused("a simulated session is a practice run that no person confirmed".into());
@@ -373,8 +396,8 @@ pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Value> {
         return refused("the confirmation revision is missing".into());
     };
     if record["schema_version"] == int(3) {
-        let Ok(actor) = serde_json::from_str::<crate::confirmation::GoalConfirmation>(
-            &record["actor"].compact(false)?,
+        let Ok(actor) = serde_json::from_value::<crate::confirmation::GoalConfirmation>(
+            record["actor"].to_json()?,
         ) else {
             return refused("the Tink confirmation actor is invalid".into());
         };
@@ -411,44 +434,62 @@ pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Value> {
             "the checks changed after revision {label} was confirmed"
         ));
     }
-    Ok(object(&[
-        ("verified", Value::Bool(true)),
-        ("operator", record["operator"].clone()),
-        (
-            "reason",
-            format!("revision {label} as confirmed").as_str().into(),
-        ),
-    ]))
+    Ok(Handoff {
+        verified: true,
+        operator: record["operator"].string().map(str::to_owned),
+        reason: format!("revision {label} as confirmed"),
+    })
 }
 
 /// Read today's intake JSON, deliberately omitting viewer state and never opening a network connection.
 pub fn status(directory: &Path) -> Result<Value> {
     let ledger = load(directory)?;
-    status_from_ledger(directory, &ledger)
+    Ok(status_from_ledger(directory, &ledger)?.value())
+}
+
+/// A session's intake status: counts, the saved seed and the handoff check.
+pub(crate) struct Status<'a> {
+    ledger: &'a Value,
+    open: u64,
+    settled: u64,
+    /// The saved seed's summary, or null when none is saved.
+    pub(crate) seed: Value,
+    /// Whether the confirmed Tink still matches its receipt.
+    pub(crate) handoff: Handoff,
+}
+
+impl Status<'_> {
+    /// The intake JSON, in its published key order.
+    pub(crate) fn value(&self) -> Value {
+        object(&[
+            ("status", self.ledger["status"].clone()),
+            ("revision", self.ledger["revision"].clone()),
+            ("version", self.ledger["version"].clone()),
+            ("open", int(self.open)),
+            ("settled", int(self.settled)),
+            ("current_question", self.ledger["current_question"].clone()),
+            ("seed", self.seed.clone()),
+            ("handoff", self.handoff.value()),
+        ])
+    }
 }
 
 /// Derive status from one validated ledger while rechecking seed and handoff artifacts.
-pub(crate) fn status_from_ledger(directory: &Path, ledger: &Value) -> Result<Value> {
-    let nodes = ledger["nodes"].items();
-    Ok(object(&[
-        ("status", ledger["status"].clone()),
-        ("revision", ledger["revision"].clone()),
-        ("version", ledger["version"].clone()),
-        (
-            "open",
-            int(nodes
-                .iter()
-                .filter(|n| n["status"].is("unresolved"))
-                .count() as u64),
-        ),
-        (
-            "settled",
-            int(nodes.iter().filter(|n| n["status"].is("settled")).count() as u64),
-        ),
-        ("current_question", ledger["current_question"].clone()),
-        ("seed", seed_summary(directory)?),
-        ("handoff", verify_handoff(directory, ledger)?),
-    ]))
+pub(crate) fn status_from_ledger<'a>(directory: &Path, ledger: &'a Value) -> Result<Status<'a>> {
+    let count = |status| {
+        ledger["nodes"]
+            .items()
+            .iter()
+            .filter(|n| n["status"].is(status))
+            .count() as u64
+    };
+    Ok(Status {
+        ledger,
+        open: count("unresolved"),
+        settled: count("settled"),
+        seed: seed_summary(directory)?,
+        handoff: verify_handoff(directory, ledger)?,
+    })
 }
 
 pub(super) fn confirmed_as(

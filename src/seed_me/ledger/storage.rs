@@ -494,16 +494,12 @@ pub fn record_teach_back(
         ),
         _ => error,
     })?;
-    saved["version"]
-        .pretty()
-        .ok()
-        .and_then(|v| v.trim().parse().ok())
-        .ok_or_else(|| {
-            PublishError::said(
-                "The review may have saved. Reopen the session before trying again.",
-                SaveState::Unknown,
-            )
-        })
+    saved["version"].counter().ok_or_else(|| {
+        PublishError::said(
+            "The review may have saved. Reopen the session before trying again.",
+            SaveState::Unknown,
+        )
+    })
 }
 
 /// Store strict records while holding the session writer lock; never execute a check.
@@ -765,10 +761,10 @@ pub fn end(
         if !simulated {
             let handoff = super::seed::verify_handoff(directory, &ledger)?;
             super::require(
-                handoff["verified"].truth(),
+                handoff.verified,
                 format!(
                     "cannot complete: {}; save the current revision as a draft, show it, and confirm it again with `seed confirm`",
-                    handoff["reason"].string().unwrap()
+                    handoff.reason
                 ),
             )?;
         }

@@ -1,17 +1,18 @@
-//! Ordered Python JSON values; unrelated serde_json maps and output stay unchanged.
-//! Numbers retain integer precision, and equality ignores object order but not array order.
+//! Ordered ledger JSON values; unrelated serde_json maps and output stay unchanged.
+//! Integers are exact up to 128 bits, and equality ignores object order but not array order.
 
 use std::ops::{Index, IndexMut};
 
-/// A ledger's lossless JSON value, including Python's non-finite input numbers.
+/// A ledger's JSON value, including the non-finite numbers that old helpers accepted on input.
+/// Output refuses those numbers.
 #[derive(Clone, Debug)]
 pub enum Value {
     /// JSON null.
     Null,
-    /// A boolean, numerically equal to zero or one as in Python.
+    /// A boolean, never equal to a number.
     Bool(bool),
-    /// An arbitrary precision decimal integer.
-    Int(String),
+    /// An integer; parsing refuses one outside 128 bits.
+    Int(i128),
     /// An IEEE double, distinct from an integer when serialized.
     Float(f64),
     /// Literal Unicode text.
@@ -32,24 +33,31 @@ impl From<serde_json::Value> for Value {
             serde_json::Value::Object(v) => {
                 Self::Object(v.into_iter().map(|(k, v)| (k, Self::from(v))).collect())
             }
-            serde_json::Value::Number(v) if v.is_i64() || v.is_u64() => Self::Int(v.to_string()),
-            serde_json::Value::Number(v) => Self::Float(v.as_f64().expect("JSON number")),
+            serde_json::Value::Number(v) => match (v.as_i64(), v.as_u64()) {
+                (Some(v), _) => Self::Int(v.into()),
+                (_, Some(v)) => Self::Int(v.into()),
+                _ => Self::Float(v.as_f64().expect("JSON number")),
+            },
         }
     }
 }
 
 impl Value {
-    /// Convert to the application's JSON type without serializing through text.
-    /// Refuses numbers that the destination cannot represent.
+    /// Convert to the application's JSON type without serializing through text. Object keys
+    /// come out sorted. Refuses non-finite numbers.
     pub fn to_json(&self) -> Result<serde_json::Value, String> {
         Ok(match self {
             Self::Null => serde_json::Value::Null,
             Self::Bool(v) => (*v).into(),
             Self::String(v) => v.clone().into(),
-            Self::Int(v) => serde_json::Value::Number(
-                v.parse()
-                    .map_err(|_| "Ledger number cannot be represented.")?,
-            ),
+            // Beyond 64 bits, the application's JSON holds the nearest float.
+            Self::Int(v) => match (i64::try_from(*v), u64::try_from(*v)) {
+                (Ok(v), _) => v.into(),
+                (_, Ok(v)) => v.into(),
+                _ => serde_json::Value::Number(
+                    serde_json::Number::from_f64(*v as f64).expect("finite integer"),
+                ),
+            },
             Self::Float(v) => serde_json::Value::Number(
                 serde_json::Number::from_f64(*v).ok_or("Ledger number must be finite.")?,
             ),
@@ -70,45 +78,21 @@ impl PartialEq for Value {
         use Value::*;
         match (self, other) {
             (Null, Null) => true,
-            (String(a), String(b)) => a == b,
-            (Array(a), Array(b)) => {
-                a.len() == b.len() && a.iter().zip(b).all(|(a, b)| container_eq(a, b))
-            }
-            (Object(a), Object(b)) => {
-                a.len() == b.len()
-                    && a.iter()
-                        .all(|(k, v)| other.get(k).is_some_and(|b| container_eq(v, b)))
-            }
+            (Bool(a), Bool(b)) => a == b,
+            (Int(a), Int(b)) => a == b,
             (Float(a), Float(b)) => a == b,
-            (a, b) => match (a.integer(), b.integer()) {
-                (Some(a), Some(b)) => a == b,
-                _ => false,
-            },
+            (String(a), String(b)) => a == b,
+            (Array(a), Array(b)) => a == b,
+            (Object(a), Object(b)) => {
+                a.len() == b.len() && a.iter().all(|(k, v)| other.get(k) == Some(v))
+            }
+            _ => false,
         }
     }
-}
-
-// json.loads uses one shared NaN constant. Python containers compare identical
-// elements before invoking ==; scalar NaN equality itself remains false.
-fn container_eq(a: &Value, b: &Value) -> bool {
-    matches!((a,b), (Value::Float(a), Value::Float(b)) if a.is_nan() && b.is_nan()) || a == b
 }
 
 impl Value {
-    fn integer(&self) -> Option<String> {
-        match self {
-            Self::Bool(v) => Some(if *v { "1" } else { "0" }.into()),
-            Self::Int(v) => Some(v.clone()),
-            Self::Float(v) if v.is_finite() && v.fract() == 0.0 => Some(if *v == 0.0 {
-                "0".into()
-            } else {
-                format!("{v:.0}")
-            }),
-            _ => None,
-        }
-    }
-
-    /// Parse Python JSON, retaining key positions, large integers and NaN/Infinity.
+    /// Parse ledger JSON, retaining key positions; NaN and Infinity read as floats.
     pub fn parse(input: &str) -> Result<Self, String> {
         let mut parser = Parser { input, pos: 0 };
         if input.starts_with('\u{feff}') {
@@ -122,12 +106,50 @@ impl Value {
         Ok(result)
     }
 
-    /// Python atomic_write's two-space JSON plus newline; non-finite or over-limit numbers refuse.
+    /// Two-space JSON plus newline, with literal Unicode; non-finite numbers refuse.
     pub fn pretty(&self) -> Result<String, String> {
         let mut out = String::new();
         self.write(&mut out, 0)?;
         out.push('\n');
         Ok(out)
+    }
+
+    /// Compact JSON with sorted keys, as digests hash it; `spaced` separates with ", " and ": ".
+    pub(super) fn canonical(&self, spaced: bool) -> Result<String, String> {
+        let json = self.to_json()?;
+        if !spaced {
+            return Ok(json.to_string());
+        }
+        struct Spaced;
+        impl serde_json::ser::Formatter for Spaced {
+            fn begin_array_value<W: ?Sized + std::io::Write>(
+                &mut self,
+                w: &mut W,
+                first: bool,
+            ) -> std::io::Result<()> {
+                if first { Ok(()) } else { w.write_all(b", ") }
+            }
+            fn begin_object_key<W: ?Sized + std::io::Write>(
+                &mut self,
+                w: &mut W,
+                first: bool,
+            ) -> std::io::Result<()> {
+                if first { Ok(()) } else { w.write_all(b", ") }
+            }
+            fn begin_object_value<W: ?Sized + std::io::Write>(
+                &mut self,
+                w: &mut W,
+            ) -> std::io::Result<()> {
+                w.write_all(b": ")
+            }
+        }
+        let mut out = vec![];
+        serde::Serialize::serialize(
+            &json,
+            &mut serde_json::Serializer::with_formatter(&mut out, Spaced),
+        )
+        .map_err(|e| e.to_string())?;
+        String::from_utf8(out).map_err(|e| e.to_string())
     }
 
     /// The value of a named field, without inventing a missing value.
@@ -165,6 +187,14 @@ impl Value {
         }
     }
 
+    /// A nonnegative integer that fits a u64, such as a version a caller displays.
+    pub fn counter(&self) -> Option<u64> {
+        match self {
+            Self::Int(v) => u64::try_from(*v).ok(),
+            _ => None,
+        }
+    }
+
     pub(super) fn fields(&self) -> &[(String, Self)] {
         self.object().unwrap_or(&[])
     }
@@ -181,7 +211,7 @@ impl Value {
         match self {
             Self::Null => false,
             Self::Bool(v) => *v,
-            Self::Int(v) => v != "0",
+            Self::Int(v) => *v != 0,
             Self::Float(v) => *v != 0.0,
             Self::String(v) => !v.is_empty(),
             Self::Array(v) => !v.is_empty(),
@@ -213,116 +243,41 @@ impl Value {
         }
     }
     pub(super) fn natural(&self) -> bool {
-        matches!(self, Self::Int(v) if !v.starts_with('-'))
+        matches!(self, Self::Int(v) if *v >= 0)
     }
+    /// Integer order; any other value sorts before every integer.
     pub(super) fn cmp_int(&self, other: &Self) -> std::cmp::Ordering {
-        let a = self.integer().unwrap_or_default();
-        let b = other.integer().unwrap_or_default();
-        a.len().cmp(&b.len()).then(a.cmp(&b))
+        let number = |v: &Self| match v {
+            Self::Int(v) => Some(*v),
+            _ => None,
+        };
+        number(self).cmp(&number(other))
     }
+    /// A validated counter plus `amount`, saturating at the largest stored integer.
     pub(super) fn add(&self, amount: u8) -> Self {
         let Self::Int(v) = self else {
             unreachable!("validated integer")
         };
-        let mut digits = v.as_bytes().to_vec();
-        let mut carry = amount;
-        for digit in digits.iter_mut().rev() {
-            let sum = *digit - b'0' + carry;
-            *digit = b'0' + sum % 10;
-            carry = sum / 10;
-        }
-        while carry != 0 {
-            digits.insert(0, b'0' + carry % 10);
-            carry /= 10;
-        }
-        Self::Int(String::from_utf8(digits).unwrap())
+        Self::Int(v.saturating_add(amount.into()))
     }
+    /// A validated counter doubled, saturating at the largest stored integer.
     pub(super) fn twice(&self) -> Self {
         let Self::Int(v) = self else {
             unreachable!("validated integer")
         };
-        let mut digits = v.as_bytes().to_vec();
-        let mut carry = 0;
-        for digit in digits.iter_mut().rev() {
-            let sum = (*digit - b'0') * 2 + carry;
-            *digit = b'0' + sum % 10;
-            carry = sum / 10;
-        }
-        if carry != 0 {
-            digits.insert(0, b'0' + carry);
-        }
-        Self::Int(String::from_utf8(digits).unwrap())
-    }
-    pub(super) fn sorted(&self) -> Self {
-        match self {
-            Self::Object(fields) => {
-                let mut fields: Vec<_> = fields
-                    .iter()
-                    .map(|(k, v)| (k.clone(), v.sorted()))
-                    .collect();
-                fields.sort_by(|a, b| a.0.cmp(&b.0));
-                Self::Object(fields)
-            }
-            Self::Array(items) => Self::Array(items.iter().map(Self::sorted).collect()),
-            _ => self.clone(),
-        }
-    }
-    pub(super) fn compact(&self, spaced: bool) -> Result<String, String> {
-        let pretty = self.pretty()?;
-        let (mut quoted, mut escaped) = (false, false);
-        let mut out = String::new();
-        for c in pretty.chars() {
-            if quoted {
-                out.push(c);
-                if escaped {
-                    escaped = false;
-                } else if c == '\\' {
-                    escaped = true;
-                } else if c == '"' {
-                    quoted = false;
-                }
-            } else if c == '"' {
-                quoted = true;
-                out.push(c);
-            } else if !c.is_ascii_whitespace() {
-                out.push(c);
-                if spaced && matches!(c, ',' | ':') {
-                    out.push(' ');
-                }
-            }
-        }
-        Ok(out)
+        Self::Int(v.saturating_mul(2))
     }
     fn write(&self, out: &mut String, depth: usize) -> Result<(), String> {
         let indent = |n| "  ".repeat(n);
         match self {
             Self::Null => out.push_str("null"),
             Self::Bool(v) => out.push_str(if *v { "true" } else { "false" }),
-            Self::Int(v) => {
-                if v.trim_start_matches('-').len() > 4300 {
-                    return Err(concat!(
-                        "Exceeds the limit (4300 digits) for integer string conversion; ",
-                        "use sys.set_int_max_str_digits() to increase the limit"
-                    )
-                    .into());
-                }
-                out.push_str(v);
-            }
-            Self::Float(v) => {
-                if !v.is_finite() {
-                    let repr = if v.is_nan() {
-                        "nan"
-                    } else if v.is_sign_negative() {
-                        "-inf"
-                    } else {
-                        "inf"
-                    };
-                    return Err(format!(
-                        "Out of range float values are not JSON compliant: {repr}"
-                    ));
-                }
-                out.push_str(&float_repr(*v));
-            }
+            Self::Int(v) => out.push_str(&v.to_string()),
+            Self::Float(v) => out.push_str(
+                &serde_json::Number::from_f64(*v)
+                    .ok_or("Ledger number must be finite.")?
+                    .to_string(),
+            ),
             Self::String(v) => out.push_str(&serde_json::to_string(v).map_err(|e| e.to_string())?),
             Self::Array(values) => {
                 out.push('[');
@@ -399,58 +354,7 @@ pub(super) fn array() -> Value {
     Value::Array(vec![])
 }
 pub(super) fn int(v: u64) -> Value {
-    Value::Int(v.to_string())
-}
-
-fn float_repr(value: f64) -> String {
-    // Formatting at a fixed precision rounds ties to even, as Python repr does.
-    // Rust Debug's shortest representation instead chooses the upper tie.
-    let repr = (0..=16)
-        .find_map(|precision| {
-            let candidate = format!("{value:.precision$e}");
-            (candidate.parse::<f64>().ok().map(f64::to_bits) == Some(value.to_bits()))
-                .then_some(candidate)
-        })
-        .expect("17 significant digits round-trip an IEEE double");
-    let (negative, repr) = repr
-        .strip_prefix('-')
-        .map_or((false, repr.as_str()), |s| (true, s));
-    let (mantissa, exponent) = repr
-        .split_once('e')
-        .map_or((repr, 0), |(m, e)| (m, e.parse::<i32>().unwrap()));
-    let dot = mantissa.find('.').unwrap_or(mantissa.len()) as i32;
-    let raw: String = mantissa.chars().filter(|c| *c != '.').collect();
-    let leading = raw.len() - raw.trim_start_matches('0').len();
-    let digits = raw.trim_start_matches('0').trim_end_matches('0');
-    if digits.is_empty() {
-        return if negative { "-0.0" } else { "0.0" }.into();
-    }
-    let exp = exponent + dot - leading as i32 - 1;
-    let mut out = if negative { "-".into() } else { String::new() };
-    if !(-4..16).contains(&exp) {
-        out.push_str(&digits[..1]);
-        if digits.len() > 1 {
-            out.push('.');
-            out.push_str(&digits[1..]);
-        }
-        out.push_str(&format!("e{exp:+03}"));
-    } else {
-        let pos = exp + 1;
-        if pos <= 0 {
-            out.push_str("0.");
-            out.push_str(&"0".repeat((-pos) as usize));
-            out.push_str(digits);
-        } else if pos as usize >= digits.len() {
-            out.push_str(digits);
-            out.push_str(&"0".repeat(pos as usize - digits.len()));
-            out.push_str(".0");
-        } else {
-            out.push_str(&digits[..pos as usize]);
-            out.push('.');
-            out.push_str(&digits[pos as usize..]);
-        }
-    }
-    out
+    Value::Int(v.into())
 }
 
 struct Parser<'a> {
@@ -558,6 +462,7 @@ impl Parser<'_> {
                 let pattern = NUMBER.get_or_init(|| {
                     regex::Regex::new(r"^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?").unwrap()
                 });
+                let start = self.pos;
                 let token = if let Some(keyword) =
                     ["null", "true", "false", "NaN", "Infinity", "-Infinity"]
                         .iter()
@@ -584,17 +489,10 @@ impl Parser<'_> {
                                 .map(Value::Float)
                                 .map_err(|_| "invalid JSON float".into())
                         } else {
-                            let digits = token.trim_start_matches('-').len();
-                            if digits > 4300 {
-                                return Err(format!(
-                                    concat!(
-                                        "Exceeds the limit (4300 digits) for integer string conversion: ",
-                                        "value has {} digits; use sys.set_int_max_str_digits() to increase the limit"
-                                    ),
-                                    digits
-                                ));
-                            }
-                            Ok(Value::Int(if token == "-0" { "0" } else { token }.into()))
+                            token
+                                .parse()
+                                .map(Value::Int)
+                                .map_err(|_| self.error("Ledger number is out of range", start))
                         }
                     }
                 }

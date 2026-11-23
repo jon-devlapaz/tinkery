@@ -1,4 +1,4 @@
-//! Public Shape ledger actions preserve legacy numeric reads, exact refusals and publication data.
+//! Public Shape ledger actions keep stored numbers, exact refusals and publication data.
 // Test code reads the files it made; only Tinkery's own code must use `regular_file`.
 #![allow(clippy::disallowed_methods)]
 
@@ -28,7 +28,7 @@ fn fixture(raw: &str) -> (tempfile::TempDir, PathBuf) {
     ledger::publish(
         &session,
         &Value::from(state),
-        &Value::Int("0".into()),
+        &Value::Int(0),
         &"TEST goal".into(),
         None,
         stamp,
@@ -43,7 +43,7 @@ fn fixture(raw: &str) -> (tempfile::TempDir, PathBuf) {
 }
 
 #[test]
-fn editable_read_retains_legacy_float_projection_without_writing() {
+fn editable_read_keeps_the_stored_float_without_writing() {
     let (_dir, session) = fixture("2.08403533043113e+242");
     let path = session.join("ledger.json");
     let before = fs::read(&path).unwrap();
@@ -51,8 +51,8 @@ fn editable_read_retains_legacy_float_projection_without_writing() {
         .unwrap()
         .context_without_findings();
     assert_eq!(
-        context["nodes"][0]["label"].as_f64().unwrap().to_bits(),
-        0x723f4114006c08c6
+        context["nodes"][0]["label"].as_f64(),
+        "2.08403533043113e+242".parse().ok()
     );
     assert_eq!(fs::read(path).unwrap(), before);
 }
@@ -94,26 +94,14 @@ fn publication_preserves_supported_numbers_order_and_stale_refusal() {
 
 #[test]
 fn unsupported_numbers_keep_exact_read_and_action_refusals_without_saving() {
+    let finite = "Cannot read this session: Ledger number must be finite.";
     let cases = [
-        (
-            "NaN".to_owned(),
-            "Cannot read this session: Out of range float values are not JSON compliant: nan",
-        ),
-        (
-            "Infinity".into(),
-            "Cannot read this session: Out of range float values are not JSON compliant: inf",
-        ),
-        (
-            "-Infinity".into(),
-            "Cannot read this session: Out of range float values are not JSON compliant: -inf",
-        ),
+        ("NaN".to_owned(), finite),
+        ("Infinity".into(), finite),
+        ("-Infinity".into(), finite),
         (
             "9".repeat(400),
-            "Invalid session JSON: number out of range at line 20 column 415",
-        ),
-        (
-            "9".repeat(4301),
-            "Cannot read this session: Exceeds the limit (4300 digits) for integer string conversion: value has 4301 digits; use sys.set_int_max_str_digits() to increase the limit",
+            "Cannot read this session: Ledger number is out of range: line 21 column 16 (char 428)",
         ),
     ];
     for (raw, reason) in cases {

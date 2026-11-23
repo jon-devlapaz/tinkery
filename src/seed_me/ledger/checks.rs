@@ -334,9 +334,7 @@ pub fn read_checks(directory: &Path) -> Result<Value> {
 }
 
 pub(super) fn digest(records: &Value) -> Result<String> {
-    Ok(super::seed::sha256(
-        records.sorted().compact(false)?.as_bytes(),
-    ))
+    Ok(super::seed::sha256(records.canonical(false)?.as_bytes()))
 }
 
 fn prose(value: &str) -> String {
@@ -465,7 +463,7 @@ pub(super) fn legacy_block(records: &Value) -> Result<String> {
     validate_checks(records)?;
     Ok(format!(
         "## Acceptance criteria\n\n```json\n{}```\n\n",
-        records.sorted().pretty()?
+        Value::from(records.to_json()?).pretty()?
     ))
 }
 

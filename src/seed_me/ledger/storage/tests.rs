@@ -148,7 +148,7 @@ fn load_and_transition_refusals_release_the_writer() {
         publish(
             root.path(),
             &state,
-            &Value::Int("99".into()),
+            &Value::Int(99),
             &"TEST update".into(),
             None,
             STAMP
@@ -274,7 +274,7 @@ fn serialization_refusal_precedes_io_without_a_save_failure_prefix() {
     let failed = publish(
         root.path(),
         &state,
-        &Value::Int("0".into()),
+        &Value::Int(0),
         &"TEST update".into(),
         None,
         STAMP,

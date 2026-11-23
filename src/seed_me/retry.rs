@@ -200,8 +200,7 @@ pub(crate) fn prior(seed: &Path, goal: &str) -> Result<Prior, String> {
         .parent()
         .ok_or("The prior Tink Contract has no session.")?;
     let ledger = ledger::load(session)?;
-    if ledger["goal"].string() != Some(goal)
-        || ledger::verify_handoff(session, &ledger)?["verified"] != ledger::Value::Bool(true)
+    if ledger["goal"].string() != Some(goal) || !ledger::verify_handoff(session, &ledger)?.verified
     {
         return Err("The prior Tink Contract changed. Reread Taste.".into());
     }
@@ -277,7 +276,7 @@ impl Prior {
         ledger::publish(
             session,
             &state,
-            &ledger::Value::Int("0".into()),
+            &ledger::Value::Int(0),
             &"Saved a new attempt from the reviewed Taste rejection.".into(),
             None,
             &stamp,

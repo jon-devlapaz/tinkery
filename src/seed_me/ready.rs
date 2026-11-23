@@ -138,7 +138,7 @@ pub(crate) fn standing(session: &Path) -> Result<Standing, String> {
             })
             .collect();
         let json = ledger.to_json()?;
-        let mut status = status.to_json()?;
+        let mut status = status.value().to_json()?;
         status["review_flags"] = flags.to_json()?;
         status["revisable"] = serde_json::json!(revisable);
         status["waiting_on"] = Value::Object(waits);

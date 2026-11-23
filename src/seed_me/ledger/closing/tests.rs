@@ -215,7 +215,11 @@ fn completion_review_is_verbatim_byte_bound_append_only_and_not_goal_evidence() 
     );
     assert!(ledger::teach_back_report(&latest, "r1", &seed).is_empty());
     ledger::confirm_with_teach_back(root.path(), "r1", "TEST confirm review", AT).unwrap();
-    assert!(ledger::verify_handoff(root.path(), &ledger::load(root.path()).unwrap()).unwrap()["verified"].truth());
+    assert!(
+        ledger::verify_handoff(root.path(), &ledger::load(root.path()).unwrap())
+            .unwrap()
+            .verified
+    );
 }
 
 #[test]
@@ -285,7 +289,11 @@ fn teach_back_preserves_words_and_mismatches_without_holding_confirmation() {
     assert!(ledger::teach_back_report(&saved, "r1", &(seed.clone() + "changed")).is_empty());
     ledger::confirm_with_teach_back(root.path(), "r1", "TEST confirm despite mismatch", AT)
         .unwrap();
-    assert!(ledger::verify_handoff(root.path(), &ledger::load(root.path()).unwrap()).unwrap()["verified"].truth());
+    assert!(
+        ledger::verify_handoff(root.path(), &ledger::load(root.path()).unwrap())
+            .unwrap()
+            .verified
+    );
     assert!(
         !ledger::load(root.path()).unwrap()["nodes"].items()[0]["evidence"]
             .items()
@@ -370,7 +378,11 @@ fn teach_back_does_not_reopen_goal_dependents_or_hide_real_evidence_changes() {
         confirmed["nodes"].items()[1]["status"].string(),
         Some("settled")
     );
-    assert!(ledger::verify_handoff(root.path(), &confirmed).unwrap()["verified"].truth());
+    assert!(
+        ledger::verify_handoff(root.path(), &confirmed)
+            .unwrap()
+            .verified
+    );
 }
 
 #[test]

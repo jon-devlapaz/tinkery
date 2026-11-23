@@ -149,11 +149,8 @@ fn historical_trimmed_confirmation_notes_and_receipts_still_verify_unchanged() {
 fn assert_blocked(directory: &Path, expected: &str) {
     let before = fs::read(directory.join("ledger.json")).unwrap();
     let result = verify_handoff(directory, &load(directory).unwrap()).unwrap();
-    assert_eq!(result["verified"], Value::Bool(false));
-    assert!(
-        result["reason"].string().unwrap().contains(expected),
-        "{result:?}"
-    );
+    assert!(!result.verified);
+    assert!(result.reason.contains(expected), "{result:?}");
     assert!(ledger::end(directory, "completed", "TEST complete", STAMP).is_err());
     assert_eq!(fs::read(directory.join("ledger.json")).unwrap(), before);
 }
@@ -186,7 +183,11 @@ fn agent_sessions_require_verified_confirmation_to_complete() {
         actor.actor().unwrap(),
     )
     .unwrap();
-    assert!(verify_handoff(directory, &load(directory).unwrap()).unwrap()["verified"].truth());
+    assert!(
+        verify_handoff(directory, &load(directory).unwrap())
+            .unwrap()
+            .verified
+    );
     let confirmed = fs::read(&seed_path).unwrap();
     fs::write(&seed_path, [confirmed.as_slice(), b" "].concat()).unwrap();
     assert_blocked(directory, "Tink Contract changed");
