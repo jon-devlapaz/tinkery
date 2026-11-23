@@ -105,7 +105,7 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
         selected,
         path,
         record,
-    } = verified_record(root, session, goal)?;
+    } = verified_record(root, session, goal)?.ok_or_else(|| missing(root))?;
     let made_in = origin(record.schema, record.repo);
     let context = context::history(
         &record.reading_context,
@@ -172,14 +172,17 @@ pub(crate) struct ShapeContext {
     pub answered: Vec<AnsweredQuestion>,
 }
 
-/// Uses the same attribution and refusal contract as [`read`]; Shape owns its prompt format.
+/// Uses the same attribution and refusal contract as [`read`], except that no record identifying
+/// the session is `None`, since a saved goal may have none. Shape owns its prompt format.
 pub(crate) fn read_for_shape(
     root: &Path,
     session: &Path,
     goal: &str,
-) -> Result<ShapeContext, Unavailable> {
-    let record = verified_record(root, session, goal)?.record;
-    Ok(ShapeContext {
+) -> Result<Option<ShapeContext>, Unavailable> {
+    let Some(VerifiedRecord { record, .. }) = verified_record(root, session, goal)? else {
+        return Ok(None);
+    };
+    Ok(Some(ShapeContext {
         made_in: origin(record.schema, record.repo),
         answered: record
             .turns
@@ -194,7 +197,7 @@ pub(crate) fn read_for_shape(
                 _ => None,
             })
             .collect(),
-    })
+    }))
 }
 
 struct VerifiedRecord {
@@ -203,7 +206,11 @@ struct VerifiedRecord {
     record: Record,
 }
 
-fn verified_record(root: &Path, session: &Path, goal: &str) -> Result<VerifiedRecord, Unavailable> {
+fn verified_record(
+    root: &Path,
+    session: &Path,
+    goal: &str,
+) -> Result<Option<VerifiedRecord>, Unavailable> {
     let selected = current_session(session, goal)?;
     require_unique(&identity_index([session])?, &selected)?;
     let mut found = None;
@@ -237,7 +244,9 @@ fn verified_record(root: &Path, session: &Path, goal: &str) -> Result<VerifiedRe
         }
         found = Some((path, record));
     }
-    let (path, record) = found.ok_or_else(|| missing(root))?;
+    let Some((path, record)) = found else {
+        return Ok(None);
+    };
     if record.goal != goal {
         return Err(Unavailable::new(
             "Think history disagrees with the saved goal.",
@@ -254,11 +263,11 @@ fn verified_record(root: &Path, session: &Path, goal: &str) -> Result<VerifiedRe
         ));
     }
     require_unique(&identity_index([session])?, &selected)?;
-    Ok(VerifiedRecord {
+    Ok(Some(VerifiedRecord {
         selected,
         path,
         record,
-    })
+    }))
 }
 
 type RecordEntry = Result<(PathBuf, Record), Unavailable>;

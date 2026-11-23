@@ -2,6 +2,7 @@
 
 use super::typed_tests::review_error;
 use super::*;
+use crate::pi::{CallBudget, Harness};
 use crate::seed_me::{Affirmed, Config, ledger::fixtures::prose_reply};
 use std::{fs, os::unix::fs::PermissionsExt};
 
@@ -89,15 +90,17 @@ fn provider(root: &Path, reply: &str, calls: usize) -> Agent {
     fs::write(&program, "#!/usr/bin/env python3\nimport pathlib, sys\nsys.stdin.read()\nprint(pathlib.Path(__file__).with_name('TEST-reply.json').read_text())\n").unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     Agent::new(
-        crate::pi::Harness::Pi,
-        program,
-        "test/stub".into(),
-        String::new(),
+        crate::pi::Drafting::new(
+            crate::pi::Harness::Pi,
+            program,
+            "test/stub".into(),
+            String::new(),
+            CallBudget::new(calls),
+        )
+        .unwrap(),
         Some(root.into()),
-        CallBudget::new(calls),
         None,
     )
-    .unwrap()
 }
 
 fn look_again(session: &Path, root: &Path, agent: &Agent) -> Result<Done, Failure> {
@@ -105,7 +108,7 @@ fn look_again(session: &Path, root: &Path, agent: &Agent) -> Result<Done, Failur
         &Work::Look {
             feedback: None,
             expected: answering::read(session).unwrap().version(),
-            folder: root.into(),
+            reads: std::path::PathBuf::from(root).into(),
         },
         session,
         agent,
@@ -171,7 +174,7 @@ fn captured_missing_source_preserves_the_answer_and_recovers_on_next_look() {
             id: answering::PROBE.0.into(),
             words: "TEST keep my exact answer\r\n  ".into(),
             expected: version,
-            folder: root.path().into(),
+            reads: std::path::PathBuf::from(root.path()).into(),
         },
         &session,
         &agent,
@@ -469,7 +472,7 @@ fn recorded_361_refusals_name_unsafe_coverage_and_preserve_saved_answers() {
                 id: answering::PROBE.0.into(),
                 words: words.into(),
                 expected: version,
-                folder: root.path().into(),
+                reads: std::path::PathBuf::from(root.path()).into(),
             },
             &session,
             &agent,
@@ -880,22 +883,24 @@ fn a_claude_code_step_reads_only_the_shown_folder_and_drafts_from_its_json_resul
     .unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     let agent = Agent::new(
-        Harness::ClaudeCode,
-        program,
-        "claude-TEST".into(),
-        "max".into(),
+        crate::pi::Drafting::new(
+            Harness::ClaudeCode,
+            program,
+            "claude-TEST".into(),
+            "max".into(),
+            CallBudget::new(1),
+        )
+        .unwrap(),
         None,
-        CallBudget::new(1),
         None,
-    )
-    .unwrap();
+    );
     let done = run(
         &Work::Answer {
             relay: None,
             id: answering::PROBE.0.into(),
             words: "TEST answer".into(),
             expected: version,
-            folder: root.path().into(),
+            reads: std::path::PathBuf::from(root.path()).into(),
         },
         &session,
         &agent,
@@ -916,14 +921,12 @@ fn a_claude_code_step_reads_only_the_shown_folder_and_drafts_from_its_json_resul
         root.path().canonicalize().unwrap()
     );
     assert!(
-        Agent::new(
+        crate::pi::Drafting::new(
             Harness::ClaudeCode,
             "claude".into(),
             "claude-TEST".into(),
             "minimal".into(),
-            None,
-            CallBudget::new(0),
-            None
+            CallBudget::new(0)
         )
         .is_err(),
         "a level Claude Code doesn't name is refused before anything starts"
@@ -1160,7 +1163,7 @@ fn a_goal_past_32_kib_still_reaches_the_model() {
             id: answering::PROBE.0.into(),
             words: "TEST the answer".into(),
             expected: version,
-            folder: root.path().into(),
+            reads: std::path::PathBuf::from(root.path()).into(),
         },
         &session,
         &agent,

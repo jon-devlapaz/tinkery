@@ -53,8 +53,8 @@ impl Shape {
                     },
                 );
                 let reads = match (agent, &open.folder) {
-                    (Some(_), Folder::Known(folder)) => {
-                        format!("\nThe next step reads files in: {}", folder.display())
+                    (Some(_), Folder::Known(reads)) => {
+                        format!("\nThe next step reads files in: {}", reads.folder.display())
                     }
                     _ => String::new(),
                 };

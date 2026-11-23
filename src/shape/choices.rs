@@ -153,7 +153,7 @@ impl Shape {
         }
         if agent
             && open.offers_step()
-            && let Folder::Known(folder) = &open.folder
+            && let Folder::Known(step::Reads { folder, .. }) = &open.folder
         {
             rows.push(Row::new(
                 "Choose the folder to read",

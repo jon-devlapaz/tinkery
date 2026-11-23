@@ -1,6 +1,7 @@
 //! Recheck #310's stale outside-view unknown, through stub steps and the real ledger.
 
 use super::*;
+use crate::pi::CallBudget;
 
 /// One step through the screen's controller, as its keys start it.
 fn run(
@@ -116,15 +117,17 @@ print(json.dumps(reply))
 "##, seed_reply=seed_reply.to_string(), question_first=if question_first {"True"} else {"False"})).unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     let agent = Agent::new(
-        crate::pi::Harness::Pi,
-        program,
-        "test/stub".into(),
-        String::new(),
+        crate::pi::Drafting::new(
+            crate::pi::Harness::Pi,
+            program,
+            "test/stub".into(),
+            String::new(),
+            CallBudget::new(if question_first { 2 } else { 1 }),
+        )
+        .unwrap(),
         Some(root.path().into()),
-        CallBudget::new(if question_first { 2 } else { 1 }),
         None,
-    )
-    .unwrap();
+    );
     let cancelled = AtomicBool::new(false);
     let result = run(
         &Work::Answer {
@@ -132,7 +135,7 @@ print(json.dumps(reply))
             id: answering::PROBE.0.into(),
             words: ANSWER.into(),
             expected: version,
-            folder: root.path().into(),
+            reads: std::path::PathBuf::from(root.path()).into(),
         },
         &session,
         (&agent, &confirmation),
@@ -160,7 +163,7 @@ print(json.dumps(reply))
                     id: "output-order".into(),
                     words: "TEST path order".into(),
                     expected: read.version(),
-                    folder: root.path().into()
+                    reads: std::path::PathBuf::from(root.path()).into()
                 },
                 &session,
                 (&agent, &confirmation),

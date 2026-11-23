@@ -757,15 +757,17 @@ mod tests {
         assert!(pending.inspect().is_err());
         let budget = crate::pi::CallBudget::new(1);
         let agent = crate::shape::Agent::new(
-            crate::pi::Harness::Pi,
-            temp.path().join("must-not-launch"),
-            "TEST/model".into(),
-            String::new(),
+            crate::pi::Drafting::new(
+                crate::pi::Harness::Pi,
+                temp.path().join("must-not-launch"),
+                "TEST/model".into(),
+                String::new(),
+                budget.clone(),
+            )
+            .unwrap(),
             Some(temp.path().to_path_buf()),
-            budget.clone(),
             Some(records),
-        )
-        .unwrap();
+        );
         let result = crate::shape::command::step(
             &receipt.session,
             Some(&agent),

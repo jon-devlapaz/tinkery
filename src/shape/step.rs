@@ -10,10 +10,10 @@
 
 use crate::{
     confirmation::{Actor, GoalConfirmation},
-    pi::{self, Call, CallBudget, Harness},
+    pi::{self, Call, Drafting},
     seed_me::ledger,
     shape::answering::{self, Alternative, Ask, Assumption, Found, Refusal, Rule, Undo},
-    think_record::{self, MadeIn},
+    think_record::{self, MadeIn, ShapeContext},
 };
 use serde_json::{Value, json};
 use std::{
@@ -138,97 +138,139 @@ pub(super) const FIELDS: &[&str] = &[
     "missing",
 ];
 
-/// How Shape reaches a model: Pi or Claude Code with an explicit model and read-only tools, a call budget shared
-/// for the whole run (zero unless the operator sets one), and where Think's records are.
+/// How Shape reaches a model, and what a step reads besides the ledger: the launch's
+/// [`Drafting`] transport, where Think's records are, and the folder a step reads when nothing
+/// says where the goal was made.
 pub struct Agent {
-    call: Call,
-    budget: Arc<CallBudget>,
+    drafting: Drafting,
+    folder: Option<PathBuf>,
     records: Option<PathBuf>,
 }
 
 impl Agent {
-    /// `harness` at `program` with `model` and `thinking` (empty for its default), starting in
-    /// `folder` unless Think recorded where a goal was made; `budget` limits every step. Refuses a
-    /// model or thinking level the harness doesn't accept. Starts nothing.
-    pub fn new(
-        harness: Harness,
-        program: PathBuf,
-        model: String,
-        thinking: String,
-        folder: Option<PathBuf>,
-        budget: Arc<CallBudget>,
-        records: Option<PathBuf>,
-    ) -> Result<Self, String> {
-        harness.check_model(&model)?;
-        if !thinking.is_empty() {
-            harness.check_thinking(&thinking)?;
-        }
-        Ok(Self {
-            call: Call {
-                harness,
-                program,
-                model,
-                thinking,
-                read_only_tools: true,
-                folder,
-                timeout: Duration::from_secs(300),
-            },
-            budget,
+    /// Shape's steps through `drafting`, reading `folder` unless Think or Tend recorded where a
+    /// goal was made, with Think's records in `records`. Starts and reads nothing.
+    pub fn new(drafting: Drafting, folder: Option<PathBuf>, records: Option<PathBuf>) -> Self {
+        Self {
+            drafting,
+            folder,
             records,
-        })
-    }
-
-    /// Share the configured transport and allowance through the menu. This starts no call.
-    pub(crate) fn drafting(&self) -> (Call, Arc<CallBudget>) {
-        (self.call.clone(), self.budget.clone())
+        }
     }
 
     /// Model calls this run may still make.
     pub fn remaining(&self) -> usize {
-        self.budget.remaining()
+        self.drafting.budget.remaining()
     }
 
     /// The run's call limit.
     pub fn limit(&self) -> usize {
-        self.budget.limit()
+        self.drafting.budget.limit()
     }
 
     /// The allowance sentence Think shows too, so both phases count the same way.
     pub fn left(&self) -> String {
-        self.budget.left()
+        self.drafting.budget.left()
     }
 
-    /// The folder a step for `session` reads unless the operator picks another: where Think
-    /// recorded `goal` was made, else the folder this agent was given, else where Tinkery started.
-    /// Reads Think's records; blocks, so run it off the paint path.
-    pub(super) fn folder(&self, session: &Path, goal: &str) -> Result<PathBuf, String> {
+    /// What a step for `session` reads unless the operator picks another folder: where Tend or
+    /// Think recorded `goal` was made, else the folder this agent was given, else where Tinkery
+    /// started; and the questions Think's record says the operator answered. Reads Think's
+    /// record once. A record that exists but cannot be attributed sends no answers and says
+    /// why; a broken Tend origin refuses. Blocks, so run it off the paint path.
+    pub(super) fn reads(&self, session: &Path, goal: &str) -> Result<Reads, String> {
         let creation = crate::seed_me::connection::read(session, goal)?;
-        if creation.is_some() {
+        let context = self
+            .records
+            .as_deref()
+            .map(|root| think_record::read_for_shape(root, session, goal))
+            .transpose()
+            .map(Option::flatten);
+        let made_in = if creation.is_some() {
             let root = self
                 .records
                 .as_deref()
                 .ok_or("The Tend origin cannot be checked without the records folder.")?;
-            return match crate::seed_me::connection::origins(root, &[(session, goal)])
+            match crate::seed_me::connection::origins(root, &[(session, goal)])
                 .map_err(|e| e.message)?
                 .remove(0)
             {
-                MadeIn::Repo(path) if path.is_dir() => Ok(path),
-                MadeIn::Invalid(reason) => Err(reason),
-                _ => Err("The Tend repository is unavailable. Restore it before drafting.".into()),
-            };
-        }
-        let made_in = self
-            .records
-            .as_deref()
-            .and_then(|root| think_record::read_for_shape(root, session, goal).ok())
-            .and_then(|read| match read.made_in {
-                MadeIn::Repo(path) => Some(path),
+                MadeIn::Repo(path) if path.is_dir() => Some(path),
+                MadeIn::Invalid(reason) => return Err(reason),
+                _ => {
+                    return Err(
+                        "The Tend repository is unavailable. Restore it before drafting.".into(),
+                    );
+                }
+            }
+        } else {
+            match &context {
+                Ok(Some(ShapeContext {
+                    made_in: MadeIn::Repo(path),
+                    ..
+                })) => Some(path.clone()),
                 _ => None,
-            });
-        Ok(made_in
-            .or_else(|| self.call.folder.clone())
+            }
+        };
+        let folder = made_in
+            .or_else(|| self.folder.clone())
             .or_else(|| std::env::current_dir().ok())
-            .unwrap_or_else(|| PathBuf::from(".")))
+            .unwrap_or_else(|| PathBuf::from("."));
+        Ok(match context {
+            Ok(context) => Reads {
+                think: context.map_or_else(Vec::new, |context| {
+                    context
+                        .answered
+                        .into_iter()
+                        .map(|a| json!({"question": a.question, "answer": a.answer}))
+                        .collect()
+                }),
+                ..Reads::from(folder)
+            },
+            Err(unread) => Reads {
+                unread: Some(unread.message),
+                ..Reads::from(folder)
+            },
+        })
+    }
+}
+
+/// What a model step reads besides the ledger: one folder, which the operator can change, and
+/// what Think's record for this exact session and goal holds.
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct Reads {
+    pub(super) folder: PathBuf,
+    /// The questions Think says the operator answered, in recorded order.
+    think: Vec<Value>,
+    /// Why a Think record could not be attributed; no answers are sent then.
+    unread: Option<String>,
+}
+
+impl From<PathBuf> for Reads {
+    /// `folder` with nothing from Think.
+    fn from(folder: PathBuf) -> Self {
+        Self {
+            folder,
+            think: Vec::new(),
+            unread: None,
+        }
+    }
+}
+
+impl Reads {
+    /// What the operator must hear about Think's record: why its answers are not sent, if so.
+    pub(super) fn unread(&self) -> Option<String> {
+        self.unread
+            .as_ref()
+            .map(|why| format!("{why} The step sends no Think answers."))
+    }
+
+    /// The same, reading `folder` instead.
+    pub(super) fn reading(&self, folder: PathBuf) -> Self {
+        Self {
+            folder,
+            ..self.clone()
+        }
     }
 }
 
@@ -245,26 +287,26 @@ pub(super) struct CheckEdit {
 /// model. Every one runs through [`Steps::run`].
 #[derive(Debug, Clone, PartialEq)]
 pub(super) enum Work {
-    /// Save the operator's answer to question `id`, then look into the next question in `folder`.
+    /// Save the operator's answer to question `id`, then look into the next question through `reads`.
     Answer {
         id: String,
         words: String,
         /// The operator's relayed words and their origin, recorded as the operator's own answer.
         relay: Option<answering::Relay>,
         expected: u64,
-        folder: PathBuf,
+        reads: Reads,
     },
     /// Publish the operator's explicit action, then look into the next.
     Respond {
         id: String,
         action: ledger::AnswerAction,
         expected: u64,
-        folder: PathBuf,
+        reads: Reads,
     },
-    /// Look into the next question (or the seed) from version `expected`, reading `folder`.
+    /// Look into the next question (or the seed) from version `expected`, through `reads`.
     Look {
         expected: u64,
-        folder: PathBuf,
+        reads: Reads,
         feedback: Option<RetryFeedback>,
     },
     /// Compare the operator's teach-back with the exact displayed draft, using one budgeted call.
@@ -275,12 +317,12 @@ pub(super) enum Work {
         seed: String,
     },
     /// Save the operator's change to seed draft `revision` from `expected`, then redraft by looking
-    /// in `folder`. Never confirms.
+    /// through `reads`. Never confirms.
     Change {
         revision: String,
         words: String,
         expected: u64,
-        folder: PathBuf,
+        reads: Reads,
     },
     /// Confirm only the draft bytes and ledger version the operator read.
     Confirm {
@@ -509,21 +551,25 @@ impl<'a> Steps<'a> {
         }
     }
 
-    /// The folder a step for `session` reads: the session's base checkout, else where its
-    /// `goal` was made (see [`Agent::folder`]). Without an agent or goal, only the base. Where
-    /// the goal was made is always checked with an agent, so a broken origin refuses. Blocks.
-    pub(super) fn folder(
+    /// What a step for `session` reads: the session's base checkout, else where its `goal` was
+    /// made, with Think's answers (see [`Agent::reads`]). Without an agent or goal, only the
+    /// base. Where the goal was made is always checked with an agent, so a broken origin
+    /// refuses. Blocks.
+    pub(super) fn reads(
         self,
         session: &Path,
         goal: Option<&str>,
         base: Option<PathBuf>,
-    ) -> Result<Option<PathBuf>, String> {
+    ) -> Result<Option<Reads>, String> {
         let made = self
             .agent
             .zip(goal)
-            .map(|(agent, goal)| agent.folder(session, goal))
+            .map(|(agent, goal)| agent.reads(session, goal))
             .transpose()?;
-        Ok(base.or(made))
+        Ok(match (base, made) {
+            (Some(base), Some(made)) => Some(made.reading(base)),
+            (base, made) => made.or(base.map(Reads::from)),
+        })
     }
 
     /// Whether `work` may start: a model step needs an agent with a response left. Checked
@@ -575,7 +621,7 @@ impl<'a> Steps<'a> {
                 words,
                 relay,
                 expected,
-                folder,
+                reads,
             } => {
                 let version = match relay {
                     Some(relay) => answering::answer_relayed(session, *expected, id, relay, actor),
@@ -586,7 +632,7 @@ impl<'a> Steps<'a> {
                 look(
                     session,
                     version,
-                    folder,
+                    reads,
                     (agent()?, actor),
                     cancelled,
                     true,
@@ -597,7 +643,7 @@ impl<'a> Steps<'a> {
                 id,
                 action,
                 expected,
-                folder,
+                reads,
             } => {
                 let version = answering::respond(session, *expected, id, action, actor)
                     .map_err(refused(false))?;
@@ -605,7 +651,7 @@ impl<'a> Steps<'a> {
                 look(
                     session,
                     version,
-                    folder,
+                    reads,
                     (agent()?, actor),
                     cancelled,
                     true,
@@ -614,12 +660,12 @@ impl<'a> Steps<'a> {
             }
             Work::Look {
                 expected,
-                folder,
+                reads,
                 feedback,
             } => look(
                 session,
                 *expected,
-                folder,
+                reads,
                 (agent()?, actor),
                 cancelled,
                 false,
@@ -642,7 +688,7 @@ impl<'a> Steps<'a> {
                 revision,
                 words,
                 expected,
-                folder,
+                reads,
             } => {
                 let version = answering::change_draft(session, *expected, revision, words, actor)
                     .map_err(refused(false))?;
@@ -650,7 +696,7 @@ impl<'a> Steps<'a> {
                 look(
                     session,
                     version,
-                    folder,
+                    reads,
                     (agent()?, actor),
                     cancelled,
                     true,
@@ -719,12 +765,13 @@ fn left(agent: &Agent, answer_saved: bool) -> Result<(), Failure> {
 fn look(
     session: &Path,
     expected: u64,
-    folder: &Path,
+    reads: &Reads,
     (agent, actor): (&Agent, Actor<'_>),
     cancelled: &AtomicBool,
     answer_saved: bool,
     feedback: Option<&RetryFeedback>,
 ) -> Result<Done, Failure> {
+    let folder = reads.folder.as_path();
     let fail = |why| Failure {
         answer_saved,
         why,
@@ -757,20 +804,19 @@ fn look(
     }
     left(agent, answer_saved)?;
     let goal = ledger.goal().unwrap_or("").to_owned();
-    let settled = think(agent.records.as_deref(), session, &goal);
-    let mut input = input(&ledger, settled);
+    let mut input = input(&ledger, reads.think.clone());
     if let Some(feedback) = feedback.filter(|f| f.applies(session, expected, folder)) {
         input["previous_refusal"] = feedback.input();
     }
     let call = Call {
         folder: Some(folder.to_path_buf()),
-        ..agent.call.clone()
+        ..agent.drafting.call.clone()
     };
     let contract = answering::contract().map_err(refused(answer_saved))?;
     let instructions = format!("{}\n\nSeed reply guidance for Shape:\n{contract}", prompt());
     let reply = call
         .complete(
-            &agent.budget,
+            &agent.drafting.budget,
             "seed step",
             serde_json::to_vec(&input).unwrap_or_default(),
             instructions,
@@ -923,20 +969,6 @@ fn alternatives(value: &Value) -> Vec<Alternative> {
 /// The system prompt for one step.
 pub(super) fn prompt() -> String {
     pi::assemble(PROMPT)
-}
-
-/// The questions Think's record says the operator answered for this exact session and goal.
-/// Nothing when no record can be attributed.
-fn think(records: Option<&Path>, session: &Path, goal: &str) -> Vec<Value> {
-    let Some(read) =
-        records.and_then(|root| think_record::read_for_shape(root, session, goal).ok())
-    else {
-        return Vec::new();
-    };
-    read.answered
-        .into_iter()
-        .map(|submission| json!({"question": submission.question, "answer": submission.answer}))
-        .collect()
 }
 
 /// What the model proposed.

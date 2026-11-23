@@ -5,7 +5,7 @@ mod correction;
 mod panel;
 use crate::{
     confirmation::GoalConfirmation,
-    pi::{Call, CallBudget},
+    pi::Drafting,
     seed_me::{
         self,
         connection::{Correction, Origin, Source, Support},
@@ -33,7 +33,7 @@ pub(crate) struct Context {
     pub(crate) records: PathBuf,
     pub(crate) store: PathBuf,
     pub(crate) repo: PathBuf,
-    pub(crate) call: Option<(Call, Arc<CallBudget>)>,
+    pub(crate) call: Option<Drafting>,
     pub(crate) actor: GoalConfirmation,
 }
 
@@ -235,15 +235,15 @@ impl Context {
             model: self
                 .call
                 .as_ref()
-                .map_or("not configured".into(), |(c, _)| c.model.clone()),
+                .map_or("not configured".into(), |d| d.call.model.clone()),
             thinking: self
                 .call
                 .as_ref()
-                .map_or(String::new(), |(c, _)| c.thinking.clone()),
+                .map_or(String::new(), |d| d.call.thinking.clone()),
             harness: self
                 .call
                 .as_ref()
-                .map_or(String::new(), |(c, _)| c.harness.label().into()),
+                .map_or(String::new(), |d| d.call.harness.label().into()),
             prompt: format!("{:x}", Sha256::digest(PROMPT)),
             correction,
         };
@@ -344,7 +344,10 @@ impl Context {
         if &self.snapshot()? != input {
             return Err("The goal inputs changed. Reopen Find connections.".into());
         }
-        let (configured, budget) = self
+        let Drafting {
+            call: configured,
+            budget,
+        } = self
             .call
             .as_ref()
             .ok_or("Choose a drafting model and allowance before finding connections.")?;

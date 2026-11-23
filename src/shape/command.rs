@@ -148,7 +148,8 @@ pub fn show(session: &Path) -> Result<serde_json::Value, String> {
 }
 
 /// Take `action` on `session` from a fresh read, through the same step the screen runs. Returns
-/// what the caller must read that the ledger does not hold: the folder a model step reads,
+/// what the caller must read that the ledger does not hold: the folder a model step reads, why
+/// Think's answers are not sent if so,
 /// assumed defaults and a withheld suggestion. Confirming calls no model and needs no `agent`;
 /// every other action refuses without one. An action that does not fit where the seed stands
 /// changes nothing.
@@ -159,7 +160,7 @@ pub fn step(
     action: Action,
 ) -> Result<Vec<String>, String> {
     let (shaping, base) = shaping::read_with_base(session)?;
-    let mut reads = None;
+    let mut notes = Vec::new();
     let expected = shaping
         .version
         .ok_or("This session's ledger version is unknown; nothing was changed.")?;
@@ -190,17 +191,18 @@ pub fn step(
             return Err(NO_AGENT.into());
         }
         let goal = shaping.goal.as_deref().unwrap_or_default();
-        let folder = steps
-            .folder(session, Some(goal), base.map(|base| base.checkout))?
-            .unwrap_or_default();
-        reads = Some(format!(
+        let reads = steps
+            .reads(session, Some(goal), base.map(|base| base.checkout))?
+            .unwrap_or_else(|| PathBuf::new().into());
+        notes.push(format!(
             "A model step reads only this folder: {}",
-            folder.display()
+            reads.folder.display()
         ));
+        notes.extend(reads.unread());
         match (action, shaping.stage) {
             (Action::Look, Shaped::Waiting) => Work::Look {
                 expected,
-                folder,
+                reads,
                 feedback: None,
             },
             (Action::Answer(words), Shaped::Question { id, .. }) if !words.trim().is_empty() => {
@@ -209,7 +211,7 @@ pub fn step(
                     words,
                     relay: None,
                     expected,
-                    folder,
+                    reads,
                 }
             }
             (Action::Relayed(relay), Shaped::Question { id, .. }) => Work::Answer {
@@ -217,13 +219,13 @@ pub fn step(
                 words: relay.words().to_owned(),
                 relay: Some(relay),
                 expected,
-                folder,
+                reads,
             },
             (Action::Delegate, Shaped::Question { id, .. }) => Work::Respond {
                 id,
                 action: AnswerAction::Delegate,
                 expected,
-                folder,
+                reads,
             },
             (Action::Answer(_), Shaped::Question { .. }) => {
                 return Err("The answer is empty; nothing was saved.".into());
@@ -238,7 +240,7 @@ pub fn step(
     };
     let (stopped, saved) = (AtomicBool::new(false), AtomicBool::new(false));
     match steps.run(&work, session, &stopped, &saved) {
-        Ok(Done::Asked(asked)) => Ok(reads
+        Ok(Done::Asked(asked)) => Ok(notes
             .into_iter()
             .chain(
                 asked
@@ -252,7 +254,7 @@ pub fn step(
                     .map(|s| format!("Suggestion, not recorded: {s}")),
             )
             .collect()),
-        Ok(_) => Ok(reads.into_iter().collect()),
+        Ok(_) => Ok(notes),
         Err(failure) => Err(format!(
             "{}{}",
             if failure.answer_saved {

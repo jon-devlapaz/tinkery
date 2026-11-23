@@ -19,7 +19,7 @@ fn failures() -> Vec<ReadFailure> {
 
 #[test]
 fn help_caps_samples_and_discloses_the_full_remaining_count() {
-    let mut shape = Shape::list();
+    let mut shape = Shape::new(Open::List, None, &GoalConfirmation::default(), false);
     shape.offer(Ok(&[]), MAX_READ_FAILURES + 3);
     shape.offer_failures(&failures());
     let help = shape.help_text();
@@ -47,7 +47,7 @@ fn help_caps_samples_and_discloses_the_full_remaining_count() {
 
 #[test]
 fn fresh_and_failed_reads_clear_old_diagnostics() {
-    let mut shape = Shape::list();
+    let mut shape = Shape::new(Open::List, None, &GoalConfirmation::default(), false);
     shape.offer(Ok(&[]), 11);
     shape.offer_failures(&failures());
     shape.offer(Err("TEST root unavailable".into()), 11);
@@ -71,7 +71,7 @@ fn paths_and_reasons_escape_controls_only_in_the_display_copy() {
         "TEST error\r\x1b[2J",
     );
     let original = failure.clone();
-    let mut shape = Shape::list();
+    let mut shape = Shape::new(Open::List, None, &GoalConfirmation::default(), false);
     shape.offer(Ok(&[]), 1);
     shape.offer_failures(&[failure]);
     let help = shape.help_text();
@@ -85,7 +85,7 @@ fn paths_and_reasons_escape_controls_only_in_the_display_copy() {
 #[test]
 fn capped_help_can_scroll_to_omission_notice_with_fixed_exit_keys() {
     for (width, height) in [(80, 24), (100, 30)] {
-        let mut shape = Shape::list();
+        let mut shape = Shape::new(Open::List, None, &GoalConfirmation::default(), false);
         shape.offer(Ok(&[]), 11);
         shape.offer_failures(&failures());
         let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
