@@ -3,7 +3,11 @@
 //! the reading.
 
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-use pinstar::{PinstarState, data::CanvasData, handle_pinstar_mouse};
+use pinstar::{
+    PinstarState,
+    data::{CanvasData, CanvasNode, TextNode},
+    handle_pinstar_mouse,
+};
 use ratatui::layout::Rect;
 
 pub(super) struct Canvas {
@@ -30,6 +34,65 @@ impl Canvas {
         }
     }
 
+    /// Places card `index` (counting from 0) clear of the others. The first card also
+    /// centres the view.
+    pub(super) fn place(&mut self, index: usize, id: String, title: String, text: String) {
+        if index == 0 {
+            self.state.zoom = 0.1;
+            self.state.viewport_x = (f64::from(self.area.width) / 2.0 - 1.0) / 0.1;
+            self.state.viewport_y = (f64::from(self.area.height) / 2.0 - 1.0) / 0.1;
+        }
+        let x = (index % 2) as f64 * 200.0;
+        let mut y = (index / 2) as f64 * 80.0;
+        while self.state.data.nodes.iter().any(|n| {
+            let (nx, ny) = n.pos();
+            let (w, h) = n.size();
+            x < nx + w && x + 190.0 > nx && y < ny + h && y + 70.0 > ny
+        }) {
+            y += 80.0;
+        }
+        self.state.data.nodes.push(CanvasNode::Text(TextNode {
+            id,
+            title: Some(title),
+            text,
+            x,
+            y,
+            width: 190.0,
+            height: 70.0,
+            color: None,
+            shape: Default::default(),
+        }));
+    }
+    /// Each card's id and canvas position.
+    pub(super) fn positions(&self) -> Vec<(String, f64, f64)> {
+        self.state
+            .data
+            .nodes
+            .iter()
+            .map(|n| {
+                let (x, y) = n.pos();
+                (n.id().to_owned(), x, y)
+            })
+            .collect()
+    }
+    /// Each card with its left, top, right and bottom edges in terminal cells, for a canvas
+    /// drawn in `area`. Edges can lie outside `area`.
+    pub(super) fn cards(&self, area: Rect) -> impl Iterator<Item = (&CanvasNode, [f64; 4])> {
+        let z = self.state.zoom;
+        self.state.data.nodes.iter().map(move |node| {
+            let (x, y) = node.pos();
+            let (w, h) = node.size();
+            let x =
+                (x - self.state.viewport_x) * z + f64::from(area.x) + f64::from(area.width) / 2.0;
+            let y =
+                (y - self.state.viewport_y) * z + f64::from(area.y) + f64::from(area.height) / 2.0;
+            (node, [x, y, x + w * z, y + h * z])
+        })
+    }
+    /// The card is selected.
+    pub(super) fn is_selected(&self, id: &str) -> bool {
+        self.state.selection.is_selected(&id.to_owned())
+    }
     pub(super) fn selected_id(&self) -> Option<&str> {
         self.state.selection.primary.as_deref()
     }

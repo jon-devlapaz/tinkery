@@ -15,7 +15,7 @@ use crate::{MIN_HEIGHT, MIN_WIDTH, Palette, seed_me};
 use crossterm::event::{
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
-use pinstar::data::{CanvasNode, TextNode};
+use pinstar::data::CanvasNode;
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -451,17 +451,7 @@ impl BrainDump {
     }
     /// Each extracted card's id and position, as the next request carries them.
     pub fn card_positions(&self) -> Vec<(String, f64, f64)> {
-        self.screen
-            .canvas
-            .state
-            .data
-            .nodes
-            .iter()
-            .map(|n| {
-                let (x, y) = n.pos();
-                (n.id().to_owned(), x, y)
-            })
-            .collect()
+        self.screen.canvas.positions()
     }
     /// Every original dump and answer, verbatim and labelled, as Markdown.
     pub fn originals(&self) -> String {
@@ -798,33 +788,12 @@ impl BrainDump {
         let Some(fragment) = self.conversation.fragments().last() else {
             return;
         };
-        let canvas = &mut self.screen.canvas;
-        let i = self.conversation.fragments().len() - 1;
-        if i == 0 {
-            canvas.state.zoom = 0.1;
-            canvas.state.viewport_x = (f64::from(canvas.area.width) / 2.0 - 1.0) / 0.1;
-            canvas.state.viewport_y = (f64::from(canvas.area.height) / 2.0 - 1.0) / 0.1;
-        }
-        let x = (i % 2) as f64 * 200.0;
-        let mut y = (i / 2) as f64 * 80.0;
-        while canvas.state.data.nodes.iter().any(|n| {
-            let (nx, ny) = n.pos();
-            let (w, h) = n.size();
-            x < nx + w && x + 190.0 > nx && y < ny + h && y + 70.0 > ny
-        }) {
-            y += 80.0;
-        }
-        canvas.state.data.nodes.push(CanvasNode::Text(TextNode {
-            id: fragment.id.clone(),
-            title: Some(intact_view::title(&fragment.text)),
-            text: fragment.text.clone(),
-            x,
-            y,
-            width: 190.0,
-            height: 70.0,
-            color: None,
-            shape: Default::default(),
-        }));
+        self.screen.canvas.place(
+            self.conversation.fragments().len() - 1,
+            fragment.id.clone(),
+            intact_view::title(&fragment.text),
+            fragment.text.clone(),
+        );
     }
     /// Advances time: lands a finished reading or save and reads voice events. Never blocks.
     pub fn tick(&mut self) {
@@ -1593,18 +1562,7 @@ pub fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
 }
 
 fn draw_fragments(frame: &mut Frame, app: &BrainDump, area: Rect, palette: Palette) {
-    for node in &app.screen.canvas.state.data.nodes {
-        let (x, y) = node.pos();
-        let (w, h) = node.size();
-        let z = app.screen.canvas.state.zoom;
-        let x = (x - app.screen.canvas.state.viewport_x) * z
-            + f64::from(area.x)
-            + f64::from(area.width) / 2.0;
-        let y = (y - app.screen.canvas.state.viewport_y) * z
-            + f64::from(area.y)
-            + f64::from(area.height) / 2.0;
-        let right = x + w * z;
-        let bottom = y + h * z;
+    for (node, [x, y, right, bottom]) in app.screen.canvas.cards(area) {
         let left = x.max(f64::from(area.x));
         let top = y.max(f64::from(area.y));
         let r = right.min(f64::from(area.right()));
@@ -1622,38 +1580,30 @@ fn draw_fragments(frame: &mut Frame, app: &BrainDump, area: Rect, palette: Palet
         if rect.is_empty() {
             continue;
         }
-        let supported = app
-            .conversation
-            .board()
-            .and_then(|g| g.reading.as_ref())
-            .is_some_and(|f| {
-                app.conversation
-                    .fragments()
-                    .iter()
-                    .find(|fragment| fragment.id == node.id())
-                    .is_some_and(|fragment| {
-                        f.supports.iter().any(|anchor| {
-                            anchor.source == fragment.source
-                                && anchor
-                                    .range(app.conversation.sources())
-                                    .is_ok_and(|r| r.start < fragment.end && fragment.start < r.end)
-                        })
-                    })
-            });
-        let misfit = app.conversation.board().is_some_and(|g| {
+        // A card is marked when one of these anchors overlaps its excerpt.
+        let overlaps = |anchors: &[board::VerifiedAnchor]| {
             app.conversation
                 .fragments()
                 .iter()
                 .find(|fragment| fragment.id == node.id())
                 .is_some_and(|fragment| {
-                    g.misfits.iter().any(|anchor| {
+                    anchors.iter().any(|anchor| {
                         anchor.source == fragment.source
                             && anchor
                                 .range(app.conversation.sources())
                                 .is_ok_and(|r| r.start < fragment.end && fragment.start < r.end)
                     })
                 })
-        });
+        };
+        let supported = app
+            .conversation
+            .board()
+            .and_then(|g| g.reading.as_ref())
+            .is_some_and(|f| overlaps(&f.supports));
+        let misfit = app
+            .conversation
+            .board()
+            .is_some_and(|g| overlaps(&g.misfits));
         let mut block = Block::default()
             .borders(Borders::ALL)
             .style(palette.ink)
@@ -1667,13 +1617,7 @@ fn draw_fragments(frame: &mut Frame, app: &BrainDump, area: Rect, palette: Palet
             } else {
                 ratatui::widgets::BorderType::Plain
             });
-        if app
-            .screen
-            .canvas
-            .state
-            .selection
-            .is_selected(&node.id().to_owned())
-        {
+        if app.screen.canvas.is_selected(node.id()) {
             block = block.border_style(
                 if supported { palette.jade } else { palette.ink }
                     .add_modifier(ratatui::style::Modifier::BOLD),
