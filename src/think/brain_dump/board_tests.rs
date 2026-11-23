@@ -793,3 +793,34 @@ fn the_review_joins_as_typed_decisions_without_knowing_the_readings_keys() {
             .contains("HIJACKED")
     );
 }
+
+/// Returns a reading with a decision whose part it does not list as open.
+struct UnopenedDecision;
+impl BoardHost for UnopenedDecision {
+    fn reshape(&self, request: BoardRequest, _: &AtomicBool) -> Result<Guess, String> {
+        let mut g = Guess::decode(
+            r#"{"parts":{"who":"I","outcome":"calm mornings","why":"rushed","done_when":"calm by 8"}}"#,
+            &request,
+            &mut vec![],
+        )?;
+        g.decisions.push(OpenDecision {
+            suggestion: None,
+            part: Part::When,
+            text: "Weekdays or every day".into(),
+            answers: vec!["weekdays".into(), "every day".into()],
+            question: None,
+        });
+        g.open.clear();
+        Ok(g)
+    }
+}
+#[test]
+fn verification_opens_the_part_of_every_decision_whatever_the_host_sends() {
+    let mut app = BrainDump::with_host(Arc::new(UnopenedDecision));
+    app.paste("I want calm mornings.");
+    app.submit();
+    super::tests::settle(&mut app);
+    assert!(app.conversation.board().is_some());
+    assert!(app.conversation.open_parts().contains(&Part::When));
+    assert!(!app.goal_ready());
+}

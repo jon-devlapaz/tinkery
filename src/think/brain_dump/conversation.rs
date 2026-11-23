@@ -1,7 +1,7 @@
 //! Think's conversation with the person, turn by turn.
 
 use super::{
-    Presentation, board,
+    board,
     reading::{
         self, BoardRequest, Fragment, Guess, Question, Settled, Source, grapheme_boundary,
         same_question,
@@ -46,6 +46,12 @@ pub struct Conversation {
     asked: Option<Question>,
 }
 
+/// The verified board associated with a rendered frame. Only the terminal owner acknowledges
+/// successful output; this is neither a full screen snapshot nor proof of human attention.
+pub struct Presentation {
+    revision: usize,
+    board: serde_json::Value,
+}
 /// A send that has been prepared but not yet committed to the conversation.
 pub(super) struct Staged {
     /// What goes to the model. Added words whose scope is unanswered are left out.

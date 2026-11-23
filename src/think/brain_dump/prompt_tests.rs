@@ -166,8 +166,7 @@ else:print(pathlib.Path(__file__).with_name('reply').read_text())
         assert_eq!(reading, &expected.reading.as_ref().unwrap().text);
         assert!(board.questions.is_empty());
         assert_eq!(request.sources[0].text, words);
-        let record: checks::Decision =
-            serde_json::from_str(pi.diagnostics().last().unwrap()).unwrap();
+        let record = pi.diagnostics().last().unwrap().clone();
         assert_eq!(
             record.raw.as_deref().map(str::trim_end),
             Some(sent.trim_end())
@@ -228,7 +227,7 @@ fn the_reading_prompt_names_the_fields_its_decoder_reads() {
             .trim()
             .trim_start_matches("optional ");
         match name {
-            "parts" => assert_eq!(braced(entry), sorted(reading::PARTS.iter().copied())),
+            "parts" => assert_eq!(braced(entry), sorted(Part::ALL.map(Part::name))),
             "decisions" => assert_eq!(braced(entry), sorted(reading::DECISION.iter().copied())),
             "questions" => assert_eq!(braced(entry), sorted(reading::QUESTION.iter().copied())),
             "alternatives" => assert_eq!(braced(entry), sorted(reading::APPROACH.iter().copied())),
@@ -321,7 +320,7 @@ print('{"parts":{"who":"I","outcome":"judge the result","why":"it matters","done
     let guess = pi.reshape(request, &AtomicBool::new(false)).unwrap();
     assert_eq!(guess.decisions.len(), 1);
     assert_eq!(guess.questions[0].text, "May the results be published?");
-    let record: checks::Decision = serde_json::from_str(pi.diagnostics().last().unwrap()).unwrap();
+    let record = pi.diagnostics().last().unwrap().clone();
     assert_eq!(
         record.raw.as_deref().map(str::trim_end),
         Some(

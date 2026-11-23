@@ -253,10 +253,7 @@ impl BrainDump {
         if self.screen.overlay.covers() {
             self.screen.show(Overlay::None);
         }
-        self.screen.source_scroll = 0;
-        self.screen.source_cursor = 0;
-        self.screen.selection = None;
-        self.screen.drag_anchor = None;
+        self.screen.reset_original(true);
         self.tell("Nothing saved. Review the goal and remaining questions before affirming.");
         self.handoff.open(Review {
             affirmation,

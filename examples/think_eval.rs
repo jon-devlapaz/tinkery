@@ -16,9 +16,7 @@ use std::{
 };
 use tinkery::pi::CallBudget;
 use tinkery::think::{
-    brain_dump::{
-        BoardHost, BoardRequest, BrainDump, DecisionReview, Guess, ModelHost, decision_review_input,
-    },
+    brain_dump::{self, BoardHost, BoardRequest, BrainDump, Guess, ModelHost},
     drafting::Request,
 };
 use tinkery::think_record::hash;
@@ -108,15 +106,8 @@ impl Fake {
 }
 impl BoardHost for Fake {
     fn reshape(&self, request: BoardRequest, _: &AtomicBool) -> Result<Guess, String> {
-        let raw = self.request(Request::Shaping)?;
-        let mut changes = vec![];
-        // Like ModelHost, readable invalid boards still get a review before decoding.
-        let review = decision_review_input(&request, &raw).and_then(|_| {
-            self.request(Request::DecisionReview)
-                .ok()
-                .and_then(|review| DecisionReview::decode(&review, &mut changes))
-        });
-        Guess::decode_reviewed(&raw, review.as_ref(), &request, &mut changes)
+        // The scripted reply stands in for the model; everything else is ModelHost's own read.
+        brain_dump::read(&request, |kind, _, _| self.request(kind)).0
     }
 }
 

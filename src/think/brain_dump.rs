@@ -15,7 +15,7 @@ use crate::{MIN_HEIGHT, MIN_WIDTH, Palette, seed_me};
 use crossterm::event::{
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
-use pinstar::data::{CanvasNode, TextNode};
+use pinstar::data::CanvasNode;
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -33,14 +33,13 @@ pub use suggestion::Suggestion;
 
 use board::agent_text;
 use host::Simulated;
-pub use host::{BoardHost, ModelHost};
+pub use host::{BoardHost, ModelHost, read};
 use layout::{Notice, Refusal};
 pub use reading::{
     Anchor, Approach, BoardRequest, Fragment, Framing, Guess, OpenDecision, Question, Settled,
     Source,
 };
 use review::Review;
-pub use review::{Review as DecisionReview, input as decision_review_input};
 
 /// Think: one place where the person writes, reads the reading, answers one question at a
 /// time, and confirms a goal. It routes keys, mouse and ticks to its parts: the
@@ -176,6 +175,16 @@ impl Default for Screen {
 }
 
 impl Screen {
+    /// Clears the original's selection and drag; with `to_top`, also returns its view and
+    /// caret to the start.
+    fn reset_original(&mut self, to_top: bool) {
+        if to_top {
+            self.source_scroll = 0;
+            self.source_cursor = 0;
+        }
+        self.selection = None;
+        self.drag_anchor = None;
+    }
     /// Shows `overlay` in place of the one before; a covering panel opens at its top.
     fn show(&mut self, overlay: Overlay) {
         self.overlay = overlay;
@@ -347,13 +356,6 @@ impl Default for BrainDump {
         Self::with_mode(Arc::new(Simulated), false)
     }
 }
-/// The verified board associated with a rendered frame. Only the terminal owner acknowledges
-/// successful output; this is neither a full screen snapshot nor proof of human attention.
-pub struct Presentation {
-    revision: usize,
-    board: serde_json::Value,
-}
-
 impl BrainDump {
     /// The first presentation candidate for this board, only when this frame exposes reading
     /// content. Calling this never records output; the owner must acknowledge successful IO.
@@ -459,17 +461,7 @@ impl BrainDump {
     }
     /// Each extracted card's id and position, as the next request carries them.
     pub fn card_positions(&self) -> Vec<(String, f64, f64)> {
-        self.screen
-            .canvas
-            .state
-            .data
-            .nodes
-            .iter()
-            .map(|n| {
-                let (x, y) = n.pos();
-                (n.id().to_owned(), x, y)
-            })
-            .collect()
+        self.screen.canvas.positions()
     }
     /// Every original dump and answer, verbatim and labelled, as Markdown.
     pub fn originals(&self) -> String {
@@ -692,12 +684,8 @@ impl BrainDump {
             waiting_failure,
         })
     }
-    fn diagnostics(&self) -> Vec<String> {
-        let mut logs = self
-            .local_checks
-            .iter()
-            .map(|d| serde_json::to_string(d).expect("decision serializes"))
-            .collect::<Vec<_>>();
+    fn diagnostics(&self) -> Vec<checks::Decision> {
+        let mut logs = self.local_checks.clone();
         logs.extend(self.host.diagnostics());
         logs
     }
@@ -739,11 +727,10 @@ impl BrainDump {
         };
         let mut cap = checks::Decision::new(
             "encoded-request-cap",
-            "blocking",
             if measured > REQUEST_LIMIT {
-                "reject"
+                checks::Verdict::Reject
             } else {
-                "pass"
+                checks::Verdict::Pass
             },
             format!(
                 "Encoded request: {measured} / {REQUEST_LIMIT} bytes; no truncation or dropped originals."
@@ -766,11 +753,8 @@ impl BrainDump {
             // unresolved and asked about, so they come into view.
             if staged.addition {
                 self.screen.source_view = self.conversation.sources().len() - 1;
-                self.screen.source_scroll = 0;
-                self.screen.source_cursor = 0;
             }
-            self.screen.selection = None;
-            self.screen.drag_anchor = None;
+            self.screen.reset_original(staged.addition);
             self.input = Note::new("");
             self.screen.input_scroll = 0;
             self.add_more = false;
@@ -811,33 +795,20 @@ impl BrainDump {
         let Some(fragment) = self.conversation.fragments().last() else {
             return;
         };
-        let canvas = &mut self.screen.canvas;
-        let i = self.conversation.fragments().len() - 1;
-        if i == 0 {
-            canvas.state.zoom = 0.1;
-            canvas.state.viewport_x = (f64::from(canvas.area.width) / 2.0 - 1.0) / 0.1;
-            canvas.state.viewport_y = (f64::from(canvas.area.height) / 2.0 - 1.0) / 0.1;
-        }
-        let x = (i % 2) as f64 * 200.0;
-        let mut y = (i / 2) as f64 * 80.0;
-        while canvas.state.data.nodes.iter().any(|n| {
-            let (nx, ny) = n.pos();
-            let (w, h) = n.size();
-            x < nx + w && x + 190.0 > nx && y < ny + h && y + 70.0 > ny
-        }) {
-            y += 80.0;
-        }
-        canvas.state.data.nodes.push(CanvasNode::Text(TextNode {
-            id: fragment.id.clone(),
-            title: Some(intact_view::title(&fragment.text)),
-            text: fragment.text.clone(),
-            x,
-            y,
-            width: 190.0,
-            height: 70.0,
-            color: None,
-            shape: Default::default(),
-        }));
+        self.screen.canvas.place(
+            self.conversation.fragments().len() - 1,
+            fragment.id.clone(),
+            intact_view::title(&fragment.text),
+            fragment.text.clone(),
+        );
+    }
+    /// Moves the focus from the writing box to the original or its cards, with nothing
+    /// selected or being dragged in either.
+    fn focus_original(&mut self) {
+        self.screen.board_focus = true;
+        self.input.collapse();
+        self.screen.input_drag = false;
+        self.screen.selection = None;
     }
     /// Advances time: lands a finished reading or save and reads voice events. Never blocks.
     pub fn tick(&mut self) {
@@ -1304,10 +1275,7 @@ impl BrainDump {
         if self.screen.show_extractions {
             // Cards take the focus the original had (Enter on a card returns to its
             // source); the hidden original keeps no selection to copy.
-            self.screen.board_focus = true;
-            self.input.collapse();
-            self.screen.input_drag = false;
-            self.screen.selection = None;
+            self.focus_original();
         }
         self.screen.canvas.cancel_gesture();
         self.screen.drag_anchor = None;
@@ -1329,10 +1297,7 @@ impl BrainDump {
             && self.handoff.review().is_none()
             && !self.screen.show_extractions
         {
-            self.screen.board_focus = true;
-            self.input.collapse();
-            self.screen.input_drag = false;
-            self.screen.selection = None;
+            self.focus_original();
             self.screen.drag_anchor = None;
             self.screen.canvas.cancel_gesture();
         }
@@ -1606,18 +1571,7 @@ pub fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
 }
 
 fn draw_fragments(frame: &mut Frame, app: &BrainDump, area: Rect, palette: Palette) {
-    for node in &app.screen.canvas.state.data.nodes {
-        let (x, y) = node.pos();
-        let (w, h) = node.size();
-        let z = app.screen.canvas.state.zoom;
-        let x = (x - app.screen.canvas.state.viewport_x) * z
-            + f64::from(area.x)
-            + f64::from(area.width) / 2.0;
-        let y = (y - app.screen.canvas.state.viewport_y) * z
-            + f64::from(area.y)
-            + f64::from(area.height) / 2.0;
-        let right = x + w * z;
-        let bottom = y + h * z;
+    for (node, [x, y, right, bottom]) in app.screen.canvas.cards(area) {
         let left = x.max(f64::from(area.x));
         let top = y.max(f64::from(area.y));
         let r = right.min(f64::from(area.right()));
@@ -1635,38 +1589,30 @@ fn draw_fragments(frame: &mut Frame, app: &BrainDump, area: Rect, palette: Palet
         if rect.is_empty() {
             continue;
         }
-        let supported = app
-            .conversation
-            .board()
-            .and_then(|g| g.reading.as_ref())
-            .is_some_and(|f| {
-                app.conversation
-                    .fragments()
-                    .iter()
-                    .find(|fragment| fragment.id == node.id())
-                    .is_some_and(|fragment| {
-                        f.supports.iter().any(|anchor| {
-                            anchor.source == fragment.source
-                                && anchor
-                                    .range(app.conversation.sources())
-                                    .is_ok_and(|r| r.start < fragment.end && fragment.start < r.end)
-                        })
-                    })
-            });
-        let misfit = app.conversation.board().is_some_and(|g| {
+        // A card is marked when one of these anchors overlaps its excerpt.
+        let overlaps = |anchors: &[board::VerifiedAnchor]| {
             app.conversation
                 .fragments()
                 .iter()
                 .find(|fragment| fragment.id == node.id())
                 .is_some_and(|fragment| {
-                    g.misfits.iter().any(|anchor| {
+                    anchors.iter().any(|anchor| {
                         anchor.source == fragment.source
                             && anchor
                                 .range(app.conversation.sources())
                                 .is_ok_and(|r| r.start < fragment.end && fragment.start < r.end)
                     })
                 })
-        });
+        };
+        let supported = app
+            .conversation
+            .board()
+            .and_then(|g| g.reading.as_ref())
+            .is_some_and(|f| overlaps(&f.supports));
+        let misfit = app
+            .conversation
+            .board()
+            .is_some_and(|g| overlaps(&g.misfits));
         let mut block = Block::default()
             .borders(Borders::ALL)
             .style(palette.ink)
@@ -1680,13 +1626,7 @@ fn draw_fragments(frame: &mut Frame, app: &BrainDump, area: Rect, palette: Palet
             } else {
                 ratatui::widgets::BorderType::Plain
             });
-        if app
-            .screen
-            .canvas
-            .state
-            .selection
-            .is_selected(&node.id().to_owned())
-        {
+        if app.screen.canvas.is_selected(node.id()) {
             block = block.border_style(
                 if supported { palette.jade } else { palette.ink }
                     .add_modifier(ratatui::style::Modifier::BOLD),
@@ -1823,7 +1763,7 @@ mod reading;
 #[cfg(test)]
 mod record_tests;
 mod review;
-pub use conversation::Conversation;
+pub use conversation::{Conversation, Presentation};
 #[cfg(test)]
 mod goal_lines_tests;
 #[cfg(test)]

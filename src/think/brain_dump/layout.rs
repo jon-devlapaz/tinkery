@@ -647,7 +647,12 @@ pub(super) fn how_text(app: &BrainDump) -> String {
                 .map_or(String::new(), |line| format!("\n{line}"))
         );
     }
-    let diagnostics = app.diagnostics().join("\n\n");
+    let diagnostics = app
+        .diagnostics()
+        .iter()
+        .map(|d| serde_json::to_string(d).expect("decision serializes"))
+        .collect::<Vec<_>>()
+        .join("\n\n");
     let saving = concat!(
         "Only typing confirm saves a goal and its conversation record. It starts no work. ",
         "Before sending, 2 in the choice or Ctrl-S saves exact words as a thought instead. ",

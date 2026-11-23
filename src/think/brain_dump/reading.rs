@@ -38,16 +38,6 @@ pub(super) const READING: &[&str] = &[
     "alternatives",
     "decisions",
 ];
-/// The fields of `parts`.
-pub(super) const PARTS: &[&str] = &[
-    "who",
-    "outcome",
-    "when",
-    "why",
-    "done_when",
-    "must",
-    "must_not",
-];
 /// The fields of one decision. The decision review adds a question to these.
 pub(super) const DECISION: &[&str] = &["part", "text", "answers", "question", "suggestion"];
 /// The fields of one question.
@@ -160,7 +150,26 @@ pub struct OpenDecision {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub question: Option<String>,
 }
+/// The one decision rule: each decision keeps its part open, so it can be asked and blocks
+/// readiness.
+pub(super) fn keep_decision_parts_open(open: &mut Vec<Part>, decisions: &[OpenDecision]) {
+    for d in decisions {
+        if !open.contains(&d.part) {
+            open.push(d.part);
+        }
+    }
+}
 impl OpenDecision {
+    /// The answers, each kept once, in the order first given.
+    pub(super) fn distinct(answers: impl IntoIterator<Item = String>) -> Vec<String> {
+        let mut distinct: Vec<String> = vec![];
+        for a in answers {
+            if !distinct.contains(&a) {
+                distinct.push(a);
+            }
+        }
+        distinct
+    }
     /// The note used when this choice has no question represented in review.
     pub fn note(&self) -> String {
         format!(
@@ -415,7 +424,7 @@ pub(super) fn read_parts(
     let mut parts = GoalParts::default();
     let object = value.and_then(serde_json::Value::as_object);
     if let Some(object) = object {
-        extras(object, PARTS, "goal parts", changes);
+        extras(object, &Part::ALL.map(Part::name), "goal parts", changes);
     }
     parts.who = display(object.and_then(|o| o.get("who")), "who", changes);
     parts.outcome = display(object.and_then(|o| o.get("outcome")), "outcome", changes);
@@ -523,14 +532,11 @@ fn reviewed(
             .get("part")
             .and_then(|v| serde_json::from_value::<Part>(v.clone()).ok());
         let text = display(o.get("text"), &format!("decision {i}"), changes);
-        let mut answers: Vec<String> = vec![];
-        for a in items(o.get("answers"), &format!("decision {i} answers"), changes) {
-            if let Some(a) = display(Some(&a), &format!("decision {i} answer"), changes)
-                && !answers.contains(&a)
-            {
-                answers.push(a);
-            }
-        }
+        let answers = OpenDecision::distinct(
+            items(o.get("answers"), &format!("decision {i} answers"), changes)
+                .iter()
+                .filter_map(|a| display(Some(a), &format!("decision {i} answer"), changes)),
+        );
         let (Some(part), Some(text)) = (part, text) else {
             changes.push(format!("Ignored decision {i}: needs a known part and text"));
             continue;
@@ -561,13 +567,8 @@ fn reviewed(
         Some(review) => review.join(shaping, changes),
         None => shaping.into_iter().map(|(_, d)| d).collect(),
     };
-    let mut decision_notes = vec![];
-    for decision in &decisions {
-        if !open.contains(&decision.part) {
-            open.push(decision.part);
-        }
-        decision_notes.push(decision.note());
-    }
+    keep_decision_parts_open(&mut open, &decisions);
+    let decision_notes = decisions.iter().map(OpenDecision::note).collect::<Vec<_>>();
     let mut framings = vec![];
     for (i, v) in items(obj.get("framings"), "framings", changes)
         .iter()

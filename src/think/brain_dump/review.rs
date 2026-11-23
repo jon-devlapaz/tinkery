@@ -12,7 +12,7 @@ pub(super) const COVERS: &str = "covers";
 /// Prepares the decision review's input from a readable shaping reply, before board validation.
 /// Unreadable JSON yields no review; a readable but invalid board is still reviewed.
 /// Contains original words, settled answers, draft parts and shaping decisions, never standing instructions.
-pub fn input(request: &BoardRequest, raw: &str) -> Option<Vec<u8>> {
+pub(super) fn input(request: &BoardRequest, raw: &str) -> Option<Vec<u8>> {
     let (draft, mut decisions) = reading::draft(raw)?;
     if let Some(decisions) = decisions.as_array_mut() {
         for decision in decisions
@@ -94,13 +94,7 @@ impl Review {
                 changes.push("Ignored invalid review decision; shaping choices retained".into());
                 continue;
             }
-            let mut answers: Vec<String> = vec![];
-            for a in choice.answers {
-                if !answers.contains(&a) {
-                    answers.push(a);
-                }
-            }
-            choice.answers = answers;
+            choice.answers = OpenDecision::distinct(choice.answers);
             let covers = covers.as_ref().and_then(|v| v.as_array()).map(|indices| {
                 indices
                     .iter()

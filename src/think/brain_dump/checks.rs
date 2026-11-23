@@ -20,6 +20,22 @@ pub struct Coverage {
     /// recorded, not treated as a failure.
     pub locations: Vec<String>,
 }
+/// How a check's rejection acts. Every check today blocks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Mode {
+    /// A rejection stops the reading from being shown.
+    Blocking,
+}
+/// What a check decided.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Verdict {
+    /// The send or reply may go on.
+    Pass,
+    /// The send or reply stops here.
+    Reject,
+}
 /// One check's verdict on one send. The fields are the log's format, so renaming one breaks
 /// readers of older logs; `version` changes when the format does.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -33,10 +49,10 @@ pub struct Decision {
     pub request_key: String,
     /// Which check ran, such as `encoded-request-cap`.
     pub check: String,
-    /// `blocking` when a rejection stops the reading from being shown.
-    pub mode: String,
-    /// `pass` or `reject`.
-    pub decision: String,
+    /// How a rejection acts.
+    pub mode: Mode,
+    /// What the check decided.
+    pub decision: Verdict,
     /// Why, in plain words.
     pub reason: String,
     /// How long the check took, including the model call.
@@ -49,20 +65,14 @@ pub struct Decision {
     pub candidate: Option<Guess>,
 }
 impl Decision {
-    pub(super) fn new(
-        check: &str,
-        mode: &str,
-        decision: &str,
-        reason: String,
-        started: Instant,
-    ) -> Self {
+    pub(super) fn new(check: &str, decision: Verdict, reason: String, started: Instant) -> Self {
         Self {
             version: 3,
             normalizations: vec![],
             request_key: String::new(),
             check: check.into(),
-            mode: mode.into(),
-            decision: decision.into(),
+            mode: Mode::Blocking,
+            decision,
             reason,
             elapsed_ms: started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64,
             coverage: vec![],
@@ -75,8 +85,13 @@ impl Decision {
         format!(
             "{} · {} · {} · {} ms · request {}\n{}{}",
             self.check,
-            self.mode,
-            self.decision,
+            match self.mode {
+                Mode::Blocking => "blocking",
+            },
+            match self.decision {
+                Verdict::Pass => "pass",
+                Verdict::Reject => "reject",
+            },
             self.elapsed_ms,
             self.request_key,
             self.reason.clone()
@@ -169,12 +184,11 @@ pub(super) fn coverage(request: &BoardRequest, g: &Guess) -> Vec<Coverage> {
         })
         .collect()
 }
-pub(super) fn why(history: &[String]) -> String {
+pub(super) fn why(history: &[Decision]) -> String {
     history
         .iter()
-        .filter_map(|s| serde_json::from_str::<Decision>(s).ok())
         .map(|d| {
-            let attempt = if d.decision == "reject" {
+            let attempt = if d.decision == Verdict::Reject {
                 d.raw
                     .as_ref()
                     .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
@@ -194,12 +208,12 @@ pub(super) fn why(history: &[String]) -> String {
 /// The checks as a think record keeps them: each as it serializes, except that the model's
 /// reply stays only where Why shows it, on a rejection. A passing check's reply is already in
 /// its decoded `candidate`, so keeping both would only make long sessions' records large.
-pub(super) fn recorded(history: &[String]) -> Vec<serde_json::Value> {
+pub(super) fn recorded(history: &[Decision]) -> Vec<serde_json::Value> {
     history
         .iter()
-        .filter_map(|s| serde_json::from_str::<Decision>(s).ok())
+        .cloned()
         .map(|mut d| {
-            if d.decision != "reject" {
+            if d.decision != Verdict::Reject {
                 d.raw = None;
             }
             serde_json::to_value(d).expect("decision is serializable")
