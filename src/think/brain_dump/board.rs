@@ -1,7 +1,7 @@
 //! A verified reading: a [`Board`] exists only once a decoded reply passes the checks against
 //! the request (exact spans, application-owned questions, ask counts and skips).
 use super::reading::{
-    Anchor, Approach, BoardRequest, Framing, Guess, OpenDecision, Question, Source,
+    self, Anchor, Approach, BoardRequest, Framing, Guess, OpenDecision, Question, Source,
 };
 use crate::goal::{GoalParts, Part};
 use std::{collections::VecDeque, ops::Deref};
@@ -177,6 +177,7 @@ impl Board {
                 *value = agent_text(value);
             }
         }
+        reading::keep_decision_parts_open(&mut g.open, &g.decisions);
         g.parts.normalize_constraints();
         g.parts.distinct_check();
         if let Some(selected) = g

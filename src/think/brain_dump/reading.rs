@@ -38,7 +38,6 @@ pub(super) const READING: &[&str] = &[
     "alternatives",
     "decisions",
 ];
-/// The fields of `parts`.
 /// The fields of one decision. The decision review adds a question to these.
 pub(super) const DECISION: &[&str] = &["part", "text", "answers", "question", "suggestion"];
 /// The fields of one question.
@@ -150,6 +149,15 @@ pub struct OpenDecision {
     /// The question about this choice, when supplied; absence never hides the choice.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub question: Option<String>,
+}
+/// The one decision rule: each decision keeps its part open, so it can be asked and blocks
+/// readiness.
+pub(super) fn keep_decision_parts_open(open: &mut Vec<Part>, decisions: &[OpenDecision]) {
+    for d in decisions {
+        if !open.contains(&d.part) {
+            open.push(d.part);
+        }
+    }
 }
 impl OpenDecision {
     /// The answers, each kept once, in the order first given.
@@ -559,13 +567,8 @@ fn reviewed(
         Some(review) => review.join(shaping, changes),
         None => shaping.into_iter().map(|(_, d)| d).collect(),
     };
-    let mut decision_notes = vec![];
-    for decision in &decisions {
-        if !open.contains(&decision.part) {
-            open.push(decision.part);
-        }
-        decision_notes.push(decision.note());
-    }
+    keep_decision_parts_open(&mut open, &decisions);
+    let decision_notes = decisions.iter().map(OpenDecision::note).collect::<Vec<_>>();
     let mut framings = vec![];
     for (i, v) in items(obj.get("framings"), "framings", changes)
         .iter()
