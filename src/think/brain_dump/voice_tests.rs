@@ -1,5 +1,5 @@
 use super::*;
-use crate::voice::{Command, Event, Failure, VoiceHost};
+use crate::voice::{Command, Event, Failure, Kind, VoiceHost};
 use std::{cell::RefCell, collections::VecDeque, rc::Rc};
 
 #[derive(Default)]
@@ -410,15 +410,15 @@ fn direct_submit_uses_the_same_wait_for_final_contract() {
 #[test]
 fn every_failure_is_one_muted_actionable_line_and_does_not_send_typed_words() {
     for kind in [
-        "no-node",
-        "install",
-        "download",
-        "config",
-        "no-model",
-        "engine-load",
-        "mic-permission",
-        "mic-unavailable",
-        "mic-busy",
+        Kind::NoNode,
+        Kind::Install,
+        Kind::Download,
+        Kind::Config,
+        Kind::NoModel,
+        Kind::EngineLoad,
+        Kind::MicPermission,
+        Kind::MicUnavailable,
+        Kind::MicBusy,
     ] {
         let (mut a, fake) = attach(BrainDump::default());
         a.paste("typed");
@@ -429,7 +429,7 @@ fn every_failure_is_one_muted_actionable_line_and_does_not_send_typed_words() {
             &fake,
             Event::Error {
                 take: Some(1),
-                kind: kind.into(),
+                kind,
                 message: "Action required.".into(),
             },
         );
@@ -634,7 +634,7 @@ fn typing_and_reading_show_the_missing_node_remedy_only_after_the_voice_key() {
     let fake = Rc::new(RefCell::new(Fake::default()));
     let mut app = BrainDump::default().with_voice(Box::new(fake.clone()));
     let remedy = "Voice needs Node 22 or later. Set TINKERY_NODE to its executable.";
-    event(&mut app, &fake, Failure::new("no-node", remedy).event());
+    event(&mut app, &fake, Failure::new(Kind::NoNode, remedy).event());
 
     let quiet_screen = |app: &mut BrainDump, expected: &str| {
         let view = snapshot(100, 30, app, true).unwrap();
@@ -681,7 +681,7 @@ fn conditional_help_and_key_bar_and_no_voice_in_library_snapshots() {
         &fake,
         Event::Error {
             take: None,
-            kind: "no-node".into(),
+            kind: Kind::NoNode,
             message: "Set TINKERY_NODE.".into(),
         },
     );
@@ -772,13 +772,13 @@ fn decline_is_consumed_without_typing_or_repeated_prompt_and_plain_messages_are_
     assert_eq!(a.input.text, "typed");
     for (kind, message) in [
         (
-            "mic-permission",
+            Kind::MicPermission,
             "Allow microphone access for your terminal in System Settings → Privacy & Security → Microphone.",
         ),
-        ("mic-busy", "Microphone is in use by another app."),
-        ("mic-unavailable", "No microphone found."),
+        (Kind::MicBusy, "Microphone is in use by another app."),
+        (Kind::MicUnavailable, "No microphone found."),
         (
-            "install",
+            Kind::Install,
             "Voice install failed: registry unavailable. Press the voice key to retry.",
         ),
     ] {
@@ -789,7 +789,7 @@ fn decline_is_consumed_without_typing_or_repeated_prompt_and_plain_messages_are_
             &fake,
             Event::Error {
                 take: None,
-                kind: kind.into(),
+                kind,
                 message: message.into(),
             },
         );

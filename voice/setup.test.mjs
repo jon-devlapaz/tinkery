@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, stat, utimes, readdir, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PACKAGES, MODEL_FILE, voicePaths, installVoice, installationRequirement, readVoiceConfig, findVoiceModel, discoverVoice, downloadVoiceModel, shortReason, runVoiceNpm } from './setup.mjs';
+import { KINDS, issue, PACKAGES, MODEL_FILE, voicePaths, installVoice, installationRequirement, readVoiceConfig, findVoiceModel, discoverVoice, downloadVoiceModel, shortReason, runVoiceNpm } from './setup.mjs';
 
 async function fixture() { return voicePaths(await mkdtemp(join(tmpdir(), 'tinkery-TEST-owned-')), {}); }
 async function fakeNpm(paths) {
@@ -111,4 +111,9 @@ test('voice helper and voice-owned Rust have no former dependency strings or fil
 test('technical install reasons are one line and bounded', () => {
   assert.equal(shortReason(new Error('registry\nfailed\x1b')), 'registry failed');
   assert.equal(shortReason(new Error('x'.repeat(200))).length, 100);
+});
+
+test('failures carry only a listed kind', () => {
+  for (const kind of KINDS) assert.equal(issue(kind, 'TEST').kind, kind);
+  assert.throws(() => issue('mic', 'TEST'), /Unknown voice failure kind: mic/);
 });
