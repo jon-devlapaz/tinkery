@@ -3,6 +3,7 @@
 
 pub(crate) mod connection;
 pub(crate) mod connection_save;
+pub(crate) mod files;
 pub mod ledger;
 pub mod migration;
 pub mod ready;

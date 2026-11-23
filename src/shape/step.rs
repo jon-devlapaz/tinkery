@@ -847,7 +847,7 @@ fn look(
             )
             .map_err(reply_refused)?;
             let seed = crate::regular_file::read_text(
-                &session.join("seed-contract.md"),
+                &session.join(crate::seed_me::files::SEED),
                 "not a regular file",
             )
             .map_err(|_| {

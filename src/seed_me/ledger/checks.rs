@@ -1,14 +1,13 @@
 //! Acceptance records own their rendered section; commands remain inert data, never executions.
 
 use super::{
-    Result, Value,
-    python::{text, whitespace},
-    require,
+    Result, Value, require,
+    text::{text, whitespace},
 };
 use regex::Regex;
 use std::path::Path;
 
-pub(super) const FILE: &str = "seed-checks.json";
+use crate::seed_me::files::CHECKS as FILE;
 
 /// Refuse unknown fields, blank values and non-relative working directories without coercion.
 pub fn validate_checks(records: &Value) -> Result<()> {

@@ -11,11 +11,11 @@ pub(super) const UNAVAILABLE: &str =
     "Links couldn't be read, so nothing changed. F1 then h for details.";
 
 impl Tend {
-    pub(crate) fn is_linking(&self) -> bool {
+    pub(super) fn is_linking(&self) -> bool {
         self.linking.is_some()
     }
 
-    pub(crate) fn start_link(&mut self) {
+    pub(super) fn start_link(&mut self) {
         if !self.garden_showing() || self.linking.is_some() {
             return;
         }
@@ -39,7 +39,7 @@ impl Tend {
         self.linking = self.current().map(|s| s.path.clone());
     }
 
-    pub(crate) fn cancel_link(&mut self) {
+    pub(super) fn cancel_link(&mut self) {
         if let Some(path) = self.linking.take() {
             if let Some(index) = self.sessions.iter().position(|s| s.path == path) {
                 self.selected = index;
@@ -72,7 +72,7 @@ impl Tend {
         })
     }
 
-    pub(crate) fn commit_link(&mut self) {
+    pub(super) fn commit_link(&mut self) {
         let Some(source) = self.source() else { return };
         let Some(target) = self.current() else { return };
         if source.path == target.path {
