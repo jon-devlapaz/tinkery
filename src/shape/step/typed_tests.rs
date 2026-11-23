@@ -10,7 +10,7 @@ fn run(
     cancelled: &AtomicBool,
     saved: &AtomicBool,
 ) -> Result<Done, Failure> {
-    Steps::screen(Some(agent)).run(work, session, cancelled, saved)
+    Steps::new(Some(agent), &GoalConfirmation::default()).run(work, session, cancelled, saved)
 }
 
 /// Why a seed reply's completion review is unusable; decoding leaves that to the check rules.

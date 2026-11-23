@@ -18,6 +18,7 @@ use std::{
 use crate::{
     Palette, approve,
     data_roots::DataRoots,
+    launch::Launch,
     measure, sdlc, seed_me,
     shape::{Leave, Shape},
     taste::Taste,
@@ -44,7 +45,8 @@ const ROW_GAP: u16 = 2;
 pub struct Home {
     /// The operator chose to leave Tinkery; the terminal loop stops after this tick.
     pub quit: bool,
-    make_dump: Box<dyn Fn() -> BrainDump>,
+    /// The one resolved launch every place opens from.
+    launch: Launch,
     sessions_root: Option<PathBuf>,
     link_root: Result<PathBuf, String>,
     selected: Place,
@@ -55,20 +57,10 @@ pub struct Home {
     receipts: Vec<seed_me::ExitReceipt>,
     discovery: Discovery,
     record_root: Result<PathBuf, String>,
-    repo: Option<crate::repo::Repo>,
-    shape_agent: Option<Arc<crate::shape::Agent>>,
-    sdlc_root: Option<PathBuf>,
-    codex_report: Option<crate::watch::CodexReport>,
-    /// An agent launch without --shape-pi: Shape only reads.
-    shape_held: bool,
-    /// Launched with `--operator agent`; Taste then refuses the operator's labels.
-    agent: bool,
     approve_reader: approve::Reader,
     approve_origin: Option<ApproveOrigin>,
     /// `m` on the menu asked for the Model panel, which the launch owns.
     model_request: bool,
-    worker_config: Option<crate::worker::Config>,
-    worker_authorization: Result<Option<crate::worker::Relay>, String>,
     worker_panel: Option<worker::Panel>,
     quit_after_worker: bool,
     thought_saved: Option<(String, bool)>,
@@ -96,22 +88,22 @@ struct ApproveOrigin {
 }
 
 impl Home {
-    /// A menu on its first row. `make_dump` makes a fresh think each time think is opened;
+    /// A menu on its first row, for `launch`. Each Think visit is a fresh one from the launch;
     /// tend reads the sessions root or shows its refusal without scanning. Think records and
-    /// Tend's stores use the other `roots` (or their refusals).
-    pub fn new(make_dump: Box<dyn Fn() -> BrainDump>, roots: DataRoots) -> Self {
+    /// Tend's stores use the launch's other roots (or their refusals).
+    pub fn new(launch: Launch) -> Self {
         let DataRoots {
             sessions,
             records,
             tend,
-        } = roots;
+        } = launch.roots.clone();
         let (sessions_root, discovery) = match sessions {
             Ok(root) => (Some(root), Discovery::new(Arc::new(tend::scan))),
             Err(reason) => (None, Discovery::unavailable(reason)),
         };
         Self {
             quit: false,
-            make_dump,
+            launch,
             sessions_root,
             link_root: tend,
             selected: Place::Think,
@@ -121,51 +113,13 @@ impl Home {
             receipts: Vec::new(),
             discovery,
             record_root: records,
-            repo: None,
-            shape_agent: None,
-            sdlc_root: None,
-            codex_report: None,
-            shape_held: false,
-            agent: false,
             approve_reader: approve::Reader::default(),
             approve_origin: None,
             model_request: false,
-            worker_config: None,
-            worker_authorization: Ok(None),
             worker_panel: None,
             quit_after_worker: false,
             thought_saved: None,
         }
-    }
-
-    /// The model Shape answers and drafts through; without one, Shape only reads. Starts nothing.
-    pub fn with_shape_agent(mut self, agent: Option<Arc<crate::shape::Agent>>) -> Self {
-        self.shape_agent = agent;
-        self
-    }
-
-    /// Override the launch project for Approve and Watch, and select the checkout for Taste.
-    pub fn with_sdlc_root(mut self, root: Option<PathBuf>) -> Self {
-        self.sdlc_root = root;
-        self
-    }
-
-    /// Show one explicitly bound saved Codex report in Watch; it grants no execution authority.
-    pub fn with_codex_report(mut self, report: Option<crate::watch::CodexReport>) -> Self {
-        self.codex_report = report;
-        self
-    }
-
-    /// An agent launch without named context only reads; see [`Shape::held`].
-    pub fn with_shape_held(mut self, held: bool) -> Self {
-        self.shape_held = held;
-        self
-    }
-
-    /// An `--operator agent` launch: places that record the operator's own words refuse it.
-    pub fn with_agent_operator(mut self, agent: bool) -> Self {
-        self.agent = agent;
-        self
     }
 
     /// Replace the reader for a selected root; never override a root refusal.
@@ -176,33 +130,17 @@ impl Home {
         self
     }
 
-    /// The repository Tinkery was started in, named once on the menu; `None` shows nothing.
-    pub fn with_repo(mut self, repo: Option<crate::repo::Repo>) -> Self {
-        self.repo = repo;
-        self
-    }
-
-    /// The menu think returns to after saving a goal when it was launched on its own. The
-    /// receipt and captured links destination carry over; `open_tend` opens the saved session.
+    /// The menu think returns to after saving a goal when it was launched on its own: the same
+    /// `launch`, so Shape keeps its agent, its hold and its attribution. The receipt carries
+    /// over; `open_tend` opens the saved session.
     pub fn from_receipt(
         mut dump: BrainDump,
         session: &Path,
         open_tend: bool,
-        roots: DataRoots,
-        shape_agent: Option<Arc<crate::shape::Agent>>,
+        launch: Launch,
     ) -> Self {
-        let roots = DataRoots {
-            sessions: session
-                .parent()
-                .map_or(roots.sessions, |path| Ok(path.to_path_buf())),
-            records: dump
-                .record_root()
-                .map_or(roots.records, |root| Ok(root.to_path_buf())),
-            tend: roots.tend,
-        };
-        let mut home = Self::new(dump.fresh_factory(), roots).with_shape_agent(shape_agent);
+        let mut home = Self::new(launch);
         home.key_bar = dump.key_bar_on();
-        home.repo = dump.repo().cloned();
         if let Some(receipt) = dump.finish_handoff() {
             home.receipts.push(receipt);
         }
@@ -210,6 +148,24 @@ impl Home {
             home.open_tend_session(session);
         }
         home
+    }
+
+    /// `shape` for this launch: its drafting agent, its hold and its attribution.
+    fn shape(&self, shape: Shape) -> Shape {
+        let launch = &self.launch;
+        shape.launched(
+            launch.shape_agent.clone(),
+            &launch.confirmation,
+            launch.agent,
+        )
+    }
+
+    /// A fresh Think visit, keeping the key bar choice and saving thoughts to Tend's store.
+    fn think(&self) -> BrainDump {
+        self.launch
+            .think()
+            .with_key_bar(self.key_bar)
+            .with_thoughts(self.link_root.clone(), self.launch.repo.clone())
     }
 
     /// Advances time: keeps the session scan moving and tend's wait notice current. Never
@@ -244,9 +200,7 @@ impl Home {
         if let View::Tend(tend) = &mut self.view
             && let Some(receipt) = tend.poll(&self.discovery, now)
         {
-            let shape = Shape::session(&receipt.session)
-                .with_agent(self.shape_agent.clone())
-                .held(self.shape_held);
+            let shape = self.shape(Shape::session(&receipt.session));
             self.shape_from_tend(shape);
             self.receipts.push(seed_me::ExitReceipt::Saved {
                 receipt,
@@ -336,7 +290,7 @@ impl Home {
                 reasons,
                 &mut self.approve_reader,
                 self.record_root.clone(),
-                self.worker_config.as_ref().map(|config| config.responses),
+                self.launch.worker.as_ref().map(|config| config.responses),
             );
         }
     }
@@ -355,7 +309,10 @@ impl Home {
 
     fn request_sessions(&mut self) {
         self.discovery.scope_to_repo(
-            self.repo.as_ref().map(|repo| repo.root().to_path_buf()),
+            self.launch
+                .repo
+                .as_ref()
+                .map(|repo| repo.root().to_path_buf()),
             self.record_root.clone(),
         );
         if let Some(root) = &self.sessions_root {
@@ -437,8 +394,8 @@ impl Home {
     }
 
     fn approve_watch_root(&self) -> Option<PathBuf> {
-        self.sdlc_root.clone().or_else(|| {
-            let root = self.repo.as_ref()?.root();
+        self.launch.sdlc_root.clone().or_else(|| {
+            let root = self.launch.repo.as_ref()?.root();
             sdlc::installed(root).then(|| root.to_path_buf())
         })
     }
@@ -453,11 +410,7 @@ impl Home {
         self.selected = place;
         self.help = false;
         self.view = match place {
-            Place::Think => View::Think(Box::new(
-                (self.make_dump)()
-                    .with_key_bar(self.key_bar)
-                    .with_thoughts(self.link_root.clone(), self.repo.clone()),
-            )),
+            Place::Think => View::Think(Box::new(self.think())),
             Place::Tend => {
                 // Deliberate reopening reads again; the last result shows meanwhile.
                 self.request_sessions();
@@ -466,8 +419,13 @@ impl Home {
                     self.record_root.clone(),
                     self.link_root.clone(),
                 );
-                let repo = self.repo.as_ref().map(|repo| repo.root().to_path_buf());
-                let (shape_agent, agent) = (self.shape_agent.clone(), self.agent);
+                let repo = self
+                    .launch
+                    .repo
+                    .as_ref()
+                    .map(|repo| repo.root().to_path_buf());
+                let shape_agent = self.launch.shape_agent.clone();
+                let actor = self.launch.confirmation.clone().tend_save();
                 let connect: tend::Connect = Box::new(move || {
                     let sessions = sessions
                         .clone()
@@ -477,24 +435,18 @@ impl Home {
                     let repo = repo
                         .clone()
                         .ok_or("Open Tinkery inside a repository first.")?;
-                    let drafting = shape_agent.as_ref().map(|agent| agent.drafting());
-                    let actor = drafting
-                        .as_ref()
-                        .and_then(|(_, _, actor)| actor.clone())
-                        .unwrap_or_else(|| crate::confirmation::GoalConfirmation::launched(agent))
-                        .tend_save();
                     Ok(tend::connection::Context {
                         sessions,
                         records,
                         store,
                         repo,
-                        call: drafting.map(|(call, budget, _)| (call, budget)),
-                        actor,
+                        call: shape_agent.as_ref().map(|agent| agent.drafting()),
+                        actor: actor.clone(),
                     })
                 });
                 let mut tend = Tend::new(
                     self.link_root.clone(),
-                    self.repo.as_ref().map(|repo| repo.root()),
+                    self.launch.repo.as_ref().map(|repo| repo.root()),
                     self.record_root.clone(),
                     connect,
                 );
@@ -505,24 +457,23 @@ impl Home {
             }
             Place::Shape => {
                 self.request_sessions();
-                View::Shape(
-                    Box::new(
-                        Shape::list()
-                            .with_agent(self.shape_agent.clone())
-                            .held(self.shape_held),
-                    ),
-                    None,
-                )
+                View::Shape(Box::new(self.shape(Shape::list())), None)
             }
             Place::Approve => {
                 self.request_sessions();
                 View::Approve(Box::new(approve::Approve::open(self.approve_watch_root())))
             }
             Place::Watch => View::Watch(Box::new(
-                Watch::open(self.approve_watch_root()).with_codex_report(self.codex_report.clone()),
+                Watch::open(self.approve_watch_root())
+                    .with_codex_report(self.launch.codex_report.clone()),
             )),
-            Place::Taste => View::Taste(Box::new(Taste::open(self.sdlc_root.clone(), self.agent))),
-            Place::Measure => View::Measure(Box::new(measure::Measure::open(self.repo.clone()))),
+            Place::Taste => View::Taste(Box::new(Taste::open(
+                self.launch.sdlc_root.clone(),
+                self.launch.agent,
+            ))),
+            Place::Measure => {
+                View::Measure(Box::new(measure::Measure::open(self.launch.repo.clone())))
+            }
         };
         if let View::Tend(tend) = &mut self.view {
             tend.offer(&self.discovery);
@@ -561,7 +512,7 @@ impl Home {
             self.worker_panel = Some(worker::Panel::review(
                 review,
                 self.record_root.clone(),
-                self.worker_config.clone(),
+                self.launch.worker.clone(),
                 self.worker_gate(),
             ));
         }
@@ -596,7 +547,7 @@ impl Home {
                         View::Watch(Box::new(Watch::open(Some(root))))
                     }
                     worker::Destination::Taste(root) => {
-                        View::Taste(Box::new(Taste::open(Some(root), self.agent)))
+                        View::Taste(Box::new(Taste::open(Some(root), self.launch.agent)))
                     }
                 };
             }
@@ -624,17 +575,13 @@ impl Home {
                 }
                 tend::Next::Think(None) => self.open(Place::Think),
                 tend::Next::Think(Some(words)) => {
-                    let mut dump = (self.make_dump)()
-                        .with_key_bar(self.key_bar)
-                        .with_thoughts(self.link_root.clone(), self.repo.clone());
+                    let mut dump = self.think();
                     dump.paste(&words);
                     self.help = false;
                     self.view = View::Think(Box::new(dump));
                 }
                 tend::Next::Shape(path) => {
-                    let shape = Shape::session(&path)
-                        .with_agent(self.shape_agent.clone())
-                        .held(self.shape_held);
+                    let shape = self.shape(Shape::session(&path));
                     self.shape_from_tend(shape);
                 }
             }
@@ -934,7 +881,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         View::Think(_) => unreachable!(),
     };
     let mut title = vec![Span::styled(title, palette.ink)];
-    if let (View::Menu, Some(repo)) = (&home.view, &home.repo) {
+    if let (View::Menu, Some(repo)) = (&home.view, &home.launch.repo) {
         title.push(Span::styled(format!("  in {}", repo.name()), palette.muted));
     }
     frame.render_widget(
@@ -967,7 +914,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
         return;
     }
     if let View::Retry(view, _) = &mut home.view {
-        view.render(frame, body, palette, !home.agent, home.help);
+        view.render(frame, body, palette, !home.launch.agent, home.help);
         return;
     }
     if let View::Approve(view) = &mut home.view {
@@ -1157,14 +1104,11 @@ mod tests {
     }
 
     fn home(root: &Path) -> Home {
-        Home::new(
-            Box::new(BrainDump::default),
-            DataRoots {
-                sessions: Ok(root.to_path_buf()),
-                tend: Ok(root.join("TEST-links")),
-                ..DataRoots::from_env()
-            },
-        )
+        Home::new(Launch::practice(DataRoots {
+            sessions: Ok(root.to_path_buf()),
+            tend: Ok(root.join("TEST-links")),
+            ..DataRoots::from_home(None)
+        }))
     }
 
     /// Tick until the read that was asked for has landed (bounded).
@@ -1449,11 +1393,11 @@ mod tests {
                     dump,
                     &saved,
                     false,
-                    DataRoots {
+                    Launch::practice(DataRoots {
+                        sessions: Ok(tmp.path().to_path_buf()),
                         tend: Ok(tmp.path().join("TEST-links")),
-                        ..DataRoots::from_env()
-                    },
-                    None,
+                        ..DataRoots::from_home(None)
+                    }),
                 );
                 let screen = snapshot(width, height, &mut h, no_color).unwrap();
                 assert_eq!(screen.lines().nth(19).unwrap().trim(), "Saved.");

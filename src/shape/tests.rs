@@ -1,5 +1,5 @@
 use super::*;
-use crate::confirmation::Actor;
+use crate::confirmation::{Actor, GoalConfirmation};
 use crate::seed_me::ledger::fixtures::prose_reply;
 use crossterm::event::KeyModifiers;
 use shaping::{Decided, Shaped, Shaping};
@@ -1487,6 +1487,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
         },
         receipt.session.clone(),
         Some(agent.clone()),
+        GoalConfirmation::default(),
     );
     let deadline = Instant::now() + Duration::from_secs(20);
     let result = loop {
@@ -1622,6 +1623,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
         },
         receipt.session.clone(),
         Some(agent.clone()),
+        GoalConfirmation::default(),
     );
     let deadline = Instant::now() + Duration::from_secs(20);
     let result = loop {
@@ -1983,6 +1985,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
         },
         receipt.session.clone(),
         Some(agent.clone()),
+        GoalConfirmation::default(),
     );
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
@@ -2251,7 +2254,12 @@ else:
             folder: temp.path().into(),
         },
     };
-    let running = step::Running::start(work, receipt.session.clone(), Some(agent.clone()));
+    let running = step::Running::start(
+        work,
+        receipt.session.clone(),
+        Some(agent.clone()),
+        GoalConfirmation::default(),
+    );
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
         if let Some(result) = running.poll() {
@@ -2376,6 +2384,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
         },
         receipt.session.clone(),
         Some(agent.clone()),
+        GoalConfirmation::default(),
     );
     let until = Instant::now() + Duration::from_secs(20);
     loop {
@@ -3636,6 +3645,7 @@ fn the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model
         },
         session.clone(),
         Some(agent.clone()),
+        GoalConfirmation::default(),
     );
     let deadline = Instant::now() + Duration::from_secs(20);
     let result = loop {
@@ -3795,7 +3805,12 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
         .unwrap(),
     );
     let step = |work| {
-        let running = step::Running::start(work, session.clone(), Some(agent.clone()));
+        let running = step::Running::start(
+            work,
+            session.clone(),
+            Some(agent.clone()),
+            GoalConfirmation::default(),
+        );
         let deadline = Instant::now() + Duration::from_secs(20);
         loop {
             if let Some(result) = running.poll() {

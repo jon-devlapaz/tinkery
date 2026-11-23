@@ -175,10 +175,6 @@ impl BrainDump {
     pub(super) fn records(&self) -> bool {
         self.handoff.record_root.is_some()
     }
-    /// The configured record folder, for reading saved history after leaving this visit.
-    pub(crate) fn record_root(&self) -> Option<&Path> {
-        self.handoff.record_root.as_deref()
-    }
     /// The written record's path and any lost-context reason, or why it wasn't written.
     /// `None` before a save or when no record folder is set.
     pub(super) fn record_line(&self) -> Option<String> {

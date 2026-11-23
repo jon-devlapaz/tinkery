@@ -16,25 +16,29 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-pub use crate::pi::Harness;
+use crate::pi::Harness;
 pub use panel::Controls;
 
 /// The per-launch drafting allowances the panel offers, in model responses. Zero is practice.
 pub const CALLS: [usize; 4] = [0, 10, 25, 50];
 
-/// A checked model setup. With calls it drafts with `model`; with none it is practice.
+/// The thinking level a setup uses when neither the file nor a flag names one.
+const DEFAULT_THINKING: &str = "low";
+
+/// A checked model setup. With calls it drafts with `model`; with none it is practice. Only
+/// [`Setup::new`] and the file make one, so every value holds the harness's own rules.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Setup {
     /// Which program drafts; a file without one means Pi.
     #[serde(default)]
-    pub harness: Harness,
+    harness: Harness,
     /// A model the harness accepts, or empty when no model is chosen.
-    pub model: String,
+    model: String,
     /// One of the harness's thinking levels.
-    pub thinking: String,
+    thinking: String,
     /// Drafting model responses each launch allows, shared by Think and Shape; the stored key stays `calls`.
-    pub calls: usize,
+    calls: usize,
 }
 
 impl Setup {
@@ -66,9 +70,35 @@ impl Setup {
         Self {
             harness: Harness::Pi,
             model: String::new(),
-            thinking: "low".into(),
+            thinking: DEFAULT_THINKING.into(),
             calls: 0,
         }
+    }
+
+    /// The same setup for an agent operator: it never inherits the operator's saved responses,
+    /// so its allowance is `--shape-budget` alone.
+    pub fn for_agent(self) -> Self {
+        Self { calls: 0, ..self }
+    }
+
+    /// Which program drafts.
+    pub fn harness(&self) -> Harness {
+        self.harness
+    }
+
+    /// The model the harness drafts with; empty when none is chosen.
+    pub fn model(&self) -> &str {
+        &self.model
+    }
+
+    /// The harness's thinking level.
+    pub fn thinking(&self) -> &str {
+        &self.thinking
+    }
+
+    /// Drafting model responses this setup allows.
+    pub fn calls(&self) -> usize {
+        self.calls
     }
 
     /// The setup this launch drafts with, or `None` for practice. `--shape-pi` (`live`) drafts
@@ -98,7 +128,7 @@ impl Setup {
             })?;
         let thinking = thinking
             .or_else(|| same.map(|s| s.thinking.clone()))
-            .unwrap_or_else(|| "low".into());
+            .unwrap_or_else(|| DEFAULT_THINKING.into());
         let calls = calls.or(saved.map(|s| s.calls)).unwrap_or(0);
         Self::new(harness, model, thinking, calls).map(Some)
     }

@@ -6,11 +6,11 @@ use super::*;
 fn run(
     work: &Work,
     session: &Path,
-    agent: &Agent,
+    (agent, confirmation): (&Agent, &GoalConfirmation),
     cancelled: &AtomicBool,
     saved: &AtomicBool,
 ) -> Result<Done, Failure> {
-    Steps::screen(Some(agent)).run(work, session, cancelled, saved)
+    Steps::new(Some(agent), confirmation).run(work, session, cancelled, saved)
 }
 
 const UNKNOWN: &str = "This investigation has not established whether the operator expects tally to guarantee read-only behavior for input files.";
@@ -124,8 +124,7 @@ print(json.dumps(reply))
         CallBudget::new(if question_first { 2 } else { 1 }),
         None,
     )
-    .unwrap()
-    .with_confirmation(Some(confirmation));
+    .unwrap();
     let cancelled = AtomicBool::new(false);
     let result = run(
         &Work::Answer {
@@ -136,7 +135,7 @@ print(json.dumps(reply))
             folder: root.path().into(),
         },
         &session,
-        &agent,
+        (&agent, &confirmation),
         &cancelled,
         &AtomicBool::new(false),
     );
@@ -164,7 +163,7 @@ print(json.dumps(reply))
                     folder: root.path().into()
                 },
                 &session,
-                &agent,
+                (&agent, &confirmation),
                 &cancelled,
                 &AtomicBool::new(false)
             ),

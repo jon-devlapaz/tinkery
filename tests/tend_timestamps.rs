@@ -9,6 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tinkery::data_roots::DataRoots;
+use tinkery::launch::Launch;
 use tinkery::{
     menu::{Home, snapshot},
     tend::scan,
@@ -129,14 +130,11 @@ fn public_order_and_age_preserve_offsets_calendar_boundaries_and_rfc_3339_syntax
         }
     }
     for size in [(80, 24), (100, 30)] {
-        let mut home = Home::new(
-            Box::new(Default::default),
-            DataRoots {
-                sessions: Ok(sessions.clone()),
-                records: Ok(dir.path().join("records")),
-                tend: Ok(dir.path().join("links")),
-            },
-        );
+        let mut home = Home::new(Launch::practice(DataRoots {
+            sessions: Ok(sessions.clone()),
+            records: Ok(dir.path().join("records")),
+            tend: Ok(dir.path().join("links")),
+        }));
         home.open(tinkery::menu::Place::Tend);
         let deadline = Instant::now() + Duration::from_secs(5);
         while home.count(tinkery::menu::Place::Tend).is_none() {

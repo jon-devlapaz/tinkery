@@ -4,14 +4,18 @@ use super::*;
 use crate::data_roots::DataRoots;
 
 fn home(root: &Path) -> Home {
-    let mut home = Home::new(
-        Box::new(BrainDump::default),
-        DataRoots {
+    home_in(root, None)
+}
+
+fn home_in(root: &Path, repo: Option<crate::repo::Repo>) -> Home {
+    let mut home = Home::new(Launch {
+        repo,
+        ..Launch::practice(DataRoots {
             sessions: Ok(root.join("TEST-sessions")),
             tend: Ok(root.join("TEST-links")),
-            ..DataRoots::from_env()
-        },
-    );
+            ..DataRoots::from_home(None)
+        })
+    });
     home.open(Place::Measure);
     home
 }
@@ -25,7 +29,7 @@ fn measure_names_the_repo_once_in_its_heading() {
     let root = tempfile::tempdir().unwrap();
     let repo = root.path().join("TEST-measure-header");
     std::fs::create_dir_all(repo.join(".git")).unwrap();
-    let mut h = home(root.path()).with_repo(crate::repo::Repo::enclosing(&repo));
+    let mut h = home_in(root.path(), crate::repo::Repo::enclosing(&repo));
     h.open(Place::Measure);
     let text = snapshot(80, 24, &mut h, true).unwrap();
     assert!(text.contains("measure · TEST-measure-header"), "{text}");

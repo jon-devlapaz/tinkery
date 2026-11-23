@@ -9,6 +9,7 @@ use std::{
     time::Duration,
 };
 use tinkery::data_roots::DataRoots;
+use tinkery::launch::Launch;
 use tinkery::{
     Palette,
     menu::{Home, render},
@@ -67,14 +68,11 @@ fn public_refresh_updates_labels_and_links_but_keeps_an_unchanged_view() {
     }));
     let source = found.clone();
     let links = dir.path().join("TEST-links");
-    let mut home = Home::new(
-        Box::new(Default::default),
-        DataRoots {
-            sessions: Ok(dir.path().join("sessions")),
-            records: Ok(dir.path().join("records")),
-            tend: Ok(links.clone()),
-        },
-    )
+    let mut home = Home::new(Launch::practice(DataRoots {
+        sessions: Ok(dir.path().join("sessions")),
+        records: Ok(dir.path().join("records")),
+        tend: Ok(links.clone()),
+    }))
     .with_discovery_source(Arc::new(move |_| Ok(source.lock().unwrap().clone())));
     home.open(tinkery::menu::Place::Tend);
     refresh(&mut home);

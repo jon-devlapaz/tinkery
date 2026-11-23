@@ -27,6 +27,7 @@ mod calendar;
 pub mod confirmation;
 pub mod data_roots;
 pub mod goal;
+pub mod launch;
 pub mod measure;
 pub mod menu;
 pub mod model_setup;

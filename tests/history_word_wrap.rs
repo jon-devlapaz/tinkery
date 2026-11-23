@@ -9,6 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tinkery::data_roots::DataRoots;
+use tinkery::launch::Launch;
 use tinkery::{
     Palette,
     menu::{Home, render},
@@ -72,14 +73,11 @@ fn fixture(original: &str, size: (u16, u16)) -> Fixture {
     )
     .unwrap();
     let bytes = (fs::read(&ledger).unwrap(), fs::read(&record).unwrap());
-    let mut home = Home::new(
-        Box::new(Default::default),
-        DataRoots {
-            sessions: Ok(session.parent().unwrap().to_owned()),
-            records: Ok(records),
-            tend: Ok(dir.path().join("links")),
-        },
-    );
+    let mut home = Home::new(Launch::practice(DataRoots {
+        sessions: Ok(session.parent().unwrap().to_owned()),
+        records: Ok(records),
+        tend: Ok(dir.path().join("links")),
+    }));
     home.open(tinkery::menu::Place::Tend);
     let deadline = Instant::now() + Duration::from_secs(5);
     while home.count(tinkery::menu::Place::Tend).is_none() {
