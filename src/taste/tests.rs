@@ -1,5 +1,5 @@
 use super::*;
-use read::{Check, Item};
+use read::{Check, Gate, Item, Owner};
 
 fn row() -> ResultRow {
     ResultRow {
@@ -21,12 +21,18 @@ fn row() -> ResultRow {
         items: vec![Item {
             label: "TEST check".into(),
             state: Check::Pending,
-            kind: "automated".into(),
+            owner: Owner::Automated,
             evidence: "TEST evidence".into(),
         }],
         gates: vec![
-            "re-approve the plan".into(),
-            "confirm no clinical claims".into(),
+            Gate::Stage {
+                stage: crate::sdlc::Stage::Plan,
+                status: crate::sdlc::GateStatus::Stale,
+            },
+            Gate::Attestation {
+                label: "confirm no clinical claims".into(),
+                recheck: false,
+            },
         ],
         gaps: Vec::new(),
         verification_failed: false,
@@ -147,7 +153,7 @@ fn exact_goal_survives_display_and_both_handoffs_without_a_verdict() {
     for line in goal.split('\n') {
         assert!(visible.contains(line));
     }
-    for action in ['a', 'c'] {
+    for action in [Ask::Acceptance, Ask::Correction] {
         let copy = handoff(&row, action).unwrap();
         assert!(copy.contains(goal) && copy.contains(&"a".repeat(40)));
         assert!(copy.contains("Recheck current PR head, inputs and receipts"));
@@ -185,10 +191,10 @@ fn unknown_goal_or_result_refuses_copy_and_navigation_starts_nothing() {
     }
     taste.rows[0] = row();
     taste.rows[0].head = None;
-    assert!(handoff(&taste.rows[0], 'c').is_err());
+    assert!(handoff(&taste.rows[0], Ask::Correction).is_err());
     taste.rows[0].head = Some("a".repeat(40));
     taste.rows[0].url = Err(links::UNKNOWN_RUN);
-    assert!(handoff(&taste.rows[0], 'a').is_err());
+    assert!(handoff(&taste.rows[0], Ask::Acceptance).is_err());
 }
 
 #[test]
@@ -254,7 +260,8 @@ fn list_uses_counts_and_detail_keeps_every_source_word_with_evidence_behind_e() 
         .collect();
         taste.rows[0].gaps = vec!["TEST gap /TEST/source; argv: TEST-gap-command".into()];
         let full = result_lines(&taste.rows[0]).join("\n");
-        let copies = ['a', 'c'].map(|action| handoff(&taste.rows[0], action).unwrap());
+        let copies = [Ask::Acceptance, Ask::Correction]
+            .map(|action| handoff(&taste.rows[0], action).unwrap());
         let list = screen(&mut taste, w, h);
         for visible in [
             "TEST café",
@@ -504,7 +511,10 @@ fn next_suggestion_preserves_source_punctuation_without_adding_another_stop() {
             assert!(pause.draft.text.ends_with(goal(&r.goal)));
         }
         r.items[0].state = Check::Pass;
-        r.gates.push(label.into());
+        r.gates.push(Gate::Attestation {
+            label: label.into(),
+            recheck: false,
+        });
         let pause = next::suggest(&r);
         assert_eq!(
             pause.next,
@@ -514,7 +524,7 @@ fn next_suggestion_preserves_source_punctuation_without_adding_another_stop() {
             pause.draft.text.lines().next().unwrap(),
             format!("Resolve the owed action: {sentence}")
         );
-        assert_eq!(r.gates[0], label);
+        assert_eq!(r.gates_owed(), label);
     }
 }
 
@@ -549,7 +559,7 @@ fn absent_ci_is_unknown_and_never_stop_when_source_checks_pass_and_nothing_is_ow
     r.items.push(Item {
         label: "PR checks".into(),
         state: Check::NoneReported,
-        kind: "GitHub".into(),
+        owner: Owner::GitHub,
         evidence: "No PR-head checks reported".into(),
     });
     let pause = next::suggest(&r);

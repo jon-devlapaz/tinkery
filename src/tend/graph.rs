@@ -1,7 +1,7 @@
 //! Graf adapter: identity-safe topology, static positions, viewport and pointer mechanics.
 //! Tend owns selection policy and linking; this starts no physics worker and writes nothing.
 
-use super::Tend;
+use super::{Entry, Tend};
 use crate::Palette;
 use crate::clipped;
 use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
@@ -20,19 +20,20 @@ use ratatui::{
 use std::{collections::HashMap, sync::Arc};
 use unicode_width::UnicodeWidthStr;
 
-type Topology = (Vec<(String, String)>, Vec<(usize, usize)>);
+/// Each graf node keeps its Tend entry and first-line title. Graf's node `i` is slot `i`.
+type Topology = (Vec<(Entry, String)>, Vec<(usize, usize)>);
 
 #[derive(Default)]
 pub(super) struct GraphView {
     topology: Topology,
     pending: Option<Topology>,
-    appearance: Option<(Color, Color, String)>,
+    appearance: Option<(Color, Color, Option<Entry>)>,
     pub(super) state: Option<Arc<RwLock<GraphState>>>,
     mouse: GraphMouseState,
     area: Rect,
-    followed: Option<String>,
+    followed: Option<Entry>,
     pub(super) error: Option<String>,
-    label_hits: Vec<(Rect, String)>,
+    label_hits: Vec<(Rect, Entry)>,
     pointer_offset: Option<(i32, i32)>,
 }
 
@@ -55,35 +56,30 @@ fn settings() -> Settings {
     settings
 }
 
-fn identity(session: &super::Session) -> String {
-    // Debug escaping preserves non-UTF8 path distinctions too.
-    format!("{:?}", session.path)
-}
-
 impl Tend {
     /// Prepare path-bound inputs when sessions, scope or needs links change.
     pub(super) fn prepare_graph(&mut self) {
         let mut nodes: Vec<_> = self
             .sessions
             .iter()
-            .map(|s| (identity(s), s.goal.lines().next().unwrap_or("").to_owned()))
-            .collect();
-        nodes.extend(self.thought_entries().iter().map(|words| {
-            (
-                super::Entry::Thought(words.clone()).graph_id(),
-                words.lines().next().unwrap_or("").to_owned(),
+            .map(|s| (Entry::Goal(s.path.clone()), &s.goal))
+            .chain(
+                self.thought_entries()
+                    .iter()
+                    .map(|words| (Entry::Thought(words.clone()), words)),
             )
-        }));
+            .map(|(entry, words)| (entry, words.lines().next().unwrap_or("").to_owned()))
+            .collect();
         nodes.sort_by(|a, b| a.0.cmp(&b.0));
-        let indices: HashMap<_, _> = nodes
+        let slots: HashMap<_, _> = nodes
             .iter()
             .enumerate()
-            .map(|(i, (id, _))| (id.as_str(), i))
+            .map(|(i, (entry, _))| (entry, i))
             .collect();
         let ids: HashMap<_, _> = self
             .sessions
             .iter()
-            .filter_map(|s| Some((self.ids.id(s)?, indices[identity(s).as_str()])))
+            .filter_map(|s| Some((self.ids.id(s)?, slots[&Entry::Goal(s.path.clone())])))
             .collect();
         let edges = self
             .links
@@ -166,8 +162,9 @@ impl GraphView {
         let specs: Vec<_> = topology
             .0
             .iter()
-            .map(|(id, title)| NodeSpec {
-                id: id.clone(),
+            .enumerate()
+            .map(|(slot, (_, title))| NodeSpec {
+                id: slot.to_string(),
                 title: title.clone(),
                 tags: vec![],
                 folder: String::new(),
@@ -233,7 +230,8 @@ impl GraphView {
         self.label_hits.clear();
     }
 
-    pub(super) fn pointer(&mut self, mut event: MouseEvent) -> Option<String> {
+    /// The entry under a left press, after graf has handled the event.
+    pub(super) fn pointer(&mut self, mut event: MouseEvent) -> Option<Entry> {
         if self.area.is_empty() {
             self.release();
             return None;
@@ -252,14 +250,17 @@ impl GraphView {
         let mut label_node = None;
         if matches!(event.kind, MouseEventKind::Down(MouseButton::Left)) {
             self.pointer_offset = None;
-            if let Some((_, id)) = self
+            if let Some((_, entry)) = self
                 .label_hits
                 .iter()
                 .find(|(rect, _)| rect.contains(Position::new(event.column, event.row)))
             {
                 let state = state.read();
                 let graph = state.simulation.get_graph();
-                if let Some(index) = graph.node_indices().find(|&i| graph[i].data.id == *id) {
+                if let Some(index) = graph
+                    .node_indices()
+                    .find(|i| self.topology.0[i.index()].0 == *entry)
+                {
                     label_node = Some(index);
                     let node = &graph[index];
                     let (x, y) = state.viewport.world_to_screen(
@@ -303,7 +304,7 @@ impl GraphView {
         }
         let guard = state.read();
         let index = guard.selection.primary?;
-        Some(guard.simulation.get_graph()[index].data.id.clone())
+        Some(self.topology.0[index.index()].0.clone())
     }
 
     pub(super) fn release(&mut self) {
@@ -320,8 +321,8 @@ impl GraphView {
         &mut self,
         frame: &mut Frame,
         palette: Palette,
-        selected: &str,
-        source: &str,
+        selected: Option<&Entry>,
+        source: Option<&Entry>,
         linking: bool,
     ) {
         let Some(shared) = self.state.clone() else {
@@ -334,9 +335,14 @@ impl GraphView {
         };
         let mut state = shared.write();
         let graph = state.simulation.get_graph();
-        let selected_index = graph.node_indices().find(|&i| graph[i].data.id == selected);
-        let source_index = graph.node_indices().find(|&i| graph[i].data.id == source);
-        if self.followed.as_deref() != Some(selected) {
+        let slot_of = |entry: Option<&Entry>| {
+            graph
+                .node_indices()
+                .find(|i| Some(&self.topology.0[i.index()].0) == entry)
+        };
+        let selected_index = slot_of(selected);
+        let source_index = slot_of(source);
+        if self.followed.as_ref() != selected {
             if let Some(index) = selected_index {
                 let node = &graph[index];
                 let (x, y) = state.viewport.world_to_screen(
@@ -353,20 +359,20 @@ impl GraphView {
                     state.viewport.center_on_node(x, y);
                 }
             }
-            self.followed = Some(selected.to_owned());
+            self.followed = selected.cloned();
         }
         state.selection.clear();
-        if let Some(index) = source_index.or(selected_index) {
+        let ringed = source_index.or(selected_index);
+        if let Some(index) = ringed {
             state.selection.select_only(index);
         }
         let mut settings = settings();
         settings.visual.colors.node_color = Some(palette.ink.fg.unwrap_or(Color::Reset));
         settings.visual.colors.edge_color = Some(palette.muted.fg.unwrap_or(Color::Reset));
         settings.visual.colors.selection_ring_color = Some(
-            if source.is_empty() && selected.starts_with("thought:") {
-                palette.violet
-            } else {
-                palette.jade
+            match ringed.map(|i| &self.topology.0[i.index()].0) {
+                Some(Entry::Thought(_)) => palette.violet,
+                _ => palette.jade,
             }
             .fg
             .unwrap_or(Color::Reset),
@@ -381,13 +387,13 @@ impl GraphView {
                 self.appearance
                     .as_ref()
                     .is_none_or(|(old_ink, old_jade, old_source)| {
-                        *old_ink != ink || *old_jade != jade || old_source != source
+                        *old_ink != ink || *old_jade != jade || old_source.as_ref() != source
                     });
             if cache.topology_dirty || appearance_changed {
                 cache.rebuild_topology(state.simulation.get_graph(), &settings, &theme, false);
                 let graph = state.simulation.get_graph();
                 for index in graph.node_indices() {
-                    if graph[index].data.id.starts_with("thought:") {
+                    if matches!(self.topology.0[index.index()].0, Entry::Thought(_)) {
                         cache
                             .node_own_color
                             .insert(index, palette.violet.fg.unwrap_or(Color::Reset));
@@ -396,7 +402,7 @@ impl GraphView {
                         cache.node_own_color.insert(index, jade);
                     }
                 }
-                self.appearance = Some((ink, jade, source.to_owned()));
+                self.appearance = Some((ink, jade, source.cloned()));
             }
         }
         draw_graph_view(
@@ -450,8 +456,8 @@ impl GraphView {
         frame: &mut Frame,
         state: &GraphState,
         palette: Palette,
-        source: &str,
-        selected: &str,
+        source: Option<&Entry>,
+        selected: Option<&Entry>,
         linking: bool,
     ) {
         let graph = state.simulation.get_graph();
@@ -467,22 +473,20 @@ impl GraphView {
             )
         };
         let mut nodes: Vec<_> = graph
-            .node_weights()
-            .map(|node| {
+            .node_indices()
+            .map(|index| {
+                let node = &graph[index];
                 let (x, y) = project(f64::from(node.location.x), f64::from(node.location.y));
-                (node, x.round() as i32, y.round() as i32)
+                let entry = &self.topology.0[index.index()].0;
+                (node, entry, x.round() as i32, y.round() as i32)
             })
             .collect();
-        nodes.sort_by_key(|(node, _, _)| {
-            (
-                node.data.id != selected,
-                node.data.id != source,
-                node.data.id.clone(),
-            )
+        nodes.sort_by_key(|&(_, entry, _, _)| {
+            (Some(entry) != selected, Some(entry) != source, entry)
         });
         let mut occupied: Vec<Rect> = Vec::new();
         self.label_hits.clear();
-        for (node, x, y) in nodes {
+        for (node, entry, x, y) in nodes {
             if x < i32::from(self.area.x)
                 || x >= i32::from(self.area.right())
                 || y < i32::from(self.area.y)
@@ -490,11 +494,12 @@ impl GraphView {
             {
                 continue;
             }
-            let thought = node.data.id.starts_with("thought:");
-            let marked = node.data.id == source || !linking && node.data.id == selected;
+            let thought = matches!(entry, Entry::Thought(_));
+            let is_selected = Some(entry) == selected;
+            let marked = Some(entry) == source || !linking && is_selected;
             let prefix = if marked {
                 "› "
-            } else if linking && node.data.id == selected {
+            } else if linking && is_selected {
                 "→ "
             } else {
                 ""
@@ -511,7 +516,7 @@ impl GraphView {
                 } else {
                     [y - 3, y + 2]
                 } {
-                    let row = if node.data.id == selected {
+                    let row = if is_selected {
                         row.clamp(i32::from(self.area.y), i32::from(self.area.bottom() - 1))
                     } else {
                         row
@@ -542,7 +547,7 @@ impl GraphView {
                         rect,
                     );
                     occupied.push(rect);
-                    self.label_hits.push((rect, node.data.id.clone()));
+                    self.label_hits.push((rect, entry.clone()));
                     placed = true;
                     break;
                 }

@@ -1,13 +1,23 @@
 //! One rendering of a confirmed goal, shared by think's review and receipt and tend's detail,
-//! so the person sees the same words, wrapping and scroll behaviour in each place. It draws only;
-//! saving and reading are elsewhere.
+//! so the person sees the same words, wrapping and scroll behaviour in each place, and the one
+//! wording of a run's goal that Taste and Tend show. It draws only; saving and reading are elsewhere.
 
-use crate::Palette;
+use crate::{Palette, seed_me::runs::Goal};
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
     widgets::{Paragraph, Wrap},
 };
+
+/// A run's goal words: the exact saved goal, or the one sentence that says why there is none.
+/// Taste and Tend show the same words; this never guesses a goal from a run's name or prose.
+pub(crate) fn run_goal(goal: &Goal) -> &str {
+    match goal {
+        Goal::Matched(text) => text,
+        Goal::NoSeed => "This run has no confirmed Tink.",
+        Goal::Unknown => "Goal unknown. Tinkery could not verify the original Tink Contract.",
+    }
+}
 
 /// The goal block in ink, with line breaks kept and terminal controls shown by code point.
 pub fn goal_block(body: String, palette: Palette) -> Paragraph<'static> {

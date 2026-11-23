@@ -18,6 +18,7 @@ mod view;
 
 use crate::{
     Palette,
+    goal::confirmed::run_goal as goal,
     process::{self, Task},
     sdlc::DEADLINE,
     seed_me::runs::Goal,
@@ -306,7 +307,7 @@ impl Taste {
             }
             KeyCode::Char('l') if self.reading.is_none() && self.opening.is_none() => {
                 if let Some(row) = self.rows.get(self.selected) {
-                    match handoff(row, 'a') {
+                    match handoff(row, Ask::Acceptance) {
                         Ok(_) => {
                             self.pause = Some(next::suggest(row));
                             self.detail = true;
@@ -353,15 +354,23 @@ impl Taste {
                     self.draft = Some(pause.draft.clone());
                 }
             }
-            KeyCode::Char(action @ ('a' | 'c')) => {
+            KeyCode::Char(key @ ('a' | 'c')) => {
                 self.pause = None;
                 self.draft = None;
                 match self
                     .rows
                     .get(self.selected)
                     .ok_or("Select a result first.")
-                    .and_then(|row| handoff(row, action))
-                {
+                    .and_then(|row| {
+                        handoff(
+                            row,
+                            if key == 'a' {
+                                Ask::Acceptance
+                            } else {
+                                Ask::Correction
+                            },
+                        )
+                    }) {
                     Ok(text) => self.copy = Some(text),
                     Err(why) => self.notice = why.into(),
                 }
@@ -696,14 +705,6 @@ impl Taste {
     }
 }
 
-fn goal(goal: &Goal) -> &str {
-    match goal {
-        Goal::Matched(text) => text,
-        Goal::NoSeed => "This run has no confirmed Tink.",
-        Goal::Unknown => "Goal unknown. Tinkery could not verify the original Tink Contract.",
-    }
-}
-
 #[cfg(test)]
 fn result_lines(row: &ResultRow) -> Vec<String> {
     view::review(row, None, None, u16::MAX, Palette::new(true), false)
@@ -713,7 +714,14 @@ fn result_lines(row: &ResultRow) -> Vec<String> {
         .collect()
 }
 
-fn handoff(row: &ResultRow, action: char) -> Result<String, &'static str> {
+/// What a copied handoff asks the external reviewer for.
+#[derive(Clone, Copy)]
+enum Ask {
+    Acceptance,
+    Correction,
+}
+
+fn handoff(row: &ResultRow, ask: Ask) -> Result<String, &'static str> {
     if row.local().is_some() {
         return Err("This local result has no PR. Use v to try its declared preview.");
     }
@@ -731,10 +739,9 @@ fn handoff(row: &ResultRow, action: char) -> Result<String, &'static str> {
             "before recording any decision externally. Add the operator's requested changes externally. ",
             "No verdict recorded; copying posts nothing and merges nothing."
         ),
-        if action == 'a' {
-            "Acceptance review"
-        } else {
-            "Correction"
+        match ask {
+            Ask::Acceptance => "Acceptance review",
+            Ask::Correction => "Correction",
         },
         url,
         head,
@@ -744,13 +751,13 @@ fn handoff(row: &ResultRow, action: char) -> Result<String, &'static str> {
         goal(&row.goal),
         row.items
             .iter()
-            .map(|i| format!("{}: {} ({}, {})", i.label, i.state, i.kind, i.evidence))
+            .map(|i| format!("{}: {} ({}, {})", i.label, i.state, i.owner, i.evidence))
             .collect::<Vec<_>>()
             .join("; "),
         if row.receipts_missing {
             read::Check::ReceiptsMissing.to_string()
         } else {
-            row.gates.join("; ")
+            row.gates_owed()
         },
         row.gaps.join("; ")
     ))

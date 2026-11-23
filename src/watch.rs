@@ -19,6 +19,7 @@ use std::{
 };
 
 use crate::Palette;
+use crate::goal::confirmed::run_goal;
 use crate::process::Task;
 use crate::sdlc::{self, DEADLINE, SCRIPT};
 use crate::seed_me::runs::{self, Goal};
@@ -757,7 +758,7 @@ impl Watch {
                             palette.muted,
                         ));
                         if run.goal != Goal::NoSeed && run.state != State::Older {
-                            let first = goal_text(&run.goal).split('\n').next().unwrap_or("");
+                            let first = run_goal(&run.goal).split('\n').next().unwrap_or("");
                             lines.extend(goal_lines(&format!("    {first}"), palette));
                         }
                     } else {
@@ -805,14 +806,6 @@ impl Watch {
             .saturating_sub(body.height as usize)
             .min(u16::MAX as usize) as u16;
         frame.render_widget(paragraph.scroll((scroll, 0)), body);
-    }
-}
-
-fn goal_text(goal: &Goal) -> &str {
-    match goal {
-        Goal::Matched(goal) => goal,
-        Goal::NoSeed => "This run has no confirmed Tink.",
-        Goal::Unknown => "Goal unknown. Tinkery could not verify the original Tink Contract.",
     }
 }
 
@@ -878,7 +871,7 @@ fn detail_text<'a>(slug: &str, detail: &Load<Detail>, palette: Palette) -> Text<
             ));
         }
         Load::Done(Ok(d), _) => {
-            let mut goal = goal_lines(goal_text(&d.goal), palette);
+            let mut goal = goal_lines(run_goal(&d.goal), palette);
             if d.attention.worker != Some(Worker::AtCap) {
                 lines.append(&mut goal);
                 lines.push(Line::default());
