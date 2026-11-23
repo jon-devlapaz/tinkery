@@ -62,10 +62,7 @@ impl BrainDump {
                 (self.screen.source_view + self.conversation.sources().len() - 1)
                     % self.conversation.sources().len()
             };
-            self.screen.source_scroll = 0;
-            self.screen.source_cursor = 0;
-            self.screen.selection = None;
-            self.screen.drag_anchor = None;
+            self.screen.reset_original(true);
             self.screen.show_extractions = false;
             return true;
         }
@@ -188,11 +185,8 @@ impl BrainDump {
                         usize::from(event.row - area.y) + self.screen.source_scroll,
                         event.column - area.x,
                     );
-                self.screen.board_focus = true;
-                self.input.collapse();
-                self.screen.input_drag = false;
+                self.focus_original();
                 self.screen.source_cursor = index;
-                self.screen.selection = None;
                 self.screen.drag_anchor = Some(index);
             }
             MouseEventKind::Drag(MouseButton::Left) | MouseEventKind::Up(MouseButton::Left)

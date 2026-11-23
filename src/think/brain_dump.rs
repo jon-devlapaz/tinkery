@@ -175,6 +175,16 @@ impl Default for Screen {
 }
 
 impl Screen {
+    /// Clears the original's selection and drag; with `to_top`, also returns its view and
+    /// caret to the start.
+    fn reset_original(&mut self, to_top: bool) {
+        if to_top {
+            self.source_scroll = 0;
+            self.source_cursor = 0;
+        }
+        self.selection = None;
+        self.drag_anchor = None;
+    }
     /// Shows `overlay` in place of the one before; a covering panel opens at its top.
     fn show(&mut self, overlay: Overlay) {
         self.overlay = overlay;
@@ -743,11 +753,8 @@ impl BrainDump {
             // unresolved and asked about, so they come into view.
             if staged.addition {
                 self.screen.source_view = self.conversation.sources().len() - 1;
-                self.screen.source_scroll = 0;
-                self.screen.source_cursor = 0;
             }
-            self.screen.selection = None;
-            self.screen.drag_anchor = None;
+            self.screen.reset_original(staged.addition);
             self.input = Note::new("");
             self.screen.input_scroll = 0;
             self.add_more = false;
@@ -794,6 +801,14 @@ impl BrainDump {
             intact_view::title(&fragment.text),
             fragment.text.clone(),
         );
+    }
+    /// Moves the focus from the writing box to the original or its cards, with nothing
+    /// selected or being dragged in either.
+    fn focus_original(&mut self) {
+        self.screen.board_focus = true;
+        self.input.collapse();
+        self.screen.input_drag = false;
+        self.screen.selection = None;
     }
     /// Advances time: lands a finished reading or save and reads voice events. Never blocks.
     pub fn tick(&mut self) {
@@ -1260,10 +1275,7 @@ impl BrainDump {
         if self.screen.show_extractions {
             // Cards take the focus the original had (Enter on a card returns to its
             // source); the hidden original keeps no selection to copy.
-            self.screen.board_focus = true;
-            self.input.collapse();
-            self.screen.input_drag = false;
-            self.screen.selection = None;
+            self.focus_original();
         }
         self.screen.canvas.cancel_gesture();
         self.screen.drag_anchor = None;
@@ -1285,10 +1297,7 @@ impl BrainDump {
             && self.handoff.review().is_none()
             && !self.screen.show_extractions
         {
-            self.screen.board_focus = true;
-            self.input.collapse();
-            self.screen.input_drag = false;
-            self.screen.selection = None;
+            self.focus_original();
             self.screen.drag_anchor = None;
             self.screen.canvas.cancel_gesture();
         }
