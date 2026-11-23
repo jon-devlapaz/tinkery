@@ -8,10 +8,10 @@ use crossterm::event::{
 };
 use ratatui::{Terminal, backend::TestBackend, buffer::Buffer, layout::Rect, style::Color};
 use tinkery::data_roots::DataRoots;
+use tinkery::launch::Launch;
 use tinkery::{
     ThemeSwitch,
     menu::{self, Home, PLACES},
-    think::brain_dump::BrainDump,
 };
 
 const LIGHT_PAPER: Color = Color::Rgb(255, 252, 240);
@@ -23,14 +23,11 @@ const DARK_JADE: Color = Color::Rgb(110, 196, 180);
 const DARK_RUST: Color = Color::Rgb(234, 138, 104);
 
 fn home(root: &std::path::Path) -> Home {
-    Home::new(
-        Box::new(BrainDump::default),
-        DataRoots {
-            sessions: Ok(root.join("TEST-sessions")),
-            records: Ok(root.join("TEST-records")),
-            tend: Ok(root.join("TEST-links")),
-        },
-    )
+    Home::new(Launch::practice(DataRoots {
+        sessions: Ok(root.join("TEST-sessions")),
+        records: Ok(root.join("TEST-records")),
+        tend: Ok(root.join("TEST-links")),
+    }))
 }
 
 fn draw(home: &mut Home, switch: &ThemeSwitch, width: u16, height: u16) -> Buffer {

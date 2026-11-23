@@ -9,7 +9,6 @@
 mod input;
 
 use std::io::{self, IsTerminal};
-use std::{path::PathBuf, sync::Arc};
 
 use crossterm::{
     clipboard::CopyToClipboard,
@@ -24,9 +23,10 @@ use crossterm::{
 };
 use tinkery::{
     Palette, ThemeSwitch,
+    launch::{self, Launch},
     menu::{self, Home},
     model_setup::Controls,
-    think::brain_dump::{self, BrainDump, Exit, ModelHost},
+    think::brain_dump::{self, BrainDump, Exit},
 };
 
 fn seed_read(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
@@ -38,6 +38,11 @@ fn seed_read(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
         .collect::<Vec<_>>()
         .as_slice()
     {
+        ["show", directory] => {
+            let shown = tinkery::shape::command::show(std::path::Path::new(directory))?;
+            println!("{}", serde_json::to_string_pretty(&shown)?);
+            return Ok(());
+        }
         ["status", "--json", directory] => {
             ledger::status(std::path::Path::new(directory)).map_err(refused)?
         }
@@ -46,483 +51,61 @@ fn seed_read(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
             ledger::load(directory).map_err(refused)?;
             ledger::read_checks(directory).map_err(refused)?
         }
-        _ => return Err(SEED_USAGE.into()),
+        _ => return Err(launch::SEED_USAGE.into()),
     };
     print!("{}", value.pretty().map_err(refused)?);
     Ok(())
 }
 
-const SEED_USAGE: &str = "usage: tinkery seed status --json DIR | tinkery seed checks DIR | tinkery seed show DIR | \
-    tinkery [options] seed new GOAL_FILE [ORIGIN] | \
-    tinkery [options] seed step DIR look|delegate|answer WORDS|answer --relayed FILE|confirm DRAFT_SHA256";
-
-/// `seed new` and `seed step`: one explicit write each, under the options given before `seed`.
-fn seed_write(
-    args: &[String],
-    sessions_root: Result<PathBuf, String>,
-    agent: Option<&tinkery::shape::Agent>,
-    confirmation: &tinkery::confirmation::GoalConfirmation,
-    declared: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
-    use tinkery::shape::command::{self, Action};
-    // No screen shows who is acting, so a write never falls back to the operator.
-    if !declared {
-        return Err(
-            "seed new and seed step need --operator human|agent before seed; nothing was changed"
-                .into(),
-        );
-    }
-    let args = args.iter().map(String::as_str).collect::<Vec<_>>();
-    let session = match args.as_slice() {
-        ["new", file, origin @ ..]
-            if origin.len() <= 1 && !origin.iter().any(|o| o.starts_with("--")) =>
-        {
-            // The operator names this file on the command line, and a pipe such as `<(…)` is
-            // valid here: waiting for its writer blocks only this command, never a view.
-            #[allow(clippy::disallowed_methods)]
-            let goal = std::fs::read_to_string(file)
-                .map_err(|why| format!("Cannot read the goal file {file}: {why}"))?;
-            let origin = origin.first().copied().unwrap_or(file);
-            let session = command::new_goal(sessions_root?, &goal, origin, confirmation)?;
-            println!("{}", session.display());
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let options = match launch::parse(std::env::args().skip(1))? {
+        launch::Args::Help => {
+            println!("{}", launch::help());
             return Ok(());
         }
-        ["step", directory, action @ ..] => {
-            let action = match action {
-                ["look"] => Action::Look,
-                ["delegate"] => Action::Delegate,
-                // A missing FILE must not fall through and save "--relayed" as the answer.
-                ["answer", word] if word.starts_with("--") => return Err(SEED_USAGE.into()),
-                ["answer", "--relayed", file] => Action::Relayed(
-                    tinkery::shape::answering::Relay::read(std::path::Path::new(file))?,
-                ),
-                ["answer", words] => Action::Answer((*words).to_owned()),
-                ["confirm", sha256] => Action::Confirm((*sha256).to_owned()),
-                _ => return Err(SEED_USAGE.into()),
-            };
-            let session = std::path::Path::new(directory);
-            for note in command::step(session, agent, confirmation, action)? {
-                eprintln!("{note}");
-            }
-            session
-        }
-        _ => return Err(SEED_USAGE.into()),
+        launch::Args::SeedRead(args) => return seed_read(args),
+        launch::Args::Run(options) => options,
     };
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&command::show(session)?)?
-    );
-    Ok(())
-}
-
-// Shape starts Pi in another folder, and a relative program path follows the child's folder.
-// Bare names stay bare so PATH still finds them.
-fn launch_relative(program: PathBuf) -> io::Result<PathBuf> {
-    if program.is_relative() && program.components().count() > 1 {
-        return Ok(std::env::current_dir()?.join(program));
-    }
-    Ok(program)
-}
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut no_color = std::env::var_os("NO_COLOR").is_some();
-    let mut snapshot = false;
-    let mut full_redraw = false;
-    let mut shape_pi = false;
-    let mut harness = None;
-    let mut model = None;
-    let mut thinking = None;
-    let mut seed_session_root = None;
-    let mut record_root = None;
-    let mut link_root = None;
-    let mut pi_command = None;
-    let mut shape_budget = None;
-    let mut home_menu = false;
-    let mut operator = None;
-    let mut sdlc_root = None;
-    let mut codex_report = None;
-    let mut worker_model = None;
-    let mut worker_responses = 0;
-    let mut worker_authorization = None;
-    let mut seed = None;
-    let mut args = std::env::args().skip(1);
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "seed" => {
-                let rest = args.by_ref().collect::<Vec<_>>();
-                // Reads return here, before any launch setup can touch stored state.
-                if let [show, directory] = rest.as_slice()
-                    && show == "show"
-                {
-                    let shown = tinkery::shape::command::show(std::path::Path::new(directory))?;
-                    println!("{}", serde_json::to_string_pretty(&shown)?);
-                    return Ok(());
-                }
-                if !matches!(rest.first().map(String::as_str), Some("new" | "step")) {
-                    return seed_read(rest);
-                }
-                seed = Some(rest);
-            }
-            "--no-color" => no_color = true,
-            "--home" => home_menu = true,
-            "--operator" => {
-                if operator.is_some() {
-                    return Err("--operator may be declared only once".into());
-                }
-                let value = args.next().ok_or("--operator needs human or agent")?;
-                tinkery::confirmation::GoalConfirmation::terminal(Some(&value))?;
-                operator = Some(value);
-            }
-            "--snapshot" => snapshot = true,
-            "--sdlc-root" => {
-                sdlc_root = Some(PathBuf::from(
-                    args.next()
-                        .filter(|root| !root.is_empty())
-                        .ok_or("--sdlc-root needs a tink-sdlc checkout path")?,
-                ))
-            }
-            "--codex-report" => {
-                if codex_report.is_some() {
-                    return Err("--codex-report may be declared only once".into());
-                }
-                codex_report = Some(tinkery::watch::CodexReport::parse(
-                    &args
-                        .next()
-                        .ok_or("--codex-report needs RUN_UUID:CHAT_ID:PATH")?,
-                )?);
-            }
-            "--worker-model" => {
-                worker_model = Some(
-                    args.next()
-                        .ok_or("--worker-model needs provider/model:thinking")?,
-                );
-            }
-            "--worker-authorization" => {
-                if worker_authorization.is_some() {
-                    return Err("--worker-authorization may be supplied only once".into());
-                }
-                worker_authorization = Some(PathBuf::from(
-                    args.next()
-                        .filter(|path| !path.is_empty())
-                        .ok_or("--worker-authorization needs a relayed authorization file")?,
-                ));
-            }
-            "--worker-responses" => {
-                worker_responses = args
-                    .next()
-                    .and_then(|s| s.parse::<usize>().ok())
-                    .ok_or("--worker-responses needs a positive response cap")?;
-            }
-            "--full-redraw" => full_redraw = true,
-            "--shape-pi" => shape_pi = true,
-            "--harness" => {
-                harness = Some(tinkery::pi::Harness::parse(
-                    &args.next().ok_or("--harness needs pi or claude-code")?,
-                )?)
-            }
-            "--model" => model = Some(args.next().ok_or("--model needs a model id")?),
-            "--thinking" => thinking = Some(args.next().ok_or("--thinking needs a level")?),
-            "--seed-session-root" => {
-                seed_session_root = Some(PathBuf::from(
-                    args.next()
-                        .filter(|root| !root.is_empty())
-                        .ok_or("--seed-session-root needs a location outside a repository")?,
-                ));
-            }
-            "--link-root" => {
-                link_root = Some(PathBuf::from(
-                    args.next()
-                        .filter(|root| !root.is_empty())
-                        .ok_or("--link-root needs a folder")?,
-                ));
-            }
-            "--record-root" => {
-                record_root = Some(PathBuf::from(
-                    args.next()
-                        .filter(|root| !root.is_empty())
-                        .ok_or("--record-root needs a folder")?,
-                ));
-            }
-            "--shape-budget" => {
-                shape_budget = Some(
-                    args.next()
-                        .and_then(|calls| calls.parse::<usize>().ok())
-                        .ok_or("--shape-budget needs a number of model responses")?,
-                );
-            }
-            "--pi-command" => {
-                pi_command = Some(launch_relative(PathBuf::from(
-                    args.next().ok_or("--pi-command needs an executable path")?,
-                ))?)
-            }
-            "--help" | "-h" => {
-                println!(
-                    "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi [--harness pi|claude-code] --model MODEL\n       tinkery seed status --json DIR\n       tinkery seed checks DIR\n       tinkery [options] seed new GOAL_FILE [ORIGIN]\n       tinkery seed show DIR\n       tinkery [options] seed step DIR look|delegate|answer WORDS|answer --relayed FILE|confirm DRAFT_SHA256\n\nWithout a model, think is practice: replies are simulated and nothing leaves your machine.\nWith one, your words go to the model you chose and may cost money. Choose it with m on the menu\n(saved in ~/.config/tinkery/model.json for later launches) or with --shape-pi for one launch.\nNothing runs on its own. Only typing confirm or `seed new` saves a goal, and saving starts no work.\nInside, F2 runs the action the key bar names, F1 lists the rest by number, and Esc goes back.\n\n--home       Open the home menu (the tinkery launcher passes it)\n--operator human|agent  Who is typing, not verified identity (default: not declared); agent saves are the agent's, except an answer relayed with --relayed\n--shape-pi   Draft with a real model for this launch\n--harness    pi|claude-code: who drafts (default: saved, else pi); Claude Code uses its own login\n--model      Pi: provider/model-id; Claude Code: a claude- model id (required with --shape-pi unless one is saved)\n--thinking   Reasoning level: Pi off|minimal|low|medium|high|xhigh|max, Claude Code low..max (default: saved, else low)\n--seed-session-root  Saved goals to list/save (default needs absolute HOME: ~/.local/share/tinkery/sessions)\n--record-root  Where Think history is saved/read (default: ~/.local/share/tinkery/think)\n--link-root PATH  Where tend's links go (default: ~/.local/share/tinkery/tend)\n--pi-command Pi executable (default: pi; Claude Code is always claude on PATH)\n--shape-budget RESPONSES  Drafting model responses shared by Think and Shape this launch (default: saved, else 0)\n--sdlc-root PATH  Choose a tink-sdlc checkout. Approve and Watch default to the launch project\n--worker-model PIN  Exact Pi provider/model:thinking for an explicit worker start\n--worker-responses N  Worker response cap, separate from drafting (default 0); one response may be in flight\n--worker-authorization FILE  Operator's relayed words bound to seed/model/cap, or a standing grant for two-way, small Tinks with no gray item; required for agent F2, origin unverified\n--codex-report RUN_UUID:CHAT_ID:PATH  One saved Codex observation for Watch; requires --home and --sdlc-root\n--full-redraw  Repaint every frame, for terminals that draw badly\n--no-color   Turn off colors (also respects NO_COLOR)\n--snapshot   Print a 100 x 30 view and exit; no terminal mode, no model requests\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
-                );
-                return Ok(());
-            }
-            _ => return Err(format!("unknown argument: {arg}; use --help").into()),
-        }
-    }
-    if !shape_pi
-        && (harness.is_some()
-            || model.is_some()
-            || thinking.is_some()
-            || pi_command.is_some()
-            || shape_budget.is_some_and(|calls| calls > 0))
+    let (launch, controls) = Launch::resolve(&options)?;
+    let snapshot = options.snapshot;
+    if options.seed.is_none()
+        && !snapshot
+        && (!io::stdin().is_terminal() || !io::stdout().is_terminal())
     {
-        return Err(
-            "--harness, --model, --thinking, --pi-command and --shape-budget require --shape-pi"
-                .into(),
-        );
-    }
-    // Watch, Approve and Taste live in the home menu; Think alone would ignore their inputs.
-    if !home_menu && sdlc_root.is_some() {
-        return Err("--sdlc-root requires --home".into());
-    }
-    if codex_report.is_some() && (!home_menu || sdlc_root.is_none()) {
-        return Err("--codex-report requires --home and --sdlc-root".into());
-    }
-    if (worker_model.is_some() || worker_responses > 0 || worker_authorization.is_some())
-        && (!home_menu || sdlc_root.is_none())
-    {
-        return Err("worker options require --home and --sdlc-root".into());
-    }
-    let sdlc_root = match sdlc_root {
-        Some(root) if root.is_relative() => Some(std::env::current_dir()?.join(root)),
-        root => root,
-    };
-    let declared = operator.is_some();
-    let confirmation = tinkery::confirmation::GoalConfirmation::terminal(operator.as_deref())?;
-    let mut roots = tinkery::data_roots::DataRoots::from_env();
-    match record_root {
-        Some(root) if root.is_absolute() => roots.records = Ok(root),
-        Some(root) => roots.records = Ok(std::env::current_dir()?.join(root)),
-        None => {}
-    }
-    let setup_path = tinkery::model_setup::path(std::env::var_os("HOME").as_deref());
-    let saved = setup_path
-        .as_deref()
-        .map_or(Ok(None), tinkery::model_setup::load);
-    let agent = operator.as_deref() == Some("agent");
-    // An agent never inherits the operator's saved calls; its allowance is --shape-budget alone.
-    let usable =
-        saved
-            .as_ref()
-            .ok()
-            .and_then(Option::as_ref)
-            .map(|setup| tinkery::model_setup::Setup {
-                calls: if agent { 0 } else { setup.calls },
-                ..setup.clone()
-            });
-    let launch = tinkery::model_setup::Setup::launch(
-        shape_pi,
-        harness,
-        model,
-        thinking,
-        shape_budget,
-        usable.as_ref(),
-    )?;
-    let live = launch.is_some();
-    let harness = launch.as_ref().map(|l| l.harness).unwrap_or_default();
-    let program = match pi_command.clone() {
-        Some(_) if harness == tinkery::pi::Harness::ClaudeCode => {
-            return Err("--pi-command applies to Pi, not Claude Code".into());
-        }
-        Some(command) => command,
-        None => PathBuf::from(harness.program()),
-    };
-    if live {
-        roots.records.as_ref().map_err(Clone::clone)?;
-    }
-    let call_budget = tinkery::pi::CallBudget::new(launch.as_ref().map_or(0, |l| l.calls));
-    let controls = tinkery::model_setup::Controls::new(
-        setup_path,
-        saved,
-        launch.clone().map(|setup| (setup, call_budget.clone())),
-    );
-    let controls = controls.listing_pi(
-        pi_command
-            .clone()
-            .unwrap_or_else(|| tinkery::pi::Harness::Pi.program().into()),
-    );
-    let controls = if agent {
-        controls.for_agent()
-    } else {
-        controls
-    };
-    let host = match &launch {
-        Some(launch) => Some(Arc::new(
-            ModelHost::new(
-                launch.harness,
-                program.clone(),
-                launch.model.clone(),
-                call_budget.clone(),
-            )?
-            .with_thinking(&launch.thinking)?,
-        )),
-        None => None,
-    };
-    let default_root_requested = seed_session_root.is_none();
-    if let Some(root) = link_root {
-        roots.tend = tinkery::tend::needs::resolve_root(root);
-    }
-    if let Some(root) = seed_session_root {
-        roots.sessions = Ok(tinkery::seed_me::resolve_root(Some(root))?);
-    }
-    if live && !snapshot {
-        roots.sessions.as_ref().map_err(Clone::clone)?;
-    }
-    if seed.is_none() && !snapshot && (!io::stdin().is_terminal() || !io::stdout().is_terminal()) {
         return Err("interactive mode needs a terminal; use --snapshot or --help".into());
     }
-    let migration = if default_root_requested {
-        tinkery::seed_me::migration::migrate(std::env::var_os("HOME").as_deref(), !snapshot)?
-    } else {
-        None
-    };
-    // Where Tinkery was started; found by looking for `.git`, never by running git.
-    let repo = std::env::current_dir()
-        .ok()
-        .and_then(|dir| tinkery::repo::Repo::enclosing(&dir));
-    // Shape's agent step reads files where the goal was made, else in the named SDLC checkout's
-    // repository, else where Tinkery started.
-    let shape_agent = match &launch {
-        Some(launch) => Some(Arc::new(
-            tinkery::shape::Agent::new(
-                launch.harness,
-                program,
-                launch.model.clone(),
-                launch.thinking.clone(),
-                sdlc_root
-                    .as_deref()
-                    .and_then(tinkery::repo::Repo::enclosing)
-                    .or_else(|| repo.clone())
-                    .map(|r| r.root().to_path_buf())
-                    .or_else(|| std::env::current_dir().ok()),
-                call_budget,
-                roots.records.clone().ok(),
-            )?
-            .with_confirmation(Some(confirmation.clone())),
-        )),
-        None => None,
-    };
-    if let Some(seed) = seed {
-        return seed_write(
-            &seed,
-            roots.sessions,
-            shape_agent.as_deref(),
-            &confirmation,
-            declared,
-        );
+    let migration = launch.migrate(!snapshot)?;
+    if let Some(seed) = &options.seed {
+        return launch.seed_write(seed);
     }
-    let shift_enter =
-        !snapshot && crossterm::terminal::supports_keyboard_enhancement().unwrap_or(false);
-    if home_menu {
-        let make_dump: Box<dyn Fn() -> BrainDump> = if let Some(host) = host.clone() {
-            let root = roots.sessions.clone().ok();
-            let records = roots.records.clone()?;
-            let repo = repo.clone();
-            let confirmation = confirmation.clone();
-            Box::new(move || {
-                let mut dump = BrainDump::with_host(host.clone())
-                    .with_record_root(records.clone())
-                    .with_repo(repo.clone());
-                dump.set_goal_confirmation(confirmation.clone())
-                    .expect("validated launch declaration on fresh Think");
-                match &root {
-                    Some(root) => dump.with_sessions(Some(root.clone())),
-                    None => dump,
-                }
-            })
-        } else {
-            let confirmation = confirmation.clone();
-            Box::new(move || {
-                let mut dump = BrainDump::default();
-                dump.set_goal_confirmation(confirmation.clone())
-                    .expect("validated launch declaration on fresh Think");
-                dump
-            })
-        };
-        let make_dump: Box<dyn Fn() -> BrainDump> =
-            Box::new(move || make_dump().with_shift_enter(shift_enter));
-        let make_dump: Box<dyn Fn() -> BrainDump> = if snapshot {
-            make_dump
-        } else {
-            Box::new(move || make_dump().with_voice(Box::new(tinkery::voice::ProcessHost::new())))
-        };
-        let mut menu = Home::new(make_dump, roots.clone())
-            .with_repo(repo)
-            .with_shape_agent(shape_agent)
-            .with_shape_held(agent && !live)
-            .with_agent_operator(agent)
-            .with_sdlc_root(sdlc_root)
-            .with_codex_report(codex_report)
-            .with_worker(worker_model, worker_responses)?
-            .with_worker_authorization(worker_authorization);
+    let launch = if snapshot {
+        launch
+    } else {
+        launch.at_terminal(crossterm::terminal::supports_keyboard_enhancement().unwrap_or(false))
+    };
+    let mut app = if options.home {
+        let mut menu = Home::new(launch.clone());
         if snapshot {
             menu.discover_for_snapshot(std::time::Duration::from_secs(5));
-            let mut app = Intake::Home(Box::new(menu));
-            println!("{}", screen_text(&mut app, &controls, no_color)?);
-            return Ok(());
         }
-        let mut terminal = ratatui::try_init()?;
-        let mut app = Intake::Home(Box::new(menu));
-        let result = run_shape(
-            &mut terminal,
-            Header {
-                theme: ThemeSwitch::new(no_color),
-                model: controls,
-            },
-            &mut app,
-            full_redraw,
-            roots,
-            None,
-            migration,
-        );
-        ratatui::restore();
-        if let Some(receipt) = result? {
-            println!("{receipt}");
-        }
-        return Ok(());
-    }
-    let mut app = if let Some(host) = host {
-        let dump = BrainDump::with_host(host)
-            .with_record_root(roots.records.clone()?)
-            .with_repo(repo);
-        Intake::Brain(Box::new(match roots.sessions.clone() {
-            Ok(root) => dump.with_sessions(Some(root)),
-            Err(_) => dump,
-        }))
+        Intake::Home(Box::new(menu))
     } else {
-        Intake::Brain(Box::default())
+        Intake::Brain(Box::new(launch.think()))
     };
-    if let Intake::Brain(dump) = &mut app {
-        dump.set_goal_confirmation(confirmation)?;
-    }
     if snapshot {
-        println!("{}", screen_text(&mut app, &controls, no_color)?);
+        println!("{}", screen_text(&mut app, &controls, options.no_color)?);
         return Ok(());
     }
-    app = match app {
-        Intake::Brain(dump) => Intake::Brain(Box::new(
-            (*dump)
-                .with_shift_enter(shift_enter)
-                .with_voice(Box::new(tinkery::voice::ProcessHost::new())),
-        )),
-        other => other,
-    };
     let mut terminal = ratatui::try_init()?;
     let result = run_shape(
         &mut terminal,
         Header {
-            theme: ThemeSwitch::new(no_color),
+            theme: ThemeSwitch::new(options.no_color),
             model: controls,
         },
         &mut app,
-        full_redraw,
-        roots,
-        shape_agent,
+        options.full_redraw,
+        &launch,
         migration,
     );
     ratatui::restore();
@@ -543,11 +126,7 @@ impl Intake {
             Self::Brain(a) => *a.exit() == Exit::Menu && a.saved().is_none(),
         }
     }
-    fn tick(
-        &mut self,
-        roots: &tinkery::data_roots::DataRoots,
-        shape_agent: &Option<Arc<tinkery::shape::Agent>>,
-    ) {
+    fn tick(&mut self, launch: &Launch) {
         match self {
             Self::Home(a) => a.tick(),
             Self::Brain(a) => a.tick(),
@@ -566,8 +145,7 @@ impl Intake {
                     *dump,
                     &session,
                     open_tend,
-                    roots.clone(),
-                    shape_agent.clone(),
+                    launch.clone(),
                 )));
             }
         }
@@ -747,8 +325,7 @@ fn run_shape(
     header: Header,
     app: &mut Intake,
     full_redraw: bool,
-    roots: tinkery::data_roots::DataRoots,
-    shape_agent: Option<Arc<tinkery::shape::Agent>>,
+    launch: &Launch,
     mut migration: Option<String>,
 ) -> io::Result<Option<String>> {
     let _input_guard = InputGuard;
@@ -769,7 +346,7 @@ fn run_shape(
         model: mut controls,
     } = header;
     while !app.quit() {
-        app.tick(&roots, &shape_agent);
+        app.tick(launch);
         execute!(io::stdout(), BeginSynchronizedUpdate)?;
         let mut presentation = None;
         let drawn = (|| {
@@ -944,24 +521,6 @@ mod tests {
                 assert!(pending.is_none());
             }
         }
-    }
-
-    #[test]
-    fn relative_pi_paths_keep_meaning_when_shape_starts_pi_elsewhere() {
-        let launch = std::env::current_dir().unwrap();
-        assert_eq!(
-            launch_relative("./TEST-bin/pi".into()).unwrap(),
-            launch.join("./TEST-bin/pi")
-        );
-        assert_eq!(
-            launch_relative("TEST-bin/pi".into()).unwrap(),
-            launch.join("TEST-bin/pi")
-        );
-        assert_eq!(launch_relative("pi".into()).unwrap(), PathBuf::from("pi"));
-        assert_eq!(
-            launch_relative("/TEST/pi".into()).unwrap(),
-            PathBuf::from("/TEST/pi")
-        );
     }
 
     #[test]

@@ -26,6 +26,7 @@ mod forms;
 mod help;
 pub mod shaping;
 mod step;
+use crate::confirmation::GoalConfirmation;
 use crate::words;
 
 use crate::seed_me::ledger::{AnswerAction, CheckMethod};
@@ -85,6 +86,8 @@ pub struct Shape {
     agent: Option<Arc<Agent>>,
     /// An agent launch without --shape-pi: Shape only reads.
     held: bool,
+    /// The launch's declaration; every write a session makes is attributed with it.
+    confirmation: GoalConfirmation,
     /// F1's Model and responses row asked for the Model panel, which the launch owns.
     model: bool,
     approve: Option<crate::seed_me::ready::SeedTarget>,
@@ -108,6 +111,8 @@ enum Aside {
 
 struct Opened {
     session: PathBuf,
+    /// The launch's declaration every write from this session is attributed with.
+    confirmation: GoalConfirmation,
     reading: Reading,
     /// The stage's own words: an answer, a reason to keep, or the words that confirm a seed. A
     /// form or aside leaves them untouched.
@@ -215,11 +220,12 @@ impl Shape {
             help_scroll: 0,
             actions: crate::actions::Page::default(),
             selected: 0,
-            open: Some(Opened::start(session)),
+            open: Some(Opened::start(session, GoalConfirmation::default())),
             scroll: 0,
             page: 1,
             agent: None,
             held: false,
+            confirmation: GoalConfirmation::default(),
             model: false,
             approve: None,
         }
@@ -232,9 +238,25 @@ impl Shape {
         self
     }
 
-    /// The same Shape for an agent launch without agent attribution for its writes: it only reads.
-    /// Answering, confirming and ending are held, and explain what is missing.
-    pub fn held(mut self, held: bool) -> Self {
+    /// The same Shape for one launch: `agent` drafts, and every write is attributed with the
+    /// launch's declared `confirmation`. An agent operator without a drafting agent only reads.
+    pub(crate) fn launched(
+        mut self,
+        agent: Option<Arc<Agent>>,
+        confirmation: &GoalConfirmation,
+        agent_operator: bool,
+    ) -> Self {
+        self.confirmation = confirmation.clone();
+        if let Some(open) = &mut self.open {
+            open.confirmation = confirmation.clone();
+        }
+        self.held(agent_operator && agent.is_none())
+            .with_agent(agent)
+    }
+
+    /// The same Shape held to reading: answering, confirming and ending are held, and explain
+    /// what is missing.
+    fn held(mut self, held: bool) -> Self {
         self.held = held;
         if held {
             self.agent = None;
@@ -293,6 +315,7 @@ impl Shape {
             page: 1,
             agent: None,
             held: false,
+            confirmation: GoalConfirmation::default(),
             model: false,
             approve: None,
         }
@@ -687,7 +710,7 @@ impl Shape {
             KeyCode::Up | KeyCode::Char('k') => self.selected = self.selected.saturating_sub(1),
             KeyCode::Enter if !listed.is_empty() => {
                 let path = listed[self.selected].path.clone();
-                self.open = Some(Opened::start(&path));
+                self.open = Some(Opened::start(&path, self.confirmation.clone()));
                 self.scroll = 0;
             }
             _ => {}
@@ -1142,7 +1165,12 @@ impl Opened {
             return;
         }
         let said = doing(&work, false, "");
-        let running = Running::start(work.clone(), self.session.clone(), agent);
+        let running = Running::start(
+            work.clone(),
+            self.session.clone(),
+            agent,
+            self.confirmation.clone(),
+        );
         let editor = self.take_editor();
         self.mode = Mode::Writing(running, work, editor);
         self.notice = Some(Notice::said(said));
@@ -1283,15 +1311,17 @@ impl Opened {
             Work::Answer { words, .. } if empty(words) => Some(Notice::Words(ANSWER_FIRST)),
             Work::Confirm { .. } if self.read_end.is_none() => Some(Notice::ReadFirst),
             Work::Confirm { words, .. } if words != CONFIRM => Some(Notice::Words(CONFIRM_FIRST)),
-            work if work.calls_model() => match Steps::screen(Some(agent)).admit(work) {
-                Err(failure) => said(Err(failure), work, None),
-                Ok(()) if folder.is_none() && !matches!(work, Work::TeachBack { .. }) => {
-                    Some(Notice::said(
-                        "Shape is still finding which folder the step reads; nothing was saved.",
-                    ))
+            work if work.calls_model() => {
+                match Steps::new(Some(agent), &self.confirmation).admit(work) {
+                    Err(failure) => said(Err(failure), work, None),
+                    Ok(()) if folder.is_none() && !matches!(work, Work::TeachBack { .. }) => {
+                        Some(Notice::said(
+                            "Shape is still finding which folder the step reads; nothing was saved.",
+                        ))
+                    }
+                    Ok(()) => None,
                 }
-                Ok(()) => None,
-            },
+            }
             _ => None,
         };
         if self.notice.is_some() {
@@ -1308,7 +1338,12 @@ impl Opened {
             *slot = feedback.filter(|f| f.applies(&self.session, *expected, folder));
         }
         if work.calls_model() || matches!(work, Work::Confirm { .. }) {
-            let running = Running::start(work.clone(), self.session.clone(), Some(agent.clone()));
+            let running = Running::start(
+                work.clone(),
+                self.session.clone(),
+                Some(agent.clone()),
+                self.confirmation.clone(),
+            );
             let editor = self.take_editor();
             self.mode = Mode::Running(running, work, editor);
         } else {
@@ -1323,14 +1358,16 @@ impl Opened {
             let session = self.session.clone();
             std::thread::spawn(move || {
                 let (read, folder) = match shaping::read_with_base(&session) {
-                    Ok((read, base)) => match Steps::screen(agent.as_deref()).folder(
-                        &session,
-                        read.goal.as_deref(),
-                        base.map(|base| base.checkout),
-                    ) {
-                        Ok(folder) => (Ok(read), folder),
-                        Err(why) => (Err(why), None),
-                    },
+                    Ok((read, base)) => {
+                        match Steps::new(agent.as_deref(), &GoalConfirmation::default()).folder(
+                            &session,
+                            read.goal.as_deref(),
+                            base.map(|base| base.checkout),
+                        ) {
+                            Ok(folder) => (Ok(read), folder),
+                            Err(why) => (Err(why), None),
+                        }
+                    }
                     Err(why) => (Err(why), None),
                 };
                 let _ = sender.send((read, folder));
@@ -1339,9 +1376,10 @@ impl Opened {
         self.reading = Reading::Waiting(receiver);
     }
 
-    fn start(session: &Path) -> Self {
+    fn start(session: &Path, confirmation: GoalConfirmation) -> Self {
         Self {
             session: session.to_path_buf(),
+            confirmation,
             reading: Reading::NotStarted,
             typed: Words::new(""),
             mode: Mode::Idle(Editor::Stage),

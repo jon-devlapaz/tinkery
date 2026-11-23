@@ -4,7 +4,7 @@
 use crate::{
     Palette,
     approve::WorkerReview,
-    worker::{Action, Config, Gate, Job, Recovery, Relay, Run, Snapshot, Start, State, Turn},
+    worker::{Action, Config, Gate, Job, Recovery, Run, Snapshot, Start, State, Turn},
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
@@ -476,26 +476,7 @@ impl Panel {
 impl super::Home {
     /// Share the declaration and relay snapshot without granting permission on navigation.
     pub(super) fn worker_gate(&self) -> Gate {
-        Gate::new(self.agent, self.worker_authorization.clone())
-    }
-
-    /// Set a separate, explicit worker allowance for this launch; configuration runs nothing.
-    pub fn with_worker(mut self, model: Option<String>, responses: usize) -> Result<Self, String> {
-        if model.is_some() || responses > 0 {
-            let config = Config {
-                model: model.unwrap_or_default(),
-                responses,
-            };
-            config.validate()?;
-            self.worker_config = Some(config);
-        }
-        Ok(self)
-    }
-
-    /// Read caller-supplied relayed words for later review; never creates authorization or starts work.
-    pub fn with_worker_authorization(mut self, path: Option<PathBuf>) -> Self {
-        self.worker_authorization = Relay::read(path.as_deref());
-        self
+        Gate::new(self.launch.agent, self.launch.worker_authorization.clone())
     }
 }
 

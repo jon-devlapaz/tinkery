@@ -413,6 +413,11 @@ def journey(width, height, no_color, mapping_case='valid', next_case=None, empty
                     os.write(master, b'\x1b[1;5H')  # Ctrl-Home reveals beginning of long draft
                     wait(lambda: 'Observe “TEST café”' in screen.text())
                 send(b'\x1bOQ', '1  Clarify into a goal')
+                # This Think visit comes from Home, so thoughts go to Tend's store; outside a
+                # repository it says so, never that Home is missing.
+                choice = ' '.join(screen.text().split())
+                assert 'Unavailable: Start Tinkery in a repository to save a thought.' in choice, choice
+                assert 'Open --home to save a thought' not in choice, choice
                 os.write(master, b'1')
                 wait(lambda: 'Simulated' in screen.text())
                 if next_case == 'correct':

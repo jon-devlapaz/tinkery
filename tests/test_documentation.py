@@ -114,7 +114,7 @@ class DocumentationLintTests(unittest.TestCase):
                     if not command:
                         continue
                     example = re.search(r"--example\s+(\S+)", command.group(1))
-                    source = f"examples/{example.group(1)}.rs" if example else "src/main.rs"
+                    source = f"examples/{example.group(1)}.rs" if example else "src/launch.rs"
                     accepted = (REPO / source).read_text()
                     for option in re.findall(r"(?<!\S)(--[a-z][a-z-]*)", command.group(2)):
                         if f'"{option}"' not in accepted:

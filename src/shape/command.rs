@@ -163,7 +163,7 @@ pub fn step(
     let expected = shaping
         .version
         .ok_or("This session's ledger version is unknown; nothing was changed.")?;
-    let steps = Steps::command(agent, confirmation);
+    let steps = Steps::new(agent, confirmation);
     let work = if let Action::Confirm(sha) = &action {
         let Shaped::Drafted {
             revision: Some(revision),

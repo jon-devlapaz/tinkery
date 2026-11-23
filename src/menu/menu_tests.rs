@@ -187,14 +187,18 @@ fn watch_f10_returns_home_from_help_without_quitting() {
 }
 
 fn home(source: Source) -> Home {
-    Home::new(
-        Box::new(BrainDump::default),
-        DataRoots {
+    home_in(source, None)
+}
+
+fn home_in(source: Source, repo: Option<crate::repo::Repo>) -> Home {
+    Home::new(Launch {
+        repo,
+        ..Launch::practice(DataRoots {
             sessions: Ok(PathBuf::from("/TEST/sessions")),
             tend: Err("TEST links unavailable".into()),
-            ..DataRoots::from_env()
-        },
-    )
+            ..DataRoots::from_home(None)
+        })
+    })
     .with_discovery_source(source)
 }
 fn screen(h: &mut Home) -> String {
@@ -791,14 +795,11 @@ fn only_unreadable_records_never_read_as_no_sessions() {
 fn returning_from_think_and_reopening_tend_read_again_and_hide_a_stale_count() {
     let tmp = tempfile::tempdir().unwrap();
     write_session(tmp.path(), "first", "2026-10-09T10:00:00Z");
-    let mut h = Home::new(
-        Box::new(BrainDump::default),
-        DataRoots {
-            sessions: Ok(tmp.path().to_path_buf()),
-            tend: Ok(tmp.path().join("TEST-links")),
-            ..DataRoots::from_env()
-        },
-    );
+    let mut h = Home::new(Launch::practice(DataRoots {
+        sessions: Ok(tmp.path().to_path_buf()),
+        tend: Ok(tmp.path().join("TEST-links")),
+        ..DataRoots::from_home(None)
+    }));
     settle(&mut h);
     assert_eq!(h.count(Place::Tend), Some("1".into()));
     h.open(Place::Think);
@@ -869,14 +870,11 @@ fn scan_reads_thousands_once_each_newest_first_with_exact_active_count() {
         .map(|s| tend::timestamp(&s.updated).unwrap())
         .collect();
     assert!(times.windows(2).all(|w| w[0] >= w[1]), "newest first");
-    let mut h = Home::new(
-        Box::new(BrainDump::default),
-        DataRoots {
-            sessions: Ok(tmp.path().to_path_buf()),
-            tend: Ok(tmp.path().join("TEST-links")),
-            ..DataRoots::from_env()
-        },
-    );
+    let mut h = Home::new(Launch::practice(DataRoots {
+        sessions: Ok(tmp.path().to_path_buf()),
+        tend: Ok(tmp.path().join("TEST-links")),
+        ..DataRoots::from_home(None)
+    }));
     settle(&mut h);
     assert_eq!(h.count(Place::Tend), Some((total - total / 5).to_string()));
 }
@@ -940,14 +938,11 @@ fn scan_completeness_semantics() {
 #[test]
 fn unavailable_session_root_never_scans_or_claims_an_empty_list() {
     let reason = "HOME is unavailable; pass --seed-session-root PATH";
-    let mut h = Home::new(
-        Box::new(BrainDump::default),
-        DataRoots {
-            sessions: Err(reason.into()),
-            tend: Err("TEST links unavailable".into()),
-            ..DataRoots::from_env()
-        },
-    )
+    let mut h = Home::new(Launch::practice(DataRoots {
+        sessions: Err(reason.into()),
+        tend: Err("TEST links unavailable".into()),
+        ..DataRoots::from_home(None)
+    }))
     .with_discovery_source(Arc::new(|_| panic!("No root must never reach a source")));
     h.tick();
     h.discover_for_snapshot(Duration::from_secs(1));
@@ -982,21 +977,18 @@ fn links_destination_survives_menu_reopening_and_standalone_receipt_handoff() {
                 BrainDump::default(),
                 &sessions.join("goal"),
                 true,
-                DataRoots {
-                    tend: Ok(links.clone()),
-                    ..DataRoots::from_env()
-                },
-                None,
-            )
-        } else {
-            Home::new(
-                Box::new(BrainDump::default),
-                DataRoots {
+                Launch::practice(DataRoots {
                     sessions: Ok(sessions.clone()),
                     tend: Ok(links.clone()),
-                    ..DataRoots::from_env()
-                },
+                    ..DataRoots::from_home(None)
+                }),
             )
+        } else {
+            Home::new(Launch::practice(DataRoots {
+                sessions: Ok(sessions.clone()),
+                tend: Ok(links.clone()),
+                ..DataRoots::from_home(None)
+            }))
         };
         for _ in 0..2 {
             h.open(Place::Tend);
@@ -1030,11 +1022,60 @@ fn the_menu_names_the_repository_once_and_says_nothing_outside_one() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().join("TEST-repo-here");
     std::fs::create_dir_all(root.join(".git")).unwrap();
-    let mut h = home(Arc::new(|_| found(vec![]))).with_repo(crate::repo::Repo::enclosing(&root));
+    let mut h = home_in(
+        Arc::new(|_| found(vec![])),
+        crate::repo::Repo::enclosing(&root),
+    );
     let menu = screen(&mut h);
     let title = menu.lines().nth(1).unwrap();
     assert!(title.contains("tinkery  in TEST-repo-here"), "{title}");
     assert_eq!(menu.matches("TEST-repo-here").count(), 1, "{menu}");
     let mut plain = home(Arc::new(|_| found(vec![])));
     assert!(!screen(&mut plain).contains(" in "));
+}
+
+#[test]
+fn a_standalone_agent_launch_keeps_its_shape_hold_after_saving_a_goal() {
+    let tmp = tempfile::Builder::new()
+        .prefix("tinkery-TEST-receipt-launch-")
+        .tempdir()
+        .unwrap();
+    let sessions = tmp.path().join("TEST-sessions");
+    let human = crate::confirmation::GoalConfirmation::terminal(Some("human")).unwrap();
+    let goal = "TEST Keep my words.\nWhy: TEST.\nDone when: TEST the next question shows.";
+    let session =
+        crate::shape::command::new_goal(sessions.clone(), goal, "TEST origin", &human).unwrap();
+    let roots = DataRoots {
+        sessions: Ok(sessions.clone()),
+        tend: Ok(tmp.path().join("TEST-links")),
+        ..DataRoots::from_home(None)
+    };
+    for (agent, held) in [(true, true), (false, false)] {
+        let confirmation =
+            crate::confirmation::GoalConfirmation::terminal(agent.then_some("agent")).unwrap();
+        let launch = Launch {
+            agent,
+            declared: agent,
+            confirmation,
+            ..Launch::practice(roots.clone())
+        };
+        let mut h = Home::from_receipt(BrainDump::default(), &session, false, launch);
+        h.open(Place::Shape);
+        settle(&mut h);
+        h.handle_key(key(KeyCode::Enter));
+        let mut text = String::new();
+        wait_until("the session read", || {
+            h.tick();
+            text = screen(&mut h)
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
+            !text.contains("Checking this Tink.")
+        });
+        assert_eq!(
+            text.contains("An agent answers Shape with --shape-pi. Shape only reads"),
+            held,
+            "{text}"
+        );
+    }
 }

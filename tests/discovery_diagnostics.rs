@@ -8,10 +8,8 @@ use std::{
     time::{Duration, Instant},
 };
 use tinkery::data_roots::DataRoots;
-use tinkery::{
-    menu::{Home, snapshot},
-    think::brain_dump::BrainDump,
-};
+use tinkery::launch::Launch;
+use tinkery::menu::{Home, snapshot};
 
 fn key(code: KeyCode) -> KeyEvent {
     KeyEvent::new(code, KeyModifiers::NONE)
@@ -25,14 +23,11 @@ fn fixture() -> (tempfile::TempDir, Home) {
     let broken = dir.path().join("TEST-broken");
     fs::create_dir(&broken).unwrap();
     fs::write(broken.join("ledger.json"), "not JSON").unwrap();
-    let mut home = Home::new(
-        Box::new(BrainDump::default),
-        DataRoots {
-            sessions: Ok(dir.path().to_path_buf()),
-            tend: Err("TEST links disabled".into()),
-            ..DataRoots::from_env()
-        },
-    );
+    let mut home = Home::new(Launch::practice(DataRoots {
+        sessions: Ok(dir.path().to_path_buf()),
+        tend: Err("TEST links disabled".into()),
+        ..DataRoots::from_env()
+    }));
     home.handle_key(key(KeyCode::Char('3')));
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {

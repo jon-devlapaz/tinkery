@@ -162,7 +162,7 @@ impl Home {
             KeyCode::F(2)
                 if key.kind == KeyEventKind::Press
                     && !self.help
-                    && !self.agent
+                    && !self.launch.agent
                     && view.notice.is_empty() =>
             {
                 if let Some(review) = view.reviewed.clone() {
@@ -182,9 +182,7 @@ impl Home {
         if let View::Retry(review, _) = &mut self.view
             && let Some(session) = review.poll()
         {
-            let shape = Shape::session(&session)
-                .with_agent(self.shape_agent.clone())
-                .held(self.shape_held);
+            let shape = self.shape(Shape::session(&session));
             self.view = View::Shape(Box::new(shape), None);
             self.help = false;
             self.request_sessions();
@@ -209,7 +207,7 @@ impl Home {
             self.selected = Place::Shape;
             self.view = View::Retry(Box::new(Review::new(rejected)), back);
         } else if let Some(draft) = taste.take_draft() {
-            let mut dump = (self.make_dump)().with_key_bar(self.key_bar);
+            let mut dump = self.think();
             dump.offer_draft(draft);
             self.selected = Place::Think;
             self.view = View::Think(Box::new(dump));
