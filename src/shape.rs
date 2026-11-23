@@ -26,15 +26,14 @@ mod forms;
 mod help;
 pub mod shaping;
 mod step;
-use crate::confirmation::Actor;
 use crate::words;
 
-use crate::seed_me::ledger::{AnswerAction, CheckMethod, DraftCheck};
+use crate::seed_me::ledger::{AnswerAction, CheckMethod};
 use crate::{
     Palette,
     seed_me::{Session, Stage},
 };
-use answering::{Assumption, Ending, NOTHING_FOUND, OBJECTION, PROBE, Refusal, SAMPLE, UNOBSERVED};
+use answering::{Assumption, Ending, NOTHING_FOUND, OBJECTION, PROBE, SAMPLE, UNOBSERVED};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use forms::Form;
 use ratatui::{
@@ -48,7 +47,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, mpsc},
 };
-use step::{Done, Failure, RetryFeedback, Running, Why, Work};
+use step::{CheckEdit, Done, Failure, RetryFeedback, Running, Steps, Why, Work};
 use unicode_width::UnicodeWidthStr;
 use words::Words;
 
@@ -107,17 +106,7 @@ enum Aside {
     RepairCheck(CheckEdit),
 }
 
-/// A correction stays bound to what was shown, even if a failed save refreshes the draft.
-#[derive(Clone)]
-struct CheckEdit {
-    expected: u64,
-    seed: String,
-    target: DraftCheck,
-    method: CheckMethod,
-}
-
 struct Opened {
-    confirmation: Option<crate::confirmation::GoalConfirmation>,
     session: PathBuf,
     reading: Reading,
     /// The stage's own words: an answer, a reason to keep, or the words that confirm a seed. A
@@ -147,10 +136,10 @@ struct Opened {
 enum Mode {
     /// Reading, or typing into the editor.
     Idle(Editor),
-    /// A model step is running; Esc stops it, and its editor stays on screen, muted.
-    Running(Running, Doing, Editor),
+    /// A model step or confirmation is running; Esc stops it, and its editor stays on screen, muted.
+    Running(Running, Work, Editor),
     /// The ledger is carrying out a change without a model; keys do nothing until it lands.
-    Writing(Write, mpsc::Receiver<Result<(), Refusal>>, Editor),
+    Writing(Running, Work, Editor),
     /// The "So far" page, at this scroll.
     SoFar(u16),
     /// A folder being typed after choosing it in F1, until F2 uses it or Esc keeps the one shown.
@@ -192,57 +181,6 @@ impl Notice {
             Self::Said(said, next) => (said, next.clone()),
             Self::Words(said) => (said, None),
             Self::ReadFirst => (READ_FIRST, None),
-        }
-    }
-}
-
-/// A change Shape asks of the ledger without a model.
-#[derive(Clone)]
-enum Write {
-    RepairCheck {
-        edit: CheckEdit,
-        words: String,
-    },
-    Revisit {
-        id: String,
-        expected: u64,
-        words: String,
-    },
-    End(Ending),
-    Object(String),
-    Keep {
-        id: String,
-        reason: String,
-    },
-    /// Record the withheld suggestion on question `id`.
-    Recommend {
-        id: String,
-        text: String,
-    },
-}
-
-/// What a running step was asked to do, so the screen can say where it is.
-#[derive(Clone, Copy)]
-enum Doing {
-    Answer,
-    Defer,
-    Delegate,
-    Revise,
-    Look,
-    TeachBack,
-    Change,
-    Confirm,
-}
-
-impl Doing {
-    fn saved(self) -> &'static str {
-        match self {
-            Self::Defer => "Your deferral is saved. ",
-            Self::Delegate => "Your delegated answer is saved. ",
-            Self::Revise => "Your revised answer is saved. ",
-            Self::TeachBack => "Your teach-back is saved. ",
-            Self::Change => "Your change is saved. ",
-            _ => "Your answer is saved. ",
         }
     }
 }
@@ -389,92 +327,115 @@ impl Shape {
     /// blocks.
     pub fn tick(&mut self) {
         if let Some(open) = &mut self.open
-            && let Mode::Running(running, doing, _) = &open.mode
+            && let Mode::Running(running, work, _) | Mode::Writing(running, work, _) = &open.mode
             && let Some(result) = running.poll()
         {
-            let doing = *doing;
+            let work = work.clone();
             let editor = open.take_editor();
-            // Typed words stay only when nothing of them was saved.
-            open.mode = Mode::Idle(
-                if result
-                    .as_ref()
-                    .map_or_else(|failure| failure.answer_saved, |_| true)
-                {
-                    if !matches!(doing, Doing::TeachBack) {
-                        open.typed.clear();
-                    }
-                    Editor::Stage
-                } else {
-                    editor
-                },
-            );
-            let asked = match &result {
-                Ok(Done::Asked(asked)) => asked.clone(),
-                _ => step::Asked::default(),
-            };
-            open.assumed = asked.assumed;
-            open.withheld = asked.withheld;
-            open.revealed = false;
-            open.feedback = result
-                .as_ref()
-                .err()
-                .and_then(|failure| failure.feedback.as_deref().cloned());
-            open.notice = said(result, doing, self.agent.as_deref().map(Agent::left));
-            open.reading = Reading::NotStarted;
-        }
-        if let Some(open) = &mut self.open
-            && let Mode::Writing(write, receiver, _) = &open.mode
-        {
-            let write = write.clone();
-            let result = match receiver.try_recv() {
-                Ok(result) => Some(result),
-                Err(mpsc::TryRecvError::Empty) => None,
-                Err(mpsc::TryRecvError::Disconnected) => {
-                    Some(Err(Refusal::Refused("Ending stopped unexpectedly.".into())))
+            let wrote = |said: String| Some(Notice::said(said));
+            // A change without a model closes its box only when saved; a step keeps typed words
+            // only when nothing of them was saved.
+            let (notice, editor) = match (&work, result) {
+                (Work::RepairCheck { .. }, Ok(_)) => {
+                    open.read_end = None;
+                    self.scroll = 0;
+                    (
+                        wrote(
+                            "Check saved. Read the changed draft, then confirm. No model ran."
+                                .into(),
+                        ),
+                        Editor::Stage,
+                    )
+                }
+                (Work::Revisit { .. }, Ok(_)) => {
+                    open.typed.clear();
+                    (
+                        wrote("Deferred prerequisite answered. No model ran.".into()),
+                        Editor::Stage,
+                    )
+                }
+                (Work::End(Ending::Completed), Ok(_)) => (
+                    wrote("Session completed. It's read-only now.".into()),
+                    editor,
+                ),
+                (Work::End(Ending::Stopped), Ok(_)) => (
+                    wrote(
+                        "Session stopped. Its open questions stay recorded; it's read-only now."
+                            .into(),
+                    ),
+                    editor,
+                ),
+                (Work::Object { text, .. }, Ok(_)) => {
+                    open.assumed.retain(|a| &a.text != text);
+                    (
+                        wrote(format!(
+                            "Not assumed: {text}. It's an open question now, asked before Shape drafts the Tink."
+                        )),
+                        editor,
+                    )
+                }
+                (Work::Keep { .. }, Ok(_)) => {
+                    open.typed.clear();
+                    (
+                        wrote("Answer kept with your reason. No model ran.".into()),
+                        editor,
+                    )
+                }
+                (Work::Recommend { .. }, Ok(_)) => {
+                    open.withheld = None;
+                    (
+                        wrote("Here are the options and my suggestion.".into()),
+                        editor,
+                    )
+                }
+                (
+                    Work::RepairCheck { .. }
+                    | Work::Revisit { .. }
+                    | Work::End(_)
+                    | Work::Object { .. }
+                    | Work::Keep { .. }
+                    | Work::Recommend { .. },
+                    Err(failure),
+                ) => (
+                    wrote(match failure.why {
+                        Why::Stale => "Another writer changed this session first.".into(),
+                        Why::Refused(reason) => reason,
+                        _ => "Ending stopped unexpectedly.".into(),
+                    }),
+                    editor,
+                ),
+                (_, result) => {
+                    let editor = if result
+                        .as_ref()
+                        .map_or_else(|failure| failure.answer_saved, |_| true)
+                    {
+                        if !matches!(work, Work::TeachBack { .. }) {
+                            open.typed.clear();
+                        }
+                        Editor::Stage
+                    } else {
+                        editor
+                    };
+                    let asked = match &result {
+                        Ok(Done::Asked(asked)) => asked.clone(),
+                        _ => step::Asked::default(),
+                    };
+                    open.assumed = asked.assumed;
+                    open.withheld = asked.withheld;
+                    open.revealed = false;
+                    open.feedback = result
+                        .as_ref()
+                        .err()
+                        .and_then(|failure| failure.feedback.as_deref().cloned());
+                    (
+                        said(result, &work, self.agent.as_deref().map(Agent::left)),
+                        editor,
+                    )
                 }
             };
-            if let Some(result) = result {
-                let editor = open.take_editor();
-                // A saved check or deferred answer closes its box; anything else keeps it.
-                let mut close = false;
-                open.notice = Some(Notice::said(match (result, write) {
-                    (Ok(()), Write::RepairCheck { .. }) => {
-                        close = true;
-                        open.read_end = None;
-                        self.scroll = 0;
-                        "Check saved. Read the changed draft, then confirm. No model ran.".into()
-                    }
-                    (Ok(()), Write::Revisit { .. }) => {
-                        close = true;
-                        open.typed.clear();
-                        "Deferred prerequisite answered. No model ran.".into()
-                    }
-                    (Ok(()), Write::End(Ending::Completed)) => {
-                        "Session completed. It's read-only now.".into()
-                    }
-                    (Ok(()), Write::End(Ending::Stopped)) => {
-                        "Session stopped. Its open questions stay recorded; it's read-only now."
-                            .into()
-                    }
-                    (Ok(()), Write::Object(text)) => {
-                        open.assumed.retain(|a| a.text != text);
-                        format!(
-                            "Not assumed: {text}. It's an open question now, asked before Shape drafts the Tink."
-                        )
-                    }
-                    (Ok(()), Write::Keep { .. }) => {
-                        open.typed.clear();
-                        "Answer kept with your reason. No model ran.".into()
-                    }
-                    (Ok(()), Write::Recommend { .. }) => {
-                        open.withheld = None;
-                        "Here are the options and my suggestion.".into()
-                    }
-                    (Err(refusal), _) => refusal.to_string(),
-                }));
-                open.mode = Mode::Idle(if close { Editor::Stage } else { editor });
-                open.reading = Reading::NotStarted;
-            }
+            open.notice = notice;
+            open.mode = Mode::Idle(editor);
+            open.reading = Reading::NotStarted;
         }
         if let Some(open) = &mut self.open
             && let Reading::NotStarted = open.reading
@@ -581,7 +542,11 @@ impl Shape {
                                 .and_then(|i| open.assumed.get(i))
                                 .map(|a| a.text.clone())
                             {
-                                open.object(text);
+                                match open.version() {
+                                    Some(expected) => open
+                                        .write(Work::Object { expected, text }, self.agent.clone()),
+                                    None => open.unversioned(),
+                                }
                             }
                         }
                         _ => {}
@@ -592,7 +557,7 @@ impl Shape {
                     match key.code {
                         _ if f2 => {
                             let ending = *ending;
-                            open.end(ending);
+                            open.write(Work::End(ending), self.agent.clone());
                         }
                         KeyCode::Esc => {
                             open.mode = Mode::Idle(Editor::Stage);
@@ -1143,10 +1108,13 @@ impl Opened {
     }
 
     /// Show what hard-to-undo question `id` held back, recording its withheld suggestion first.
-    fn reveal(&mut self, id: String) {
+    fn reveal(&mut self, id: String, agent: Option<Arc<Agent>>) {
         self.revealed = true;
-        match self.withheld.clone() {
-            Some(text) => self.write(Write::Recommend { id, text }, "Saving my suggestion."),
+        match (self.withheld.clone(), self.version()) {
+            (Some(text), Some(expected)) => {
+                self.write(Work::Recommend { id, expected, text }, agent)
+            }
+            (Some(_), None) => self.unversioned(),
             _ => {
                 self.notice = Some(Notice::said(
                     "Here are the options. No suggestion was kept for this question.",
@@ -1155,73 +1123,28 @@ impl Opened {
         }
     }
 
-    /// End the session through the helper off the paint path; [`Shape::tick`] reports it.
-    fn end(&mut self, ending: Ending) {
-        self.write(Write::End(ending), "Ending the session.");
+    /// The version a change without a model starts from, once a read landed.
+    fn version(&self) -> Option<u64> {
+        match &self.reading {
+            Reading::Done(Ok(shaping)) => shaping.version,
+            _ => None,
+        }
     }
 
-    /// Object to assuming `text`, from the version shown.
-    fn object(&mut self, text: String) {
-        self.write(Write::Object(text), "Saving your objection.");
+    /// A read without a ledger version gives a versioned change nothing to start from.
+    fn unversioned(&mut self) {
+        self.notice = Some(Notice::said("Tinkery read no version to change from."));
     }
 
-    /// Carry out `write` through the helper off the paint path; [`Shape::tick`] reports it.
-    fn write(&mut self, write: Write, said: &str) {
-        let Reading::Done(Ok(shaping)) = &self.reading else {
+    /// Carry out a change without a model off the paint path; [`Shape::tick`] reports it.
+    fn write(&mut self, work: Work, agent: Option<Arc<Agent>>) {
+        if !matches!(self.reading, Reading::Done(Ok(_))) {
             return;
-        };
-        let expected = shaping.version;
-        let session = self.session.clone();
-        let (sender, receiver) = mpsc::channel();
-        let work = write.clone();
-        let confirmation = self.confirmation.clone();
-        std::thread::spawn(move || {
-            let result = Actor::authorize(confirmation.as_ref())
-                .map_err(Refusal::Refused)
-                .and_then(|actor| match (work, expected) {
-                    (Write::RepairCheck { edit, words }, _) => {
-                        crate::seed_me::ledger::repair_check(
-                            &session,
-                            edit.expected,
-                            &edit.seed,
-                            (&edit.target, edit.method, &words),
-                            actor,
-                        )
-                        .map_err(Refusal::Refused)
-                    }
-                    (Write::Keep { id, reason }, Some(expected)) => {
-                        answering::keep(&session, expected, &id, &reason, actor)
-                    }
-                    (
-                        Write::Revisit {
-                            id,
-                            expected,
-                            words,
-                        },
-                        _,
-                    ) => answering::respond(
-                        &session,
-                        expected,
-                        &id,
-                        &AnswerAction::Revisit(words),
-                        actor,
-                    )
-                    .map(|_| ()),
-                    (Write::End(ending), _) => answering::end(&session, ending, actor),
-                    (Write::Object(text), Some(expected)) => {
-                        answering::object(&session, expected, &text, actor).map(|_| ())
-                    }
-                    (Write::Recommend { id, text }, Some(expected)) => {
-                        answering::recommend(&session, expected, &id, &text, actor).map(|_| ())
-                    }
-                    (Write::Keep { .. } | Write::Object(_) | Write::Recommend { .. }, None) => Err(
-                        Refusal::Refused("Tinkery read no version to change from.".into()),
-                    ),
-                });
-            let _ = sender.send(result);
-        });
+        }
+        let said = doing(&work, false, "");
+        let running = Running::start(work.clone(), self.session.clone(), agent);
         let editor = self.take_editor();
-        self.mode = Mode::Writing(write, receiver, editor);
+        self.mode = Mode::Writing(running, work, editor);
         self.notice = Some(Notice::said(said));
     }
 
@@ -1269,182 +1192,145 @@ impl Opened {
     /// Start what `act` asks, or say why not. Refuses empty words, an exhausted budget, a folder
     /// not yet known and a seed not yet read to the end before anything is written or called.
     fn act(&mut self, act: Act, agent: &Arc<Agent>) {
-        if let Act::Respond {
-            id,
-            expected,
-            action: AnswerAction::Revisit(words),
-        } = &act
-        {
-            self.write(
-                Write::Revisit {
-                    id: id.clone(),
-                    expected: *expected,
-                    words: words.clone(),
-                },
-                "Saving your answer. No model runs.",
-            );
-            return;
-        }
         let words = match self.editor() {
             Editor::Aside(_, words) => words,
             _ => &self.typed,
         }
         .text()
         .to_owned();
-        if let Act::RepairCheck(edit) = act {
-            self.write(
-                Write::RepairCheck { edit, words },
-                "Saving your check. No model runs.",
-            );
-            return;
-        }
         let folder = match &self.folder {
             Folder::Known(folder) => Some(folder.clone()),
             _ => None,
         };
-        let empty = words.trim().is_empty();
-        self.notice = match &act {
-            Act::TeachBack { .. } if empty => Some(Notice::Words(TEACH_BACK_FIRST)),
-            Act::Change { .. } if empty => Some(Notice::Words(CHANGE_FIRST)),
-            Act::Keep { .. } if empty => Some(Notice::Words(REASON_FIRST)),
-            Act::Answer { .. } if empty => Some(Notice::Words(ANSWER_FIRST)),
-            Act::Confirm { .. } if self.read_end.is_none() => Some(Notice::ReadFirst),
-            Act::Confirm { .. } if words != CONFIRM => Some(Notice::Words(CONFIRM_FIRST)),
-            Act::TeachBack { .. }
-            | Act::Change { .. }
-            | Act::Respond { .. }
-            | Act::Answer { .. }
-            | Act::Look(_)
-                if agent.remaining() == 0 =>
-            {
-                said(
-                    Err(Failure {
-                        answer_saved: false,
-                        why: Why::Budget(agent.limit()),
-                        feedback: None,
-                    }),
-                    Doing::Answer,
-                    None,
-                )
-            }
-            Act::Respond { .. } | Act::Answer { .. } | Act::Change { .. } | Act::Look(_)
-                if folder.is_none() =>
-            {
-                Some(Notice::said(
-                    "Shape is still finding which folder the step reads; nothing was saved.",
-                ))
-            }
-            _ => None,
-        };
-        let None = &self.notice else {
-            return;
-        };
-        let folder = folder.unwrap_or_default();
-        let feedback = self.feedback.take();
-        let (work, doing) = match act {
-            Act::RepairCheck(_) => unreachable!("handled before model work"),
+        let path = folder.clone().unwrap_or_default();
+        let mut work = match act {
+            Act::RepairCheck(edit) => Work::RepairCheck { edit, words },
+            Act::Respond {
+                id,
+                expected,
+                action: AnswerAction::Revisit(words),
+            } => Work::Revisit {
+                id,
+                expected,
+                words,
+            },
             Act::Respond {
                 id,
                 expected,
                 action,
-            } => {
-                let doing = match &action {
-                    AnswerAction::Defer { .. } => Doing::Defer,
-                    AnswerAction::Delegate => Doing::Delegate,
-                    AnswerAction::Revise(_) | AnswerAction::Revisit(_) => Doing::Revise,
-                };
-                (
-                    Work::Respond {
-                        id,
-                        expected,
-                        action,
-                        folder,
-                    },
-                    doing,
-                )
-            }
-            Act::Keep { id } => {
-                self.write(Write::Keep { id, reason: words }, "Saving your reason.");
-                return;
-            }
-            Act::Answer { id, expected } => (
-                Work::Answer {
-                    relay: None,
+            } => Work::Respond {
+                id,
+                expected,
+                action,
+                folder: path,
+            },
+            Act::Keep { id } => match self.version() {
+                Some(expected) => Work::Keep {
                     id,
-                    words,
                     expected,
-                    folder,
+                    reason: words,
                 },
-                Doing::Answer,
-            ),
+                None if words.trim().is_empty() => {
+                    self.notice = Some(Notice::Words(REASON_FIRST));
+                    return;
+                }
+                None => return self.unversioned(),
+            },
+            Act::Answer { id, expected } => Work::Answer {
+                relay: None,
+                id,
+                words,
+                expected,
+                folder: path,
+            },
             Act::TeachBack {
                 revision,
                 expected,
                 seed,
-            } => (
-                Work::TeachBack {
-                    revision,
-                    expected,
-                    seed,
-                    words,
-                },
-                Doing::TeachBack,
-            ),
-            Act::Change { revision, expected } => (
-                Work::Change {
-                    revision,
-                    words,
-                    expected,
-                    folder,
-                },
-                Doing::Change,
-            ),
-            Act::Look(expected) => (
-                Work::Look {
-                    expected,
-                    feedback: feedback.filter(|f| f.applies(&self.session, expected, &folder)),
-                    folder,
-                },
-                Doing::Look,
-            ),
+            } => Work::TeachBack {
+                revision,
+                expected,
+                seed,
+                words,
+            },
+            Act::Change { revision, expected } => Work::Change {
+                revision,
+                words,
+                expected,
+                folder: path,
+            },
+            Act::Look(expected) => Work::Look {
+                expected,
+                feedback: None,
+                folder: path,
+            },
             Act::Confirm {
                 revision,
                 expected,
                 seed,
-            } => (
-                Work::Confirm {
-                    revision,
-                    words,
-                    expected,
-                    seed,
-                },
-                Doing::Confirm,
-            ),
+            } => Work::Confirm {
+                revision,
+                words,
+                expected,
+                seed,
+            },
         };
-        let running = Running::start(work, self.session.clone(), agent.clone());
-        let editor = self.take_editor();
-        self.mode = Mode::Running(running, doing, editor);
+        let empty = |words: &str| words.trim().is_empty();
+        self.notice = match &work {
+            Work::TeachBack { words, .. } if empty(words) => Some(Notice::Words(TEACH_BACK_FIRST)),
+            Work::Change { words, .. } if empty(words) => Some(Notice::Words(CHANGE_FIRST)),
+            Work::Keep { reason, .. } if empty(reason) => Some(Notice::Words(REASON_FIRST)),
+            Work::Answer { words, .. } if empty(words) => Some(Notice::Words(ANSWER_FIRST)),
+            Work::Confirm { .. } if self.read_end.is_none() => Some(Notice::ReadFirst),
+            Work::Confirm { words, .. } if words != CONFIRM => Some(Notice::Words(CONFIRM_FIRST)),
+            work if work.calls_model() => match Steps::screen(Some(agent)).admit(work) {
+                Err(failure) => said(Err(failure), work, None),
+                Ok(()) if folder.is_none() && !matches!(work, Work::TeachBack { .. }) => {
+                    Some(Notice::said(
+                        "Shape is still finding which folder the step reads; nothing was saved.",
+                    ))
+                }
+                Ok(()) => None,
+            },
+            _ => None,
+        };
+        if self.notice.is_some() {
+            return;
+        }
+        // A retry diagnostic goes only to the explicit look it was kept for.
+        let feedback = self.feedback.take();
+        if let Work::Look {
+            expected,
+            folder,
+            feedback: slot,
+        } = &mut work
+        {
+            *slot = feedback.filter(|f| f.applies(&self.session, *expected, folder));
+        }
+        if work.calls_model() || matches!(work, Work::Confirm { .. }) {
+            let running = Running::start(work.clone(), self.session.clone(), Some(agent.clone()));
+            let editor = self.take_editor();
+            self.mode = Mode::Running(running, work, editor);
+        } else {
+            self.write(work, Some(agent.clone()));
+        }
     }
 
     /// Read the session off the paint path and, with an agent, find the folder its step reads.
     fn begin(&mut self, agent: Option<Arc<Agent>>) {
-        self.confirmation = agent.as_ref().and_then(|a| a.confirmation.clone());
         let (sender, receiver) = mpsc::channel();
         {
             let session = self.session.clone();
             std::thread::spawn(move || {
                 let (read, folder) = match shaping::read_with_base(&session) {
-                    Ok((read, base)) => {
-                        let folder = agent
-                            .as_ref()
-                            .zip(read.goal.as_deref())
-                            .map(|(agent, goal)| agent.folder(&session, goal))
-                            .transpose();
-                        match folder {
-                            Ok(folder) => (Ok(read), base.map(|base| base.checkout).or(folder)),
-                            Err(why) => (Err(why), None),
-                        }
-                    }
+                    Ok((read, base)) => match Steps::screen(agent.as_deref()).folder(
+                        &session,
+                        read.goal.as_deref(),
+                        base.map(|base| base.checkout),
+                    ) {
+                        Ok(folder) => (Ok(read), folder),
+                        Err(why) => (Err(why), None),
+                    },
                     Err(why) => (Err(why), None),
                 };
                 let _ = sender.send((read, folder));
@@ -1456,7 +1342,6 @@ impl Opened {
     fn start(session: &Path) -> Self {
         Self {
             session: session.to_path_buf(),
-            confirmation: None,
             reading: Reading::NotStarted,
             typed: Words::new(""),
             mode: Mode::Idle(Editor::Stage),
@@ -1807,26 +1692,9 @@ fn compose(open: &Opened, drafting: Option<&Agent>, held: bool, palette: Palette
             );
     let form = matches!(open.editor(), Editor::Form(_));
     let stand = match &open.mode {
-        Mode::Running(running, doing, _) => {
+        Mode::Running(running, work, _) => {
             let name = name.as_deref().unwrap_or_default();
-            let said = match (doing, running.saved()) {
-                (Doing::Answer, false) => "Saving your answer.".to_owned(),
-                (Doing::Answer, true) => {
-                    format!("Answer saved. Looking in {name} for the next question.")
-                }
-                (Doing::Defer, false) => "Saving your deferral.".into(),
-                (Doing::Delegate, false) => "Saving the delegated suggestion.".into(),
-                (Doing::Revise, false) => "Revising your answer and reopening dependents.".into(),
-                (Doing::Defer | Doing::Delegate | Doing::Revise, true) => {
-                    format!("{}Looking in {name} for the next question.", doing.saved())
-                }
-                (Doing::Look, _) => format!("Looking in {name} for the next question."),
-                (Doing::TeachBack, false) => "Saving your teach-back.".into(),
-                (Doing::TeachBack, true) => "Teach-back saved. Comparing with the draft.".into(),
-                (Doing::Change, false) => "Saving your change.".into(),
-                (Doing::Change, true) => format!("Change saved. Redrafting the Tink from {name}."),
-                (Doing::Confirm, _) => "Confirming the Tink.".to_owned(),
-            };
+            let said = doing(work, running.saved(), name);
             Stand {
                 acts,
                 reads: None,
@@ -2076,8 +1944,59 @@ fn asked(ending: Ending) -> Notice {
     }
 }
 
+/// What `work` says while it runs: before the operator's words are `saved`, then after, with
+/// `name` the folder a look reads.
+fn doing(work: &Work, saved: bool, name: &str) -> String {
+    match (work, saved) {
+        (Work::Answer { .. }, false) => "Saving your answer.".into(),
+        (Work::Answer { .. }, true) => {
+            format!("Answer saved. Looking in {name} for the next question.")
+        }
+        (Work::Respond { action, .. }, false) => match action {
+            AnswerAction::Defer { .. } => "Saving your deferral.",
+            AnswerAction::Delegate => "Saving the delegated suggestion.",
+            AnswerAction::Revise(_) | AnswerAction::Revisit(_) => {
+                "Revising your answer and reopening dependents."
+            }
+        }
+        .into(),
+        (Work::Respond { .. }, true) => {
+            format!(
+                "{}Looking in {name} for the next question.",
+                self::saved(work)
+            )
+        }
+        (Work::Look { .. }, _) => format!("Looking in {name} for the next question."),
+        (Work::TeachBack { .. }, false) => "Saving your teach-back.".into(),
+        (Work::TeachBack { .. }, true) => "Teach-back saved. Comparing with the draft.".into(),
+        (Work::Change { .. }, false) => "Saving your change.".into(),
+        (Work::Change { .. }, true) => format!("Change saved. Redrafting the Tink from {name}."),
+        (Work::Confirm { .. }, _) => "Confirming the Tink.".into(),
+        (Work::RepairCheck { .. }, _) => "Saving your check. No model runs.".into(),
+        (Work::Revisit { .. }, _) => "Saving your answer. No model runs.".into(),
+        (Work::Keep { .. }, _) => "Saving your reason.".into(),
+        (Work::End(_), _) => "Ending the session.".into(),
+        (Work::Object { .. }, _) => "Saving your objection.".into(),
+        (Work::Recommend { .. }, _) => "Saving my suggestion.".into(),
+    }
+}
+
+/// Which of the operator's words a step saved before it stopped short.
+fn saved(work: &Work) -> &'static str {
+    match work {
+        Work::Respond { action, .. } => match action {
+            AnswerAction::Defer { .. } => "Your deferral is saved. ",
+            AnswerAction::Delegate => "Your delegated answer is saved. ",
+            AnswerAction::Revise(_) | AnswerAction::Revisit(_) => "Your revised answer is saved. ",
+        },
+        Work::TeachBack { .. } => "Your teach-back is saved. ",
+        Work::Change { .. } => "Your change is saved. ",
+        _ => "Your answer is saved. ",
+    }
+}
+
 /// `left` is the allowance, added where the operator decides whether to retry (#435).
-fn said(result: Result<Done, Failure>, doing: Doing, left: Option<String>) -> Option<Notice> {
+fn said(result: Result<Done, Failure>, work: &Work, left: Option<String>) -> Option<Notice> {
     if result == Ok(Done::Compared) {
         return Some(Notice::said(
             "Teach-back compared. Mismatches never block confirming.",
@@ -2088,7 +2007,7 @@ fn said(result: Result<Done, Failure>, doing: Doing, left: Option<String>) -> Op
         why,
         feedback,
     } = result.err()?;
-    let saved = if answer_saved { doing.saved() } else { "" };
+    let saved = if answer_saved { saved(work) } else { "" };
     let left = left.map_or_else(String::new, |left| format!(" {left}"));
     let (said, next) = match why {
         Why::Stale if answer_saved => (
@@ -2100,7 +2019,16 @@ fn said(result: Result<Done, Failure>, doing: Doing, left: Option<String>) -> Op
         Why::Stale => (
             "Another writer changed this session first, so nothing was saved. Shape read it again."
                 .into(),
-            matches!(doing, Doing::Defer | Doing::Revise).then(|| {
+            matches!(
+                work,
+                Work::Respond {
+                    action: AnswerAction::Defer { .. }
+                        | AnswerAction::Revise(_)
+                        | AnswerAction::Revisit(_),
+                    ..
+                }
+            )
+            .then(|| {
                 "Next: Esc cancels this form; open it again from the refreshed question.".into()
             }),
         ),
@@ -2114,7 +2042,7 @@ fn said(result: Result<Done, Failure>, doing: Doing, left: Option<String>) -> Op
         Why::Model(error) => (
             format!(
                 "{saved}{}: {error}{left}",
-                if matches!(doing, Doing::TeachBack) {
+                if matches!(work, Work::TeachBack { .. }) {
                     "Comparing your teach-back failed"
                 } else {
                     "Looking into the next question failed"
