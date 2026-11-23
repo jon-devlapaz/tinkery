@@ -2,6 +2,7 @@
 //! branches and other runs' records cannot establish the link; a missing or malformed record
 //! stays unknown.
 
+use crate::github::PrUrl;
 use serde_json::Value;
 
 /// Why the checkout cannot supply a PR and what the operator can do about it.
@@ -23,7 +24,7 @@ pub(super) const UNKNOWN_RUN: PrGap = PrGap {
 };
 
 /// The PR the run recorded for itself, or why it is unknown. Never reads files or contacts GitHub.
-pub(super) fn recorded(run: &Value) -> Result<String, PrGap> {
+pub(super) fn recorded(run: &Value) -> Result<PrUrl, PrGap> {
     let url = match run.get("pr") {
         None => {
             return Err(PrGap {
@@ -45,26 +46,11 @@ pub(super) fn recorded(run: &Value) -> Result<String, PrGap> {
         }
         Some(pr) => pr["url"].as_str().unwrap_or(""),
     };
-    if !canonical_pr_url(url) {
-        return Err(PrGap {
-            known_absent: false,
-            title: "Result unknown: invalid PR URL",
-            next: "Inspect this run's PR record outside Tinkery. After repair, press r.",
-        });
-    }
-    Ok(url.into())
-}
-
-fn canonical_pr_url(url: &str) -> bool {
-    static PR: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r"^https://github\.com/[A-Za-z0-9-]+/[A-Za-z0-9_.-]+/pull/[1-9][0-9]*$")
-            .unwrap()
-    });
-    PR.is_match(url)
-        && !url
-            .split('/')
-            .nth(4)
-            .is_some_and(|repo| matches!(repo, "." | ".."))
+    PrUrl::parse(url).ok_or(PrGap {
+        known_absent: false,
+        title: "Result unknown: invalid PR URL",
+        next: "Inspect this run's PR record outside Tinkery. After repair, press r.",
+    })
 }
 
 #[cfg(test)]
@@ -77,7 +63,9 @@ mod tests {
     #[test]
     fn only_the_runs_own_record_supplies_its_pr() {
         assert_eq!(
-            recorded(&json!({"slug": "TEST-result", "pr": {"url": URL}})).unwrap(),
+            recorded(&json!({"slug": "TEST-result", "pr": {"url": URL}}))
+                .unwrap()
+                .to_string(),
             URL
         );
         let missing = recorded(&json!({"slug": "TEST-result", "pr": null})).unwrap_err();

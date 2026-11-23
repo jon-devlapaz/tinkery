@@ -2,7 +2,7 @@
 //! title supplies a PR; missing identities never borrow a goal or old success. No writes or decisions.
 
 use super::{evidence, links};
-use crate::process;
+use crate::github;
 use crate::{
     sdlc::{self, DEADLINE},
     seed_me::runs::{self, Goal},
@@ -10,7 +10,6 @@ use crate::{
 use serde_json::Value;
 use std::{
     path::Path,
-    process::Command,
     sync::atomic::{AtomicBool, Ordering},
 };
 
@@ -170,7 +169,7 @@ pub(super) struct ResultRow {
     /// Exact saved goal, only from the shared seed join.
     pub(super) goal: Goal,
     /// Canonical explicit PR URL; never inferred from a branch.
-    pub(super) url: Result<String, links::PrGap>,
+    pub(super) url: Result<github::PrUrl, links::PrGap>,
     /// The PR's title from GitHub, shown as what was built; absent means unknown.
     pub(super) title: Option<String>,
     /// Current PR head or the local receipt's exact checked commit; absent means unknown.
@@ -435,9 +434,8 @@ fn local(root: &Path, parsed: &sdlc::Run, row: &mut ResultRow) -> Result<(), Str
     Ok(())
 }
 
-/// GitHub owner and repo names are case-insensitive; anything else must match the record exactly.
 fn same_pr(pr: &Value, row: &ResultRow) -> bool {
-    matches!((pr["url"].as_str(), row.url.as_deref()), (Some(a), Ok(b)) if a.eq_ignore_ascii_case(b))
+    matches!((pr["url"].as_str(), &row.url), (Some(a), Ok(b)) if b.names(a))
 }
 
 fn remote(pr: &Value, row: &mut ResultRow) -> Result<(), String> {
@@ -456,34 +454,21 @@ fn remote(pr: &Value, row: &mut ResultRow) -> Result<(), String> {
         .as_str()
         .filter(|t| !t.trim().is_empty())
         .map(Into::into);
-    for check in pr["statusCheckRollup"]
-        .as_array()
-        .ok_or("PR checks unavailable.")?
-    {
-        let (name, state) = match text(check, "__typename")? {
-            "CheckRun" => (
-                text(check, "name")?,
-                if check["status"] == "COMPLETED" {
-                    match text(check, "conclusion")? {
-                        "SUCCESS" => Check::Pass,
-                        "FAILURE" | "TIMED_OUT" | "CANCELLED" | "ACTION_REQUIRED"
-                        | "STARTUP_FAILURE" => Check::Fail,
-                        _ => Check::NotSuccessful,
-                    }
-                } else {
-                    Check::Pending
-                },
-            ),
-            "StatusContext" => (
-                text(check, "context")?,
-                match text(check, "state")? {
-                    "SUCCESS" => Check::Pass,
-                    "FAILURE" | "ERROR" => Check::Fail,
-                    _ => Check::Pending,
-                },
-            ),
-            _ => return Err("Unsupported GitHub check type.".into()),
+    let checks = github::checks(&pr["statusCheckRollup"]).ok_or("PR checks unavailable.")?;
+    for check in &checks {
+        let state = match check.verdict {
+            Ok(github::Verdict::Pass) => Check::Pass,
+            Ok(github::Verdict::Fail) => Check::Fail,
+            Ok(github::Verdict::NotSuccessful) => Check::NotSuccessful,
+            Ok(github::Verdict::Pending) => Check::Pending,
+            Err(github::Unread::Missing(key)) => {
+                return Err(format!(
+                    "Run report missing {key}; read again after repairing the source."
+                ));
+            }
+            Err(github::Unread::Kind) => return Err("Unsupported GitHub check type.".into()),
         };
+        let name = check.name.as_deref().unwrap_or_default();
         row.items.push(Item {
             label: name.into(),
             state,
@@ -491,10 +476,7 @@ fn remote(pr: &Value, row: &mut ResultRow) -> Result<(), String> {
             evidence: "GitHub PR-head check, not merge-commit evidence".into(),
         });
     }
-    if pr["statusCheckRollup"]
-        .as_array()
-        .is_some_and(Vec::is_empty)
-    {
+    if checks.is_empty() {
         row.items.push(Item {
             label: "PR checks".into(),
             state: Check::NoneReported,
@@ -514,19 +496,6 @@ fn listed(pr: &Value, row: &mut ResultRow) -> Result<bool, String> {
         Some("CLOSED") => Ok(false),
         _ => Err("Unknown PR state.".into()),
     }
-}
-
-fn gh(root: &Path, url: &str, stop: &AtomicBool) -> Result<Value, String> {
-    let mut command = Command::new("gh");
-    command.args([
-        "pr",
-        "view",
-        url,
-        "--json",
-        "url,title,headRefOid,state,statusCheckRollup",
-    ]);
-    let out = process::text(root, command, "gh", stop, DEADLINE)?;
-    serde_json::from_str(&out).map_err(|_| "GitHub report unreadable.".into())
 }
 
 /// Read API 1 plus each run's recorded PR, serially; cancellation never publishes a late row.
@@ -601,8 +570,8 @@ pub(super) fn collect(root: &Path, stop: &AtomicBool) -> Result<(Vec<ResultRow>,
             .into();
         row.url = links::recorded(run);
         if let Ok(url) = &row.url {
-            match gh(&root, url, stop) {
-                Ok(pr) if same_pr(&pr, &row) => {
+            match github::view(&root, url, stop) {
+                Some(pr) if same_pr(&pr, &row) => {
                     if !listed(&pr, &mut row)? {
                         continue;
                     }
@@ -613,10 +582,10 @@ pub(super) fn collect(root: &Path, stop: &AtomicBool) -> Result<(Vec<ResultRow>,
                         row.gaps.push(why);
                     }
                 }
-                Ok(_) => row.gaps.push(
+                Some(_) => row.gaps.push(
                     "GitHub names a different PR than the run recorded (renamed or moved?); result revision unknown.".into(),
                 ),
-                Err(_) => row.gaps.push(
+                None => row.gaps.push(
                     "Couldn't read GitHub. Check gh authentication/access, then press r; result revision unknown.".into(),
                 ),
             }
@@ -1175,7 +1144,7 @@ mod tests {
     #[test]
     fn remote_checks_are_separate_and_neutral_is_not_pass() {
         let mut row = row();
-        let pr = json!({"url":row.url.as_ref().unwrap(),"headRefOid":"a".repeat(40),"statusCheckRollup":[
+        let pr = json!({"url":row.url.as_deref().unwrap(),"headRefOid":"a".repeat(40),"statusCheckRollup":[
             {"__typename":"CheckRun","name":"TEST CI","status":"COMPLETED","conclusion":"NEUTRAL"}]});
         remote(&pr, &mut row).unwrap();
         assert!(row.items[0].state.word().starts_with("pending"));
