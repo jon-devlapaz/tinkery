@@ -5,8 +5,6 @@
 use crate::{process, sdlc};
 use serde_json::Value;
 use std::{
-    fs::{self, File, OpenOptions},
-    io::{BufRead, BufReader, Read as _},
     path::Path,
     process::Command,
     sync::atomic::AtomicBool,
@@ -17,7 +15,6 @@ use std::{
 pub(super) const RUNS: usize = 20;
 /// A merge younger than this many days is too recent to call held.
 pub(super) const HOLD_DAYS: u64 = 14;
-const LIMIT: u64 = 8 * 1024 * 1024;
 
 /// One read: recently closed runs, newest first, and what the checkout couldn't report.
 pub(super) struct Postmortem {
@@ -177,13 +174,11 @@ fn closed_run(
         _ => None,
     };
     // No folder holds a NUL name; a relative one would depend on Tinkery's own folder.
-    let folder = match &parsed.checkout {
-        Ok(path) => Some(path.as_deref().unwrap_or(root).join("runs").join(slug)),
+    let files = match &parsed.checkout {
+        Ok(path) => sdlc::RunFiles::open(path.as_deref().unwrap_or(root), slug),
         Err(sdlc::CheckoutGap::NotText) => return Err("A build checkout is unreadable.".into()),
         Err(sdlc::CheckoutGap::Nul | sdlc::CheckoutGap::Relative) => None,
     };
-    // Resolve the checkout once (macOS temp paths are links); files below it must not be links.
-    let folder = folder.map(|folder| folder.canonicalize().unwrap_or(folder));
     let pr = run["pr"]["url"].as_str().map(str::to_owned);
     let closed_ns = closure_ns(parsed).unwrap_or_default();
     let held = match &merge {
@@ -213,25 +208,22 @@ fn closed_run(
                 by: d.by,
             })
             .collect(),
-        labels: folder
-            .as_deref()
-            .ok_or_else(|| "Labels unreadable in this checkout.".to_owned())
-            .and_then(|folder| labels(folder, parsed.labels.count)),
-        steps: steps(folder.as_deref(), parsed),
+        labels: labels(files.as_ref(), parsed.labels.count),
+        steps: steps(files.as_ref(), parsed),
         held,
     })
 }
 
 // tink-sdlc has validated the chain; this reads only kind and words, and refuses a count mismatch.
-fn labels(folder: &Path, count: Option<u64>) -> Result<Vec<Label>, String> {
-    let file =
-        regular(&folder.join("labels.jsonl")).ok_or("Labels unreadable in this checkout.")?;
+fn labels(files: Option<&sdlc::RunFiles>, count: Option<u64>) -> Result<Vec<Label>, String> {
+    let records = match files.map(sdlc::RunFiles::labels) {
+        Some(Ok(records)) => records,
+        Some(Err(sdlc::FileGap::Incomplete)) => return Err("A label line is unreadable.".into()),
+        None | Some(Err(_)) => return Err("Labels unreadable in this checkout.".into()),
+    };
     let mut labels = Vec::new();
-    for line in BufReader::new(file.take(LIMIT)).lines() {
-        let record: Value = line
-            .ok()
-            .and_then(|l| serde_json::from_str(&l).ok())
-            .ok_or("A label line is unreadable.")?;
+    for record in records {
+        let record = record.ok_or("A label line is unreadable.")?;
         match (record["kind"].as_str(), record["words"].as_str()) {
             (Some(kind), Some(words)) => labels.push(Label {
                 kind: kind.into(),
@@ -246,14 +238,17 @@ fn labels(folder: &Path, count: Option<u64>) -> Result<Vec<Label>, String> {
     Ok(labels)
 }
 
-fn steps(folder: Option<&Path>, run: &sdlc::Run) -> Vec<(String, Option<usize>)> {
+fn steps(files: Option<&sdlc::RunFiles>, run: &sdlc::Run) -> Vec<(String, Option<usize>)> {
+    let logs = files.and_then(|files| files.logs(true, false));
     let mut steps: Vec<_> = run
         .steps
         .iter()
         .flatten()
         .filter_map(|s| s.data["name"].as_str())
         .map(|name| {
-            let responses = folder.and_then(|folder| responses(&folder.join("steps"), name));
+            let responses = files.zip(logs.as_ref()).and_then(|(files, logs)| {
+                responses(files, logs.iter().filter(|log| log.step == name), name)
+            });
             (name.to_owned(), responses)
         })
         .collect();
@@ -263,55 +258,36 @@ fn steps(folder: Option<&Path>, run: &sdlc::Run) -> Vec<(String, Option<usize>)>
 
 /// Assistant answers across a step's launch and resume logs, bound to its contract's session.
 /// No log, a foreign session or an unreadable event makes the step unknown.
-fn responses(directory: &Path, step: &str) -> Option<usize> {
+fn responses<'a>(
+    files: &sdlc::RunFiles,
+    logs: impl Iterator<Item = &'a sdlc::Log>,
+    step: &str,
+) -> Option<usize> {
     let contract: Value =
-        serde_json::from_reader(regular(&directory.join(format!("{step}.json")))?.take(64 * 1024))
-            .ok()?;
+        serde_json::from_slice(&files.read(&format!("steps/{step}.json")).ok()?).ok()?;
     let session = contract["session"].as_str().filter(|s| !s.is_empty())?;
-    let prefix = format!("{step}.");
-    let logs: Vec<_> = fs::read_dir(directory)
-        .ok()?
-        .filter_map(Result::ok)
-        .filter_map(|e| e.file_name().into_string().ok())
-        .filter(|name| {
-            name.strip_prefix(&prefix)
-                .and_then(|rest| rest.strip_suffix(".pi.log"))
-                .and_then(|rest| {
-                    rest.strip_prefix("launch-")
-                        .or(rest.strip_prefix("resume-"))
-                })
-                .is_some_and(|time| !time.is_empty() && time.bytes().all(|b| b.is_ascii_digit()))
-        })
-        .collect();
-    if logs.is_empty() {
-        return None;
-    }
-    let mut total = 0;
-    for name in logs {
-        total += log_responses(regular(&directory.join(name))?, session)?;
-    }
-    Some(total)
-}
-
-fn log_responses(file: File, session: &str) -> Option<usize> {
-    let mut lines = BufReader::new(file.take(LIMIT)).lines();
-    let header: Value = serde_json::from_str(&lines.next()?.ok()?).ok()?;
-    if header["type"] != "session" || header["id"] != session {
-        return None;
-    }
-    let mut count = 0;
-    for line in lines {
-        let line = line.ok()?;
-        // The launcher's own notes share the log; only JSON events are Pi's.
-        if !line.starts_with('{') {
-            continue;
+    let mut total = None;
+    for log in logs {
+        let mut lines = files.lines(&format!("steps/{}", log.name))?.into_iter();
+        let header: Value = serde_json::from_str(&lines.next()??).ok()?;
+        if header["type"] != "session" || header["id"] != session {
+            return None;
         }
-        let event: Value = serde_json::from_str(&line).ok()?;
-        if event["type"] == "message_end" && event["message"]["role"] == "assistant" {
-            count += 1;
+        let mut count = 0;
+        for line in lines {
+            let line = line?;
+            // The launcher's own notes share the log; only JSON events are Pi's.
+            if !line.starts_with('{') {
+                continue;
+            }
+            let event: Value = serde_json::from_str(&line).ok()?;
+            if event["type"] == "message_end" && event["message"]["role"] == "assistant" {
+                count += 1;
+            }
         }
+        total = Some(total.unwrap_or(0) + count);
     }
-    Some(count)
+    total
 }
 
 fn held(
@@ -353,17 +329,4 @@ fn held(
             None => Hold::TooRecent,
         },
     }
-}
-
-fn regular(path: &Path) -> Option<File> {
-    if path.canonicalize().ok()? != path {
-        return None;
-    }
-    crate::regular_file::open(
-        OpenOptions::new().read(true),
-        libc::O_NOFOLLOW,
-        path,
-        "not a regular file",
-    )
-    .ok()
 }
