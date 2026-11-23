@@ -289,7 +289,7 @@ fn completion_through_publish_is_refused() {
 #[test]
 fn an_unknown_save_asks_the_operator_to_look() {
     let error = |save_state| ledger::PublishError {
-        reason: "could not save the ledger: TEST disk stale publication version".into(),
+        kind: ledger::PublishKind::Unverified("TEST disk stale publication version".into()),
         save_state,
     };
     assert_eq!(
