@@ -18,7 +18,8 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Padding, Paragraph, Wrap},
 };
 
-use super::{CALLS, Harness, Setup};
+use super::{CALLS, DEFAULT_THINKING, Setup};
+use crate::pi::Harness;
 use crate::{
     Palette,
     pi::{CallBudget, RESPONSE},
@@ -166,7 +167,7 @@ impl Controls {
                     draft.harness = next(&Harness::ALL, &draft.harness);
                     draft.model = draft.harness.models().first().map_or("", |m| m).into();
                     if draft.harness.check_thinking(&draft.thinking).is_err() {
-                        draft.thinking = "low".into();
+                        draft.thinking = DEFAULT_THINKING.into();
                     }
                 }
                 1 if draft.harness == Harness::ClaudeCode => {

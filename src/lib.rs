@@ -28,6 +28,7 @@ pub mod confirmation;
 pub mod data_roots;
 mod github;
 pub mod goal;
+pub mod launch;
 pub mod measure;
 pub mod menu;
 pub mod model_setup;

@@ -33,14 +33,11 @@ fn home() -> (tempfile::TempDir, Home, PathBuf, Vec<u8>) {
     )
     .unwrap();
     let bytes = fs::read(&path).unwrap();
-    let mut home = Home::new(
-        Box::new(BrainDump::default),
-        DataRoots {
-            sessions: Ok(sessions),
-            records: Ok(records),
-            tend: Ok(dir.path().join("TEST-links")),
-        },
-    );
+    let mut home = Home::new(Launch::practice(DataRoots {
+        sessions: Ok(sessions),
+        records: Ok(records),
+        tend: Ok(dir.path().join("TEST-links")),
+    }));
     home.discover_for_snapshot(Duration::from_secs(3));
     home.open(Place::Tend);
     (dir, home, path, bytes)

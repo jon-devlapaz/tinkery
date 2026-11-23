@@ -197,12 +197,6 @@ impl GoalConfirmation {
         Ok(Self::terminal_declaration(declaration))
     }
 
-    /// The launch declaration when only whether an agent was declared is known: an agent, or
-    /// not declared. It never claims a human declaration.
-    pub(crate) fn launched(agent: bool) -> Self {
-        Self::terminal_declaration(if agent { DECLARED_AGENT } else { NOT_DECLARED })
-    }
-
     fn terminal_declaration(declaration: &str) -> Self {
         Self::Terminal {
             declaration: declaration.into(),
@@ -365,11 +359,12 @@ mod tests {
 
     #[test]
     fn tend_save_keeps_the_declaration_and_stays_valid_and_never_claims_a_human() {
-        for (agent, declaration, writes_as) in [
-            (true, "declared: agent", "agent"),
-            (false, "not declared", "human"),
+        for (operator, declaration, writes_as) in [
+            (Some("agent"), "declared: agent", "agent"),
+            (Some("human"), "declared: human", "human"),
+            (None, "not declared", "human"),
         ] {
-            let saved = GoalConfirmation::launched(agent).tend_save();
+            let saved = GoalConfirmation::terminal(operator).unwrap().tend_save();
             assert_eq!(
                 serde_json::to_value(&saved).unwrap(),
                 serde_json::json!({"by": "terminal", "declaration": declaration,

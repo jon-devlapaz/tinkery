@@ -13,7 +13,7 @@ fn run(
     cancelled: &AtomicBool,
     saved: &AtomicBool,
 ) -> Result<Done, Failure> {
-    Steps::screen(Some(agent)).run(work, session, cancelled, saved)
+    Steps::new(Some(agent), &GoalConfirmation::default()).run(work, session, cancelled, saved)
 }
 
 const MISSING_SOURCE: &str = include_str!("../../../tests/fixtures/shape-296/missing-source.json");

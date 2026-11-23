@@ -144,7 +144,6 @@ pub struct Agent {
     call: Call,
     budget: Arc<CallBudget>,
     records: Option<PathBuf>,
-    pub(super) confirmation: Option<crate::confirmation::GoalConfirmation>,
 }
 
 impl Agent {
@@ -176,32 +175,12 @@ impl Agent {
             },
             budget,
             records,
-            confirmation: None,
         })
     }
 
-    /// Reuse named caller context for this run; model replies can never supply or replace it.
-    pub fn with_confirmation(
-        mut self,
-        confirmation: Option<crate::confirmation::GoalConfirmation>,
-    ) -> Self {
-        self.confirmation = confirmation;
-        self
-    }
-
     /// Share the configured transport and allowance through the menu. This starts no call.
-    pub(crate) fn drafting(
-        &self,
-    ) -> (
-        Call,
-        Arc<CallBudget>,
-        Option<crate::confirmation::GoalConfirmation>,
-    ) {
-        (
-            self.call.clone(),
-            self.budget.clone(),
-            self.confirmation.clone(),
-        )
+    pub(crate) fn drafting(&self) -> (Call, Arc<CallBudget>) {
+        (self.call.clone(), self.budget.clone())
     }
 
     /// Model calls this run may still make.
@@ -423,14 +402,20 @@ pub(super) struct Running {
 }
 
 impl Running {
-    /// Start `work` on `session` off the calling thread, through the screen's [`Steps`].
-    pub(super) fn start(work: Work, session: PathBuf, agent: Option<Arc<Agent>>) -> Self {
+    /// Start `work` on `session` off the calling thread, through [`Steps`] attributed to
+    /// `confirmation`.
+    pub(super) fn start(
+        work: Work,
+        session: PathBuf,
+        agent: Option<Arc<Agent>>,
+        confirmation: GoalConfirmation,
+    ) -> Self {
         let cancelled = Arc::new(AtomicBool::new(false));
         let saved = Arc::new(AtomicBool::new(false));
         let (flag, answered) = (cancelled.clone(), saved.clone());
         let (sender, result) = mpsc::channel();
         std::thread::spawn(move || {
-            let steps = Steps::screen(agent.as_deref());
+            let steps = Steps::new(agent.as_deref(), &confirmation);
             let _ = sender.send(steps.run(&work, &session, &flag, &answered));
         });
         Self {
@@ -503,24 +488,16 @@ pub(super) const NO_AGENT: &str = "This step needs drafting: put --shape-pi, --m
 #[derive(Clone, Copy)]
 pub(super) struct Steps<'a> {
     agent: Option<&'a Agent>,
-    confirmation: Option<&'a GoalConfirmation>,
+    confirmation: &'a GoalConfirmation,
 }
 
 impl<'a> Steps<'a> {
-    /// The screen's steps. Attribution is decided here: the drafting agent's caller context, or
-    /// the operator's when there is no agent (an agent launch without one is held instead).
-    pub(super) fn screen(agent: Option<&'a Agent>) -> Self {
+    /// Steps through `agent`, with every write attributed to the launch's declared
+    /// `confirmation`, never to the drafting agent alone. An undeclared launch is the operator.
+    pub(super) fn new(agent: Option<&'a Agent>, confirmation: &'a GoalConfirmation) -> Self {
         Self {
             agent,
-            confirmation: agent.and_then(|agent| agent.confirmation.as_ref()),
-        }
-    }
-
-    /// The command's steps, attributed as the launch's declared `confirmation`.
-    pub(super) fn command(agent: Option<&'a Agent>, confirmation: &'a GoalConfirmation) -> Self {
-        Self {
-            agent,
-            confirmation: Some(confirmation),
+            confirmation,
         }
     }
 
@@ -566,7 +543,7 @@ impl<'a> Steps<'a> {
         cancelled: &AtomicBool,
         saved: &AtomicBool,
     ) -> Result<Done, Failure> {
-        let actor = Actor::authorize(self.confirmation).map_err(|reason| Failure {
+        let actor = self.confirmation.actor().map_err(|reason| Failure {
             answer_saved: false,
             why: Why::Refused(reason),
             feedback: None,
