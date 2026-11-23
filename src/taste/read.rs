@@ -71,6 +71,82 @@ impl std::fmt::Display for Check {
     }
 }
 
+/// Who owns an item's evidence; never an acceptance claim. Decisions match on this; the words
+/// are only for display and copies.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Owner {
+    /// A source completion condition checked by tink-sdlc's verification.
+    Automated,
+    /// A source completion condition not yet activated.
+    Proposed,
+    /// A source completion condition the operator attests.
+    Human,
+    /// A source completion condition checked by hand.
+    Manual,
+    /// One GitHub PR-head check.
+    GitHubCheck,
+    /// GitHub's report that it has no PR-head checks.
+    GitHub,
+    /// The independent review Taste cannot see.
+    Review,
+    /// Earlier operator verdicts that do not identify this result.
+    Verdict,
+}
+
+impl std::fmt::Display for Owner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Automated => "automated",
+            Self::Proposed => "proposed check",
+            Self::Human => "human attestation",
+            Self::Manual => "manual check",
+            Self::GitHubCheck => "GitHub check",
+            Self::GitHub => "GitHub",
+            Self::Review => "review, not acceptance",
+            Self::Verdict => "operator verdict, not approval",
+        })
+    }
+}
+
+/// One action the operator still owes. Decisions match on this; the words are only for display.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum Gate {
+    /// A stage decision the source reports as not approved.
+    Stage {
+        stage: sdlc::Stage,
+        status: sdlc::GateStatus,
+    },
+    /// A human attestation still owed, or a given one that may need recheck.
+    Attestation { label: String, recheck: bool },
+}
+
+impl std::fmt::Display for Gate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Stage { stage, status } => {
+                let action = match stage {
+                    sdlc::Stage::Problem => "review the problem",
+                    sdlc::Stage::Specification => "review the specification",
+                    sdlc::Stage::Plan => "approve the plan",
+                    sdlc::Stage::Other(_) => "review the decision externally",
+                };
+                match status {
+                    sdlc::GateStatus::Stale if *stage == sdlc::Stage::Plan => {
+                        f.write_str("re-approve the plan")
+                    }
+                    sdlc::GateStatus::ChangesRequested => write!(f, "revise and {action}"),
+                    _ => f.write_str(action),
+                }
+            }
+            Self::Attestation {
+                label,
+                recheck: true,
+            } => write!(f, "may need recheck: {label}"),
+            Self::Attestation { label, .. } => f.write_str(label),
+        }
+    }
+}
+
 /// One condition or observation, never an aggregate verdict.
 #[derive(Clone, Debug)]
 pub(super) struct Item {
@@ -79,7 +155,7 @@ pub(super) struct Item {
     /// Where the condition stands, with any honest gap.
     pub(super) state: Check,
     /// Evidence owner, not an acceptance claim.
-    pub(super) kind: String,
+    pub(super) owner: Owner,
     /// Original evidence, available by scrolling and in the external handoff.
     pub(super) evidence: String,
 }
@@ -114,7 +190,7 @@ pub(super) struct ResultRow {
     /// No verification, decisions or checklist marks were reported at the read root.
     pub(super) receipts_missing: bool,
     /// Plain actions still owed, including human attestations.
-    pub(super) gates: Vec<String>,
+    pub(super) gates: Vec<Gate>,
     /// Unresolved source problems, not concealed by other successes.
     pub(super) gaps: Vec<String>,
     /// The source reported failed verification, so no verdict is awaited yet.
@@ -142,6 +218,12 @@ impl ResultRow {
         })
     }
 
+    /// The owed actions in source order, joined for copies.
+    pub(super) fn gates_owed(&self) -> String {
+        let words: Vec<_> = self.gates.iter().map(Gate::to_string).collect();
+        words.join("; ")
+    }
+
     /// Only a known PR or checked local result can supply a preview declaration.
     pub(super) fn preview(&self) -> Result<Option<&super::preview::Spec>, &str> {
         if self.local.as_ref().map_err(String::as_str)?.is_none() {
@@ -158,22 +240,6 @@ fn text<'a>(v: &'a Value, key: &str) -> Result<&'a str, String> {
     v[key]
         .as_str()
         .ok_or_else(|| format!("Run report missing {key}; read again after repairing the source."))
-}
-
-fn gate_words(stage: sdlc::Stage, status: sdlc::GateStatus) -> String {
-    let action = match stage {
-        sdlc::Stage::Problem => "review the problem",
-        sdlc::Stage::Specification => "review the specification",
-        sdlc::Stage::Plan => "approve the plan",
-        sdlc::Stage::Other(_) => "review the decision externally",
-    };
-    if status == sdlc::GateStatus::Stale && stage == sdlc::Stage::Plan {
-        "re-approve the plan".into()
-    } else if status == sdlc::GateStatus::ChangesRequested {
-        format!("revise and {action}")
-    } else {
-        action.into()
-    }
 }
 
 fn local(root: &Path, parsed: &sdlc::Run, row: &mut ResultRow) -> Result<(), String> {
@@ -213,14 +279,16 @@ fn local(root: &Path, parsed: &sdlc::Run, row: &mut ResultRow) -> Result<(), Str
             .as_str()
             .ok_or("Run report missing status; read again after repairing the source.")?;
         let known = gate.status.known().ok_or("Unknown gate status.")?;
-        let stage = gate.stage.ok_or("Gate stage missing.")?;
+        let owed = Gate::Stage {
+            stage: gate.stage.ok_or("Gate stage missing.")?,
+            status: known,
+        };
         if row.receipts_missing {
             row.gaps.push(format!(
-                "Gate source reported {status}: {}. Obligation {MISSING_RECEIPTS}.",
-                gate_words(stage, known)
+                "Gate source reported {status}: {owed}. Obligation {MISSING_RECEIPTS}."
             ));
         } else if known != G::Approved {
-            all_gates.push(gate_words(stage, known));
+            all_gates.push(owed);
         }
     }
     row.gates = all_gates;
@@ -308,10 +376,9 @@ fn local(root: &Path, parsed: &sdlc::Run, row: &mut ResultRow) -> Result<(), Str
             && !row.receipts_missing
             && (owed || recheck)
         {
-            row.gates.push(if recheck {
-                format!("may need recheck: {label}")
-            } else {
-                label.clone()
+            row.gates.push(Gate::Attestation {
+                label: label.clone(),
+                recheck,
             });
         }
         let evidence = if pending {
@@ -345,16 +412,15 @@ fn local(root: &Path, parsed: &sdlc::Run, row: &mut ResultRow) -> Result<(), Str
         row.items.push(Item {
             label,
             state,
-            kind: if automatic {
-                "automated"
+            owner: if automatic {
+                Owner::Automated
             } else if pending {
-                "proposed check"
+                Owner::Proposed
             } else if human {
-                "human attestation"
+                Owner::Human
             } else {
-                "manual check"
-            }
-            .into(),
+                Owner::Manual
+            },
             evidence: if row.receipts_missing {
                 format!("Source reported {status}; {evidence}")
             } else {
@@ -421,7 +487,7 @@ fn remote(pr: &Value, row: &mut ResultRow) -> Result<(), String> {
         row.items.push(Item {
             label: name.into(),
             state,
-            kind: "GitHub check".into(),
+            owner: Owner::GitHubCheck,
             evidence: "GitHub PR-head check, not merge-commit evidence".into(),
         });
     }
@@ -432,16 +498,10 @@ fn remote(pr: &Value, row: &mut ResultRow) -> Result<(), String> {
         row.items.push(Item {
             label: "PR checks".into(),
             state: Check::NoneReported,
-            kind: "GitHub".into(),
+            owner: Owner::GitHub,
             evidence: "No PR-head checks reported".into(),
         });
     }
-    row.items.push(Item {
-        label: "Independent review".into(),
-        state: Check::InspectExternally,
-        kind: "review, not acceptance".into(),
-        evidence: "No revision-bound independent review receipt is supplied by the run API".into(),
-    });
     Ok(())
 }
 
@@ -571,15 +631,17 @@ pub(super) fn collect(root: &Path, stop: &AtomicBool) -> Result<(Vec<ResultRow>,
                 let declaration = local.declaration(stop);
                 row.head = Some(head);
                 row.preview = declaration;
-                row.items.push(Item {
-                    label: "Independent review".into(),
-                    state: Check::InspectExternally,
-                    kind: "review, not acceptance".into(),
-                    evidence:
-                        "No revision-bound independent review receipt is supplied by the run API"
-                            .into(),
-                });
             }
+        }
+        // A known result, from GitHub or a checked local candidate, has a review Taste cannot see.
+        if row.head.is_some() {
+            row.items.push(Item {
+                label: "Independent review".into(),
+                state: Check::InspectExternally,
+                owner: Owner::Review,
+                evidence: "No revision-bound independent review receipt is supplied by the run API"
+                    .into(),
+            });
         }
         let supporting_checks = std::mem::take(&mut row.items);
         let source = row
@@ -597,7 +659,7 @@ pub(super) fn collect(root: &Path, stop: &AtomicBool) -> Result<(Vec<ResultRow>,
                     row.items.push(Item {
                         label: "Human verdict".into(),
                         state: Check::Stale,
-                        kind: "operator verdict, not approval".into(),
+                        owner: Owner::Verdict,
                         evidence: "Earlier verdicts do not identify this exact result head; they satisfy nothing for it.".into(),
                     });
                 }
@@ -821,7 +883,7 @@ mod tests {
             );
             assert!(!detail.contains("waiting") && !detail.contains("No source gate owed"));
         }
-        for action in ['a', 'c'] {
+        for action in [super::super::Ask::Acceptance, super::super::Ask::Correction] {
             let copy = super::super::handoff(&target, action).unwrap();
             assert!(copy.contains(&format!("Gates owed: {MISSING_RECEIPTS}")));
             assert!(!copy.contains("pending (matching evidence missing)"));
@@ -893,10 +955,10 @@ mod tests {
                 assert!(review.contains("What to judge") && review.contains("worker output"));
                 assert_eq!(target.items[0].state, Check::AwaitingHuman);
                 assert_eq!(
-                    target.gates,
-                    ["worker output", "may need recheck: Check the fixture"]
+                    target.gates_owed(),
+                    "worker output; may need recheck: Check the fixture"
                 );
-                for action in ['a', 'c'] {
+                for action in [super::super::Ask::Acceptance, super::super::Ask::Correction] {
                     let copy = super::super::handoff(&target, action).unwrap();
                     assert!(
                         copy.contains("older record, no sign-off recorded"),
@@ -911,7 +973,7 @@ mod tests {
                 "{review}"
             );
             assert!(target.gates.is_empty());
-            for action in ['a', 'c'] {
+            for action in [super::super::Ask::Acceptance, super::super::Ask::Correction] {
                 let copy = super::super::handoff(&target, action).unwrap();
                 assert!(copy.contains("worker output: pending (matching evidence missing) (manual check, No manual evidence recorded)"), "{copy}");
                 assert!(copy.contains("Check the fixture: pass (may need recheck) (manual check, TEST fixture opened)"), "{copy}");
@@ -950,8 +1012,9 @@ mod tests {
         local(Path::new("/TEST"), &run(), &mut changed).unwrap();
         assert_eq!(changed.items[0].state, Check::Stale);
         assert!(changed.items[0].evidence.contains("history"));
-        assert!(changed.gates.contains(&"re-approve the plan".into()));
-        assert!(changed.gates.contains(&"confirm no clinical claims".into()));
+        let owed = changed.gates_owed();
+        assert!(owed.contains("re-approve the plan"), "{owed}");
+        assert!(owed.contains("confirm no clinical claims"), "{owed}");
         assert!(!changed.items.iter().any(|i| i.state == Check::Pass));
     }
 
@@ -1026,7 +1089,7 @@ mod tests {
             tail.contains(pointer) && tail.contains("TEST-allocation-check.py"),
             "{tail}"
         );
-        for action in ['a', 'c'] {
+        for action in [super::super::Ask::Acceptance, super::super::Ask::Correction] {
             let copy = super::super::handoff(&target, action).unwrap();
             assert!(copy.contains(pointer), "{copy}");
             assert!(copy.contains(r#"argv: ["python3","TEST-allocation-check.py"]"#));
@@ -1057,7 +1120,7 @@ mod tests {
                 "{cwd}: {}",
                 target.items[0].evidence
             );
-            for action in ['a', 'c'] {
+            for action in [super::super::Ask::Acceptance, super::super::Ask::Correction] {
                 let copy = super::super::handoff(&target, action).unwrap();
                 let method = format!(
                     "cwd: {} (resolved {resolved})",
@@ -1116,8 +1179,6 @@ mod tests {
             {"__typename":"CheckRun","name":"TEST CI","status":"COMPLETED","conclusion":"NEUTRAL"}]});
         remote(&pr, &mut row).unwrap();
         assert!(row.items[0].state.word().starts_with("pending"));
-        assert_eq!(row.items[1].label, "Independent review");
-        assert!(row.items[1].state.word().starts_with("pending"));
         let mut absent = pr.clone();
         absent["statusCheckRollup"] = json!([]);
         let mut no_checks = row.clone();

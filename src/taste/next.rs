@@ -1,7 +1,7 @@
 //! One next step after a report of external acceptance. Missing evidence stays unknown;
 //! only failed/stale checks or owed gates call for repair. No feature or permission is invented.
 
-use super::read::{Check, ResultRow};
+use super::read::{Check, Owner, ResultRow};
 use crate::think_record::DraftSuggestion;
 
 pub(super) struct Pause {
@@ -19,10 +19,8 @@ pub(super) fn suggest(row: &ResultRow) -> Pause {
         .items
         .iter()
         .filter(|i| {
-            matches!(
-                i.kind.as_str(),
-                "automated" | "human attestation" | "manual check"
-            ) && i.state != Check::Pass
+            matches!(i.owner, Owner::Automated | Owner::Human | Owner::Manual)
+                && i.state != Check::Pass
         })
         .collect();
     let repair = failed.is_some() || !row.gates.is_empty();
@@ -45,7 +43,10 @@ pub(super) fn suggest(row: &ResultRow) -> Pause {
         )
     } else if let Some(gate) = row.gates.first() {
         (
-            format!("Resolve the owed action: {}", crate::shown_line(gate)),
+            format!(
+                "Resolve the owed action: {}",
+                crate::shown_line(&gate.to_string())
+            ),
             "Obtain the required external decision; a draft cannot grant permission.".into(),
         )
     } else {
@@ -81,7 +82,7 @@ pub(super) fn suggest(row: &ResultRow) -> Pause {
             .map(|i| format!("{}: {}", i.label, i.state))
             .collect::<Vec<_>>()
             .join("; "),
-        row.gates.join("; "),
+        row.gates_owed(),
         row.gaps.join("; ")
     );
     Pause {
