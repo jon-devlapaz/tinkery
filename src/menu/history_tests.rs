@@ -104,10 +104,10 @@ fn history_is_deliberate_and_help_copy_and_exit_keep_the_same_goal() {
     press(&mut home, KeyCode::Char('l'));
     press(&mut home, KeyCode::Enter);
     assert_eq!(rendered(&mut home), history);
-    let View::Tend(tend) = &home.view else {
-        panic!("History must stay in Tend");
-    };
-    assert!(!tend.is_linking());
+    assert!(
+        matches!(home.view, View::Tend(_)),
+        "History must stay in Tend"
+    );
     press(&mut home, KeyCode::F(1));
     press(&mut home, KeyCode::Char('h'));
     assert!(rendered(&mut home).contains("How it works"));

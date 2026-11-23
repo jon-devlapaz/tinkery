@@ -20,6 +20,7 @@ use crate::{
     Palette,
     goal::confirmed::{SavedGoal, render_saved_goal},
 };
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind};
 use ratatui::{
     Frame,
     layout::Rect,
@@ -37,6 +38,31 @@ use unicode_width::UnicodeWidthStr;
 /// this only shows when something is actually slow, such as a cold or network disk.
 pub(super) const STILL_READING_AFTER: Duration = Duration::from_secs(3);
 
+/// Builds the Find connections request when `f` is pressed, or says why it cannot. The menu
+/// supplies it because only the menu knows the launch's drafting model and operator.
+pub(crate) type Connect = Box<dyn Fn() -> Result<connection::Context, String> + Send>;
+
+/// What Tend asks the menu to do after a key. Tend opens Think or Shape only on the operator's
+/// own key, and never starts an agent itself.
+pub(crate) enum Next {
+    /// Tend keeps the screen.
+    Stay,
+    /// Back to the menu.
+    Menu,
+    /// Open Think: with the thought reader's unsent copy, or fresh from `t` (`None`).
+    Think(Option<String>),
+    /// Open Shape on this saved session.
+    Shape(PathBuf),
+}
+
+/// The help layer over Tend or its history: none, "Right now", or "How it works".
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Overlay {
+    Closed,
+    Help,
+    How,
+}
+
 #[derive(Clone, PartialEq, Eq)]
 enum Entry {
     Goal(PathBuf),
@@ -52,46 +78,50 @@ impl Entry {
     }
 }
 
-pub(super) struct Tend {
-    pub sessions: Vec<Session>,
-    pub error: Option<String>,
+pub(crate) struct Tend {
+    sessions: Vec<Session>,
+    error: Option<String>,
     /// Nothing has landed yet: unknown, never "no sessions".
-    pub pending: bool,
+    pending: bool,
     /// The read this view waits on has run past [`STILL_READING_AFTER`]. Only the pending
     /// line reads it, and only its wording changes.
-    pub still_reading: bool,
+    still_reading: bool,
     /// The list shown reflects every read asked for. An older empty list is not proof
     /// that nothing was saved since.
-    pub current: bool,
+    current: bool,
     /// A saved session to open in detail once a read that can contain it lands.
-    pub want: Option<(PathBuf, Option<PathBuf>)>,
+    want: Option<(PathBuf, Option<PathBuf>)>,
     /// Records the last read could not parse; the list may be missing them.
-    pub unreadable: usize,
+    unreadable: usize,
     /// Readable ended sessions omitted from the garden.
-    pub ended: usize,
+    ended: usize,
     /// The discovery version last applied.
-    pub seen: u64,
-    pub selected: usize,
-    pub detail: bool,
-    pub scroll: u16,
+    seen: u64,
+    selected: usize,
+    detail: bool,
+    scroll: u16,
     /// Rows of goal on screen at the last detail draw, for PgUp/PgDn.
-    pub page: u16,
-    pub how: bool,
-    pub help_scroll: u16,
-    pub notice: String,
-    pub history: Option<history::View>,
-    pub(super) thoughts: Option<thought::Garden>,
+    page: u16,
+    overlay: Overlay,
+    help_scroll: u16,
+    notice: String,
+    history: Option<history::View>,
+    history_reader: history::Reader,
+    records: Result<PathBuf, String>,
+    connection: Option<connection::Panel>,
+    connect: Connect,
+    thoughts: Option<thought::Garden>,
     graph: graph::GraphView,
     last_press: Option<(Entry, Instant)>,
     hidden_thought: Option<Entry>,
-    pub(super) needs: needs::Store,
+    needs: needs::Store,
     links: Result<needs::Links, String>,
     all_sessions: Vec<Session>,
     ids: Identities,
     /// Only exact recorded repo matches; absent outside a repository.
-    pub(super) repo_paths: Option<HashSet<PathBuf>>,
+    repo_paths: Option<HashSet<PathBuf>>,
     /// Active goals with unknown repository attribution, not known non-matches.
-    pub(super) repo_unknown: usize,
+    repo_unknown: usize,
     show_all: bool,
     /// The source path stays fixed while selection picks the other goal.
     linking: Option<PathBuf>,
@@ -99,13 +129,19 @@ pub(super) struct Tend {
 }
 impl Tend {
     /// Whether automatic discovery is requested from this repository's garden.
-    pub(super) fn connection_scope(&self) -> bool {
+    fn connection_scope(&self) -> bool {
         self.repo_paths.is_some() && !self.show_all
     }
 
     /// A pending view with a captured Tend store folder or refusal. Reads only the saved thoughts
-    /// of `repo`, when Tinkery started in one, and no links; writes nothing.
-    pub(super) fn new(link_root: Result<PathBuf, String>, repo: Option<&Path>) -> Self {
+    /// of `repo`, when Tinkery started in one, and no links; writes nothing. History reads
+    /// `records` only after `r`; `connect` runs only after `f`.
+    pub(crate) fn new(
+        link_root: Result<PathBuf, String>,
+        repo: Option<&Path>,
+        records: Result<PathBuf, String>,
+        connect: Connect,
+    ) -> Self {
         Self {
             sessions: vec![],
             error: None,
@@ -120,10 +156,14 @@ impl Tend {
             detail: false,
             scroll: 0,
             page: 1,
-            how: false,
+            overlay: Overlay::Closed,
             help_scroll: 0,
             notice: String::new(),
             history: None,
+            history_reader: history::Reader::default(),
+            records,
+            connection: None,
+            connect,
             graph: graph::GraphView::default(),
             last_press: None,
             hidden_thought: None,
@@ -139,15 +179,10 @@ impl Tend {
             link_error: None,
         }
     }
-    /// Note how long the read this view waits on has been running (`None`: no worker).
-    /// Wording only: it starts nothing and leaves every key as it was.
-    pub(super) fn note_wait(&mut self, waited: Option<Duration>) {
-        self.still_reading = waited.is_some_and(|waited| waited >= STILL_READING_AFTER);
-    }
     /// Take a landed read. Selection follows the session's path, not its position.
     /// A wanted session is opened only from a read that contains it (or that began
     /// after it was asked for); until then the view stays pending.
-    pub(super) fn apply(&mut self, outcome: &Outcome, fresh: bool, version: u64) {
+    fn apply(&mut self, outcome: &Outcome, fresh: bool, version: u64) {
         let wanted_at = match (&self.want, outcome) {
             (Some((path, canonical)), Ok(found)) => found
                 .sessions
@@ -267,8 +302,13 @@ impl Tend {
         }
     }
 
+    /// Whether the "this repo / all" row sits above the garden.
+    fn scope_row(&self) -> bool {
+        self.can_toggle_scope() || self.is_linking() && self.repo_paths.is_some()
+    }
+
     fn scope_body(&self, area: Rect) -> Rect {
-        if self.can_toggle_scope() || self.is_linking() && self.repo_paths.is_some() {
+        if self.scope_row() {
             Rect::new(
                 area.x,
                 area.y.saturating_add(1),
@@ -291,7 +331,7 @@ impl Tend {
     }
 
     /// Change only the visible garden, retaining global needs and exact selection when possible.
-    pub(super) fn toggle_scope(&mut self) {
+    fn toggle_scope(&mut self) {
         if !self.can_toggle_scope() {
             return;
         }
@@ -311,30 +351,29 @@ impl Tend {
     }
 
     /// Whether the mixed garden is showing, rather than detail or a discovery state.
-    pub(super) fn garden_showing(&self) -> bool {
+    fn garden_showing(&self) -> bool {
         !self.detail
             && !self.pending
             && self.want.is_none()
             && self.error.is_none()
             && self.entry_count() > 0
     }
-    pub(super) fn release_pointer(&mut self) {
-        self.graph.release();
-    }
-    /// Forward pointer mechanics to graf; only Tend can open originals or link goals.
-    pub(super) fn pointer(
-        &mut self,
-        event: crossterm::event::MouseEvent,
-        body: Rect,
-        now: Instant,
-    ) {
+    /// One mouse event over `body`. Pointer mechanics go to graf; only a timely second press
+    /// opens an original, and a press while picking links. Help and readers take no pointer.
+    pub(crate) fn pointer(&mut self, event: MouseEvent, body: Rect, now: Instant) {
+        if self.connection.is_some()
+            || self.thoughts.as_ref().is_some_and(|t| t.active())
+            || self.overlay != Overlay::Closed
+        {
+            return;
+        }
         if !self.garden_showing() {
             self.graph.release();
             return;
         }
         let body = self.scope_body(body);
         self.sync_graph(body);
-        if matches!(event.kind, crossterm::event::MouseEventKind::Drag(_)) {
+        if matches!(event.kind, MouseEventKind::Drag(_)) {
             self.last_press = None;
         }
         let Some(id) = self.graph.pointer(event) else {
@@ -372,11 +411,11 @@ impl Tend {
             self.graph.release();
         }
     }
-    pub(super) fn current(&self) -> Option<&Session> {
+    fn current(&self) -> Option<&Session> {
         self.sessions.get(self.selected)
     }
-    pub(super) fn help_text(&self) -> String {
-        if self.how {
+    fn help_text(&self) -> String {
+        if self.overlay == Overlay::How {
             let session = self.current().map_or(String::new(), |s| {
                 format!(
                     "\nSession: {}\nStatus: {}",
@@ -391,48 +430,351 @@ impl Tend {
                 self.graph.error.as_deref().unwrap_or("")
             );
         }
-        let copy = if self.detail && self.current().is_some_and(|s| s.stage.can_shape()) {
-            "\ns shape: answer its questions and confirm its Tink"
-        } else {
-            ""
-        };
         let needs = self.needs_text();
         let needs = if needs.is_empty() {
             String::new()
         } else {
             format!("\n\n{}", needs.trim_start_matches(" · "))
         };
+        format!(
+            "Right now\n{}\nEsc back · F10 menu\n\n\
+             F1 close · h how it works · PgUp/PgDn scroll{needs}\n\n\
+             Nothing runs by itself. Confirm the Tink and approve the build separately.",
+            self.keys().0
+        )
+    }
+
+    /// Tend's keys for the state on screen, said once: the help's "Right now" lines and the
+    /// key bar come from the same branch.
+    fn keys(&self) -> (String, String) {
+        let here = self.connection_scope();
         let scope = if self.can_toggle_scope() {
             "\na toggles this repo / all goals"
         } else {
             ""
         };
-        let thoughts = if !self.detail && !self.is_linking() && self.connection_scope() {
+        let thoughts = if here {
             "\nt think · v read thoughts\ng in the thought reader opens Think, unsent."
         } else {
             ""
         };
-        format!(
-            "Right now\n{}{}{scope}{thoughts}\nEsc back · F10 menu\n\n\
-             F1 close · h how it works · PgUp/PgDn scroll{needs}\n\n\
-             Nothing runs by itself. Confirm the Tink and approve the build separately.",
-            if self.detail {
-                "Read the saved goal. ↑↓ / j k or PgUp/PgDn scroll.\nr opens its Think history."
-            } else if self.linking.is_some() {
-                "Arrows / j k pick · Enter links or unlinks · Esc cancels."
-            } else if self.garden_showing() {
-                concat!(
-                    "Arrows / j k move · Enter or a double click opens the selected original.\n",
-                    "l link or unlink\n",
-                    "Up / Left / k previous · Down / Right / j next (goals, then thoughts).\n",
-                    "+ / - zoom · H J K L pan · drag a node to move it.\n",
-                    "Drag empty space to pan · scroll to zoom",
+        if self.linking.is_some() {
+            (
+                "Arrows / j k pick · Enter links or unlinks · Esc cancels.".into(),
+                format!("↑↓←→ pick   enter {}   esc cancel", self.link_verb()),
+            )
+        } else if self.detail {
+            let read =
+                "Read the saved goal. ↑↓ / j k or PgUp/PgDn scroll.\nr opens its Think history.";
+            if self.current().is_some_and(|s| s.stage.can_shape()) {
+                (
+                    format!("{read}\ns shape: answer its questions and confirm its Tink"),
+                    "s shape   r history   esc back   F10 menu".into(),
                 )
             } else {
-                "Esc returns to the menu."
+                (read.into(), "r history   esc back   F10 menu".into())
+            }
+        } else if self.garden_showing() {
+            let help = concat!(
+                "Arrows / j k move · Enter or a double click opens the selected original.\n",
+                "l link or unlink\n",
+                "Up / Left / k previous · Down / Right / j next (goals, then thoughts).\n",
+                "+ / - zoom · H J K L pan · drag a node to move it.\n",
+                "Drag empty space to pan · scroll to zoom",
+            );
+            let bar = if here {
+                "↑↓←→ move   enter open   f connections   l link   esc back   t think"
+            } else {
+                "↑↓←→ move   enter open   l link   esc back"
+            };
+            (format!("{help}{scope}{thoughts}"), bar.into())
+        } else {
+            // An empty repo view still offers the way back to all goals.
+            let bar = if here {
+                "f connections   a toggle goals   esc back   t think"
+            } else if self.can_toggle_scope() {
+                "a toggle goals   esc back"
+            } else {
+                "esc back"
+            };
+            (
+                format!("Esc returns to the menu.{scope}{thoughts}"),
+                bar.into(),
+            )
+        }
+    }
+}
+
+/// Tend's place surface: what the menu hands in and gets back. Tend owns its keys, help,
+/// readers and refresh rules; the menu only routes input and opens what [`Next`] names.
+impl Tend {
+    /// Open the saved session at `path` in detail once a read that can contain it lands.
+    pub(crate) fn open_session(&mut self, path: &Path) {
+        // One stat of a path the handoff just wrote; matching is otherwise by identity.
+        self.want = Some((path.to_path_buf(), path.canonicalize().ok()));
+        self.seen = 0;
+    }
+
+    /// Back from Shape: the goal that was showing opens again once a fresh read lands.
+    pub(crate) fn returned(&mut self) {
+        self.want = self.current().map(|s| (s.path.clone(), None));
+    }
+
+    /// Show the newest landed read. Detail and link picking stay fixed unless a goal was asked
+    /// for again; that request waits for a fresh read.
+    pub(crate) fn offer(&mut self, discovery: &Discovery) {
+        self.current = discovery.fresh();
+        let Some(landed) = discovery.landed() else {
+            return;
+        };
+        let version = discovery.version();
+        if self.seen == version
+            || ((self.detail || self.is_linking()) && (self.want.is_none() || !discovery.fresh()))
+        {
+            return;
+        }
+        self.repo_paths = landed.repo_paths.clone();
+        self.repo_unknown = landed.repo_unknown;
+        self.apply(&landed.outcome, discovery.fresh(), version);
+    }
+
+    /// Advance Tend's own reads without waiting, and say when the session read runs long
+    /// (wording only). Returns the receipt of a goal saved from Find connections; the menu
+    /// then opens Shape on it.
+    pub(crate) fn poll(
+        &mut self,
+        discovery: &Discovery,
+        now: Instant,
+    ) -> Option<crate::seed_me::Receipt> {
+        if let Some(receipt) = self.connection.as_mut().and_then(|panel| panel.poll()) {
+            self.connection = None;
+            if let Some(thoughts) = &mut self.thoughts {
+                thoughts.clear_save_notice();
+            }
+            return Some(receipt);
+        }
+        self.offer(discovery);
+        self.still_reading = discovery
+            .running_since()
+            .is_some_and(|since| now.saturating_duration_since(since) >= STILL_READING_AFTER);
+        if let Some(result) = self.history_reader.poll()
+            && let Some(history) = &mut self.history
+        {
+            history.finish(result);
+        }
+        None
+    }
+
+    /// Paste into the Find connections panel only; the thought reader never accepts edits.
+    pub(crate) fn paste(&mut self, text: &str) {
+        if self.thoughts.as_ref().is_some_and(|t| t.active()) {
+            return;
+        }
+        if let Some(panel) = &mut self.connection {
+            panel.paste(text);
+        }
+    }
+
+    /// One key press. Held or modified keys never open, link, toggle or read; only `f`, `r`,
+    /// `s`, `t` and the thought reader's `g` reach past the garden, and none starts an agent.
+    pub(crate) fn key(&mut self, key: KeyEvent) -> Next {
+        let plain = key.kind == KeyEventKind::Press && key.modifiers == KeyModifiers::NONE;
+        let help = self.overlay != Overlay::Closed;
+        let garden_key = plain
+            && !help
+            && self.connection.is_none()
+            && !self.detail
+            && !self.is_linking()
+            && self.connection_scope();
+        if let Some(thoughts) = &mut self.thoughts {
+            if thoughts.active() {
+                if let Some(words) = thoughts.key(key) {
+                    return Next::Think(Some(words));
+                }
+                if !thoughts.active() {
+                    self.thought_reader_return();
+                }
+                return Next::Stay;
+            }
+            match key.code {
+                KeyCode::Char('t') if garden_key => return Next::Think(None),
+                KeyCode::Char('v') if garden_key => {
+                    thoughts.view();
+                    return Next::Stay;
+                }
+                _ => {}
+            }
+        }
+        if let Some(panel) = &mut self.connection {
+            if panel.key(key) {
+                self.connection = None;
+            }
+            return Next::Stay;
+        }
+        if plain && key.code == KeyCode::Char('f') && !self.detail && !help {
+            self.notice = if self.garden_showing() && self.current().is_none() {
+                "Find connections uses goals, not thoughts.".into()
+            } else if !self.connection_scope() {
+                "Find connections is available only in this repository's garden.".into()
+            } else {
+                match (self.connect)() {
+                    Ok(context) => {
+                        self.connection = Some(connection::Panel::open(context));
+                        return Next::Stay;
+                    }
+                    Err(reason) => reason,
+                }
+            };
+            return Next::Stay;
+        }
+        let shifted_view_key = key.modifiers == KeyModifiers::SHIFT
+            && matches!(
+                key.code,
+                KeyCode::Char('H' | 'J' | 'K' | 'L' | '+' | '=' | '-')
+            );
+        if key.modifiers != KeyModifiers::NONE && !shifted_view_key
+            || key.kind == KeyEventKind::Repeat
+                && matches!(
+                    key.code,
+                    KeyCode::Char('a' | 'c' | 'r' | 'l' | 's')
+                        | KeyCode::F(1)
+                        | KeyCode::F(10)
+                        | KeyCode::Enter
+                )
+        {
+            return Next::Stay;
+        }
+        self.graph.release();
+        let how = self.overlay == Overlay::How;
+        match key.code {
+            KeyCode::F(10) => return Next::Menu,
+            KeyCode::F(1) | KeyCode::Char('?') => {
+                self.overlay = if help { Overlay::Closed } else { Overlay::Help };
+                self.help_scroll = 0;
+                if let Some(history) = &mut self.history {
+                    history.reset_help();
+                }
+                return Next::Stay;
+            }
+            KeyCode::Char('h') | KeyCode::Esc if help => {
+                self.overlay = match (key.code, how) {
+                    (KeyCode::Esc, false) => Overlay::Closed,
+                    (_, false) => Overlay::How,
+                    (_, true) => Overlay::Help,
+                };
+                self.help_scroll = 0;
+                if let Some(history) = &mut self.history
+                    && self.overlay != Overlay::Closed
+                {
+                    history.reset_help();
+                }
+            }
+            code if help => match (&mut self.history, code) {
+                (Some(history), code) => history.scroll(code, self.overlay),
+                (None, KeyCode::Down | KeyCode::PageDown) => {
+                    self.help_scroll = self.help_scroll.saturating_add(5)
+                }
+                (None, KeyCode::Up | KeyCode::PageUp) => {
+                    self.help_scroll = self.help_scroll.saturating_sub(5)
+                }
+                _ => {}
             },
-            copy
-        )
+            KeyCode::Esc if self.history.is_some() => {
+                self.history_reader.cancel();
+                self.history = None;
+            }
+            code if self.history.is_some() => {
+                if let Some(history) = &mut self.history {
+                    history.scroll(code, Overlay::Closed);
+                }
+            }
+            KeyCode::Char('r') if self.detail && self.current().is_some() => {
+                let session = &self.sessions[self.selected];
+                let mut history = history::View::waiting();
+                match &self.records {
+                    Ok(root) => self.history_reader.request(
+                        root.clone(),
+                        session.path.clone(),
+                        session.goal.clone(),
+                    ),
+                    Err(reason) => history.finish(Err(crate::think_record::Unavailable {
+                        message: "The Think record folder is not configured.".into(),
+                        details: reason.clone(),
+                    })),
+                }
+                self.history = Some(history);
+            }
+            KeyCode::Char('a') => self.toggle_scope(),
+            KeyCode::Char('l') => self.start_link(),
+            KeyCode::Esc if self.is_linking() => self.cancel_link(),
+            KeyCode::Enter if self.is_linking() => self.commit_link(),
+            KeyCode::Esc if self.detail => {
+                self.detail = false;
+                self.want = None;
+                self.scroll = 0;
+                self.notice.clear();
+            }
+            KeyCode::Esc => return Next::Menu,
+            KeyCode::Char('s')
+                if self.detail && self.current().is_some_and(|s| s.stage.can_shape()) =>
+            {
+                if let Some(thoughts) = &mut self.thoughts {
+                    thoughts.clear_save_notice();
+                }
+                return Next::Shape(self.sessions[self.selected].path.clone());
+            }
+            KeyCode::Down | KeyCode::Char('j') if self.detail => {
+                self.scroll = self.scroll.saturating_add(1)
+            }
+            KeyCode::Up | KeyCode::Char('k') if self.detail => {
+                self.scroll = self.scroll.saturating_sub(1)
+            }
+            KeyCode::PageDown if self.detail => {
+                self.scroll = self.scroll.saturating_add(crate::page(self.page))
+            }
+            KeyCode::PageUp if self.detail => {
+                self.scroll = self.scroll.saturating_sub(crate::page(self.page))
+            }
+            KeyCode::Right | KeyCode::Down | KeyCode::Char('j') if self.garden_showing() => {
+                self.step_selection(true)
+            }
+            KeyCode::Left | KeyCode::Up | KeyCode::Char('k') if self.garden_showing() => {
+                self.step_selection(false)
+            }
+            KeyCode::Char(c @ ('+' | '=' | '-' | 'H' | 'J' | 'K' | 'L'))
+                if self.garden_showing() =>
+            {
+                self.adjust_view(c)
+            }
+            KeyCode::Enter if self.garden_showing() => self.open_entry(),
+            _ => {}
+        }
+        Next::Stay
+    }
+
+    /// Paint Tend into `body`: an open reader, panel, history or help covers the garden.
+    /// Painting never reads files or waits on a worker.
+    pub(crate) fn render(&mut self, frame: &mut Frame, body: Rect, palette: Palette) {
+        if let Some(thoughts) = &mut self.thoughts
+            && thoughts.active()
+        {
+            thoughts.render(frame, body, palette);
+        } else if let Some(panel) = &mut self.connection {
+            panel.render(frame, body, palette);
+        } else if let Some(history) = &mut self.history {
+            history.render(frame, body, palette, self.overlay);
+        } else if self.overlay != Overlay::Closed {
+            let p = Paragraph::new(self.help_text())
+                .wrap(Wrap { trim: false })
+                .style(palette.ink);
+            let max = p
+                .line_count(body.width)
+                .saturating_sub(body.height as usize) as u16;
+            self.help_scroll = self.help_scroll.min(max);
+            frame.render_widget(p.scroll((self.help_scroll, 0)), body);
+        } else {
+            render_view(frame, self, body, palette);
+        }
     }
 }
 
@@ -451,30 +793,8 @@ fn row(session: &Session, width: usize, now: Option<u64>) -> (String, String) {
     (format!("{title}{}", " ".repeat(gap)), suffix)
 }
 
-pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Palette) {
-    let linking_keys = format!("↑↓←→ pick   enter {}   esc cancel", tend.link_verb());
-    let keys = if tend.linking.is_some() {
-        linking_keys.as_str()
-    } else if tend.detail {
-        if tend.current().is_some_and(|s| s.stage.can_shape()) {
-            "s shape   r history   esc back   F10 menu"
-        } else {
-            "r history   esc back   F10 menu"
-        }
-    } else if !tend.garden_showing() {
-        // An empty repo view still offers the way back to all goals.
-        if tend.connection_scope() {
-            "f connections   a toggle goals   esc back   t think"
-        } else if tend.can_toggle_scope() {
-            "a toggle goals   esc back"
-        } else {
-            "esc back"
-        }
-    } else if tend.connection_scope() {
-        "↑↓←→ move   enter open   f connections   l link   esc back   t think"
-    } else {
-        "↑↓←→ move   enter open   l link   esc back"
-    };
+fn render_view(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Palette) {
+    let keys = tend.keys().1;
     frame.render_widget(
         Paragraph::new(keys).style(palette.muted),
         Rect::new(
@@ -484,7 +804,7 @@ pub(super) fn render(frame: &mut Frame, tend: &mut Tend, area: Rect, palette: Pa
             1,
         ),
     );
-    if tend.can_toggle_scope() || tend.is_linking() && tend.repo_paths.is_some() {
+    if tend.scope_row() {
         frame.render_widget(
             Paragraph::new(if tend.show_all {
                 "all · a this repo"
@@ -607,6 +927,8 @@ pub fn load_sessions(root: &Path) -> Result<Vec<Session>, String> {
 }
 
 #[cfg(test)]
+mod place_tests;
+#[cfg(test)]
 mod scope_tests;
 
 #[cfg(test)]
@@ -616,7 +938,12 @@ mod tests {
     fn detail_footer_names_f10_for_copyable_and_noncopyable_goals() {
         use ratatui::{Terminal, backend::TestBackend};
         for stage in [Stage::GoalSaved, Stage::Unknown] {
-            let mut tend = Tend::new(Err("TEST no links".into()), None);
+            let mut tend = Tend::new(
+                Err("TEST no links".into()),
+                None,
+                Err("TEST no records".into()),
+                Box::new(|| Err("TEST no connections".into())),
+            );
             tend.pending = false;
             tend.current = true;
             tend.detail = true;
@@ -629,14 +956,7 @@ mod tests {
             });
             let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
             terminal
-                .draw(|frame| {
-                    render(
-                        frame,
-                        &mut tend,
-                        Rect::new(2, 3, 96, 26),
-                        Palette::new(true),
-                    )
-                })
+                .draw(|frame| tend.render(frame, Rect::new(2, 3, 96, 26), Palette::new(true)))
                 .unwrap();
             let footer: String = (0..100)
                 .map(|x| terminal.backend().buffer()[(x, 29)].symbol())

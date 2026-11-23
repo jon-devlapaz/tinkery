@@ -50,7 +50,7 @@ fn main() -> Result<(), String> {
             None,
             stamp,
         )
-        .map_err(|e| e.reason)?
+        .map_err(|e| e.to_string())?
         .to_json()?,
         "confirm" => ledger::confirm_seed(
             path,
@@ -67,7 +67,7 @@ fn main() -> Result<(), String> {
             request["reason"].as_str().ok_or("Missing TEST reason.")?,
             stamp,
         )
-        .map_err(|e| e.reason)?
+        .map_err(|e| e.to_string())?
         .to_json()?,
         _ => return Err("Unknown TEST operation.".into()),
     };

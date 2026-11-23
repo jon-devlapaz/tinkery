@@ -456,3 +456,28 @@ fn teach_back_refuses_stale_drafts_secrets_and_erasure() {
     .unwrap_err();
     assert!(error.contains("Preserve teach-back"), "{error}");
 }
+
+#[test]
+fn a_review_reads_the_revision_label_as_confirmation_reads_it() {
+    // Confirmation takes the first word after `revision:`; a review once compared the whole
+    // line and refused a draft that confirmation would accept.
+    let (root, seed) = draft();
+    let seed = seed.replacen("revision: r1", "revision: r1 TEST hand note", 1);
+    std::fs::write(root.path().join("seed-contract.md"), &seed).unwrap();
+    let version = ledger::load(root.path()).unwrap()["version"]
+        .pretty()
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    ledger::record_teach_back(
+        root.path(),
+        version,
+        "r1",
+        &seed,
+        &TeachBackRecord::Review(&review()),
+        AT,
+        Actor::OPERATOR,
+    )
+    .unwrap();
+}

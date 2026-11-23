@@ -3,6 +3,7 @@
 
 use super::{Value, load, transition};
 use crate::confirmation::Actor;
+use crate::seed_me::files;
 use std::{
     fs::{File, OpenOptions},
     io,
@@ -51,7 +52,7 @@ pub(crate) fn initialize_at(
     timestamp: &str,
     actor: Actor<'_>,
 ) -> Result<(), String> {
-    if path.join("ledger.json").exists() {
+    if path.join(files::LEDGER).exists() {
         return Err("The staging ledger already exists.".into());
     }
     let value = Value::from(serde_json::json!({
@@ -73,32 +74,63 @@ pub enum SaveState {
     Unknown,
 }
 
+/// Why a publication was refused. Callers choose their words from the kind, never from text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PublishKind {
+    /// The displayed version is no longer the saved one.
+    Stale,
+    /// Another writer holds the session.
+    Busy,
+    /// A write was attempted, but read-back did not find the proposed ledger; holds the cause.
+    Unverified(String),
+    /// Any other refusal, in the words to show.
+    Refused(String),
+}
+
 /// A publication refusal, including whether retrying requires reconciliation first.
 #[derive(Debug)]
 pub struct PublishError {
-    /// The helper-compatible first reason line, except platform IO diagnostics.
-    pub reason: String,
+    /// Why the publication was refused.
+    pub kind: PublishKind,
     /// The established durable outcome; an unreadable ledger never counts as saved.
     pub save_state: SaveState,
 }
 
 impl PublishError {
+    /// A refusal in the caller's own words, with the durable outcome it established.
+    pub(crate) fn said(reason: impl Into<String>, save_state: SaveState) -> Self {
+        Self {
+            kind: PublishKind::Refused(reason.into()),
+            save_state,
+        }
+    }
     /// Only an explicit version refusal is a conflict. Diagnostic details may quote user text.
     pub(crate) fn stale(&self) -> bool {
-        self.save_state == SaveState::NotSaved && self.reason == super::STALE_VERSION
+        self.save_state == SaveState::NotSaved && self.kind == PublishKind::Stale
     }
 }
 
 impl std::fmt::Display for PublishError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.reason)
+        match &self.kind {
+            PublishKind::Stale => f.write_str(super::STALE_VERSION),
+            PublishKind::Busy => f.write_str("session already has a writer"),
+            PublishKind::Unverified(cause) => write!(f, "could not save the ledger: {cause}"),
+            PublishKind::Refused(reason) => f.write_str(reason),
+        }
     }
 }
 impl std::error::Error for PublishError {}
+/// Ledger rules refuse in words; the stale-version refusal is the one rule that has a kind.
 impl From<String> for PublishError {
     fn from(reason: String) -> Self {
+        let kind = if reason == super::STALE_VERSION {
+            PublishKind::Stale
+        } else {
+            PublishKind::Refused(reason)
+        };
         Self {
-            reason,
+            kind,
             save_state: SaveState::NotSaved,
         }
     }
@@ -118,11 +150,13 @@ impl Writer {
         if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
             let error = io::Error::last_os_error();
             return Err(if error.kind() == io::ErrorKind::WouldBlock {
-                "session already has a writer".to_owned()
+                PublishError {
+                    kind: PublishKind::Busy,
+                    save_state: SaveState::NotSaved,
+                }
             } else {
-                error.to_string()
-            }
-            .into());
+                error.to_string().into()
+            });
         }
         Ok(Self(file))
     }
@@ -207,7 +241,7 @@ pub fn respond(
     actor: Actor<'_>,
 ) -> Result<Value, PublishError> {
     let _writer = Writer::acquire(directory).map_err(|error| {
-        if error.reason == "session already has a writer" {
+        if error.kind == PublishKind::Busy {
             error
         } else {
             "The session cannot be locked for saving. Check its folder permissions, then try again."
@@ -222,7 +256,7 @@ pub fn respond(
     super::require(ledger["version"] == expected, super::STALE_VERSION)?;
     if matches!(action, super::AnswerAction::Revisit(_)) {
         super::require(
-            !directory.join(super::seed::FILE).exists(),
+            !directory.join(files::SEED).exists(),
             "A Tink Contract already exists. Reopen Shape before answering a deferred prerequisite.",
         )?;
     }
@@ -269,12 +303,21 @@ pub fn respond(
             reviewed = super::value::object(&[]);
         }
     }
-    publication(directory, &ledger, &state, &expected, &reason, Some(&reviewed), timestamp)
-    .map_err(|mut error| {
-        if error.reason.starts_with("could not save the ledger:") {
-            error.reason = "The ledger save could not be verified. Check the session folder before trying again.".into();
-        }
-        error
+    publication(
+        directory,
+        &ledger,
+        &state,
+        &expected,
+        &reason,
+        Some(&reviewed),
+        timestamp,
+    )
+    .map_err(|error| match error.kind {
+        PublishKind::Unverified(_) => PublishError::said(
+            "The ledger save could not be verified. Check the session folder before trying again.",
+            error.save_state,
+        ),
+        _ => error,
     })
 }
 
@@ -314,7 +357,7 @@ fn publication(
 }
 
 fn atomic_write(directory: &Path, bytes: &str) -> io::Result<()> {
-    atomic_text(&directory.join("ledger.json"), bytes, None)
+    atomic_text(&directory.join(files::LEDGER), bytes, None)
 }
 
 fn atomic_text(path: &Path, bytes: &str, mode: Option<std::fs::Permissions>) -> io::Result<()> {
@@ -347,7 +390,7 @@ fn commit(
             .unwrap_or_else(|| "ledger read-back did not match the publication".into()),
     };
     Err(PublishError {
-        reason: format!("could not save the ledger: {cause}"),
+        kind: PublishKind::Unverified(cause),
         save_state: if unchanged {
             SaveState::NotSaved
         } else {
@@ -367,17 +410,17 @@ pub(crate) fn save_draft(
 ) -> Result<(), String> {
     super::checks::validate_checks(records)?;
     super::require(
-        seed.lines().next() == Some(super::seed::DRAFT),
+        seed.lines().next() == Some(files::DRAFT),
         "a Tink Contract draft must start with status: draft",
     )?;
-    let _writer = Writer::acquire(directory).map_err(|e| e.reason)?;
+    let _writer = Writer::acquire(directory).map_err(|e| e.to_string())?;
     let ledger = load(directory)?;
     super::require(
         ledger["version"] == super::value::int(expected),
         super::STALE_VERSION,
     )?;
     super::require(ledger["status"].is("active"), "ended session is read-only")?;
-    let path = directory.join(super::seed::FILE);
+    let path = directory.join(files::SEED);
     let current =
         match crate::regular_file::read_text(&path, "the Tink Contract is not a regular file") {
             Ok(text) => Some(text),
@@ -387,19 +430,15 @@ pub(crate) fn save_draft(
     super::require(
         current
             .as_ref()
-            .is_none_or(|s| s.lines().next() == Some(super::seed::DRAFT)),
+            .is_none_or(|s| s.lines().next() == Some(files::DRAFT)),
         "a Tink Contract that is not a draft already exists; never replace it",
     )?;
     super::require(
         current.as_deref() == previous,
         "the Tink Contract changed while the draft was prepared; reopen this session before trying again",
     )?;
-    atomic_text(
-        &directory.join(super::checks::FILE),
-        &records.pretty()?,
-        None,
-    )
-    .map_err(|e| format!("could not save check records: {e}"))?;
+    atomic_text(&directory.join(files::CHECKS), &records.pretty()?, None)
+        .map_err(|e| format!("could not save check records: {e}"))?;
     atomic_text(&path, seed, None)
         .map_err(|e| format!("check records saved, but the Tink Contract draft was not saved: {e}"))
 }
@@ -426,7 +465,7 @@ pub fn record_teach_back(
         super::STALE_VERSION,
     )?;
     let current =
-        crate::regular_file::read_text(&directory.join(super::seed::FILE), "not a regular file")
+        crate::regular_file::read_text(&directory.join(files::SEED), "not a regular file")
             .map_err(|_| {
                 "The draft could not be read. Reopen Shape before recording this review again."
                     .to_owned()
@@ -448,33 +487,34 @@ pub fn record_teach_back(
         None,
         timestamp,
     )
-    .map_err(|mut error| {
-        if error.reason.starts_with("could not save the ledger:") {
-            error.reason =
-                "The review save could not be verified. Reopen the session before trying again."
-                    .into();
-        }
-        error
+    .map_err(|error| match error.kind {
+        PublishKind::Unverified(_) => PublishError::said(
+            "The review save could not be verified. Reopen the session before trying again.",
+            error.save_state,
+        ),
+        _ => error,
     })?;
     saved["version"]
         .pretty()
         .ok()
         .and_then(|v| v.trim().parse().ok())
-        .ok_or_else(|| PublishError {
-            reason: "The review may have saved. Reopen the session before trying again.".into(),
-            save_state: SaveState::Unknown,
+        .ok_or_else(|| {
+            PublishError::said(
+                "The review may have saved. Reopen the session before trying again.",
+                SaveState::Unknown,
+            )
         })
 }
 
 /// Store strict records while holding the session writer lock; never execute a check.
 pub fn set_checks(directory: &Path, records: &Value) -> Result<Value, String> {
     super::checks::validate_checks(records)?;
-    let _writer = Writer::acquire(directory).map_err(|e| e.reason)?;
+    let _writer = Writer::acquire(directory).map_err(|e| e.to_string())?;
     super::require(
         load(directory)?["status"].is("active"),
         "ended session is read-only",
     )?;
-    let path = directory.join(super::checks::FILE);
+    let path = directory.join(files::CHECKS);
     atomic_text(&path, &records.pretty()?, None).map_err(|e| e.to_string())?;
     Ok(super::value::object(&[
         ("checks", path.to_string_lossy().as_ref().into()),
@@ -498,20 +538,20 @@ pub(crate) fn repair_check(
         !words.trim().is_empty() && !words.contains('\0'),
         "Type the check command or how-to-judge words first.",
     )?;
-    let _writer = Writer::acquire(directory).map_err(|e| e.reason)?;
+    let _writer = Writer::acquire(directory).map_err(|e| e.to_string())?;
     let ledger = load(directory)?;
     super::require(
         ledger["version"] == super::value::int(expected),
         super::STALE_VERSION,
     )?;
     super::require(ledger["status"].is("active"), "ended session is read-only")?;
-    let path = directory.join(super::seed::FILE);
+    let path = directory.join(files::SEED);
     super::require(
         super::super::read_seed_text(&path).map_err(|e| e.to_string())? == seed,
         "The draft changed. Read it again before changing a check.",
     )?;
     super::require(
-        seed.lines().next() == Some(super::seed::DRAFT),
+        seed.lines().next() == Some(files::DRAFT),
         "Only a draft check can change.",
     )?;
     let records = super::checks::require_seed_checks(directory, &ledger, false)?;
@@ -529,12 +569,8 @@ pub(crate) fn repair_check(
         "The draft acceptance section cannot be replaced safely.",
     )?;
     let draft = seed.replacen(&old, &new, 1);
-    atomic_text(
-        &directory.join(super::checks::FILE),
-        &repaired.pretty()?,
-        None,
-    )
-    .map_err(|e| e.to_string())?;
+    atomic_text(&directory.join(files::CHECKS), &repaired.pretty()?, None)
+        .map_err(|e| e.to_string())?;
     atomic_text(&path, &draft, None)
         .map_err(|e| format!("Check records saved, but the draft was not saved: {e}"))
 }
@@ -621,26 +657,26 @@ fn confirm(
     displayed: Option<(u64, &str)>,
 ) -> Result<Value, String> {
     super::require(
-        super::python::text(&revision.into()),
+        super::text::text(&revision.into()),
         "--revision is required: the displayed label",
     )?;
     super::require(
-        super::python::text(&source.into()),
+        super::text::text(&source.into()),
         "--source is required: quote the words that confirmed this revision",
     )?;
     super::require(!source.contains(['\n', '\r']), "--source must be one line")?;
-    let _writer = Writer::acquire(directory).map_err(|e| e.reason)?;
+    let _writer = Writer::acquire(directory).map_err(|e| e.to_string())?;
     let ledger = load(directory)?;
     if let Some((expected, seed)) = displayed {
         super::require(
             ledger["version"] == super::value::int(expected),
             super::STALE_VERSION,
         )?;
-        let current = crate::regular_file::read_text(
-            &directory.join(super::seed::FILE),
-            "not a regular file",
-        )
-        .map_err(|_| "The draft could not be read. Reopen Shape before confirming.".to_owned())?;
+        let current =
+            crate::regular_file::read_text(&directory.join(files::SEED), "not a regular file")
+                .map_err(|_| {
+                    "The draft could not be read. Reopen Shape before confirming.".to_owned()
+                })?;
         super::require(
             current == seed,
             "The draft changed. Read it again before confirming.",
@@ -649,11 +685,11 @@ fn confirm(
     let ledger = if record_skip {
         // Refusals precede the skip record: an invalid confirmation must write nothing.
         super::seed::confirmed_as(directory, &ledger, revision, source, timestamp, actor)?;
-        let draft = crate::regular_file::read_text(
-            &directory.join(super::seed::FILE),
-            "not a regular file",
-        )
-        .map_err(|_| "The draft could not be read. Reopen Shape before confirming.".to_owned())?;
+        let draft =
+            crate::regular_file::read_text(&directory.join(files::SEED), "not a regular file")
+                .map_err(|_| {
+                    "The draft could not be read. Reopen Shape before confirming.".to_owned()
+                })?;
         let state = super::teach_back::skip(&ledger, revision, &draft, timestamp)?;
         publication(
         directory,
@@ -673,9 +709,9 @@ fn confirm(
     };
     let (confirmed, record, result) =
         super::seed::confirmed_as(directory, &ledger, revision, source, timestamp, actor)?;
-    let path = directory.join(super::seed::FILE);
+    let path = directory.join(files::SEED);
     atomic_text(
-        &directory.join(super::seed::CONFIRMATION),
+        &directory.join(files::CONFIRMATION),
         &record.pretty()?,
         None,
     )
@@ -721,9 +757,9 @@ pub fn end(
         super::seed::require_seed_line(
             directory,
             if simulated {
-                super::seed::SIMULATED
+                files::SIMULATED
             } else {
-                super::seed::CONFIRMED
+                files::CONFIRMED
             },
         )?;
         if !simulated {
@@ -749,5 +785,7 @@ pub fn end(
     )
 }
 
+#[cfg(test)]
+mod golden_tests;
 #[cfg(test)]
 mod tests;

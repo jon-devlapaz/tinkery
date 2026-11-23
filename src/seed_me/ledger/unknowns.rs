@@ -1,7 +1,7 @@
 //! Unknown-resolution links preserve findings as history; only settled operator decisions cover them.
 //! Links never settle an answer or prove that its words semantically cover the unknown.
 
-use super::{Result, Value, find, one_of, python::text, require};
+use super::{Result, Value, find, one_of, require, text::text};
 use std::collections::BTreeSet;
 
 /// Whether a finding has been retired by a recorded answer, without deleting its original words.
