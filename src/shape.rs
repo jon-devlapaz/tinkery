@@ -21,7 +21,6 @@ pub use step::Agent;
 pub mod answering;
 mod choices;
 pub mod command;
-mod discovery_help;
 mod forms;
 mod help;
 pub mod shaping;
@@ -32,7 +31,7 @@ use crate::words;
 use crate::seed_me::ledger::{AnswerAction, CheckMethod};
 use crate::{
     Palette,
-    seed_me::{Session, Stage},
+    seed_me::{ReadFailure, Session, Stage},
 };
 use answering::{Assumption, Authority, Ending, OBJECTION, PROBE, SAMPLE, UNOBSERVED};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
@@ -75,8 +74,8 @@ pub struct Shape {
     list: Option<Option<Result<Vec<Session>, String>>>,
     /// Session records discovery could not read; they may hide goals from the list.
     unreadable: usize,
-    failures: Vec<crate::seed_me::ReadFailure>,
-    help_scroll: u16,
+    failures: Vec<ReadFailure>,
+    help_scroll: crate::help::Scroll,
     actions: crate::actions::Page,
     selected: usize,
     open: Option<Opened>,
@@ -237,7 +236,7 @@ impl Shape {
             list,
             unreadable: 0,
             failures: Vec::new(),
-            help_scroll: 0,
+            help_scroll: crate::help::Scroll::default(),
             actions: crate::actions::Page::default(),
             selected: 0,
             open,
@@ -293,14 +292,25 @@ impl Shape {
         matches!(self.list, Some(None))
     }
 
-    /// Supply readable sessions and the count of unreadable records, or the root failure.
-    /// Only goals waiting for a seed are listed. Failed reads discard any earlier count.
-    pub fn offer(&mut self, read: Result<&[Session], String>, unreadable: usize) {
+    /// Supply one discovery read: its readable sessions, the count of unreadable records and
+    /// their path and reason samples, or the root failure. Only goals waiting for a seed are
+    /// listed, and F1 keeps at most `MAX_READ_FAILURES` samples. A failed read discards any
+    /// earlier count and samples.
+    pub fn offer(&mut self, read: Result<(&[Session], usize, &[ReadFailure]), String>) {
         if self.list.is_some() {
-            self.failures.clear();
-            self.help_scroll = 0;
-            self.unreadable = if read.is_ok() { unreadable } else { 0 };
-            let listed: Result<Vec<Session>, String> = read.map(|sessions| {
+            self.help_scroll.reset();
+            (self.unreadable, self.failures) = match &read {
+                Ok((_, unreadable, failures)) => (
+                    *unreadable,
+                    failures
+                        .iter()
+                        .take(crate::seed_me::MAX_READ_FAILURES.min(*unreadable))
+                        .cloned()
+                        .collect(),
+                ),
+                Err(_) => (0, Vec::new()),
+            };
+            let listed: Result<Vec<Session>, String> = read.map(|(sessions, ..)| {
                 sessions
                     .iter()
                     .filter(|s| matches!(s.stage, Stage::GoalSaved | Stage::SeedDrafted))
@@ -658,7 +668,7 @@ impl Shape {
                     self.list = Some(None);
                     self.unreadable = 0;
                     self.failures.clear();
-                    self.help_scroll = 0;
+                    self.help_scroll.reset();
                     self.scroll = 0;
                 }
                 KeyCode::Esc => return Leave::Back,
@@ -807,19 +817,7 @@ impl Shape {
             .into(),
             None,
         ));
-        let join = |gap: &str, short: bool| {
-            keys.iter()
-                .map(|(full, brief)| match brief {
-                    Some(brief) if short => *brief,
-                    _ => full.as_str(),
-                })
-                .collect::<Vec<_>>()
-                .join(gap)
-        };
-        [join("   ", false), join("  ", false)]
-            .into_iter()
-            .find(|bar| bar.width() <= width as usize)
-            .unwrap_or_else(|| join("  ", true))
+        crate::help::fit(&keys, width)
     }
 
     fn render_list(&self, frame: &mut Frame, mut area: Rect, palette: Palette) {

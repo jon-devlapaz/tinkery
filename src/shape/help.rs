@@ -1,4 +1,6 @@
-//! Shape's F1 help: what the keys on screen do now, then how Shape works and what it never does.
+//! Shape's F1 help: what the keys on screen do now, then how Shape works and what it never does,
+//! with the discovery read's bounded failures. Paths are display-escaped, never changed. It
+//! scrolls and paints through [`crate::help`].
 
 use super::*;
 use crate::pi::RESPONSE;
@@ -194,4 +196,52 @@ impl Shape {
             "Right now\n{rows}{now}{editing}\n{back}\n\nF1 close\n\nHow it works\n{how}\n\n{promise}"
         )
     }
+
+    /// Show the retained failures and disclose omitted ones without inventing a reason.
+    fn discovery_help(&self) -> String {
+        let mut text = format!(
+            "Unreadable session records: {}.\nSome session ledgers could not be read. \
+             The list may be missing goals.\nInspect the files below, then Esc to close help and Esc to return to the menu; reopen Shape to read again.\n",
+            self.unreadable
+        );
+        for failure in &self.failures {
+            text.push_str(&format!(
+                "\n{}\n{}\n",
+                crate::shown_line(&failure.path.to_string_lossy()),
+                crate::shown_line(&failure.reason)
+            ));
+        }
+        let more = self.unreadable.saturating_sub(self.failures.len());
+        if more > 0 {
+            let records = if more == 1 { "record" } else { "records" };
+            text.push_str(&format!("\n{more} more unreadable {records} not listed.\n"));
+        }
+        text
+    }
+
+    /// A newly opened help view starts at its first row, without changing the discovery read.
+    pub(crate) fn reset_help(&mut self) {
+        self.actions.reset();
+        self.help_scroll.reset();
+    }
+
+    /// Scroll only help; navigation and scrolling never launch a read or a step.
+    pub(crate) fn scroll_help(&mut self, code: KeyCode) {
+        self.help_scroll.key(code);
+    }
+
+    /// Wrapped, scrollable F1 with a fixed close instruction, including capped failure lists.
+    pub(crate) fn render_help(&mut self, frame: &mut Frame, area: Rect, palette: Palette) {
+        let text = self.help_text();
+        let pages = self
+            .actions
+            .hint(self.rows().len())
+            .map_or(String::new(), |hint| format!("←/→ {hint} · "));
+        let footer = format!("{pages}PgUp/PgDn scroll · F1 close · Esc back");
+        self.help_scroll
+            .render(frame, area, (text, footer), palette);
+    }
 }
+
+#[cfg(test)]
+mod tests;

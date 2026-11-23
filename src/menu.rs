@@ -252,17 +252,10 @@ impl Home {
             && self.discovery.fresh()
             && let Some(landed) = self.discovery.landed()
         {
-            let unreadable = landed.outcome.as_ref().map_or(0, |found| found.unreadable);
-            shape.offer(
-                match &landed.outcome {
-                    Ok(found) => Ok(&found.sessions),
-                    Err(error) => Err(error.clone()),
-                },
-                unreadable,
-            );
-            if let Ok(found) = &landed.outcome {
-                shape.offer_failures(&found.failures);
-            }
+            shape.offer(match &landed.outcome {
+                Ok(found) => Ok((&found.sessions, found.unreadable, &found.failures)),
+                Err(error) => Err(error.clone()),
+            });
         }
     }
 

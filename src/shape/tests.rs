@@ -580,7 +580,7 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
         session("ended", Stage::Completed),
         session("unknown", Stage::Unknown),
     ];
-    shape.offer(Ok(&sessions), 0);
+    shape.offer(Ok((&sessions, 0, &[])));
     let text = screen(&mut shape, 100, 30, true);
     assert!(
         text.contains("› saved goal") && text.contains("goal saved"),
@@ -601,13 +601,13 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
     assert_eq!(shape.key(key(KeyCode::Esc)), Leave::Stay);
     // Back at the list, Shape reads again: a goal whose seed was confirmed meanwhile leaves it.
     assert!(shape.wants_sessions());
-    shape.offer(Ok(&sessions), 0);
+    shape.offer(Ok((&sessions, 0, &[])));
     assert!(screen(&mut shape, 100, 30, true).contains("› drafted goal"));
     let mut moved = sessions.clone();
     moved[2].stage = Stage::SeedUnchecked;
     assert_eq!(shape.key(key(KeyCode::Enter)), Leave::Stay);
     assert_eq!(shape.key(key(KeyCode::Esc)), Leave::Stay);
-    shape.offer(Ok(&moved), 0);
+    shape.offer(Ok((&moved, 0, &[])));
     let text = screen(&mut shape, 100, 30, true);
     assert!(
         text.contains("› saved goal") && !text.contains("drafted goal"),
@@ -615,10 +615,10 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
     );
     assert_eq!(shape.key(key(KeyCode::Esc)), Leave::Back);
     let mut empty = Shape::new(Open::List, None, &GoalConfirmation::default(), false);
-    empty.offer(Ok(&sessions[1..2]), 0);
+    empty.offer(Ok((&sessions[1..2], 0, &[])));
     assert!(screen(&mut empty, 100, 30, true).contains("No goals are waiting for a Tink."));
     let mut failed = Shape::new(Open::List, None, &GoalConfirmation::default(), false);
-    failed.offer(Err("TEST read failed".into()), 0);
+    failed.offer(Err("TEST read failed".into()));
     assert!(screen(&mut failed, 100, 30, true).contains("couldn't be read"));
     assert!(failed.help_text().contains("TEST read failed"));
     let mut direct = done(Shaped::Waiting, None);
@@ -630,7 +630,7 @@ fn incomplete_lists_keep_the_count_and_f1_route() {
     for (width, height) in [(100, 30), (80, 24)] {
         for no_color in [false, true] {
             let mut shape = Shape::new(Open::List, None, &GoalConfirmation::default(), false);
-            shape.offer(Ok(&[]), 1);
+            shape.offer(Ok((&[], 1, &[])));
             let text = screen(&mut shape, width, height, no_color);
             let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
             assert!(
@@ -643,11 +643,11 @@ fn incomplete_lists_keep_the_count_and_f1_route() {
                     .help_text()
                     .contains("Some session ledgers could not be read")
             );
-            shape.offer(Ok(&[]), 2);
+            shape.offer(Ok((&[], 2, &[])));
             assert!(
                 screen(&mut shape, width, height, no_color).contains("2 records couldn't be read.")
             );
-            shape.offer(Err("TEST root failure".into()), 2);
+            shape.offer(Err("TEST root failure".into()));
             let failed = screen(&mut shape, width, height, no_color);
             assert!(!failed.contains("2 records"), "{failed}");
             assert!(shape.help_text().contains("TEST root failure"));
