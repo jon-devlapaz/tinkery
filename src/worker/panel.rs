@@ -1,11 +1,10 @@
 //! A retained worker-action screen. Reviewing is inert; named keys admit bounded SDLC actions.
 //! The menu retains an in-flight request across navigation, and no action retries itself.
 
-use crate::{
-    Palette,
-    approve::WorkerReview,
-    worker::{Action, Config, Gate, Job, Recovery, Run, Snapshot, Start, State, Turn},
+use super::{
+    Action, Config, Gate, Job, Recovery, Review, Run, Snapshot, Start, State, Turn, cap_advice,
 };
+use crate::{Palette, sdlc::Verification};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
     Frame,
@@ -13,12 +12,23 @@ use ratatui::{
     text::{Line, Text},
     widgets::{Paragraph, Wrap},
 };
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+        mpsc,
+    },
+    thread,
+};
 
 /// Navigation only: neither destination starts a worker or preview.
-pub(super) enum Destination {
+pub(crate) enum Destination {
+    /// The menu.
     Home,
+    /// Watch over this run's checkout.
     Watch(PathBuf),
+    /// Taste over this run's checkout.
     Taste(PathBuf),
 }
 
@@ -27,10 +37,23 @@ enum Request {
     Run(Action),
 }
 
+/// Cap guidance read from recent launch logs off the terminal thread; F2 waits for it.
+struct Advice {
+    landed: mpsc::Receiver<String>,
+    stop: Arc<AtomicBool>,
+}
+
+impl Drop for Advice {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::SeqCst);
+    }
+}
+
 /// One selected start or pinned run, including its finite request across visits.
-pub(super) struct Panel {
+pub(crate) struct Panel {
     goal: String,
     disclosure: String,
+    advice: Option<Advice>,
     gate: Gate,
     start: Option<Start>,
     /// The start in flight; it comes back for an explicit retry only if nothing was started.
@@ -47,59 +70,50 @@ pub(super) struct Panel {
 }
 
 impl Panel {
-    /// Review the exact seed and separate worker allowance without running anything.
-    pub(super) fn review(
-        WorkerReview {
-            seed,
-            root,
-            cap_advice,
-        }: WorkerReview,
+    /// Review the exact seed and separate worker allowance without running anything. Cap
+    /// guidance is read in the background; F2 is offered only once it is shown.
+    pub(crate) fn review(
+        Review { seed, root }: Review,
         record_root: Result<PathBuf, String>,
         config: Option<Config>,
         gate: Gate,
     ) -> Self {
-        let (start, disclosure) = match (seed.target, config) {
+        let (start, disclosure, advice) = match (seed.target, config) {
             (Some(target), Some(config)) => {
-                let authority = gate.disclosure(Some((&target, &config)));
-                let checkout = target
-                    .retry
-                    .as_ref()
-                    .map_or(root.as_path(), |base| base.checkout.as_path());
-                let retry = target.retry.as_ref().map(|base| format!("Required starting commit: {}. Use this checkout with --sdlc-root to find the new run.\n", base.head)).unwrap_or_default();
-                let disclosure = format!(
-                    "Tink Contract SHA-256: {}\nPi model: {}\nResponse cap: {} (one response may already be in flight).\n{cap_advice}\n\
-                     Checkout: {}\n\
-                     {retry}F2 uses committed source, creates the run, imports this Tink Contract, prepares an isolated build checkout, \
-                     and launches its bounded worker through tink-sdlc.\n\
-                     Your goal, confirmed Tink Contract and relevant source files go to that provider. \
-                     The worker may edit, run commands and commit inside its build checkout.\n\
-                     Commit project changes first. Definition gates still apply; passing checks is not your acceptance.",
-                    target.sha256,
-                    config.model,
+                let (send, landed) = mpsc::channel();
+                let stop = Arc::new(AtomicBool::new(false));
+                let (cancel, checkout, cap, owner) = (
+                    stop.clone(),
+                    root.clone(),
                     config.responses,
-                    checkout.display(),
+                    thread::current(),
                 );
-                (
-                    Some(Start {
-                        target,
-                        root,
-                        record_root,
-                        config,
-                        authorization: gate.clone(),
-                    }),
-                    disclosure + &authority,
-                )
+                thread::spawn(move || {
+                    let _ = send.send(cap_advice(&checkout, cap, &cancel));
+                    owner.unpark();
+                });
+                let start = Start {
+                    target,
+                    root,
+                    record_root,
+                    config,
+                    authorization: gate.clone(),
+                };
+                let disclosure = start.disclosure("Reading recent Pi launch logs…");
+                (Some(start), disclosure, Some(Advice { landed, stop }))
             }
             _ => (
                 None,
                 "No worker allowance. Relaunch with --worker-model provider/model:thinking \
                          and --worker-responses N. Drafting calls do not authorize a worker."
                     .into(),
+                None,
             ),
         };
         Self {
             goal: seed.goal,
             disclosure,
+            advice,
             gate,
             start,
             starting: None,
@@ -115,12 +129,15 @@ impl Panel {
         }
     }
 
-    /// Open an existing source-selected run with a read only; no new allowance is inferred.
-    pub(super) fn existing(run: Run, gate: Gate) -> Self {
+    /// Open an existing run that Watch selected, pinned to the identity Watch read; this reads
+    /// only, and no new allowance is inferred.
+    pub(crate) fn existing(root: PathBuf, slug: String, id: String, gate: Gate) -> Self {
+        let run = Run { root, slug, id };
         let job = Job::act(gate.clone(), run.clone(), Action::Refresh);
         Self {
             goal: String::new(),
             disclosure: gate.disclosure(None),
+            advice: None,
             gate,
             start: None,
             starting: None,
@@ -137,12 +154,21 @@ impl Panel {
     }
 
     /// Whether admission or another finite request must finish before the application exits.
-    pub(super) fn busy(&self) -> bool {
+    pub(crate) fn busy(&self) -> bool {
         self.job.is_some()
     }
 
     /// Land one source-owned outcome, never an inferred success or automatic next action.
-    pub(super) fn poll(&mut self) {
+    pub(crate) fn poll(&mut self) {
+        if let Some(advice) = &self.advice
+            && let Ok(words) = advice.landed.try_recv()
+        {
+            self.advice = None;
+            if let Some(start) = self.start.as_ref().or(self.starting.as_ref()) {
+                self.disclosure = start.disclosure(&words);
+            }
+            self.read_to_end = false;
+        }
         let Some(result) = self.job.as_mut().and_then(Job::poll) else {
             return;
         };
@@ -174,7 +200,7 @@ impl Panel {
     }
 
     /// Handle one deliberate key. Help, repeats, modifiers and navigation never execute work.
-    pub(super) fn key(&mut self, key: KeyEvent) -> Option<Destination> {
+    pub(crate) fn key(&mut self, key: KeyEvent) -> Option<Destination> {
         if key.kind != KeyEventKind::Press || key.modifiers != KeyModifiers::NONE {
             return None;
         }
@@ -253,7 +279,7 @@ impl Panel {
                 KeyCode::F(2),
                 "F2 start worker",
                 Some("End to start"),
-                (idle && self.start.is_some()).then_some(Request::Start),
+                (idle && self.start.is_some() && self.advice.is_none()).then_some(Request::Start),
             ),
             (
                 KeyCode::Char('l'),
@@ -335,7 +361,7 @@ impl Panel {
             && self
                 .snapshot
                 .as_ref()
-                .is_some_and(|s| s.verification.is(crate::sdlc::Verification::Current))
+                .is_some_and(|s| s.verification.is(Verification::Current))
     }
 
     fn can_launch(&self) -> bool {
@@ -357,7 +383,7 @@ impl Panel {
     }
 
     /// Draw the source state and consequences; painting makes no source reads or requests.
-    pub(super) fn render(&mut self, frame: &mut Frame, area: Rect, palette: Palette) {
+    pub(crate) fn render(&mut self, frame: &mut Frame, area: Rect, palette: Palette) {
         let mut body = Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
         let mut lines = Vec::new();
         let mut add = |text: &str| {
@@ -385,7 +411,7 @@ impl Panel {
             }
             add(&format!(
                 "Worker: {}\n\nRun: {}\nCheckout: {}",
-                state(&snapshot.state),
+                snapshot.state.words(),
                 snapshot.run.slug,
                 snapshot.run.root.display()
             ));
@@ -400,10 +426,7 @@ impl Panel {
                 snapshot.verification.as_str().unwrap_or("unknown"),
                 snapshot.next
             ));
-            if snapshot
-                .verification
-                .is(crate::sdlc::Verification::AwaitingAttestation)
-            {
+            if snapshot.verification.is(Verification::AwaitingAttestation) {
                 add(&format!(
                     "waiting on your judgment: {}\nOnly a person can record these judgments in tink-sdlc.",
                     snapshot.pending_attestations.join(", ")
@@ -470,30 +493,5 @@ impl Panel {
             Paragraph::new(keys).style(palette.muted),
             Rect::new(area.x, area.bottom().saturating_sub(1), area.width, 1),
         );
-    }
-}
-
-impl super::Home {
-    /// Share the declaration and relay snapshot without granting permission on navigation.
-    pub(super) fn worker_gate(&self) -> Gate {
-        Gate::new(self.launch.agent, self.launch.worker_authorization.clone())
-    }
-}
-
-fn state(state: &State) -> &'static str {
-    match state {
-        State::NotStarted => "not started",
-        State::Prepared => "prepared, not launched",
-        State::Active { turn: Turn::Ended } => "turn ended; completion still unrecorded",
-        State::Active {
-            turn: Turn::Running,
-        } => "running",
-        State::Active {
-            turn: Turn::Unknown,
-        } => "turn state unknown; inspect before resuming",
-        State::Uncertain => "launch uncertain; inspect before starting another",
-        State::Completed => "turn completed; verification is separate",
-        State::Stopped { cap: true } => "stopped by response cap",
-        State::Stopped { cap: false } => "stopped by operator",
     }
 }

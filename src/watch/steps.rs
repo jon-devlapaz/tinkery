@@ -1,6 +1,8 @@
-//! Worker-step display and attention from typed status, without API-word recognition or execution.
+//! Worker-step display and attention from typed status, in the worker's own state words, without
+//! API-word recognition or execution.
 
 use super::{Worker, sdlc};
+use crate::worker::{State, Turn};
 
 /// tink-sdlc's pinned build steps as detail lines, and what they say about a worker.
 /// An older tink-sdlc omits them; anything present but unfamiliar is refused, not guessed.
@@ -14,7 +16,6 @@ pub(super) fn render(run: &sdlc::Run) -> Result<Option<(Vec<String>, Worker)>, S
     let mut worker = Worker::Idle;
     for step in run.steps.as_ref().ok_or_else(refuse)? {
         let name = step.data["name"].as_str().ok_or_else(refuse)?;
-        let state = step.state.as_str().ok_or_else(refuse)?;
         let cap_reached = match step.data.get("response_cap_reached") {
             Some(value) => value.as_bool().ok_or_else(refuse)?,
             None => false,
@@ -75,42 +76,32 @@ pub(super) fn render(run: &sdlc::Run) -> Result<Option<(Vec<String>, Worker)>, S
             ));
             continue;
         }
-        let seen = match (step.state.known(), step.turn.present()) {
-            (Some(S::Active), true) => {
-                let now = match step.turn.known() {
-                    Some(T::Ended) => Worker::Ended,
-                    Some(T::Running) => Worker::Running,
-                    Some(T::Unknown) => Worker::Unknown,
-                    _ => return Err(refuse().into()),
-                };
+        let state = State::read(&step.state, &step.turn, &step.stopped_by).map_err(|_| refuse())?;
+        let seen = match state {
+            State::Active { turn } => {
                 let words = step.data["observed_turn"].as_str().ok_or_else(refuse)?;
-                if worker == Worker::Idle || now == Worker::Ended {
-                    worker = now;
+                if worker == Worker::Idle || turn == Turn::Ended {
+                    worker = Worker::Step(state);
                 }
                 format!(" · {words}")
             }
+            // A step that is not active reports no turn; one that does is not guessed at.
+            _ if step.turn.present() => return Err(refuse().into()),
             // Only the newest uncertain step owes reconciliation; an older tink-sdlc
             // doesn't say which is newest, so every uncertain step is treated as owed.
-            (Some(S::Uncertain), false) => {
+            State::Uncertain => {
                 let owed = match step.data.get("owed") {
                     None => true,
                     Some(owed) => owed.as_bool().ok_or_else(refuse)?,
                 };
-                if owed && worker != Worker::Ended {
-                    worker = Worker::Uncertain;
+                if owed && !worker.ended() {
+                    worker = Worker::Step(state);
                 }
                 String::new()
             }
-            (Some(S::Prepared | S::Completed | S::Unreadable), false) => String::new(),
-            // A worker stopped before its turn ended is never shown as a finished turn.
-            (Some(S::Stopped), false) => match step.stopped_by.known() {
-                Some(R::Operator) => " by you".into(),
-                Some(R::Cap) => " at its response cap".into(),
-                _ => return Err(refuse().into()),
-            },
-            _ => return Err(refuse().into()),
+            _ => String::new(),
         };
-        lines.push(format!("Worker step {name}: {state}{seen}"));
+        lines.push(format!("Worker step {name}: {}{seen}", state.words()));
     }
     if lines.is_empty() {
         lines.push("No worker step has been started for this run.".into());

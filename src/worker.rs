@@ -5,7 +5,9 @@
 mod authorization;
 pub(crate) use authorization::{Gate, Relay};
 mod orientation;
-pub(crate) use orientation::cap_advice;
+use orientation::cap_advice;
+mod panel;
+pub(crate) use panel::{Destination, Panel};
 #[cfg(test)]
 mod tests;
 
@@ -53,34 +55,67 @@ impl Config {
     }
 }
 
+/// A verified seed and its canonical checkout, handed over for a start review. It grants nothing.
+pub(crate) struct Review {
+    /// Only the verified seed selected in this visit.
+    pub(crate) seed: ready::ReadySeed,
+    /// The canonical checkout verified for this seed.
+    pub(crate) root: PathBuf,
+}
+
 /// An exact seed and canonical checkout selected for an explicit Start worker action.
 #[derive(Clone, Debug)]
-pub(crate) struct Start {
+struct Start {
     /// Verified identity selected in Approve; execution rechecks its bytes and confirmation.
-    pub(crate) target: ready::SeedTarget,
+    target: ready::SeedTarget,
     /// Canonical checkout shown before the action; a substituted path is refused.
-    pub(crate) root: PathBuf,
+    root: PathBuf,
     /// Think records used to refuse a known different repository origin.
-    pub(crate) record_root: Result<PathBuf, String>,
+    record_root: Result<PathBuf, String>,
     /// The separately disclosed worker allowance.
-    pub(crate) config: Config,
+    config: Config,
     /// The reviewed start authority; an absent or mismatched agent relay refuses before creation.
-    pub(crate) authorization: Gate,
+    authorization: Gate,
+}
+
+impl Start {
+    /// What F2 does, in the order `start` does it, with the cap guidance shown beside the cap.
+    fn disclosure(&self, cap_advice: &str) -> String {
+        let target = &self.target;
+        let checkout = target
+            .retry
+            .as_ref()
+            .map_or(self.root.as_path(), |base| base.checkout.as_path());
+        let retry = target.retry.as_ref().map(|base| format!("Required starting commit: {}. Use this checkout with --sdlc-root to find the new run.\n", base.head)).unwrap_or_default();
+        format!(
+            "Tink Contract SHA-256: {}\nPi model: {}\nResponse cap: {} (one response may already be in flight).\n{cap_advice}\n\
+             Checkout: {}\n\
+             {retry}F2 uses committed source, creates the run, imports this Tink Contract, prepares an isolated build checkout, \
+             and launches its bounded worker through tink-sdlc.\n\
+             Your goal, confirmed Tink Contract and relevant source files go to that provider. \
+             The worker may edit, run commands and commit inside its build checkout.\n\
+             Commit project changes first. Definition gates still apply; passing checks is not your acceptance.",
+            target.sha256,
+            self.config.model,
+            self.config.responses,
+            checkout.display(),
+        ) + &self.authorization.disclosure(Some((target, &self.config)))
+    }
 }
 
 /// Source-owned run identity pinned across later actions, not a new workflow store.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Run {
+struct Run {
     /// The exact canonical checkout where the build lives.
-    pub(crate) root: PathBuf,
+    root: PathBuf,
     /// SDLC run name, never interpreted as shell text.
-    pub(crate) slug: String,
+    slug: String,
     /// SDLC's stable run identity; a reused name cannot substitute a run.
-    pub(crate) id: String,
+    id: String,
 }
 
 /// The current turn as reported by SDLC's offline source read.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Turn {
     /// The adapter observed the latest turn end normally; this proves no checks.
     Ended,
@@ -90,8 +125,9 @@ pub(crate) enum Turn {
     Unknown,
 }
 
-/// Current step state, without converting stopped or uncertain work into completion.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// One step's state, without converting stopped or uncertain work into completion. Watch and
+/// the worker screen read and word it the same way.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum State {
     /// Intake exists but no worker step has been prepared.
     NotStarted,
@@ -105,37 +141,95 @@ pub(crate) enum State {
     Completed,
     /// The worker was stopped explicitly or at the recorded response cap.
     Stopped { cap: bool },
+    /// SDLC could not read the step record; no action may rely on it.
+    Unreadable,
 }
+
+impl State {
+    /// The one mapping from SDLC's step words. Without a step there is `NotStarted`. A word,
+    /// turn or stop reason this reader does not know is refused with the field that failed.
+    pub(crate) fn read(
+        state: &sdlc::Word<sdlc::StepState>,
+        turn: &sdlc::Word<sdlc::TurnStatus>,
+        stopped_by: &sdlc::Word<sdlc::StopReason>,
+    ) -> Result<Self, &'static str> {
+        use sdlc::{StepState as S, StopReason as R, TurnStatus as T};
+        Ok(match state.known() {
+            Some(S::Prepared) => Self::Prepared,
+            Some(S::Active) => Self::Active {
+                turn: match turn.known() {
+                    Some(T::Ended) => Turn::Ended,
+                    Some(T::Running) => Turn::Running,
+                    Some(T::Unknown) => Turn::Unknown,
+                    None => return Err("The worker turn is not reported in a supported form."),
+                },
+            },
+            Some(S::Uncertain) => Self::Uncertain,
+            Some(S::Completed) => Self::Completed,
+            Some(S::Stopped) => Self::Stopped {
+                cap: match stopped_by.known() {
+                    Some(R::Cap) => true,
+                    Some(R::Operator) => false,
+                    None => return Err("The stopped worker has no known stop reason."),
+                },
+            },
+            Some(S::Unreadable) => Self::Unreadable,
+            None => return Err(UNSUPPORTED),
+        })
+    }
+
+    /// The one wording for a step state, never a completion or acceptance claim.
+    pub(crate) fn words(self) -> &'static str {
+        match self {
+            Self::NotStarted => "not started",
+            Self::Prepared => "prepared, not launched",
+            Self::Active { turn: Turn::Ended } => "turn ended; completion still unrecorded",
+            Self::Active {
+                turn: Turn::Running,
+            } => "running",
+            Self::Active {
+                turn: Turn::Unknown,
+            } => "turn state unknown; inspect before resuming",
+            Self::Uncertain => "launch uncertain; inspect before starting another",
+            Self::Completed => "turn completed; verification is separate",
+            Self::Stopped { cap: true } => "stopped by response cap",
+            Self::Stopped { cap: false } => "stopped by operator",
+            Self::Unreadable => "unreadable",
+        }
+    }
+}
+
+const UNSUPPORTED: &str = "The worker state is not supported; inspect SDLC before continuing.";
 
 /// One current SDLC observation for presentation and explicitly requested follow-up actions.
 #[derive(Clone, Debug)]
-pub(crate) struct Snapshot {
+struct Snapshot {
     /// Stable source identity used to recheck the next action.
-    pub(crate) run: Run,
+    run: Run,
     /// Effective immutable step pin, empty when there is no step.
-    pub(crate) model: String,
+    model: String,
     /// Effective cumulative response cap, zero when there is no step.
-    pub(crate) responses: usize,
+    responses: usize,
     /// The observed immutable step identity; resume must present this same observation.
-    pub(crate) pin: Option<Pin>,
+    pin: Option<Pin>,
     /// Current source-owned worker state.
-    pub(crate) state: State,
+    state: State,
     /// SDLC verification state; a completed worker does not imply current verification.
-    pub(crate) verification: sdlc::Word<sdlc::Verification>,
+    verification: sdlc::Word<sdlc::Verification>,
     /// Validated source-reported judgment IDs, not a completion or acceptance claim.
-    pub(crate) pending_attestations: Vec<String>,
+    pending_attestations: Vec<String>,
     /// SDLC's next action in its own words.
-    pub(crate) next: String,
+    next: String,
 }
 
 /// Opaque fingerprint of the source contract's fixed run, session, model, allowance and paths.
 /// It permits comparison with what was displayed, never supplies authority on its own.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Pin(String);
+struct Pin(String);
 
 /// Each variant needs its own explicit interface action; none runs after a refresh.
 #[derive(Clone, Debug)]
-pub(crate) enum Action {
+enum Action {
     /// Read current source records without admitting work or writing anything.
     Refresh,
     /// Explicitly retry a prepared step after inspecting its unchanged contract.
@@ -153,7 +247,7 @@ pub(crate) enum Action {
 
 /// The safe follow-up established by the transaction, never inferred from a missing identity.
 #[derive(Clone, Debug)]
-pub(crate) enum Recovery {
+enum Recovery {
     /// No creation was attempted; the operator may fix the cause and explicitly retry.
     Retry,
     /// Creation may have happened; read SDLC in Watch before any further start.
@@ -164,28 +258,28 @@ pub(crate) enum Recovery {
 
 /// A refusal with its transaction-owned explanation and safe follow-up.
 #[derive(Clone, Debug)]
-pub(crate) struct Failure {
+struct Failure {
     /// The actual failed boundary and any next step, without an invented success.
-    pub(crate) message: String,
+    message: String,
     /// Whether retry is safe, inspection is needed, or a pinned run is available.
-    pub(crate) recovery: Recovery,
+    recovery: Recovery,
 }
 
 /// One finite action owned by the menu across visits. Dropping waits for its bounded command
 /// sequence rather than killing admission between its uncertain and active receipts.
-pub(crate) struct Job {
+struct Job {
     result: mpsc::Receiver<Result<Snapshot, Failure>>,
     worker: Option<JoinHandle<()>>,
 }
 
 impl Job {
     /// Start only after the interface explicitly grants the displayed worker action.
-    pub(crate) fn start(request: Start) -> Self {
+    fn start(request: Start) -> Self {
         Self::spawn(move || start(request))
     }
 
     /// Perform exactly one requested action, rechecking the pinned run before any write.
-    pub(crate) fn act(gate: Gate, run: Run, action: Action) -> Self {
+    fn act(gate: Gate, run: Run, action: Action) -> Self {
         Self::spawn(move || {
             act(&gate, &run, action).map_err(|message| Failure {
                 message,
@@ -208,7 +302,7 @@ impl Job {
     }
 
     /// Deliver the action result once; a pending job performs no additional actions.
-    pub(crate) fn poll(&mut self) -> Option<Result<Snapshot, Failure>> {
+    fn poll(&mut self) -> Option<Result<Snapshot, Failure>> {
         self.worker.as_ref()?;
         let result = match self.result.try_recv() {
             Ok(result) => result,
@@ -704,30 +798,9 @@ fn snapshot(run: &Run) -> Result<Snapshot, String> {
             "{:x}",
             Sha256::digest(fixed.to_string().as_bytes())
         ));
-        let state = match parsed.state.known() {
-            Some(sdlc::StepState::Prepared) => State::Prepared,
-            Some(sdlc::StepState::Active) => State::Active {
-                turn: match step.turn.known() {
-                    Some(sdlc::TurnStatus::Ended) => Turn::Ended,
-                    Some(sdlc::TurnStatus::Running) => Turn::Running,
-                    Some(sdlc::TurnStatus::Unknown) => Turn::Unknown,
-                    _ => return Err("The worker turn is not reported in a supported form.".into()),
-                },
-            },
-            Some(sdlc::StepState::Uncertain) => State::Uncertain,
-            Some(sdlc::StepState::Completed) => State::Completed,
-            Some(sdlc::StepState::Stopped) => State::Stopped {
-                cap: match parsed.stopped_by.known() {
-                    Some(sdlc::StopReason::Cap) => true,
-                    Some(sdlc::StopReason::Operator) => false,
-                    _ => return Err("The stopped worker has no known stop reason.".into()),
-                },
-            },
-            _ => {
-                return Err(
-                    "The worker state is not supported; inspect SDLC before continuing.".into(),
-                );
-            }
+        let state = match State::read(&parsed.state, &step.turn, &parsed.stopped_by)? {
+            State::Unreadable => return Err(UNSUPPORTED.into()),
+            state => state,
         };
         (state, model, responses, Some(pin))
     } else {

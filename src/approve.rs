@@ -23,6 +23,7 @@ use crate::{
         runs,
     },
     think_record::MadeIn,
+    worker::Review,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
@@ -51,7 +52,6 @@ struct Found {
     unavailable: usize,
     reasons: Vec<String>,
     start_unknown: Option<String>,
-    cap_advice: String,
     changed: usize,
 }
 
@@ -98,7 +98,6 @@ impl Reader {
         record_root: Result<PathBuf, String>,
         mut found: Found,
         target: Option<ready::SeedTarget>,
-        worker_cap: Option<usize>,
     ) -> bool {
         if self.running.is_some() {
             return false;
@@ -215,12 +214,6 @@ impl Reader {
             if target.is_some() && found.seeds.is_empty() {
                 found.target_failure = Some(target_failure);
             }
-            if !found.seeds.is_empty()
-                && found.start_unknown.is_none()
-                && let (Some(cap), Some(root)) = (worker_cap, checkout)
-            {
-                found.cap_advice = crate::worker::cap_advice(root, cap, &cancelled);
-            }
             let _ = tx.send(found);
         });
         self.running = Some((rx, stop));
@@ -234,16 +227,6 @@ impl Drop for Reader {
     }
 }
 
-/// A verified seed and its checkout's cap guidance, frozen by the existing reader.
-pub(crate) struct WorkerReview {
-    /// Only the verified seed selected in this visit.
-    pub(crate) seed: ReadySeed,
-    /// The canonical checkout verified for this seed.
-    pub(crate) root: PathBuf,
-    /// Guidance for the displayed cap, without changing the allowance.
-    pub(crate) cap_advice: String,
-}
-
 /// A visit shows only verified seeds. Navigation and copying use the same immutable reading.
 pub(crate) struct Approve {
     target: Option<ready::SeedTarget>,
@@ -255,7 +238,7 @@ pub(crate) struct Approve {
     page: u16,
     help_scroll: u16,
     copy: Option<String>,
-    worker_request: Option<WorkerReview>,
+    worker_request: Option<Review>,
     notice: &'static str,
 }
 
@@ -297,7 +280,6 @@ impl Approve {
         reasons: Vec<String>,
         reader: &mut Reader,
         record_root: Result<PathBuf, String>,
-        worker_cap: Option<usize>,
     ) {
         if !self.waiting {
             return;
@@ -314,7 +296,6 @@ impl Approve {
                     ..Found::default()
                 },
                 self.target.clone(),
-                worker_cap,
             ) {
                 Ok(())
             } else {
@@ -342,7 +323,7 @@ impl Approve {
     }
 
     /// Take the deliberate request to review a worker start; this does not execute it.
-    pub(crate) fn take_worker_request(&mut self) -> Option<WorkerReview> {
+    pub(crate) fn take_worker_request(&mut self) -> Option<Review> {
         self.worker_request.take()
     }
 
@@ -409,10 +390,9 @@ impl Approve {
                     && reading.seed.commands.is_some()
                     && reading.seed.target.is_some()
                 {
-                    self.worker_request = Some(WorkerReview {
+                    self.worker_request = Some(Review {
                         seed: reading.seed.clone(),
                         root: root.clone(),
-                        cap_advice: found.cap_advice.clone(),
                     });
                 }
             }
