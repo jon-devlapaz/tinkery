@@ -25,7 +25,8 @@ shows, with how long ago it was read, to the minute. Watch never runs `verify`, 
 `stage` or any other command, and never polls, refreshes by itself, notifies or badges anything:
 unchanged state makes no new demand on the operator's attention.
 
-`b` carries only the selected run ID and named checkout to the menu's separate
+`b` is Watch's own key: it returns only the selected run's name, its run ID from this read and
+the named checkout, and the worker builds its pinned run from them for the separate
 [worker controls](approve.md#start-a-worker). That screen reads the current source
 and discloses its explicit actions. Watch itself still performs no worker action;
 opening the controls is not permission to resume or verify.
@@ -129,10 +130,12 @@ treats a report without `operator_attestation` as the operator's; any other valu
 only if the change affects it. Automatic pending checks alone do not demand a person.
 
 A worker whose turn ended also leads: tink-sdlc's `steps` report each pinned build step and,
-for an active one, its `turn`, and its next action says to read the report. Rows add
-`worker running`, `worker's turn ended` or `worker state unknown`; a run awaiting building
-with no active step says `no active worker step`. An uncertain launch also leads, as
-`launch unconfirmed; inspect it before starting another`, beside tink-sdlc's inspection step.
+for an active one, its `turn`, and its next action says to read the report. Steps are read
+into the worker's one state model and use its words, the same words as the worker screen.
+Rows add `worker: running`, `worker: turn ended; completion still unrecorded` or
+`worker: turn state unknown; inspect before resuming`; a run awaiting building with no active
+step says `no active worker step`. An uncertain launch also leads, as
+`worker: launch uncertain; inspect before starting another`, beside tink-sdlc's inspection step.
 Since 1.55.0 tink-sdlc marks only the newest uncertain step `owed`; an older report without
 `owed` treats every uncertain step as owed, and a non-boolean `owed` refuses the read. This says nothing about work outside those
 steps. Detail lists each step. A tink-sdlc without `steps` adds nothing; an unfamiliar

@@ -545,6 +545,8 @@ def open_review(terminal, read_to_end=True):
     assert len(terminal.copies()) == 1
     assert not terminal.fixture.mutations(), 'copying intake executed it'
     terminal.send(b'b', 'Review worker start')
+    # Cap guidance lands off the terminal thread; F2 is not offered until it does.
+    terminal.wait(lambda: 'Reading recent Pi launch logs' not in terminal.flat())
     if read_to_end:
         terminal.send(END, 'esc back')
 
@@ -638,8 +640,10 @@ def cap_review(case):
         terminal = Terminal(fixture, 100, 30)
         try:
             open_review(terminal)
-            terminal.send(HOME, 'Review worker start')
+            # The guidance is read off the terminal thread; F2 is offered only once it lands.
+            terminal.send(HOME, 'Suggested minimum')
             shown = terminal.flat()
+            assert 'Reading recent Pi launch logs' not in shown, shown
             if case == 'warn':
                 assert 'Suggested minimum: 8 responses' in shown and 'Based on 2 recent Pi launch logs' in shown, shown
                 assert 'earlier-build/build: first edit/write at response 7' in shown, shown

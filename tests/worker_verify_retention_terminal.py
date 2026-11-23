@@ -130,7 +130,7 @@ def journey(case, width, height):
 
 
 def reversion():
-    path = REPO / 'src/menu/worker.rs'
+    path = REPO / 'src/worker/panel.rs'
     original = path.read_text()
     guard = ('                    if !self.fresh && !matches!(action, Action::Refresh | Action::StopOperator) {\n'
              '                        return None;\n'

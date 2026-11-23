@@ -193,7 +193,9 @@ Human and undeclared F2, `l` and `u` keep their existing direct consent and requ
 Goal confirmation, Tink confirmation and worker start remain separate yeses.
 Navigation and copying never start a worker.
 
-With a configured worker allowance, the existing Approve reader selects up to five
+With a configured worker allowance, the worker review reads the cap guidance off the
+terminal thread and shows `Reading recent Pi launch logs…` until it lands; F2 is offered
+only after that. It selects up to five
 recent Pi launches by the start time in each log filename. Only runs in the named
 checkout and their matching Git worktrees are considered. Empty run folders add
 no samples. It reads log contents only in the checkout each run reports. A log must match that run's step contract,

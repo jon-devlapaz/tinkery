@@ -295,7 +295,10 @@ fn leaving_mid_read_stops_the_process_and_delivers_nothing() {
         assert!(Instant::now() < until, "read never started");
         std::thread::sleep(Duration::from_millis(5));
     }
-    assert!(watch.key(KeyEvent::from(KeyCode::Esc)), "Esc leaves Watch");
+    assert!(
+        matches!(watch.key(KeyEvent::from(KeyCode::Esc)), Some(Exit::Leave)),
+        "Esc leaves Watch"
+    );
     drop(watch);
     assert!(!alive(dir.path()), "leaving left the read running");
 }
@@ -482,17 +485,20 @@ fn a_run_says_whether_a_worker_is_building_it_and_an_ended_turn_needs_you() {
     );
     let text = screen(&mut watch, 100, 30);
     for (slug, words) in [
-        ("ended", "not verified yet · worker's turn ended"),
+        (
+            "ended",
+            "not verified yet · worker: turn ended; completion still unrecorded",
+        ),
         ("idle", "not verified yet · no active worker step ·"),
-        ("building", "not verified yet · worker running ·"),
+        ("building", "not verified yet · worker: running ·"),
         ("older-sdlc", "not verified yet · 0/0 checks passed"),
         (
             "unsure",
-            "not verified yet · launch unconfirmed; inspect it before starting another",
+            "not verified yet · worker: launch uncertain; inspect before starting another",
         ),
         (
             "unsure-old",
-            "not verified yet · launch unconfirmed; inspect it",
+            "not verified yet · worker: launch uncertain; inspect before",
         ),
         ("unsure-past", "not verified yet · no active worker step ·"),
     ] {
@@ -508,8 +514,8 @@ fn a_run_says_whether_a_worker_is_building_it_and_an_ended_turn_needs_you() {
     settle(&mut watch);
     assert!(screen(&mut watch, 100, 30).contains("No worker step has been started for this run."));
     for (by, words) in [
-        ("operator", "stopped by you"),
-        ("cap", "stopped at its response cap"),
+        ("operator", "stopped by operator"),
+        ("cap", "stopped by response cap"),
     ] {
         // tink-sdlc#151: a step finished as stopped reads as stopped, never as an ended turn.
         let mut value = detail(vec![]);
@@ -1001,4 +1007,27 @@ fn cap_reached_without_a_checkpoint_needs_attention_and_never_claims_proof() {
     assert!(shown.contains("Saved evidence is not available yet"));
     assert!(!shown.contains("Last shell result"));
     assert_eq!(parsed.next, "Record the cap stop.");
+}
+
+#[test]
+fn b_names_the_selected_run_for_the_worker_controls_and_starts_nothing() {
+    // Untangle 18c: Watch advertised `b` while the menu owned it and built the worker's run.
+    let dir = checkout(&envelope(&run("only", "not-run")), 0.0);
+    let before = tree(dir.path());
+    let mut watch = Watch::open(Some(dir.path().to_path_buf()));
+    settle(&mut watch);
+    let held =
+        KeyEvent::new_with_kind(KeyCode::Char('b'), KeyModifiers::NONE, KeyEventKind::Repeat);
+    assert!(watch.key(held).is_none(), "a held b names nothing");
+    let ctrl = KeyEvent::new(KeyCode::Char('b'), KeyModifiers::CONTROL);
+    assert!(watch.key(ctrl).is_none(), "a modified b names nothing");
+    let Some(Exit::Worker { root, slug, id }) = watch.key(KeyEvent::from(KeyCode::Char('b')))
+    else {
+        panic!("b names the selected run");
+    };
+    assert_eq!(
+        (root.as_path(), slug.as_str(), id.as_str()),
+        (dir.path(), "only", "x")
+    );
+    assert_eq!(tree(dir.path()), before, "naming a run wrote nothing");
 }

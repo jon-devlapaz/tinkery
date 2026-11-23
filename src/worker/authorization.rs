@@ -166,7 +166,7 @@ impl Gate {
     }
 
     /// Refuse agent work without an exact non-retry seed, model and allowance binding.
-    pub(crate) fn check(&self, target: Option<&SeedTarget>, config: &Config) -> Result<(), String> {
+    pub(super) fn check(&self, target: Option<&SeedTarget>, config: &Config) -> Result<(), String> {
         self.bind(target, config).map(|_| ())
     }
 
@@ -212,7 +212,7 @@ impl Gate {
     }
 
     /// Bind and append each agent admission before work; recording failures refuse the action.
-    pub(crate) fn record(
+    pub(super) fn record(
         &self,
         run: &Run,
         target: Option<&SeedTarget>,

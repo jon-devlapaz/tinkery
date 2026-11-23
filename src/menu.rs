@@ -5,7 +5,6 @@
 
 mod place;
 mod retry;
-mod worker;
 
 pub use place::{PLACES, Place};
 
@@ -24,7 +23,8 @@ use crate::{
     taste::Taste,
     tend::{self, Discovery, Source, Tend},
     think::brain_dump::{self, BrainDump, Exit},
-    watch::Watch,
+    watch::{self, Watch},
+    worker,
 };
 use crossterm::event::{
     KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
@@ -290,7 +290,6 @@ impl Home {
                 reasons,
                 &mut self.approve_reader,
                 self.record_root.clone(),
-                self.launch.worker.as_ref().map(|config| config.responses),
             );
         }
     }
@@ -503,11 +502,16 @@ impl Home {
         self.sync_approve();
     }
 
+    /// Share the declaration and relay snapshot without granting permission on navigation.
+    fn worker_gate(&self) -> worker::Gate {
+        worker::Gate::new(self.launch.agent, self.launch.worker_authorization.clone())
+    }
+
     fn worker_busy(&self) -> bool {
         self.worker_panel.as_ref().is_some_and(worker::Panel::busy)
     }
 
-    fn open_worker(&mut self, review: approve::WorkerReview) {
+    fn open_worker(&mut self, review: worker::Review) {
         if !self.worker_busy() {
             self.worker_panel = Some(worker::Panel::review(
                 review,
@@ -551,19 +555,6 @@ impl Home {
                     }
                 };
             }
-            return;
-        }
-        if !self.help
-            && key.kind == KeyEventKind::Press
-            && key.modifiers == KeyModifiers::NONE
-            && key.code == KeyCode::Char('b')
-            && let View::Watch(watch) = &self.view
-            && let Some(run) = watch.worker_run()
-        {
-            if !self.worker_busy() {
-                self.worker_panel = Some(worker::Panel::existing(run, self.worker_gate()));
-            }
-            self.view = View::Worker;
             return;
         }
         if let View::Tend(tend) = &mut self.view {
@@ -704,8 +695,16 @@ impl Home {
                     }
                     return;
                 }
-                if watch.key(key) {
-                    self.view = View::Menu;
+                match watch.key(key) {
+                    Some(watch::Exit::Leave) => self.view = View::Menu,
+                    Some(watch::Exit::Worker { root, slug, id }) => {
+                        if !self.worker_busy() {
+                            self.worker_panel =
+                                Some(worker::Panel::existing(root, slug, id, self.worker_gate()));
+                        }
+                        self.view = View::Worker;
+                    }
+                    None => {}
                 }
             }
             View::Taste(_) => self.taste_key(key),

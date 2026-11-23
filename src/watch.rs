@@ -23,7 +23,7 @@ use crate::goal::confirmed::run_goal;
 use crate::process::Task;
 use crate::sdlc::{self, DEADLINE, SCRIPT};
 use crate::seed_me::runs::{self, Goal};
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{
     Frame,
     layout::Rect,
@@ -67,29 +67,29 @@ struct Attention {
     worker: Option<Worker>,
 }
 
-/// Whether a worker is building the run, from tink-sdlc's steps and their observed turns.
+/// Whether a worker is building the run, from tink-sdlc's steps in the worker's state model.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Worker {
+    /// No step is active or owes inspection.
     Idle,
-    Running,
-    /// Its turn ended: someone has to read the report and complete the step.
-    Ended,
+    /// The step that matters most: an active turn, or an uncertain launch that owes inspection.
+    Step(crate::worker::State),
     /// The launcher stopped the worker and saved evidence; someone must record the stop.
     AtCap,
-    Unknown,
-    /// A launch tink-sdlc couldn't confirm: someone has to inspect it before another starts.
-    Uncertain,
 }
 
 impl Worker {
-    fn words(self) -> &'static str {
+    fn ended(self) -> bool {
+        self == Self::Step(crate::worker::State::Active {
+            turn: crate::worker::Turn::Ended,
+        })
+    }
+
+    fn words(self) -> String {
         match self {
-            Self::Idle => "no active worker step",
-            Self::Running => "worker running",
-            Self::Ended => "worker's turn ended",
-            Self::AtCap => "worker reached its response cap",
-            Self::Unknown => "worker state unknown",
-            Self::Uncertain => "launch unconfirmed; inspect it before starting another",
+            Self::Idle => "no active worker step".into(),
+            Self::Step(state) => format!("worker: {}", state.words()),
+            Self::AtCap => "worker reached its response cap".into(),
         }
     }
 }
@@ -105,10 +105,11 @@ impl Run {
                 a.gate
                     || a.owed > 0
                     || a.recheck > 0
-                    || matches!(
-                        a.worker,
-                        Some(Worker::Ended | Worker::AtCap | Worker::Uncertain)
-                    )
+                    || a.worker.is_some_and(|worker| {
+                        worker.ended()
+                            || worker == Worker::AtCap
+                            || worker == Worker::Step(crate::worker::State::Uncertain)
+                    })
             })
     }
 
@@ -387,6 +388,21 @@ impl<T: Send + 'static> Load<T> {
     }
 }
 
+/// Where the operator goes from Watch.
+pub(crate) enum Exit {
+    /// Back to the menu.
+    Leave,
+    /// The worker controls for this run, pinned to the identity Watch read. Nothing runs yet.
+    Worker {
+        /// The checkout Watch reads.
+        root: PathBuf,
+        /// The selected run's name.
+        slug: String,
+        /// The run ID from Watch's read; the worker refuses a run that no longer matches it.
+        id: String,
+    },
+}
+
 /// Watch's screen: the list, at most one run's detail, and the read behind each.
 pub(crate) struct Watch {
     root: Option<PathBuf>,
@@ -428,15 +444,16 @@ impl Watch {
         watch
     }
 
-    /// Source-selected identity for the menu's separate worker controls; this starts nothing.
-    pub(crate) fn worker_run(&self) -> Option<crate::worker::Run> {
+    /// The run `b` names: the open detail, else the selected row. A run without a stable ID
+    /// names nothing.
+    fn selected_run(&self) -> Option<Exit> {
         let runs = self.runs()?;
         let run = if let Some((slug, _)) = &self.detail {
             runs.iter().find(|run| &run.slug == slug)?
         } else {
             *ordered(runs).get(self.selected)?
         };
-        Some(crate::worker::Run {
+        Some(Exit::Worker {
             root: self.root.clone()?,
             slug: run.slug.clone(),
             id: run.id.clone()?,
@@ -526,17 +543,23 @@ impl Watch {
         }
     }
 
-    /// One key. Returns true when the operator leaves Watch; leaving drops and stops any read.
-    pub(crate) fn key(&mut self, key: KeyEvent) -> bool {
+    /// One key, and where the operator goes next, if anywhere. Leaving drops and stops any
+    /// read. `b` only names a run for the worker controls; it starts nothing.
+    pub(crate) fn key(&mut self, key: KeyEvent) -> Option<Exit> {
         if key.kind == KeyEventKind::Repeat
             && matches!(key.code, KeyCode::Char('r') | KeyCode::Enter)
         {
-            return false;
+            return None;
+        }
+        if key.code == KeyCode::Char('b') {
+            return (key.kind == KeyEventKind::Press && key.modifiers == KeyModifiers::NONE)
+                .then(|| self.selected_run())
+                .flatten();
         }
         if let Some((slug, detail)) = &self.detail {
             match key.code {
                 KeyCode::Esc => self.detail = None,
-                KeyCode::Char('q') => return true,
+                KeyCode::Char('q') => return Some(Exit::Leave),
                 KeyCode::Char('r') if matches!(detail, Load::Done(Ok(d), _) if d.state == State::Older) =>
                 {
                     self.detail = None;
@@ -551,11 +574,11 @@ impl Watch {
                 KeyCode::End => self.scroll = u16::MAX,
                 _ => {}
             }
-            return false;
+            return None;
         }
         let count = self.runs().map_or(0, <[Run]>::len);
         match key.code {
-            KeyCode::Esc | KeyCode::Char('q') => return true,
+            KeyCode::Esc | KeyCode::Char('q') => return Some(Exit::Leave),
             KeyCode::Char('r') => self.read_list(),
             KeyCode::Down | KeyCode::Char('j') if count > 0 => {
                 self.selected = (self.selected + 1).min(count - 1)
@@ -571,7 +594,7 @@ impl Watch {
             }
             _ => {}
         }
-        false
+        None
     }
 
     fn read_detail(&mut self, slug: String) {

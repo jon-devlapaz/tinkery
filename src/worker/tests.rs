@@ -1215,3 +1215,72 @@ elif args[0]=='verify':
 else:fail('TEST unexpected command')
 save()
 "#;
+
+#[test]
+fn f2_waits_until_the_cap_guidance_it_discloses_is_shown() {
+    // Untangle 18c: the guidance is read here, off the terminal thread, not in Approve's reader.
+    let dir = tempfile::tempdir().unwrap();
+    let seed = ready::ReadySeed {
+        target: Some(ready::SeedTarget {
+            session: PathBuf::from("/TEST/session"),
+            session_id: "TEST".into(),
+            retry: None,
+            version: 1,
+            sha256: "TEST-sha".into(),
+        }),
+        goal: "TEST goal".into(),
+        revision: "r1".into(),
+        acceptance: String::new(),
+        commands: None,
+        retry_started: Ok(false),
+        confirmation_note: None,
+    };
+    let mut panel = Panel::review(
+        Review {
+            seed,
+            root: dir.path().into(),
+        },
+        Err("TEST no records".into()),
+        Some(Config {
+            model: "test/model:off".into(),
+            responses: 3,
+        }),
+        Gate::new(false, Ok(None)),
+    );
+    let shown = |panel: &mut Panel| {
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 40)).unwrap();
+        terminal
+            .draw(|f| panel.render(f, f.area(), crate::Palette::new(true)))
+            .unwrap();
+        let text: String = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|c| c.symbol())
+            .collect();
+        text
+    };
+    let reading = shown(&mut panel);
+    assert!(
+        reading.contains("Reading recent Pi launch logs…"),
+        "{reading}"
+    );
+    assert!(
+        !reading.contains("F2 start worker") && !reading.contains("End to start"),
+        "{reading}"
+    );
+    let until = Instant::now() + Duration::from_secs(10);
+    let landed = loop {
+        panel.poll();
+        let text = shown(&mut panel);
+        if text.contains("Suggested minimum unknown") {
+            break text;
+        }
+        assert!(Instant::now() < until, "guidance never landed:\n{text}");
+        thread::sleep(Duration::from_millis(5));
+    };
+    assert!(landed.contains("F2 start worker"), "{landed}");
+    assert!(!panel.busy(), "showing guidance started nothing");
+}
