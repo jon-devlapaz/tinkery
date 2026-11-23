@@ -463,7 +463,7 @@ pub(super) fn legacy_block(records: &Value) -> Result<String> {
     validate_checks(records)?;
     Ok(format!(
         "## Acceptance criteria\n\n```json\n{}```\n\n",
-        Value::from(records.to_json()?).pretty()?
+        records.sorted().pretty()?
     ))
 }
 

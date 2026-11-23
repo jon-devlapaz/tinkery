@@ -101,7 +101,11 @@ fn unsupported_numbers_keep_exact_read_and_action_refusals_without_saving() {
         ("-Infinity".into(), finite),
         (
             "9".repeat(400),
-            "Cannot read this session: Ledger number is out of range: line 21 column 16 (char 428)",
+            "Cannot read this session: Ledger number cannot be represented.",
+        ),
+        (
+            "9".repeat(4301),
+            "Cannot read this session: Exceeds the limit (4300 digits) for integer string conversion: value has 4301 digits; use sys.set_int_max_str_digits() to increase the limit",
         ),
     ];
     for (raw, reason) in cases {

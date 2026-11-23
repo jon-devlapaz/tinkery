@@ -1,5 +1,6 @@
 //! Ordered ledger JSON values; unrelated serde_json maps and output stay unchanged.
-//! Integers are exact up to 128 bits, and equality ignores object order but not array order.
+//! Integers keep their exact digits, counters are 128-bit, and equality ignores object order but
+//! not array order. Saved bytes and digests keep the former helper's number forms.
 
 use std::ops::{Index, IndexMut};
 
@@ -11,8 +12,10 @@ pub enum Value {
     Null,
     /// A boolean, never equal to a number.
     Bool(bool),
-    /// An integer; parsing refuses one outside 128 bits.
+    /// An integer that fits 128 bits; counters are always this kind.
     Int(i128),
+    /// An integer outside 128 bits, kept as its exact decimal digits; never a counter.
+    Big(String),
     /// An IEEE double, distinct from an integer when serialized.
     Float(f64),
     /// Literal Unicode text.
@@ -50,14 +53,16 @@ impl Value {
             Self::Null => serde_json::Value::Null,
             Self::Bool(v) => (*v).into(),
             Self::String(v) => v.clone().into(),
-            // Beyond 64 bits, the application's JSON holds the nearest float.
-            Self::Int(v) => match (i64::try_from(*v), u64::try_from(*v)) {
-                (Ok(v), _) => v.into(),
-                (_, Ok(v)) => v.into(),
-                _ => serde_json::Value::Number(
-                    serde_json::Number::from_f64(*v as f64).expect("finite integer"),
-                ),
-            },
+            // Beyond 64 bits, serde_json reads the digits as the nearest float.
+            Self::Int(v) => serde_json::Value::Number(
+                v.to_string()
+                    .parse()
+                    .map_err(|_| "Ledger number cannot be represented.")?,
+            ),
+            Self::Big(v) => serde_json::Value::Number(
+                v.parse()
+                    .map_err(|_| "Ledger number cannot be represented.")?,
+            ),
             Self::Float(v) => serde_json::Value::Number(
                 serde_json::Number::from_f64(*v).ok_or("Ledger number must be finite.")?,
             ),
@@ -80,6 +85,7 @@ impl PartialEq for Value {
             (Null, Null) => true,
             (Bool(a), Bool(b)) => a == b,
             (Int(a), Int(b)) => a == b,
+            (Big(a), Big(b)) => a == b,
             (Float(a), Float(b)) => a == b,
             (String(a), String(b)) => a == b,
             (Array(a), Array(b)) => a == b,
@@ -106,7 +112,8 @@ impl Value {
         Ok(result)
     }
 
-    /// Two-space JSON plus newline, with literal Unicode; non-finite numbers refuse.
+    /// Two-space JSON plus newline, with literal Unicode and the former helper's float form;
+    /// non-finite numbers refuse.
     pub fn pretty(&self) -> Result<String, String> {
         let mut out = String::new();
         self.write(&mut out, 0)?;
@@ -114,42 +121,49 @@ impl Value {
         Ok(out)
     }
 
-    /// Compact JSON with sorted keys, as digests hash it; `spaced` separates with ", " and ": ".
+    /// Compact JSON with sorted keys, byte for byte as digests have always hashed it: the pretty
+    /// form without layout whitespace. `spaced` separates with ", " and ": ".
     pub(super) fn canonical(&self, spaced: bool) -> Result<String, String> {
-        let json = self.to_json()?;
-        if !spaced {
-            return Ok(json.to_string());
-        }
-        struct Spaced;
-        impl serde_json::ser::Formatter for Spaced {
-            fn begin_array_value<W: ?Sized + std::io::Write>(
-                &mut self,
-                w: &mut W,
-                first: bool,
-            ) -> std::io::Result<()> {
-                if first { Ok(()) } else { w.write_all(b", ") }
-            }
-            fn begin_object_key<W: ?Sized + std::io::Write>(
-                &mut self,
-                w: &mut W,
-                first: bool,
-            ) -> std::io::Result<()> {
-                if first { Ok(()) } else { w.write_all(b", ") }
-            }
-            fn begin_object_value<W: ?Sized + std::io::Write>(
-                &mut self,
-                w: &mut W,
-            ) -> std::io::Result<()> {
-                w.write_all(b": ")
+        let pretty = self.sorted().pretty()?;
+        let (mut quoted, mut escaped) = (false, false);
+        let mut out = String::new();
+        for c in pretty.chars() {
+            if quoted {
+                out.push(c);
+                if escaped {
+                    escaped = false;
+                } else if c == '\\' {
+                    escaped = true;
+                } else if c == '"' {
+                    quoted = false;
+                }
+            } else if c == '"' {
+                quoted = true;
+                out.push(c);
+            } else if !c.is_ascii_whitespace() {
+                out.push(c);
+                if spaced && matches!(c, ',' | ':') {
+                    out.push(' ');
+                }
             }
         }
-        let mut out = vec![];
-        serde::Serialize::serialize(
-            &json,
-            &mut serde_json::Serializer::with_formatter(&mut out, Spaced),
-        )
-        .map_err(|e| e.to_string())?;
-        String::from_utf8(out).map_err(|e| e.to_string())
+        Ok(out)
+    }
+
+    /// The same value with every object's keys in sorted order.
+    pub(super) fn sorted(&self) -> Self {
+        match self {
+            Self::Object(fields) => {
+                let mut fields: Vec<_> = fields
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.sorted()))
+                    .collect();
+                fields.sort_by(|a, b| a.0.cmp(&b.0));
+                Self::Object(fields)
+            }
+            Self::Array(items) => Self::Array(items.iter().map(Self::sorted).collect()),
+            _ => self.clone(),
+        }
     }
 
     /// The value of a named field, without inventing a missing value.
@@ -212,6 +226,7 @@ impl Value {
             Self::Null => false,
             Self::Bool(v) => *v,
             Self::Int(v) => *v != 0,
+            Self::Big(_) => true,
             Self::Float(v) => *v != 0.0,
             Self::String(v) => !v.is_empty(),
             Self::Array(v) => !v.is_empty(),
@@ -273,11 +288,22 @@ impl Value {
             Self::Null => out.push_str("null"),
             Self::Bool(v) => out.push_str(if *v { "true" } else { "false" }),
             Self::Int(v) => out.push_str(&v.to_string()),
-            Self::Float(v) => out.push_str(
-                &serde_json::Number::from_f64(*v)
-                    .ok_or("Ledger number must be finite.")?
-                    .to_string(),
-            ),
+            Self::Big(v) => out.push_str(v),
+            Self::Float(v) => {
+                if !v.is_finite() {
+                    let repr = if v.is_nan() {
+                        "nan"
+                    } else if v.is_sign_negative() {
+                        "-inf"
+                    } else {
+                        "inf"
+                    };
+                    return Err(format!(
+                        "Out of range float values are not JSON compliant: {repr}"
+                    ));
+                }
+                out.push_str(&float_repr(*v));
+            }
             Self::String(v) => out.push_str(&serde_json::to_string(v).map_err(|e| e.to_string())?),
             Self::Array(values) => {
                 out.push('[');
@@ -355,6 +381,57 @@ pub(super) fn array() -> Value {
 }
 pub(super) fn int(v: u64) -> Value {
     Value::Int(v.into())
+}
+
+fn float_repr(value: f64) -> String {
+    // Formatting at a fixed precision rounds ties to even, as Python repr does.
+    // Rust Debug's shortest representation instead chooses the upper tie.
+    let repr = (0..=16)
+        .find_map(|precision| {
+            let candidate = format!("{value:.precision$e}");
+            (candidate.parse::<f64>().ok().map(f64::to_bits) == Some(value.to_bits()))
+                .then_some(candidate)
+        })
+        .expect("17 significant digits round-trip an IEEE double");
+    let (negative, repr) = repr
+        .strip_prefix('-')
+        .map_or((false, repr.as_str()), |s| (true, s));
+    let (mantissa, exponent) = repr
+        .split_once('e')
+        .map_or((repr, 0), |(m, e)| (m, e.parse::<i32>().unwrap()));
+    let dot = mantissa.find('.').unwrap_or(mantissa.len()) as i32;
+    let raw: String = mantissa.chars().filter(|c| *c != '.').collect();
+    let leading = raw.len() - raw.trim_start_matches('0').len();
+    let digits = raw.trim_start_matches('0').trim_end_matches('0');
+    if digits.is_empty() {
+        return if negative { "-0.0" } else { "0.0" }.into();
+    }
+    let exp = exponent + dot - leading as i32 - 1;
+    let mut out = if negative { "-".into() } else { String::new() };
+    if !(-4..16).contains(&exp) {
+        out.push_str(&digits[..1]);
+        if digits.len() > 1 {
+            out.push('.');
+            out.push_str(&digits[1..]);
+        }
+        out.push_str(&format!("e{exp:+03}"));
+    } else {
+        let pos = exp + 1;
+        if pos <= 0 {
+            out.push_str("0.");
+            out.push_str(&"0".repeat((-pos) as usize));
+            out.push_str(digits);
+        } else if pos as usize >= digits.len() {
+            out.push_str(digits);
+            out.push_str(&"0".repeat(pos as usize - digits.len()));
+            out.push_str(".0");
+        } else {
+            out.push_str(&digits[..pos as usize]);
+            out.push('.');
+            out.push_str(&digits[pos as usize..]);
+        }
+    }
+    out
 }
 
 struct Parser<'a> {
@@ -462,7 +539,6 @@ impl Parser<'_> {
                 let pattern = NUMBER.get_or_init(|| {
                     regex::Regex::new(r"^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?").unwrap()
                 });
-                let start = self.pos;
                 let token = if let Some(keyword) =
                     ["null", "true", "false", "NaN", "Infinity", "-Infinity"]
                         .iter()
@@ -489,10 +565,19 @@ impl Parser<'_> {
                                 .map(Value::Float)
                                 .map_err(|_| "invalid JSON float".into())
                         } else {
-                            token
+                            let digits = token.trim_start_matches('-').len();
+                            if digits > 4300 {
+                                return Err(format!(
+                                    concat!(
+                                        "Exceeds the limit (4300 digits) for integer string conversion: ",
+                                        "value has {} digits; use sys.set_int_max_str_digits() to increase the limit"
+                                    ),
+                                    digits
+                                ));
+                            }
+                            Ok(token
                                 .parse()
-                                .map(Value::Int)
-                                .map_err(|_| self.error("Ledger number is out of range", start))
+                                .map_or_else(|_| Value::Big(token.into()), Value::Int))
                         }
                     }
                 }
