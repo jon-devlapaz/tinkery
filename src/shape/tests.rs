@@ -2972,6 +2972,113 @@ fn ledger_refusals_of_endings_objections_and_suggestions_are_shown_unchanged() {
 }
 
 #[test]
+fn a_saved_deferred_answer_without_a_usable_version_asks_to_reopen() {
+    use crate::seed_me::{Affirmed, Config};
+    use std::{
+        fs,
+        time::{Duration, Instant},
+    };
+
+    let temp = tempfile::tempdir().unwrap();
+    let session = Config::new(Some(temp.path().join("TEST-sessions")))
+        .confirm(Affirmed {
+            goal: GOAL.into(),
+            outcome: "TEST next question".into(),
+            options: vec![],
+            originals: vec![],
+            context: "{}".into(),
+            source: "TEST fixture, not real approval".into(),
+        })
+        .unwrap()
+        .session;
+    let ask = |id: &str, prerequisites| answering::Ask {
+        id: id.into(),
+        label: format!("TEST {id}"),
+        question: format!("TEST What about {id}?"),
+        gate: "TEST choice".into(),
+        against: None,
+        found: vec![],
+        assumed: vec![],
+        options: vec![],
+        suggestion: None,
+        resolves: None,
+        supported_by: None,
+        prerequisites,
+    };
+    let version = answering::read(&session).unwrap().version();
+    let version = answering::ask(&session, version, &ask("storage", None), temp.path()).unwrap();
+    let version = answering::ask(
+        &session,
+        version,
+        &ask("format", Some(serde_json::json!(["storage"]))),
+        temp.path(),
+    )
+    .unwrap();
+    answering::respond(
+        &session,
+        version,
+        "storage",
+        &AnswerAction::Defer {
+            reason: "TEST wait for scope".into(),
+            revisit: "TEST before choosing format".into(),
+        },
+        Actor::OPERATOR,
+    )
+    .unwrap();
+    // The ledger can save the next version, but Shape cannot read it as a u64.
+    let path = session.join("ledger.json");
+    let mut saved: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    saved["version"] = u64::MAX.into();
+    fs::write(&path, serde_json::to_vec(&saved).unwrap()).unwrap();
+
+    let mut shape = Shape::session(&session).with_agent(Some(agent(0)));
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !offers(&shape, "Answer deferred prerequisite") {
+        assert!(
+            Instant::now() < deadline,
+            "Shape did not offer the deferred question"
+        );
+        shape.tick();
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    choose(&mut shape, "Answer deferred prerequisite");
+    let answer = "TEST Keep the records local.";
+    shape.paste(answer);
+    shape.key(key(KeyCode::F(2)));
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        shape.tick();
+        let shown = screen(&mut shape, 100, 30, true);
+        let words = shown.split_whitespace().collect::<Vec<_>>().join(" ");
+        if words.contains("The answer may have saved. Reopen the session before trying again.") {
+            assert!(
+                !words.contains("Deferred prerequisite answered."),
+                "{shown}"
+            );
+            assert!(
+                !words.to_lowercase().contains("nothing was saved"),
+                "{shown}"
+            );
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "Shape omitted the recovery warning:\n{shown}"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let saved: serde_json::Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    let node = saved["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == "storage")
+        .unwrap();
+    assert_eq!(node["answer"], answer);
+}
+
+#[test]
 fn ending_asks_once_more_and_esc_or_a_held_key_ends_nothing() {
     let held = KeyEvent::new_with_kind(
         KeyCode::F(2),
