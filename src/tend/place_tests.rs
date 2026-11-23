@@ -4,6 +4,7 @@ use super::*;
 use crossterm::event::MouseButton;
 use ratatui::{Terminal, backend::TestBackend};
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 fn key(code: KeyCode) -> KeyEvent {
     KeyEvent::new(code, KeyModifiers::NONE)
@@ -27,13 +28,25 @@ fn found(sessions: Vec<Session>) -> Outcome {
     })
 }
 
-/// Tend as the menu holds it: keys and presses in, and whether it asked to leave.
+/// Tend as the menu holds it: keys, presses and landed reads in, and whether it asked to leave.
 struct H {
     tend: Tend,
+    discovery: Discovery,
+    next: Arc<Mutex<Outcome>>,
     left: bool,
 }
 
 impl H {
+    fn new(tend: Tend) -> Self {
+        let next = Arc::new(Mutex::new(found(vec![])));
+        let source = next.clone();
+        Self {
+            tend,
+            discovery: Discovery::new(Arc::new(move |_| source.lock().unwrap().clone())),
+            next,
+            left: false,
+        }
+    }
     fn handle_key(&mut self, key: KeyEvent) {
         if matches!(self.tend.key(key), Next::Menu) {
             self.left = true;
@@ -42,6 +55,17 @@ impl H {
     fn handle_mouse_at(&mut self, event: MouseEvent, area: Rect, now: Instant) {
         let body = Rect::new(2, 3, area.width - 4, area.height - 4);
         self.tend.pointer(event, body, now);
+    }
+    /// A fresh session read lands and Tend polls it, as the menu does each frame.
+    fn land(&mut self, outcome: Outcome) {
+        *self.next.lock().unwrap() = outcome;
+        self.discovery.request(Path::new("/TEST/root"));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !self.discovery.poll() {
+            assert!(Instant::now() < deadline, "the read never landed");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        self.tend.poll(&self.discovery, Instant::now());
     }
 }
 
@@ -90,14 +114,39 @@ fn goals(count: usize) -> Vec<Session> {
 }
 
 fn garden(count: usize) -> H {
-    let mut tend = bare();
-    tend.apply(&found(goals(count)), true, 1);
-    tend.current = true;
-    H { tend, left: false }
+    let mut h = H::new(bare());
+    h.land(found(goals(count)));
+    h
 }
 
-fn selected(h: &H) -> usize {
-    h.tend.selected
+/// The goal the garden marks as selected (`→` while picking a link): `goal N` is the Nth newest.
+fn selected(h: &mut H) -> usize {
+    let frame = screen(h);
+    let marked = |mark: &str| {
+        frame.lines().find_map(|line| {
+            line.split_once(&format!("{mark} goal "))?
+                .1
+                .split_whitespace()
+                .next()?
+                .parse()
+                .ok()
+        })
+    };
+    marked("→")
+        .or_else(|| marked("›"))
+        .unwrap_or_else(|| panic!("no selected goal: {frame}"))
+}
+
+/// The goal the open detail shows, from its title line.
+fn shown(h: &mut H) -> Option<String> {
+    let frame = screen(h);
+    detail(h)
+        .then(|| {
+            frame
+                .lines()
+                .find_map(|line| Some(line.split_once("goal ")?.1.trim().to_string()))
+        })
+        .flatten()
 }
 
 /// Whether the saved goal's read-only detail is on screen: only its key bar offers history.
@@ -109,10 +158,10 @@ fn detail(h: &mut H) -> bool {
 fn enter(h: &mut H, state: &str) {
     match state {
         "detail" => h.handle_key(key(KeyCode::Enter)),
-        "reading" => h.tend.pending = true,
+        "reading" => h.tend = bare(),
         "wanted" => h.tend.open_session(Path::new("/TEST/wanted")),
-        "unavailable" => h.tend.error = Some("TEST unavailable".into()),
-        "empty" => h.tend.apply(&found(vec![]), true, h.tend.seen + 1),
+        "unavailable" => h.land(Err("TEST unavailable".into())),
+        "empty" => h.land(found(vec![])),
         _ => {}
     }
 }
@@ -158,7 +207,6 @@ fn ended_goals_never_enter_garden_selection_keys_mouse_or_detail() {
         Stage::Simulated,
     ];
     let mut h = garden(0);
-    let tend = &mut h.tend;
     let sessions = stages
         .iter()
         .enumerate()
@@ -169,8 +217,7 @@ fn ended_goals_never_enter_garden_selection_keys_mouse_or_detail() {
             ]
         })
         .collect();
-    tend.apply(&found(sessions), true, 1);
-    assert_eq!(tend.ended, 5);
+    h.land(found(sessions));
     let frame = screen(&mut h);
     for index in 0..stages.len() {
         assert!(frame.contains(&format!("goal {index}")), "{frame}");
@@ -187,8 +234,7 @@ fn ended_goals_never_enter_garden_selection_keys_mouse_or_detail() {
     ] {
         for _ in 0..7 {
             h.handle_key(key(code));
-            let tend = &h.tend;
-            assert_ne!(tend.current().unwrap().stage, Stage::Completed);
+            selected(&mut h);
         }
     }
     let now = Instant::now();
@@ -198,10 +244,10 @@ fn ended_goals_never_enter_garden_selection_keys_mouse_or_detail() {
             &format!("goal {index}"),
             now + Duration::from_secs(index as u64),
         );
-        assert_eq!(selected(&h), index);
+        assert_eq!(selected(&mut h), index);
         h.handle_key(key(KeyCode::Enter));
         assert!(detail(&mut h));
-        assert_eq!(h.tend.current().unwrap().stage, stage);
+        assert_eq!(shown(&mut h), Some(index.to_string()), "{stage:?}");
         h.handle_key(key(KeyCode::Esc));
     }
 }
@@ -212,23 +258,21 @@ fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
         .prefix("tinkery-TEST-ended-notes-")
         .tempdir()
         .unwrap();
-    let mut h = garden(0);
-    let tend = &mut h.tend;
-    tend.needs = crate::tend::needs::Store::new(Ok(tmp.path().join("TEST-links")));
+    let mut h = H::new(Tend::new(
+        Ok(tmp.path().join("TEST-links")),
+        None,
+        Err("TEST no records".into()),
+        Box::new(|| Err("TEST no connections".into())),
+    ));
     for count in [1, 2] {
         for unreadable in [0, 1, 2] {
-            let tend = &mut h.tend;
-            tend.apply(
-                &Ok(Found {
-                    sessions: (0..count)
-                        .map(|i| sess(&format!("ended-{i}"), Stage::Completed, "unknown"))
-                        .collect(),
-                    unreadable,
-                    failures: Vec::new(),
-                }),
-                true,
-                1,
-            );
+            h.land(Ok(Found {
+                sessions: (0..count)
+                    .map(|i| sess(&format!("ended-{i}"), Stage::Completed, "unknown"))
+                    .collect(),
+                unreadable,
+                failures: Vec::new(),
+            }));
             for (width, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
                 let frame = screen_at(&mut h, width, height);
                 let text = frame.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -259,12 +303,11 @@ fn all_ended_is_not_empty_and_incomplete_evidence_stays_visible() {
                     h.handle_key(key(code));
                 }
                 press(&mut h, 3, 3, Instant::now());
-                assert!(h.tend.current().is_none() && !detail(&mut h));
+                assert!(!detail(&mut h));
             }
         }
     }
-    let tend = &mut h.tend;
-    tend.apply(&found(vec![]), true, 2);
+    h.land(found(vec![]));
     let frame = screen(&mut h);
     assert!(frame.contains("No saved sessions yet. Confirm a goal in think to start one."));
     assert!(!frame.contains("ended not shown"));
@@ -281,27 +324,20 @@ fn wanted_session_is_matched_before_filtering_and_selected_by_path_after_it() {
     std::fs::write(&target, "").unwrap();
     std::os::unix::fs::symlink(&target, dir.join("alias")).unwrap();
     for stage in [Stage::GoalSaved, Stage::Completed] {
-        let mut h = H {
-            tend: bare(),
-            left: false,
-        };
+        let mut h = H::new(bare());
         h.tend.open_session(&dir.join("alias"));
         let ended = sess("ended", Stage::Completed, "unknown");
         let wanted = Session {
             path: target.clone(),
             ..sess("target", stage, "unknown")
         };
-        h.tend.apply(&found(vec![ended, wanted]), false, 1);
-        h.tend.current = true;
+        h.land(found(vec![ended, wanted]));
         let frame = screen(&mut h);
         assert!(!frame.contains("Reading your sessions"), "{frame}");
         assert!(!frame.contains("Saved session unavailable"), "{frame}");
         assert_eq!(detail(&mut h), stage != Stage::Completed, "{frame}");
         if stage != Stage::Completed {
-            assert!(frame.contains("goal target"), "{frame}");
-            assert_eq!(h.tend.current().unwrap().path, target);
-        } else {
-            assert!(h.tend.current().is_none());
+            assert_eq!(shown(&mut h).as_deref(), Some("target"), "{frame}");
         }
     }
 }
@@ -310,7 +346,7 @@ fn wanted_session_is_matched_before_filtering_and_selected_by_path_after_it() {
 fn garden_keys_step_one_goal_in_newest_order_and_clamp_after_resize() {
     let mut h = garden(23);
     h.handle_key(key(KeyCode::Down));
-    assert_eq!(selected(&h), 1, "the pre-render stride defaults to one");
+    assert_eq!(selected(&mut h), 1, "the pre-render stride defaults to one");
     screen(&mut h);
     for (code, expected) in [
         (KeyCode::Right, 2),
@@ -324,34 +360,37 @@ fn garden_keys_step_one_goal_in_newest_order_and_clamp_after_resize() {
         (KeyCode::Left, 0),
     ] {
         h.handle_key(key(code));
-        assert_eq!(selected(&h), expected);
+        assert_eq!(selected(&mut h), expected);
     }
     screen_at(&mut h, 80, 24);
     h.handle_key(key(KeyCode::Down));
-    assert_eq!(selected(&h), 1, "resize never changes selection order");
+    assert_eq!(selected(&mut h), 1, "resize never changes selection order");
     for _ in 0..30 {
         h.handle_key(key(KeyCode::Right));
     }
-    assert_eq!(selected(&h), 22);
+    assert_eq!(selected(&mut h), 22);
     h.handle_key(key(KeyCode::Down));
-    assert_eq!(selected(&h), 22);
+    assert_eq!(selected(&mut h), 22);
     h.handle_key(key(KeyCode::Enter));
     assert!(detail(&mut h));
     h.handle_key(key(KeyCode::Down));
     h.handle_key(key(KeyCode::Right));
-    let tend = &h.tend;
-    assert_eq!(tend.scroll, 1);
-    assert_eq!(tend.selected, 22);
+    assert_eq!(
+        shown(&mut h).as_deref(),
+        Some("22"),
+        "detail keys scroll, never select"
+    );
     h.handle_key(key(KeyCode::Esc));
-    assert!(!detail(&mut h) && h.tend.scroll == 0);
+    assert!(!detail(&mut h));
     h.handle_key(key(KeyCode::F(1)));
+    let help = screen(&mut h);
     assert!(
-        screen(&mut h)
-            .contains("Arrows / j k move · Enter or a double click opens the selected original.")
+        help.contains("Arrows / j k move · Enter or a double click opens the selected original.")
     );
     h.handle_key(key(KeyCode::Down));
-    assert_eq!(selected(&h), 22);
+    assert_eq!(screen(&mut h), help);
     h.handle_key(key(KeyCode::Esc));
+    assert_eq!(selected(&mut h), 22);
     h.handle_key(key(KeyCode::Esc));
     assert!(h.left);
     let mut h = garden(1);
@@ -367,9 +406,19 @@ fn linking_routes_keys_and_single_click_and_help_guards_hidden_actions() {
         .tempdir()
         .unwrap();
     let root = tmp.path().join("TEST-links");
-    let mut h = garden(7);
-    let tend = &mut h.tend;
-    tend.needs = needs::Store::new(Ok(root.clone()));
+    let mut h = H::new(Tend::new(
+        Ok(root.clone()),
+        None,
+        Err("TEST no records".into()),
+        Box::new(|| Err("TEST no connections".into())),
+    ));
+    h.land(found(goals(7)));
+    let links = || {
+        needs::Store::new(Ok(root.clone()))
+            .read()
+            .into_links()
+            .unwrap()
+    };
     for (width, height) in [(80, 24), (100, 30), (160, 40)] {
         screen_at(&mut h, width, height);
         h.handle_key(key(KeyCode::Char('l')));
@@ -387,31 +436,31 @@ fn linking_routes_keys_and_single_click_and_help_guards_hidden_actions() {
         );
         assert!(frame.contains("goal 0 needs goal 1"), "{frame}");
         h.handle_key(key(KeyCode::F(1)));
+        let help = screen_at(&mut h, width, height);
         for code in [KeyCode::Char('l'), KeyCode::Enter, KeyCode::Right] {
             h.handle_key(key(code));
         }
-        assert_eq!(selected(&h), 1);
+        assert_eq!(screen_at(&mut h, width, height), help);
         h.handle_key(key(KeyCode::Esc));
+        assert_eq!(selected(&mut h), 1);
         h.handle_key(key(KeyCode::Esc));
-        assert_eq!(selected(&h), 0);
+        assert_eq!(selected(&mut h), 0);
         assert!(!root.exists());
     }
     screen(&mut h);
     h.handle_key(key(KeyCode::Char('l')));
     press_goal(&mut h, "goal 1", Instant::now());
     assert!(!detail(&mut h));
-    let tend = &h.tend;
-    assert!(!tend.is_linking());
-    assert_eq!(selected(&h), 0);
-    assert!(tend.needs.read().into_links().unwrap().contains("0", "1"));
+    assert!(!screen(&mut h).contains("enter link"));
+    assert_eq!(selected(&mut h), 0);
+    assert!(links().contains("0", "1"));
     h.handle_key(key(KeyCode::Char('l')));
     h.handle_key(key(KeyCode::Char('j')));
     assert!(screen(&mut h).contains("enter unlink"));
     h.handle_key(key(KeyCode::Enter));
-    assert_eq!(selected(&h), 0);
+    assert_eq!(selected(&mut h), 0);
     assert!(screen(&mut h).contains("l link"));
-    let tend = &h.tend;
-    assert!(!tend.needs.read().into_links().unwrap().contains("0", "1"));
+    assert!(!links().contains("0", "1"));
 }
 
 #[test]
@@ -434,13 +483,13 @@ fn link_key_is_ignored_outside_garden_and_repeated_presses_do_not_start_linking(
             }
         }
         enter(&mut h, state);
+        let before = screen(&mut h);
         let mut event = key(KeyCode::Char('l'));
         if state == "repeat" {
             event.kind = KeyEventKind::Repeat;
         }
         h.handle_key(event);
-        let tend = &h.tend;
-        assert!(!tend.is_linking() && tend.notice.is_empty(), "{state}");
+        assert_eq!(screen(&mut h), before, "{state}");
     }
 }
 
@@ -452,7 +501,7 @@ fn garden_press_selects_and_only_a_timely_same_session_press_opens() {
         screen(&mut h);
         // Hit the ring through its displayed label.
         press_goal(&mut h, "goal 1", now);
-        assert_eq!(selected(&h), 1);
+        assert_eq!(selected(&mut h), 1);
         press_goal(&mut h, "goal 1", now + Duration::from_millis(elapsed));
         assert_eq!(detail(&mut h), opens);
     }
@@ -461,7 +510,7 @@ fn garden_press_selects_and_only_a_timely_same_session_press_opens() {
     press_goal(&mut h, "goal 1", now);
     press_goal(&mut h, "goal 2", now + Duration::from_millis(100));
     assert!(
-        !detail(&mut h) && selected(&h) == 2,
+        !detail(&mut h) && selected(&mut h) == 2,
         "different goals aren't a double click"
     );
 }
@@ -472,25 +521,22 @@ fn late_read_cannot_redirect_a_double_press_to_a_different_session() {
     let mut h = garden(7);
     screen(&mut h);
     press_goal(&mut h, "goal 1", now);
-    let tend = &mut h.tend;
     let mut sessions = goals(7);
     sessions.insert(0, sess("new", Stage::GoalSaved, "unknown"));
-    tend.apply(&found(sessions), true, 2);
-    assert_eq!(tend.selected, 2);
-    screen(&mut h);
+    h.land(found(sessions));
+    assert_eq!(selected(&mut h), 1, "the selection follows its goal");
     press_goal(&mut h, "goal 0", now + Duration::from_millis(100));
-    assert!(!detail(&mut h) && h.tend.current().unwrap().path == Path::new("/TEST/0"));
+    assert!(!detail(&mut h) && selected(&mut h) == 0);
     // The same identity moving to another position still counts as a double press.
     let mut h = garden(7);
     screen(&mut h);
     press_goal(&mut h, "goal 1", now);
-    let tend = &mut h.tend;
     let mut sessions = goals(7);
     sessions.insert(0, sess("new", Stage::GoalSaved, "unknown"));
-    tend.apply(&found(sessions), true, 2);
+    h.land(found(sessions));
     screen(&mut h);
     press_goal(&mut h, "goal 1", now + Duration::from_millis(100));
-    assert!(detail(&mut h) && h.tend.current().unwrap().path == Path::new("/TEST/1"));
+    assert_eq!(shown(&mut h).as_deref(), Some("1"));
 }
 
 #[test]
@@ -515,20 +561,21 @@ fn garden_presses_ignore_blank_rows_help_detail_and_discovery_states() {
         let row = if state == "garden" { 26 } else { 3 };
         press(&mut h, 0, row, now);
         press(&mut h, 0, row, now + Duration::from_millis(100));
-        assert_eq!(selected(&h), 0, "{state}");
         assert_eq!(screen(&mut h), before, "{state}");
+        if state == "garden" {
+            assert_eq!(selected(&mut h), 0);
+        }
     }
     let mut h = garden(7);
     for (column, row) in [(0, 3), (99, 3), (2, 26), (2, 27), (2, 28), (2, 29)] {
         press(&mut h, column, row, now);
     }
-    assert_eq!(selected(&h), 0);
+    assert_eq!(selected(&mut h), 0);
 }
 
 #[test]
 fn garden_test_session_plain_text_renders() {
     let mut h = garden(7);
-    let tend = &mut h.tend;
     let mut sessions = goals(7);
     for (session, goal) in sessions.iter_mut().zip([
         "Find invoices",
@@ -541,7 +588,7 @@ fn garden_test_session_plain_text_renders() {
     ]) {
         session.goal = goal.into();
     }
-    tend.apply(&found(sessions), true, tend.seen + 1);
+    h.land(found(sessions));
     for (width, height) in [(100, 30), (80, 24)] {
         let screen = screen_at(&mut h, width, height);
         println!("TEST garden {width}×{height}:\n{screen}");
@@ -557,18 +604,30 @@ fn page_keys_move_a_screen_of_goal_detail_less_one_row() {
         goal: (0..200).map(|i| format!("TEST line {i}\n")).collect(),
         ..sess("0", Stage::GoalSaved, "unknown")
     };
-    h.tend.apply(&found(vec![long]), true, 2);
+    h.land(found(vec![long]));
     h.handle_key(key(KeyCode::Enter));
     assert!(detail(&mut h));
-    let tend = &h.tend;
-    let page = tend.page;
-    assert!(page > 5, "{page} rows");
+    let lines = |h: &mut H| -> Vec<usize> {
+        screen(h)
+            .lines()
+            .filter_map(|line| line.trim().strip_prefix("TEST line ")?.parse().ok())
+            .collect()
+    };
+    let top = lines(&mut h);
+    let page = top.len();
+    assert!(page > 5 && top[0] == 0, "{top:?}");
     h.handle_key(key(KeyCode::PageDown));
-    let tend = &h.tend;
-    assert_eq!(tend.scroll, page - 1);
+    assert_eq!(
+        lines(&mut h)[0],
+        top[page - 1],
+        "the last row stays in view"
+    );
     h.handle_key(key(KeyCode::PageUp));
-    let tend = &h.tend;
-    assert_eq!(tend.scroll, 0);
+    assert_eq!(lines(&mut h), top);
+    h.handle_key(key(KeyCode::PageDown));
+    h.handle_key(key(KeyCode::Esc));
+    h.handle_key(key(KeyCode::Enter));
+    assert_eq!(lines(&mut h), top, "detail opens at its top again");
 }
 
 #[test]
@@ -583,7 +642,7 @@ fn shifted_graph_view_keys_work_but_modified_actions_stay_blocked() {
         let after = screen(&mut shifted);
         assert_ne!(before, after, "{ch}");
         assert_eq!(screen(&mut plain), after, "{ch}");
-        assert_eq!(selected(&shifted), 0);
+        assert_eq!(selected(&mut shifted), 0);
     }
     let mut h = garden(7);
     let before = screen(&mut h);
@@ -656,7 +715,7 @@ fn a_toggles_only_tend_garden_and_never_repeats_or_conflicts_with_shape() {
 fn navigation_keys_never_ask_for_find_connections_and_only_f_does() {
     let asked = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let count = asked.clone();
-    let mut tend = Tend::new(
+    let tend = Tend::new(
         Err("TEST links unavailable".into()),
         Some(Path::new("/TEST/repo")),
         Err("TEST no records".into()),
@@ -665,10 +724,9 @@ fn navigation_keys_never_ask_for_find_connections_and_only_f_does() {
             Err("TEST connections refused".into())
         }),
     );
-    tend.apply(&found(vec![sess("a", Stage::GoalSaved, "")]), true, 1);
-    tend.current = true;
-    tend.repo_paths = Some([PathBuf::from("/TEST/a")].into_iter().collect());
-    let mut h = H { tend, left: false };
+    let mut h = H::new(tend);
+    h.land(found(vec![sess("a", Stage::GoalSaved, "")]));
+    h.tend.repo_paths = Some([PathBuf::from("/TEST/a")].into_iter().collect());
     for code in [
         KeyCode::Down,
         KeyCode::Up,
