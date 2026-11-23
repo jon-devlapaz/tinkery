@@ -410,7 +410,7 @@ pub(crate) fn save_draft(
 ) -> Result<(), String> {
     super::checks::validate_checks(records)?;
     super::require(
-        seed.lines().next() == Some(files::DRAFT),
+        files::status(seed) == Some(files::Status::Draft),
         "a Tink Contract draft must start with status: draft",
     )?;
     let _writer = Writer::acquire(directory).map_err(|e| e.to_string())?;
@@ -430,7 +430,7 @@ pub(crate) fn save_draft(
     super::require(
         current
             .as_ref()
-            .is_none_or(|s| s.lines().next() == Some(files::DRAFT)),
+            .is_none_or(|s| files::status(s) == Some(files::Status::Draft)),
         "a Tink Contract that is not a draft already exists; never replace it",
     )?;
     super::require(
@@ -494,16 +494,12 @@ pub fn record_teach_back(
         ),
         _ => error,
     })?;
-    saved["version"]
-        .pretty()
-        .ok()
-        .and_then(|v| v.trim().parse().ok())
-        .ok_or_else(|| {
-            PublishError::said(
-                "The review may have saved. Reopen the session before trying again.",
-                SaveState::Unknown,
-            )
-        })
+    saved["version"].counter().ok_or_else(|| {
+        PublishError::said(
+            "The review may have saved. Reopen the session before trying again.",
+            SaveState::Unknown,
+        )
+    })
 }
 
 /// Store strict records while holding the session writer lock; never execute a check.
@@ -547,11 +543,11 @@ pub(crate) fn repair_check(
     super::require(ledger["status"].is("active"), "ended session is read-only")?;
     let path = directory.join(files::SEED);
     super::require(
-        super::super::read_seed_text(&path).map_err(|e| e.to_string())? == seed,
+        files::read_seed_text(&path).map_err(|e| e.to_string())? == seed,
         "The draft changed. Read it again before changing a check.",
     )?;
     super::require(
-        seed.lines().next() == Some(files::DRAFT),
+        files::status(seed) == Some(files::Status::Draft),
         "Only a draft check can change.",
     )?;
     let records = super::checks::require_seed_checks(directory, &ledger, false)?;
@@ -594,27 +590,9 @@ pub fn confirm_seed(
     )
 }
 
-/// Confirm after recording a missing teach-back as skipped. A completed comparison, including
-/// mismatches, never blocks confirmation; all ordinary seed refusals still apply first.
-pub fn confirm_with_teach_back(
-    directory: &Path,
-    revision: &str,
-    source: &str,
-    timestamp: &str,
-) -> Result<Value, String> {
-    confirm(
-        directory,
-        revision,
-        source,
-        timestamp,
-        true,
-        Actor::OPERATOR,
-        None,
-    )
-}
-
-/// Confirm a seed for the explicitly named agent; permission is checked before any write.
-/// Human confirmations keep their existing receipt format.
+/// Confirm for `actor` after recording a missing teach-back as skipped; permission is checked
+/// before any write. A completed comparison, including mismatches, never blocks confirmation, and
+/// human confirmations keep their existing receipt format.
 pub fn confirm_as(
     directory: &Path,
     revision: &str,
@@ -765,10 +743,10 @@ pub fn end(
         if !simulated {
             let handoff = super::seed::verify_handoff(directory, &ledger)?;
             super::require(
-                handoff["verified"].truth(),
+                handoff.verified,
                 format!(
                     "cannot complete: {}; save the current revision as a draft, show it, and confirm it again with `seed confirm`",
-                    handoff["reason"].string().unwrap()
+                    handoff.reason
                 ),
             )?;
         }

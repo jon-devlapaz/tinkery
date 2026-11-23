@@ -31,7 +31,7 @@ pub(crate) fn matches(seed: &Seed, path: &Path) -> Result<bool, String> {
     if seed.source().as_os_str() != path.as_os_str() {
         return Ok(false);
     }
-    let bytes = super::read_seed(&path)
+    let bytes = super::files::read_seed(&path)
         .map_err(|e| format!("Cannot read the original Tink Contract: {e}"))?;
     Ok(seed.sha256() == format!("{:x}", Sha256::digest(bytes)))
 }

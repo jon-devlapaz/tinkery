@@ -49,9 +49,12 @@ fn identity(revision: &str, seed: &str, label: &str) -> String {
     )
 }
 
+/// Refuse unless `seed` is a draft whose revision is the displayed label, trimmed as confirmation
+/// trims it.
 pub(super) fn require_draft(seed: &str, revision: &str) -> Result<(), String> {
+    let revision = revision.trim_matches(super::whitespace);
     require(
-        seed.lines().next() == Some(crate::seed_me::files::DRAFT),
+        crate::seed_me::files::status(seed) == Some(crate::seed_me::files::Status::Draft),
         "A review needs an unconfirmed draft. Reopen Shape.",
     )?;
     require(
@@ -91,6 +94,7 @@ pub(super) fn append(
     timestamp: &str,
 ) -> Result<Value, String> {
     require_draft(seed, revision)?;
+    let revision = revision.trim_matches(super::whitespace);
     let mut additions = Vec::new();
     match record {
         TeachBackRecord::Words(words) => additions.push(receipt(
@@ -163,6 +167,7 @@ pub(super) fn skip(
     seed: &str,
     timestamp: &str,
 ) -> Result<Value, String> {
+    let revision = revision.trim_matches(super::whitespace);
     let checked = identity(revision, seed, "Teach-back");
     if receipts(ledger).iter().any(|r| {
         r["checked"].is(&checked)

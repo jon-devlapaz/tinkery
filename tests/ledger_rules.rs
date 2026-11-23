@@ -24,7 +24,7 @@ fn fixture() -> (tempfile::TempDir, Value, serde_json::Value) {
     let saved = ledger::transition(
         &initial,
         &Value::from(state),
-        &Value::Int("0".into()),
+        &Value::Int(0),
         &"TEST origin".into(),
         None,
         STAMP,
@@ -38,7 +38,7 @@ fn refusal(ledger: &Value, state: serde_json::Value, version: u64) -> String {
     ledger::transition(
         ledger,
         &state.into(),
-        &Value::Int(version.to_string()),
+        &Value::Int(version.into()),
         &"TEST change".into(),
         None,
         STAMP,

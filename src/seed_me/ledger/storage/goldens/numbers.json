@@ -1,0 +1,74 @@
+{
+  "session_id": "TEST-session",
+  "schema_version": 1,
+  "version": 4,
+  "revision": 0,
+  "created_at": "2026-10-19T00:00:00+00:00",
+  "updated_at": "2026-10-19T00:00:00+00:00",
+  "status": "active",
+  "draft": {
+    "goal": "TEST changé — 😀 \"q\" \\ \u0007",
+    "outcome": "",
+    "options": []
+  },
+  "goal": "TEST goal ü",
+  "origin": "goal",
+  "current_question": null,
+  "frontier": [
+    "probe-pre-mortem"
+  ],
+  "nodes": [
+    {
+      "id": "goal",
+      "kind": "decision",
+      "status": "settled",
+      "prerequisites": [],
+      "evidence": [],
+      "owner": "TEST",
+      "gate": "TEST",
+      "authority": "user",
+      "authority_source": "TEST fixture only",
+      "answer": "TEST goal ü",
+      "history": [],
+      "revision": 0,
+      "reviewed_version": 0
+    },
+    {
+      "id": "probe-pre-mortem",
+      "kind": "decision",
+      "status": "unresolved",
+      "prerequisites": [],
+      "evidence": [],
+      "owner": "user",
+      "gate": "commitment",
+      "label": {
+        "z": {
+          "b": [
+            1e-07,
+            2.5e-05,
+            0.1,
+            1e+16,
+            1.5e+300,
+            -0.0,
+            2000.0
+          ],
+          "a": "TEST café 😀 \u0007"
+        },
+        "big": [
+          123456789012345678901234567890123456789012,
+          -98765432109876543210987654321098765432109,
+          18446744073709551616,
+          -9223372036854775809,
+          -7
+        ]
+      },
+      "question": "TEST what fails?\n\nOptions: A — a; B — b\nAgainst my suggestion: TEST",
+      "recommendation": "A",
+      "history": [],
+      "revision": 0,
+      "reviewed_version": 0
+    }
+  ],
+  "assumed": [],
+  "operator": "human"
+}

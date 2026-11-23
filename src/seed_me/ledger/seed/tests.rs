@@ -149,11 +149,8 @@ fn historical_trimmed_confirmation_notes_and_receipts_still_verify_unchanged() {
 fn assert_blocked(directory: &Path, expected: &str) {
     let before = fs::read(directory.join("ledger.json")).unwrap();
     let result = verify_handoff(directory, &load(directory).unwrap()).unwrap();
-    assert_eq!(result["verified"], Value::Bool(false));
-    assert!(
-        result["reason"].string().unwrap().contains(expected),
-        "{result:?}"
-    );
+    assert!(!result.verified);
+    assert!(result.reason.contains(expected), "{result:?}");
     assert!(ledger::end(directory, "completed", "TEST complete", STAMP).is_err());
     assert_eq!(fs::read(directory.join("ledger.json")).unwrap(), before);
 }
@@ -186,7 +183,11 @@ fn agent_sessions_require_verified_confirmation_to_complete() {
         actor.actor().unwrap(),
     )
     .unwrap();
-    assert!(verify_handoff(directory, &load(directory).unwrap()).unwrap()["verified"].truth());
+    assert!(
+        verify_handoff(directory, &load(directory).unwrap())
+            .unwrap()
+            .verified
+    );
     let confirmed = fs::read(&seed_path).unwrap();
     fs::write(&seed_path, [confirmed.as_slice(), b" "].concat()).unwrap();
     assert_blocked(directory, "Tink Contract changed");
@@ -375,4 +376,26 @@ fn confirmation_keeps_fenced_heading_and_closing_rules() {
             );
         }
     }
+}
+
+/// Stored numbers that no check reads; the expected digest and text came from the code before
+/// typed counters, so a Tink confirmed then still verifies.
+const NUMBERS: &str = r#"{"z":{"b":[1e-07,2.5e-05,0.1,1e16,1.5e+300,-0.0,2E3],"a":"TEST café 😀 \u0007"},"big":[123456789012345678901234567890123456789012,-98765432109876543210987654321098765432109,18446744073709551616,-9223372036854775809,-7]}"#;
+
+#[test]
+fn decisions_digest_keeps_its_bytes_for_stored_numbers() {
+    let ledger = Value::parse(&format!(
+        r#"{{"status":"active","draft":{{"goal":"","outcome":"","options":[]}},"goal":"TEST goal","origin":"goal","current_question":null,
+        "nodes":[{{"id":"goal","kind":"decision","status":"settled","label":{NUMBERS},"question":{NUMBERS},"answer":"TEST goal"}}]}}"#
+    ))
+    .unwrap();
+    assert_eq!(
+        decisions_digest(&ledger).unwrap(),
+        "f66992cddea17d9d299d9f7441f3fcf3337eae567a578fc0f5104bdec93d6d1b"
+    );
+    let delegation = Value::parse(NUMBERS).unwrap();
+    assert_eq!(
+        delegation.canonical(true).unwrap(),
+        r#"{"big": [123456789012345678901234567890123456789012, -98765432109876543210987654321098765432109, 18446744073709551616, -9223372036854775809, -7], "z": {"a": "TEST café 😀 \u0007", "b": [1e-07, 2.5e-05, 0.1, 1e+16, 1.5e+300, -0.0, 2000.0]}}"#
+    );
 }

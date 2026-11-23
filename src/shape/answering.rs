@@ -29,7 +29,7 @@ pub use probes::{PROBE, SAMPLE, UNOBSERVED, probe};
 
 use citations::unfound;
 
-use crate::seed_me::files::SEED;
+use crate::seed_me::files::{SEED, Section};
 
 /// Why a change wasn't completed. A later IO failure can leave unconfirmed check records;
 /// only the ledger's verified confirmation permits handoff.
@@ -480,10 +480,6 @@ fn published(error: ledger::PublishError) -> Refusal {
     }
 }
 
-fn json(text: &str) -> Result<Value, Refusal> {
-    serde_json::from_str(text).map_err(|e| Refusal::Refused(format!("Invalid session JSON: {e}")))
-}
-
 /// Read `session`'s editable ledger at one version, without writing or calling the helper.
 pub fn read(session: &Path) -> Result<Ledger, Refusal> {
     let unreadable =
@@ -491,15 +487,11 @@ pub fn read(session: &Path) -> Result<Ledger, Refusal> {
     let saved = ledger::load(session).map_err(unreadable)?;
     let state = ledger::editable(&saved).map_err(unreadable)?;
     let version = saved["version"]
-        .pretty()
-        .map_err(unreadable)?
-        .trim()
-        .parse()
-        .map_err(|_| unreadable("the ledger has no usable version".into()))?;
+        .counter()
+        .ok_or_else(|| unreadable("the ledger has no usable version".into()))?;
     Ok(Ledger {
         version,
-        // Preserve legacy numeric rounding and exact refusal messages.
-        state: json(&state.pretty().map_err(unreadable)?)?,
+        state: state.to_json().map_err(unreadable)?,
     })
 }
 
@@ -526,7 +518,7 @@ fn publish_at(
     let saved = ledger::publish(
         session,
         &state,
-        &ledger::Value::Int(expected.to_string()),
+        &ledger::Value::Int(expected.into()),
         &reason.into(),
         None,
         at,
@@ -540,11 +532,8 @@ fn publish_at(
         ))
     };
     saved["version"]
-        .pretty()
-        .map_err(unknown)?
-        .trim()
-        .parse()
-        .map_err(|_| unknown("the saved ledger has no usable version".into()))
+        .counter()
+        .ok_or_else(|| unknown("the saved ledger has no usable version".into()))
 }
 
 fn publication_time(time: SystemTime) -> Result<String, Refusal> {
@@ -726,15 +715,11 @@ pub fn respond(
         actor,
     )
     .map_err(published)?;
-    saved["version"]
-        .pretty()
-        .ok()
-        .and_then(|v| v.trim().parse().ok())
-        .ok_or_else(|| {
-            Refusal::Refused(
-                "The answer may have saved. Reopen the session before trying again.".into(),
-            )
-        })
+    saved["version"].counter().ok_or_else(|| {
+        Refusal::Refused(
+            "The answer may have saved. Reopen the session before trying again.".into(),
+        )
+    })
 }
 
 /// Record `ask` and its findings checked in `folder`, from `expected`. The ledger refuses invalid
@@ -765,7 +750,7 @@ pub fn ask(session: &Path, expected: u64, ask: &Ask, folder: &Path) -> Result<u6
     }
     let mut state = ledger::Value::from(ledger.state);
     ledger::queue_question(&mut state, ledger::Value::from(node)).map_err(rejected)?;
-    ledger.state = json(&state.pretty().map_err(not_saved)?)?;
+    ledger.state = state.to_json().map_err(not_saved)?;
     assume(&mut ledger.state, &ask.assumed);
     reply_fits(&ledger.state)?;
     publish(
@@ -781,7 +766,7 @@ fn resolutions(state: &mut Value, links: Option<&Value>) -> Result<(), Refusal> 
         let mut proposed = ledger::Value::from(state.clone());
         ledger::resolve_unknowns(&mut proposed, &ledger::Value::from(links.clone()))
             .map_err(rejected)?;
-        *state = json(&proposed.pretty().map_err(not_saved)?)?;
+        *state = proposed.to_json().map_err(not_saved)?;
     }
     Ok(())
 }
@@ -1047,7 +1032,10 @@ pub fn draft_seed(
             )),
         };
     let revision = match previous.as_deref() {
-        Some(existing) if existing.lines().next() == Some(crate::seed_me::files::DRAFT) => {
+        Some(existing)
+            if crate::seed_me::files::status(existing)
+                == Some(crate::seed_me::files::Status::Draft) =>
+        {
             let last = crate::seed_me::files::revision(existing)
                 .and_then(|r| r.strip_prefix('r')?.parse::<u64>().ok())
                 .unwrap_or(0);
@@ -1077,22 +1065,22 @@ pub fn draft_seed(
         ledger::decisions_block(&ledger::load(session).map_err(not_saved)?).map_err(not_saved)?;
     let today = today(&grounding);
     let mut body = String::new();
-    for heading in ledger::FULL {
-        match *heading {
-            "## Acceptance criteria" => body.push_str(&rendered),
-            "## Decisions (from the ledger)" => {
+    for section in Section::FULL {
+        match section {
+            Section::Acceptance => body.push_str(&rendered),
+            Section::Decisions => {
                 body.push_str(&decisions);
                 body.push('\n');
             }
-            "## Assumed (not confirmed by you)" => {}
-            "## Evidence and uncertainty" => {
+            Section::Assumed => {}
+            Section::Evidence => {
                 body.push_str(&today);
                 body.push('\n');
             }
-            heading => {
-                let name = heading.strip_prefix("## ").unwrap();
+            section => {
+                let name = section.prose().unwrap();
                 let text = prose.iter().find(|(field, _)| *field == name).unwrap().1;
-                body.push_str(heading);
+                body.push_str(section.heading());
                 body.push('\n');
                 body.push_str(text);
                 if !text.ends_with('\n') {

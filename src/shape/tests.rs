@@ -1830,6 +1830,30 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
             "refusal changed seed bytes"
         );
     }
+    // A draft whose revision line has no label renumbers from r1.
+    let bare = String::from_utf8(before.clone())
+        .unwrap()
+        .replace("revision: r8", "revision:");
+    assert_ne!(bare.as_bytes(), before.as_slice());
+    fs::write(&seed_path, &bare).unwrap();
+    let version = answering::read(&receipt.session).unwrap().version();
+    assert_eq!(
+        answering::draft_seed(
+            &receipt.session,
+            version,
+            &confirming,
+            &serde_json::from_str(include_str!("../../tests/fixtures/shape-checks.json")).unwrap(),
+            answering::Reported {
+                found: &[],
+                assumed: &[],
+                resolves: None
+            },
+            temp.path()
+        )
+        .unwrap(),
+        "r1"
+    );
+    fs::write(&seed_path, &before).unwrap();
     // A redraft retains the facts already recorded; old writers still verify it.
     let version = answering::read(&receipt.session).unwrap().version();
     assert_eq!(
