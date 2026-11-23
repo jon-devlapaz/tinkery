@@ -182,7 +182,7 @@ impl Home {
         if let View::Retry(review, _) = &mut self.view
             && let Some(session) = review.poll()
         {
-            let shape = self.shape(Shape::session(&session));
+            let shape = self.shape(crate::shape::Open::Session(&session));
             self.view = View::Shape(Box::new(shape), None);
             self.help = false;
             self.request_sessions();

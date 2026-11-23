@@ -18,7 +18,7 @@ use crate::confirmation::GoalConfirmation;
 #[cfg(test)]
 pub(crate) use read::count_reads;
 pub use read::{History, MadeIn, RecordedTurn, Unavailable, read};
-pub(crate) use read::{read_for_shape, read_origins};
+pub(crate) use read::{ShapeContext, read_for_shape, read_origins};
 
 use crate::goal::Part;
 use serde::{Deserialize, Serialize};

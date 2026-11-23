@@ -153,7 +153,7 @@ impl Shape {
         }
         if agent
             && open.offers_step()
-            && let Folder::Known(folder) = &open.folder
+            && let Folder::Known(step::Reads { folder, .. }) = &open.folder
         {
             rows.push(Row::new(
                 "Choose the folder to read",
@@ -189,7 +189,7 @@ impl Shape {
     pub fn pick(&mut self, key: KeyEvent) -> bool {
         let rows = self.rows();
         if self.actions.turn(rows.len(), key) {
-            self.help_scroll = 0;
+            self.help_scroll.reset();
             return false;
         }
         let Some(choice) = self.actions.pick(&rows, key) else {

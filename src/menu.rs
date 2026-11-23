@@ -19,7 +19,7 @@ use crate::{
     data_roots::DataRoots,
     launch::Launch,
     measure, sdlc, seed_me,
-    shape::{Leave, Shape},
+    shape::{self, Leave, Shape},
     taste::Taste,
     tend::{self, Discovery, Source, Tend},
     think::brain_dump::{self, BrainDump, Exit},
@@ -150,13 +150,15 @@ impl Home {
         home
     }
 
-    /// `shape` for this launch: its drafting agent, its hold and its attribution.
-    fn shape(&self, shape: Shape) -> Shape {
+    /// Shape on `open` for this launch: its drafting agent, its attribution, and its hold: an
+    /// agent operator without a drafting agent only reads.
+    fn shape(&self, open: shape::Open<'_>) -> Shape {
         let launch = &self.launch;
-        shape.launched(
+        Shape::new(
+            open,
             launch.shape_agent.clone(),
             &launch.confirmation,
-            launch.agent,
+            launch.agent && launch.shape_agent.is_none(),
         )
     }
 
@@ -200,7 +202,7 @@ impl Home {
         if let View::Tend(tend) = &mut self.view
             && let Some(receipt) = tend.poll(&self.discovery, now)
         {
-            let shape = self.shape(Shape::session(&receipt.session));
+            let shape = self.shape(shape::Open::Session(&receipt.session));
             self.shape_from_tend(shape);
             self.receipts.push(seed_me::ExitReceipt::Saved {
                 receipt,
@@ -250,17 +252,10 @@ impl Home {
             && self.discovery.fresh()
             && let Some(landed) = self.discovery.landed()
         {
-            let unreadable = landed.outcome.as_ref().map_or(0, |found| found.unreadable);
-            shape.offer(
-                match &landed.outcome {
-                    Ok(found) => Ok(&found.sessions),
-                    Err(error) => Err(error.clone()),
-                },
-                unreadable,
-            );
-            if let Ok(found) = &landed.outcome {
-                shape.offer_failures(&found.failures);
-            }
+            shape.offer(match &landed.outcome {
+                Ok(found) => Ok((&found.sessions, found.unreadable, &found.failures)),
+                Err(error) => Err(error.clone()),
+            });
         }
     }
 
@@ -423,7 +418,7 @@ impl Home {
                     .repo
                     .as_ref()
                     .map(|repo| repo.root().to_path_buf());
-                let shape_agent = self.launch.shape_agent.clone();
+                let drafting = self.launch.drafting.clone();
                 let actor = self.launch.confirmation.clone().tend_save();
                 let connect: tend::Connect = Box::new(move || {
                     let sessions = sessions
@@ -439,7 +434,7 @@ impl Home {
                         records,
                         store,
                         repo,
-                        call: shape_agent.as_ref().map(|agent| agent.drafting()),
+                        call: drafting.clone(),
                         actor: actor.clone(),
                     })
                 });
@@ -456,7 +451,7 @@ impl Home {
             }
             Place::Shape => {
                 self.request_sessions();
-                View::Shape(Box::new(self.shape(Shape::list())), None)
+                View::Shape(Box::new(self.shape(shape::Open::List)), None)
             }
             Place::Approve => {
                 self.request_sessions();
@@ -572,7 +567,7 @@ impl Home {
                     self.view = View::Think(Box::new(dump));
                 }
                 tend::Next::Shape(path) => {
-                    let shape = self.shape(Shape::session(&path));
+                    let shape = self.shape(shape::Open::Session(&path));
                     self.shape_from_tend(shape);
                 }
             }

@@ -7,8 +7,18 @@ use std::sync::Arc;
 
 const GOAL: &str = "TEST I can shape a goal calmly.\nWhy: I lose the thread between tools.\nDone when: I see the next question.\nMust: Keep my words.\nMust not: Run agents.";
 
-fn done(stage: Shaped) -> Shape {
-    let mut shape = Shape::session(Path::new("/tmp/TEST-shape/session"));
+fn done(stage: Shaped, agent: Option<Arc<Agent>>) -> Shape {
+    done_as(stage, agent, false)
+}
+
+/// A session showing `stage`, as a launch with `agent` and `held` opens it.
+fn done_as(stage: Shaped, agent: Option<Arc<Agent>>, held: bool) -> Shape {
+    let mut shape = Shape::new(
+        Open::Session(Path::new("/tmp/TEST-shape/session")),
+        agent,
+        &GoalConfirmation::default(),
+        held,
+    );
     let open = shape.open.as_mut().unwrap();
     open.reading = Reading::Done(Ok(Shaping {
         ready_target: None,
@@ -91,7 +101,7 @@ fn offers(shape: &Shape, label: &str) -> bool {
 fn so_far_names_open_questions_and_the_answers_they_wait_for() {
     for (width, height) in [(80, 24), (100, 30)] {
         for no_color in [false, true] {
-            let mut shape = done(question());
+            let mut shape = done(question(), None);
             let open = shape.open.as_mut().unwrap();
             let Reading::Done(Ok(shaping)) = &mut open.reading else {
                 panic!()
@@ -114,7 +124,7 @@ fn so_far_names_open_questions_and_the_answers_they_wait_for() {
 #[test]
 fn new_answer_actions_cannot_escape_an_ending_or_objection() {
     for ending in [true, false] {
-        let mut shape = done(question()).with_agent(Some(agent(1)));
+        let mut shape = done(question(), Some(agent(1)));
         shape.open.as_mut().unwrap().assumed.push(Assumption {
             text: "TEST default".into(),
             why: "TEST equal".into(),
@@ -147,7 +157,7 @@ fn crowded_question_bars_keep_more_and_back_visible_and_f1_lists_every_action() 
             };
             *found = vec!["TEST long evidence ".repeat(300)];
             *undo = hard;
-            let mut shape = done(stage).with_agent(Some(agent(0)));
+            let mut shape = done(stage, Some(agent(0)));
             shape.open.as_mut().unwrap().assumed.push(Assumption {
                 text: "TEST default".into(),
                 why: "TEST equal".into(),
@@ -170,7 +180,7 @@ fn crowded_question_bars_keep_more_and_back_visible_and_f1_lists_every_action() 
 
 #[test]
 fn forms_do_not_retarget_after_a_stale_read_and_held_keys_do_nothing() {
-    let mut shape = done(question()).with_agent(Some(agent(1)));
+    let mut shape = done(question(), Some(agent(1)));
     for digit in ['1', '2'] {
         let mut held = key(KeyCode::Char(digit));
         held.kind = KeyEventKind::Repeat;
@@ -207,14 +217,16 @@ fn forms_do_not_retarget_after_a_stale_read_and_held_keys_do_nothing() {
 fn only_flagged_operator_decisions_offer_a_revision_form() {
     for revisable in [false, true] {
         for (width, height) in [(100, 30), (80, 24)] {
-            let mut shape = done(Shaped::Review {
-                id: "TEST-answer".into(),
-                title: "TEST answer".into(),
-                answer: "TEST old".into(),
-                found: vec![],
-                revisable,
-            })
-            .with_agent(Some(agent(0)));
+            let mut shape = done(
+                Shaped::Review {
+                    id: "TEST-answer".into(),
+                    title: "TEST answer".into(),
+                    answer: "TEST old".into(),
+                    found: vec![],
+                    revisable,
+                },
+                Some(agent(0)),
+            );
             let text = screen(&mut shape, width, height, true);
             assert!(text.contains("F1 more"), "{text}");
             assert_eq!(offers(&shape, "Revise"), revisable);
@@ -242,7 +254,7 @@ fn only_flagged_operator_decisions_offer_a_revision_form() {
 
 #[test]
 fn deferral_form_keeps_fields_and_original_answer_without_writes() {
-    let mut shape = done(question()).with_agent(Some(agent(0)));
+    let mut shape = done(question(), Some(agent(0)));
     shape.paste("TEST original answer");
     choose(&mut shape, "Defer");
     shape.paste("TEST wait\r\nfor scope ");
@@ -291,7 +303,7 @@ fn a_flagged_answer_has_a_read_only_route_and_an_explicit_budget_free_keep_key()
         answer: "TEST local".into(),
         found: vec!["TEST conflicting observation".into()],
     };
-    let mut readonly = done(stage.clone());
+    let mut readonly = done(stage.clone(), None);
     let text = screen(&mut readonly, 80, 24, true);
     assert!(
         text.contains("Current question: review flagged answer"),
@@ -302,7 +314,7 @@ fn a_flagged_answer_has_a_read_only_route_and_an_explicit_budget_free_keep_key()
         "{text}"
     );
     assert!(!text.contains("enter keep"), "{text}");
-    let mut writable = done(stage).with_agent(Some(agent(0)));
+    let mut writable = done(stage, Some(agent(0)));
     let text = screen(&mut writable, 80, 24, true);
     assert!(text.contains("enter keep with reason"), "{text}");
     writable.key(key(KeyCode::F(2)));
@@ -321,10 +333,13 @@ fn a_flagged_answer_has_a_read_only_route_and_an_explicit_budget_free_keep_key()
 #[test]
 fn seed_ready_points_to_approve_and_copies_nothing() {
     for ended in [false, true] {
-        let mut shape = done(Shaped::Ready {
-            revision: Some("r2".into()),
-            ended,
-        });
+        let mut shape = done(
+            Shaped::Ready {
+                revision: Some("r2".into()),
+                ended,
+            },
+            None,
+        );
         for (width, height) in [(80, 24), (100, 30)] {
             let text = screen(&mut shape, width, height, true);
             assert!(
@@ -408,7 +423,7 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
         };
         for (width, height) in [(100, 30), (80, 24)] {
             for no_color in [false, true] {
-                let mut shape = done(stage.clone());
+                let mut shape = done(stage.clone(), None);
                 let text = screen(&mut shape, width, height, no_color);
                 let (first, rest) = GOAL.split_once('\n').unwrap();
                 assert!(text.contains(first), "{first} missing:\n{text}");
@@ -471,17 +486,20 @@ fn so_far(shape: &mut Shape, width: u16, height: u16, no_color: bool) -> String 
 #[test]
 fn the_question_is_jade_and_the_suggestion_reads_as_a_guess_without_colour_too() {
     for no_color in [false, true] {
-        let mut shape = done(Shaped::Question {
-            gate: "TEST gate".into(),
-            id: "t".into(),
-            title: "Label T".into(),
-            ask: "Q?".into(),
-            found: vec![],
-            suggestion: Some("S".into()),
-            options: vec![],
-            against: None,
-            hard: false,
-        });
+        let mut shape = done(
+            Shaped::Question {
+                gate: "TEST gate".into(),
+                id: "t".into(),
+                title: "Label T".into(),
+                ask: "Q?".into(),
+                found: vec![],
+                suggestion: Some("S".into()),
+                options: vec![],
+                against: None,
+                hard: false,
+            },
+            None,
+        );
         let backend = ratatui::backend::TestBackend::new(100, 30);
         let mut terminal = ratatui::Terminal::new(backend).unwrap();
         terminal
@@ -513,11 +531,16 @@ fn the_question_is_jade_and_the_suggestion_reads_as_a_guess_without_colour_too()
 
 #[test]
 fn failures_and_missing_setup_are_said_plainly_with_the_reason_in_help() {
-    let mut shape = Shape::session(Path::new("/tmp/TEST-shape/session"));
+    let mut shape = Shape::new(
+        Open::Session(Path::new("/tmp/TEST-shape/session")),
+        None,
+        &GoalConfirmation::default(),
+        false,
+    );
     let text = screen(&mut shape, 100, 30, true);
     assert!(text.contains("Checking this Tink."), "{text}");
     assert!(!text.contains("--seed-me"), "{text}");
-    let mut failed = done(Shaped::Waiting);
+    let mut failed = done(Shaped::Waiting, None);
     failed.open.as_mut().unwrap().reading = Reading::Done(Err("Tinkery refused: no ledger".into()));
     let text = screen(&mut failed, 100, 30, true);
     assert!(
@@ -547,7 +570,7 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
         stage,
         updated: String::new(),
     };
-    let mut shape = Shape::list();
+    let mut shape = Shape::new(Open::List, None, &GoalConfirmation::default(), false);
     assert!(shape.wants_sessions());
     assert!(screen(&mut shape, 100, 30, true).contains("Reading your sessions."));
     let sessions = [
@@ -557,7 +580,7 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
         session("ended", Stage::Completed),
         session("unknown", Stage::Unknown),
     ];
-    shape.offer(Ok(&sessions), 0);
+    shape.offer(Ok((&sessions, 0, &[])));
     let text = screen(&mut shape, 100, 30, true);
     assert!(
         text.contains("› saved goal") && text.contains("goal saved"),
@@ -578,27 +601,27 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
     assert_eq!(shape.key(key(KeyCode::Esc)), Leave::Stay);
     // Back at the list, Shape reads again: a goal whose seed was confirmed meanwhile leaves it.
     assert!(shape.wants_sessions());
-    shape.offer(Ok(&sessions), 0);
+    shape.offer(Ok((&sessions, 0, &[])));
     assert!(screen(&mut shape, 100, 30, true).contains("› drafted goal"));
     let mut moved = sessions.clone();
     moved[2].stage = Stage::SeedUnchecked;
     assert_eq!(shape.key(key(KeyCode::Enter)), Leave::Stay);
     assert_eq!(shape.key(key(KeyCode::Esc)), Leave::Stay);
-    shape.offer(Ok(&moved), 0);
+    shape.offer(Ok((&moved, 0, &[])));
     let text = screen(&mut shape, 100, 30, true);
     assert!(
         text.contains("› saved goal") && !text.contains("drafted goal"),
         "{text}"
     );
     assert_eq!(shape.key(key(KeyCode::Esc)), Leave::Back);
-    let mut empty = Shape::list();
-    empty.offer(Ok(&sessions[1..2]), 0);
+    let mut empty = Shape::new(Open::List, None, &GoalConfirmation::default(), false);
+    empty.offer(Ok((&sessions[1..2], 0, &[])));
     assert!(screen(&mut empty, 100, 30, true).contains("No goals are waiting for a Tink."));
-    let mut failed = Shape::list();
-    failed.offer(Err("TEST read failed".into()), 0);
+    let mut failed = Shape::new(Open::List, None, &GoalConfirmation::default(), false);
+    failed.offer(Err("TEST read failed".into()));
     assert!(screen(&mut failed, 100, 30, true).contains("couldn't be read"));
     assert!(failed.help_text().contains("TEST read failed"));
-    let mut direct = done(Shaped::Waiting);
+    let mut direct = done(Shaped::Waiting, None);
     assert_eq!(direct.key(key(KeyCode::Esc)), Leave::Back);
 }
 
@@ -606,8 +629,8 @@ fn the_list_holds_only_goals_waiting_for_a_seed_and_esc_steps_back_one_level() {
 fn incomplete_lists_keep_the_count_and_f1_route() {
     for (width, height) in [(100, 30), (80, 24)] {
         for no_color in [false, true] {
-            let mut shape = Shape::list();
-            shape.offer(Ok(&[]), 1);
+            let mut shape = Shape::new(Open::List, None, &GoalConfirmation::default(), false);
+            shape.offer(Ok((&[], 1, &[])));
             let text = screen(&mut shape, width, height, no_color);
             let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
             assert!(
@@ -620,11 +643,11 @@ fn incomplete_lists_keep_the_count_and_f1_route() {
                     .help_text()
                     .contains("Some session ledgers could not be read")
             );
-            shape.offer(Ok(&[]), 2);
+            shape.offer(Ok((&[], 2, &[])));
             assert!(
                 screen(&mut shape, width, height, no_color).contains("2 records couldn't be read.")
             );
-            shape.offer(Err("TEST root failure".into()), 2);
+            shape.offer(Err("TEST root failure".into()));
             let failed = screen(&mut shape, width, height, no_color);
             assert!(!failed.contains("2 records"), "{failed}");
             assert!(shape.help_text().contains("TEST root failure"));
@@ -633,18 +656,18 @@ fn incomplete_lists_keep_the_count_and_f1_route() {
 }
 
 fn agent(budget: usize) -> Arc<Agent> {
-    Arc::new(
-        Agent::new(
+    Arc::new(Agent::new(
+        crate::pi::Drafting::new(
             crate::pi::Harness::Pi,
             "/tmp/TEST-shape/never-run-pi".into(),
             "test/model".into(),
             "low".into(),
-            None,
             crate::pi::CallBudget::new(budget),
-            None,
         )
         .unwrap(),
-    )
+        None,
+        None,
+    ))
 }
 
 fn question() -> Shaped {
@@ -663,7 +686,7 @@ fn question() -> Shaped {
 
 #[test]
 fn typing_writes_nothing_and_f2_refuses_empty_words_or_an_empty_budget_before_starting() {
-    let mut shape = done(question()).with_agent(Some(agent(0)));
+    let mut shape = done(question(), Some(agent(0)));
     assert!(shape.takes_text());
     assert_eq!(shape.key(key(KeyCode::F(2))), Leave::Stay);
     let text = screen(&mut shape, 100, 30, true);
@@ -715,11 +738,13 @@ fn a_correction_typed_where_confirm_goes_carries_into_revise_the_draft() {
     let dir = tempfile::tempdir().unwrap();
     let words = "TEST keep the cache local, not shared";
     let mut shape = reading(
-        done(Shaped::Drafted {
-            revision: Some("r1".into()),
-            text: Some("status: draft\n# TEST seed\nrevision: r1\n".into()),
-        })
-        .with_agent(Some(agent(1))),
+        done(
+            Shaped::Drafted {
+                revision: Some("r1".into()),
+                text: Some("status: draft\n# TEST seed\nrevision: r1\n".into()),
+            },
+            Some(agent(1)),
+        ),
         dir.path(),
     );
     screen(&mut shape, 80, 24, true);
@@ -754,11 +779,13 @@ fn a_correction_typed_where_confirm_goes_carries_into_revise_the_draft() {
     );
     // The word that confirms is never carried in as a change.
     let mut shape = reading(
-        done(Shaped::Drafted {
-            revision: Some("r1".into()),
-            text: Some("status: draft\n# TEST seed\nrevision: r1\n".into()),
-        })
-        .with_agent(Some(agent(1))),
+        done(
+            Shaped::Drafted {
+                revision: Some("r1".into()),
+                text: Some("status: draft\n# TEST seed\nrevision: r1\n".into()),
+            },
+            Some(agent(1)),
+        ),
         dir.path(),
     );
     shape.paste("confirm");
@@ -779,11 +806,13 @@ fn teach_back_prefills_exact_confirmation_words_without_sharing_edits() {
     let dir = tempfile::tempdir().unwrap();
     for words in ["", "  TEST café\r\nkeep these words.  "] {
         let mut shape = reading(
-            done(Shaped::Drafted {
-                revision: Some("r1".into()),
-                text: Some("status: draft\n# TEST seed\nrevision: r1\n".into()),
-            })
-            .with_agent(Some(agent(0))),
+            done(
+                Shaped::Drafted {
+                    revision: Some("r1".into()),
+                    text: Some("status: draft\n# TEST seed\nrevision: r1\n".into()),
+                },
+                Some(agent(0)),
+            ),
             dir.path(),
         );
         shape.paste(words);
@@ -822,7 +851,7 @@ fn no_next_line_repeats_the_one_action_the_key_bar_names() {
         (seed, "enter confirm Tink r2   F1 more   esc back"),
     ] {
         for (width, height) in [(100, 30), (80, 24)] {
-            let mut shape = reading(done(stage.clone()).with_agent(Some(agent(1))), dir.path());
+            let mut shape = reading(done(stage.clone(), Some(agent(1))), dir.path());
             let text = screen(&mut shape, width, height, true);
             assert_eq!(text.matches("Next:").count(), 0, "{text}");
             // A bar too wide for 80 columns closes up rather than lose Esc.
@@ -835,7 +864,7 @@ fn no_next_line_repeats_the_one_action_the_key_bar_names() {
 #[test]
 fn while_a_step_runs_the_question_and_the_answer_stay_in_view() {
     let dir = tempfile::tempdir().unwrap();
-    let mut shape = reading(done(question()).with_agent(Some(agent(1))), dir.path());
+    let mut shape = reading(done(question(), Some(agent(1))), dir.path());
     shape.paste("TEST keep it local");
     shape.key(key(KeyCode::F(2)));
     assert!(
@@ -885,7 +914,7 @@ fn a_tall_question_scrolls_while_the_answer_and_every_key_stay_in_view() {
         against: None,
         hard: false,
     };
-    let mut shape = reading(done(tall).with_agent(Some(agent(1))), dir.path());
+    let mut shape = reading(done(tall, Some(agent(1))), dir.path());
     shape.paste("TEST first line\nTEST last line");
     let text = screen(&mut shape, 80, 24, true);
     assert!(text.contains("Keep records local or synced?"), "{text}");
@@ -907,7 +936,7 @@ fn a_tall_question_scrolls_while_the_answer_and_every_key_stay_in_view() {
 
 #[test]
 fn without_an_agent_shape_only_reads_and_letters_scroll() {
-    let mut shape = done(question());
+    let mut shape = done(question(), None);
     assert!(!shape.takes_text());
     shape.key(key(KeyCode::Char('j')));
     assert!(shape.open.as_ref().unwrap().typed.text().is_empty());
@@ -934,11 +963,13 @@ fn a_draft_shows_acceptance_checks_as_written_and_other_lines_unchanged() {
         "status: draft\n# Seed: TEST\nrevision: r2\n\n## You are confirming\nTEST \\`kept\\`\n{}## Affected users and systems\nTEST \\`kept too\\`\n",
         crate::seed_me::ledger::checks_block(&records).unwrap()
     );
-    let mut shape = done(Shaped::Drafted {
-        revision: Some("r2".into()),
-        text: Some(seed),
-    })
-    .with_agent(Some(agent(1)));
+    let mut shape = done(
+        Shaped::Drafted {
+            revision: Some("r2".into()),
+            text: Some(seed),
+        },
+        Some(agent(1)),
+    );
     let text = screen(&mut shape, 100, 30, true);
     assert!(
         text.contains("  Pass/fail checks (proposed)\n\n  Visiting `/foo` returns 404\n  check: `grep -c '\\*' TEST-file`\n"),
@@ -954,11 +985,13 @@ fn a_draft_shows_acceptance_checks_as_written_and_other_lines_unchanged() {
 fn a_draft_shows_the_seed_and_f2_needs_the_operators_own_words() {
     let seed =
         "status: draft\n# Seed: TEST\nrevision: r2\n\n## You are confirming\nTEST seed body.\n";
-    let mut shape = done(Shaped::Drafted {
-        revision: Some("r2".into()),
-        text: Some(seed.into()),
-    })
-    .with_agent(Some(agent(1)));
+    let mut shape = done(
+        Shaped::Drafted {
+            revision: Some("r2".into()),
+            text: Some(seed.into()),
+        },
+        Some(agent(1)),
+    );
     let text = screen(&mut shape, 100, 30, true);
     assert!(text.contains("TEST seed body."), "{text}");
     assert!(!text.contains("Must not: Run agents."), "{text}");
@@ -1362,7 +1395,7 @@ fn issue_299_review_keeps_failure_cases_separate_from_success_criteria() {
     );
     for (width, height) in [(100, 30), (80, 24)] {
         for no_color in [false, true] {
-            let mut view = done(draft.stage.clone()).with_agent(Some(agent(0)));
+            let mut view = done(draft.stage.clone(), Some(agent(0)));
             view.open.as_mut().unwrap().reading = Reading::Done(Ok(draft.clone()));
             let mut seen = [false; 2];
             for _ in 0..200 {
@@ -1466,24 +1499,24 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
     .unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     let version = answered_probe(&receipt.session);
-    let agent = Arc::new(
-        step::Agent::new(
+    let agent = Arc::new(Agent::new(
+        crate::pi::Drafting::new(
             crate::pi::Harness::Pi,
             program,
             "test/stub".into(),
             String::new(),
-            Some(temp.path().into()),
             CallBudget::new(1),
-            None,
         )
         .unwrap(),
-    );
+        Some(temp.path().into()),
+        None,
+    ));
     let running = step::Running::start(
         step::Work::Change {
             revision: "r1".into(),
             words: words.into(),
             expected: version,
-            folder: temp.path().into(),
+            reads: std::path::PathBuf::from(temp.path()).into(),
         },
         receipt.session.clone(),
         Some(agent.clone()),
@@ -1603,23 +1636,23 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
         fs::set_permissions(&command, fs::Permissions::from_mode(0o755)).unwrap();
     }
     let version = answered_probe(&receipt.session);
-    let agent = Arc::new(
-        step::Agent::new(
+    let agent = Arc::new(Agent::new(
+        crate::pi::Drafting::new(
             crate::pi::Harness::Pi,
             program,
             "test/stub".into(),
             String::new(),
-            Some(temp.path().into()),
             CallBudget::new(1),
-            None,
         )
         .unwrap(),
-    );
+        Some(temp.path().into()),
+        None,
+    ));
     let running = step::Running::start(
         step::Work::Look {
             feedback: None,
             expected: version,
-            folder: temp.path().into(),
+            reads: std::path::PathBuf::from(temp.path()).into(),
         },
         receipt.session.clone(),
         Some(agent.clone()),
@@ -1656,7 +1689,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
             .map(|(i, c)| format!("{}. {}", i + 1, c["statement"].as_str().unwrap())),
     );
     for (width, height) in [(100, 30), (80, 24)] {
-        let mut view = done(draft.stage.clone()).with_agent(Some(agent.clone()));
+        let mut view = done(draft.stage.clone(), Some(agent.clone()));
         view.open.as_mut().unwrap().reading = Reading::Done(Ok(draft.clone()));
         let mut seen = vec![false; expected_review.len()];
         for _ in 0..200 {
@@ -1988,24 +2021,24 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
     {{'id': 'TEST-check-fact', 'claim': {{'type': 'observation', 'scope': 'tests/check_value.py:1-4'}}, 'checked': 'tests/check_value.py:1-4', 'observed': 'asserts the new value; current value.txt is old'}}]}}))
 "##)).unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
-    let agent = Arc::new(
-        step::Agent::new(
+    let agent = Arc::new(Agent::new(
+        crate::pi::Drafting::new(
             crate::pi::Harness::Pi,
             program,
             "test/stub".into(),
             String::new(),
-            Some(temp.path().into()),
             CallBudget::new(1),
-            None,
         )
         .unwrap(),
-    );
+        Some(temp.path().into()),
+        None,
+    ));
     let version = answered_probe(&receipt.session);
     let running = step::Running::start(
         step::Work::Look {
             feedback: None,
             expected: version,
-            folder: temp.path().into(),
+            reads: std::path::PathBuf::from(temp.path()).into(),
         },
         receipt.session.clone(),
         Some(agent.clone()),
@@ -2252,30 +2285,30 @@ else:
     print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': body, 'checks': json.loads({checks:?}), 'review': {{'contradictions': [], 'decided': [], 'done': [], 'failure_cases': ['TEST wrong result must fail' for _ in json.loads({checks:?})]}}, 'found': []}}))
 "##)).unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
-    let agent = Arc::new(
-        step::Agent::new(
+    let agent = Arc::new(Agent::new(
+        crate::pi::Drafting::new(
             crate::pi::Harness::Pi,
             program,
             "test/stub".into(),
             String::new(),
-            Some(temp.path().into()),
             CallBudget::new(1),
-            None,
         )
         .unwrap(),
-    );
+        Some(temp.path().into()),
+        None,
+    ));
     let work = match words {
         Some(words) => step::Work::Answer {
             relay: None,
             id: "storage".into(),
             words: words.into(),
             expected: version,
-            folder: temp.path().into(),
+            reads: std::path::PathBuf::from(temp.path()).into(),
         },
         None => step::Work::Look {
             feedback: None,
             expected: version,
-            folder: temp.path().into(),
+            reads: std::path::PathBuf::from(temp.path()).into(),
         },
     };
     let running = step::Running::start(
@@ -2388,23 +2421,23 @@ body['Knowledge map'] = 'The confirmed goal supplies the tool name tally. Its ex
 print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': body, 'checks': json.loads({checks:?}), 'review': {{'contradictions': [], 'decided': [], 'done': [], 'failure_cases': ['TEST wrong result must fail' for _ in json.loads({checks:?})]}}, 'found': []}}))
 "#)).unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
-    let agent = Arc::new(
-        step::Agent::new(
+    let agent = Arc::new(Agent::new(
+        crate::pi::Drafting::new(
             crate::pi::Harness::Pi,
             program,
             "test/stub".into(),
             String::new(),
-            Some(temp.path().into()),
             CallBudget::new(1),
-            None,
         )
         .unwrap(),
-    );
+        Some(temp.path().into()),
+        None,
+    ));
     let running = step::Running::start(
         step::Work::Look {
             feedback: None,
             expected: version,
-            folder: temp.path().into(),
+            reads: std::path::PathBuf::from(temp.path()).into(),
         },
         receipt.session.clone(),
         Some(agent.clone()),
@@ -2456,7 +2489,7 @@ fn the_prompt_names_exactly_the_fields_the_decoder_reads() {
 
 /// `shape` with its next step's folder already found.
 fn reading(mut shape: Shape, folder: &Path) -> Shape {
-    shape.open.as_mut().unwrap().folder = Folder::Known(folder.to_path_buf());
+    shape.open.as_mut().unwrap().folder = Folder::Known(folder.to_path_buf().into());
     shape
 }
 
@@ -2467,7 +2500,7 @@ fn the_folder_a_step_reads_shows_before_f2_and_f1_picks_another() {
     std::fs::create_dir_all(&first).unwrap();
     std::fs::create_dir_all(&other).unwrap();
     for stage in [question(), Shaped::Waiting] {
-        let mut shape = reading(done(stage).with_agent(Some(agent(1))), &first);
+        let mut shape = reading(done(stage, Some(agent(1))), &first);
         let text = screen(&mut shape, 80, 24, true);
         assert!(
             text.contains("The step reads files in TEST-first. F1 picks another folder."),
@@ -2526,7 +2559,7 @@ fn the_folder_a_step_reads_shows_before_f2_and_f1_picks_another() {
         );
         assert!(matches!(
             &shape.open.as_ref().unwrap().folder,
-            Folder::Known(f) if *f == other.canonicalize().unwrap()
+            Folder::Known(f) if f.folder == other.canonicalize().unwrap()
         ));
     }
 }
@@ -2534,15 +2567,15 @@ fn the_folder_a_step_reads_shows_before_f2_and_f1_picks_another() {
 #[test]
 fn no_folder_is_offered_without_an_agent_or_a_step_and_no_step_starts_before_it_is_known() {
     let dir = tempfile::tempdir().unwrap();
-    let read_only = reading(done(question()), dir.path());
+    let read_only = reading(done(question(), None), dir.path());
     assert!(!offers(&read_only, "Choose the folder"));
     let seed = Shaped::Drafted {
         revision: Some("r1".into()),
         text: Some("status: draft\n".into()),
     };
-    let drafted = reading(done(seed).with_agent(Some(agent(1))), dir.path());
+    let drafted = reading(done(seed, Some(agent(1))), dir.path());
     assert!(!offers(&drafted, "Choose the folder"));
-    let mut finding = done(Shaped::Waiting).with_agent(Some(agent(1)));
+    let mut finding = done(Shaped::Waiting, Some(agent(1)));
     assert!(screen(&mut finding, 100, 30, true).contains("Finding which folder the step reads."));
     finding.key(key(KeyCode::F(2)));
     assert!(!matches!(
@@ -2554,32 +2587,38 @@ fn no_folder_is_offered_without_an_agent_or_a_step_and_no_step_starts_before_it_
 
 #[test]
 fn a_question_or_seed_with_nothing_found_is_flagged() {
-    let mut shape = done(question());
+    let mut shape = done(question(), None);
     let text = screen(&mut shape, 100, 30, true);
     assert!(
         text.contains("Nothing found: this question records nothing checked in the repository."),
         "{text}"
     );
-    let mut grounded = done(Shaped::Question {
-        gate: "TEST gate".into(),
-        id: "storage".into(),
-        title: "Where records live".into(),
-        ask: "Keep records local or synced?".into(),
-        found: vec!["README.md:3 says local only".into()],
-        suggestion: None,
-        options: vec![],
-        against: None,
-        hard: false,
-    });
+    let mut grounded = done(
+        Shaped::Question {
+            gate: "TEST gate".into(),
+            id: "storage".into(),
+            title: "Where records live".into(),
+            ask: "Keep records local or synced?".into(),
+            found: vec!["README.md:3 says local only".into()],
+            suggestion: None,
+            options: vec![],
+            against: None,
+            hard: false,
+        },
+        None,
+    );
     assert!(!screen(&mut grounded, 100, 30, true).contains("Nothing found"));
     let seed = format!(
         "status: draft\n# Seed: TEST\nrevision: r1\n\n## You are confirming\nTEST.\n\n## What's true today\n{}\n",
         "- Nothing was recorded: no step said what it checked, so this seed isn't grounded in a repository."
     );
-    let mut drafted = done(Shaped::Drafted {
-        revision: Some("r1".into()),
-        text: Some(seed),
-    });
+    let mut drafted = done(
+        Shaped::Drafted {
+            revision: Some("r1".into()),
+            text: Some(seed),
+        },
+        None,
+    );
     let text = screen(&mut drafted, 80, 24, true);
     assert!(
         text.contains(
@@ -2591,7 +2630,7 @@ fn a_question_or_seed_with_nothing_found_is_flagged() {
 
 #[test]
 fn so_far_scrolls_on_a_short_screen_and_always_says_how_to_close() {
-    let mut shape = done(Shaped::Waiting);
+    let mut shape = done(Shaped::Waiting, None);
     choose(&mut shape, "So far");
     let text = screen(&mut shape, 80, 14, true);
     assert!(text.contains("Your goal, as you confirmed it"), "{text}");
@@ -2612,7 +2651,7 @@ fn so_far_scrolls_on_a_short_screen_and_always_says_how_to_close() {
 #[test]
 fn a_long_answer_never_hides_the_question_or_what_a_running_step_is_doing() {
     let dir = tempfile::tempdir().unwrap();
-    let mut shape = reading(done(question()).with_agent(Some(agent(1))), dir.path());
+    let mut shape = reading(done(question(), Some(agent(1))), dir.path());
     let answer = (1..=20)
         .map(|i| format!("TEST line {i}"))
         .collect::<Vec<_>>()
@@ -2635,7 +2674,7 @@ fn a_long_answer_never_hides_the_question_or_what_a_running_step_is_doing() {
 #[test]
 fn a_pasted_cr_breaks_the_row_on_screen_and_the_words_stay_as_pasted() {
     let dir = tempfile::tempdir().unwrap();
-    let mut shape = reading(done(question()).with_agent(Some(agent(1))), dir.path());
+    let mut shape = reading(done(question(), Some(agent(1))), dir.path());
     shape.paste("TEST one\rTEST two\r\nTEST three");
     let text = screen(&mut shape, 80, 24, true);
     assert!(
@@ -2661,11 +2700,13 @@ fn a_newline_key_at_seed_confirmation_guides_without_editing_or_starting_a_step(
             KeyEvent::new(KeyCode::Enter, KeyModifiers::ALT),
         ),
     ] {
-        let mut shape = done(Shaped::Drafted {
-            revision: Some("r1".into()),
-            text: Some("TEST seed".into()),
-        })
-        .with_agent(Some(agent(0)));
+        let mut shape = done(
+            Shaped::Drafted {
+                revision: Some("r1".into()),
+                text: Some("TEST seed".into()),
+            },
+            Some(agent(0)),
+        );
         shape.paste(words);
         shape.key(newline);
         let open = shape.open.as_ref().unwrap();
@@ -2692,11 +2733,13 @@ fn only_the_word_confirm_confirms_and_other_words_are_kept_unconfirmed() {
         "I confirm",
         "keep the cache local, not shared",
     ] {
-        let mut shape = done(Shaped::Drafted {
-            revision: Some("r1".into()),
-            text: Some("TEST seed".into()),
-        })
-        .with_agent(Some(agent(0)));
+        let mut shape = done(
+            Shaped::Drafted {
+                revision: Some("r1".into()),
+                text: Some("TEST seed".into()),
+            },
+            Some(agent(0)),
+        );
         screen(&mut shape, 80, 24, true);
         shape.paste(words);
         shape.key(key(KeyCode::F(2)));
@@ -2710,11 +2753,13 @@ fn only_the_word_confirm_confirms_and_other_words_are_kept_unconfirmed() {
         let shown = screen(&mut shape, 80, 24, true);
         assert!(shown.contains(CONFIRM_FIRST), "{shown}");
     }
-    let mut shape = done(Shaped::Drafted {
-        revision: Some("r1".into()),
-        text: Some("TEST seed".into()),
-    })
-    .with_agent(Some(agent(0)));
+    let mut shape = done(
+        Shaped::Drafted {
+            revision: Some("r1".into()),
+            text: Some("TEST seed".into()),
+        },
+        Some(agent(0)),
+    );
     screen(&mut shape, 80, 24, true);
     shape.paste("confirm");
     shape.key(key(KeyCode::F(2)));
@@ -2727,11 +2772,13 @@ fn only_the_word_confirm_confirms_and_other_words_are_kept_unconfirmed() {
 #[test]
 fn enter_runs_the_key_bar_action_and_only_typed_confirm_confirms() {
     for (words, starts) in [("TEST I confirm r1.", false), ("confirm", true)] {
-        let mut shape = done(Shaped::Drafted {
-            revision: Some("r1".into()),
-            text: Some("TEST seed".into()),
-        })
-        .with_agent(Some(agent(0)));
+        let mut shape = done(
+            Shaped::Drafted {
+                revision: Some("r1".into()),
+                text: Some("TEST seed".into()),
+            },
+            Some(agent(0)),
+        );
         let shown = screen(&mut shape, 80, 24, true);
         assert!(
             shown.lines().last().unwrap().contains("enter confirm Tink"),
@@ -2751,7 +2798,7 @@ fn folder_edits_keep_multiline_paths_including_trailing_whitespace() {
     for name in ["TEST folder\nnext", "TEST CR\rnext", "TEST CRLF\r\nnext\n "] {
         let folder = dir.path().join(name);
         std::fs::create_dir(&folder).unwrap();
-        let mut shape = reading(done(question()).with_agent(Some(agent(0))), dir.path());
+        let mut shape = reading(done(question(), Some(agent(0))), dir.path());
         choose(&mut shape, "Choose the folder");
         shape.key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL));
         shape.key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::CONTROL));
@@ -2764,7 +2811,9 @@ fn folder_edits_keep_multiline_paths_including_trailing_whitespace() {
         shape.key(key(KeyCode::Backspace));
         shape.key(key(KeyCode::Enter));
         let open = shape.open.as_ref().unwrap();
-        assert!(matches!(&open.folder, Folder::Known(p) if *p == folder.canonicalize().unwrap()));
+        assert!(
+            matches!(&open.folder, Folder::Known(p) if p.folder == folder.canonicalize().unwrap())
+        );
         assert!(open.notice.is_none(), "the exact folder was refused");
         assert!(!matches!(open.mode, Mode::Running(..)));
     }
@@ -2775,7 +2824,7 @@ fn a_pasted_folder_with_a_trailing_line_break_is_used() {
     let dir = tempfile::tempdir().unwrap();
     let folder = dir.path().join("TEST-pasted");
     std::fs::create_dir(&folder).unwrap();
-    let mut shape = reading(done(question()).with_agent(Some(agent(0))), dir.path());
+    let mut shape = reading(done(question(), Some(agent(0))), dir.path());
     choose(&mut shape, "Choose the folder");
     shape.key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL));
     shape.key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::CONTROL));
@@ -2783,7 +2832,7 @@ fn a_pasted_folder_with_a_trailing_line_break_is_used() {
     shape.key(key(KeyCode::F(2)));
     let open = shape.open.as_ref().unwrap();
     assert!(open.notice.is_none(), "the pasted folder was refused");
-    assert!(matches!(&open.folder, Folder::Known(p) if *p == folder.canonicalize().unwrap()));
+    assert!(matches!(&open.folder, Folder::Known(p) if p.folder == folder.canonicalize().unwrap()));
 }
 
 #[test]
@@ -2795,7 +2844,7 @@ fn a_long_editor_follows_its_cursor_and_leaves_half_the_body_for_reading() {
             if let Shaped::Question { found, .. } = &mut stage {
                 *found = vec![format!("TEST evidence: {}", "reading ".repeat(360))];
             }
-            let mut shape = done(stage).with_agent(Some(agent(0)));
+            let mut shape = done(stage, Some(agent(0)));
             shape.paste(
                 &(0..40)
                     .map(|i| format!("TEST row {i}: 界 {}", "long ".repeat(20)))
@@ -2969,7 +3018,7 @@ fn ledger_refusals_of_endings_objections_and_suggestions_are_shown_unchanged() {
             answering::recommend(path, 3, "storage", "TEST kept", Actor::OPERATOR).map(|_| ()),
         ),
     ] {
-        let mut shape = done(stage);
+        let mut shape = done(stage, None);
         let open = shape.open.as_mut().unwrap();
         open.assumed.push(Assumption {
             text: "TEST default".into(),
@@ -3064,7 +3113,12 @@ fn a_saved_deferred_answer_without_a_usable_version_asks_to_reopen() {
     saved["version"] = u64::MAX.into();
     fs::write(&path, serde_json::to_vec(&saved).unwrap()).unwrap();
 
-    let mut shape = Shape::session(&session).with_agent(Some(agent(0)));
+    let mut shape = Shape::new(
+        Open::Session(&session),
+        Some(agent(0)),
+        &GoalConfirmation::default(),
+        false,
+    );
     let deadline = Instant::now() + Duration::from_secs(5);
     while !offers(&shape, "Answer deferred prerequisite") {
         assert!(
@@ -3129,7 +3183,7 @@ fn ending_asks_once_more_and_esc_or_a_held_key_ends_nothing() {
             "Stop this session",
         ),
     ] {
-        let mut shape = done(stage);
+        let mut shape = done(stage, None);
         // Each stage offers only its own ending.
         assert!(!offers(&shape, other));
         choose(&mut shape, ending);
@@ -3181,7 +3235,7 @@ fn ending_asks_once_more_and_esc_or_a_held_key_ends_nothing() {
             reason: "TEST".into(),
         },
     ] {
-        let shape = done(stage);
+        let shape = done(stage, None);
         assert!(!offers(&shape, "End this session") && !offers(&shape, "Stop this session"));
     }
 }
@@ -3209,7 +3263,7 @@ fn a_step_may_assume_at_most_five_complete_defaults() {
 
 #[test]
 fn assumptions_show_with_their_question_and_object_then_a_number_objects_to_one() {
-    let mut shape = done(question());
+    let mut shape = done(question(), None);
     // No assumptions: F1 offers no objection.
     assert!(!offers(&shape, "Object"));
     shape.open.as_mut().unwrap().assumed = vec![
@@ -3370,7 +3424,7 @@ fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
 fn asking_to_end_or_object_takes_no_words_so_a_paste_changes_nothing() {
     let dir = tempfile::tempdir().unwrap();
     for ask in ["Stop this session", "Object"] {
-        let mut shape = reading(done(question()).with_agent(Some(agent(1))), dir.path());
+        let mut shape = reading(done(question(), Some(agent(1))), dir.path());
         shape.open.as_mut().unwrap().assumed = vec![Assumption {
             text: "TEST one machine".into(),
             why: "TEST nothing syncs".into(),
@@ -3433,7 +3487,7 @@ fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
         hard: true,
     };
     for withheld in [None, Some("Local.".to_owned())] {
-        let mut shape = done(hard.clone());
+        let mut shape = done(hard.clone(), None);
         shape.open.as_mut().unwrap().withheld = withheld.clone();
         for (width, height) in [(100, 30), (80, 24)] {
             let text = screen(&mut shape, width, height, true);
@@ -3468,7 +3522,7 @@ fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
         }
     }
     // Once revealed, the options and the case against show, and F1 no longer offers them.
-    let mut shape = done(hard.clone());
+    let mut shape = done(hard.clone(), None);
     shape.open.as_mut().unwrap().revealed = true;
     let text = screen(&mut shape, 100, 30, true);
     let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -3495,17 +3549,20 @@ fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
     else {
         unreachable!()
     };
-    let mut shape = done(Shaped::Question {
-        gate: "TEST gate".into(),
-        id,
-        title,
-        ask,
-        found,
-        suggestion: Some("Local.".into()),
-        options,
-        against,
-        hard: false,
-    });
+    let mut shape = done(
+        Shaped::Question {
+            gate: "TEST gate".into(),
+            id,
+            title,
+            ask,
+            found,
+            suggestion: Some("Local.".into()),
+            options,
+            against,
+            hard: false,
+        },
+        None,
+    );
     let text = screen(&mut shape, 100, 30, true);
     assert!(
         text.contains("Option A: Local") && text.contains("Suggestion: Local."),
@@ -3647,25 +3704,25 @@ fn the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model
     let program = temp.path().join("TEST-pi");
     fs::write(&program, "#!/bin/sh\ntouch TEST-MODEL-WAS-CALLED\nexit 1\n").unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
-    let agent = Arc::new(
-        step::Agent::new(
+    let agent = Arc::new(Agent::new(
+        crate::pi::Drafting::new(
             crate::pi::Harness::Pi,
             program,
             "test/stub".into(),
             String::new(),
-            Some(temp.path().into()),
             CallBudget::new(1),
-            None,
         )
         .unwrap(),
-    );
+        Some(temp.path().into()),
+        None,
+    ));
     let session = save();
     let version = answering::read(&session).unwrap().version();
     let running = step::Running::start(
         step::Work::Look {
             feedback: None,
             expected: version,
-            folder: temp.path().into(),
+            reads: std::path::PathBuf::from(temp.path()).into(),
         },
         session.clone(),
         Some(agent.clone()),
@@ -3816,18 +3873,18 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
     )
     .unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
-    let agent = Arc::new(
-        step::Agent::new(
+    let agent = Arc::new(Agent::new(
+        crate::pi::Drafting::new(
             crate::pi::Harness::Pi,
             program,
             "test/stub".into(),
             String::new(),
-            Some(temp.path().into()),
             CallBudget::new(1),
-            None,
         )
         .unwrap(),
-    );
+        Some(temp.path().into()),
+        None,
+    ));
     let step = |work| {
         let running = step::Running::start(
             work,
@@ -3851,7 +3908,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
             words: words.into(),
             relay: None,
             expected: version(),
-            folder: temp.path().into(),
+            reads: std::path::PathBuf::from(temp.path()).into(),
         })
     };
     let current = || match shaping::read(&session).unwrap().stage {
@@ -3872,7 +3929,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
         step(step::Work::Look {
             feedback: None,
             expected: version(),
-            folder: temp.path().into(),
+            reads: std::path::PathBuf::from(temp.path()).into(),
         }),
         asked
     );
@@ -3947,10 +4004,8 @@ fn an_agent_declaration_holds_every_shape_write_and_says_why() {
         ended: false,
     };
     for stage in [question(), Shaped::Waiting, long_draft(), ready] {
-        for mut shape in [
-            done(stage.clone()).with_agent(Some(agent(2))).held(true),
-            done(stage.clone()).held(true).with_agent(Some(agent(2))),
-        ] {
+        {
+            let mut shape = done_as(stage.clone(), Some(agent(2)), true);
             assert!(shape.agent.is_none(), "a held Shape kept its agent");
             assert!(!shape.takes_text(), "a held Shape took words");
             let flat = |text: String| text.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -3986,7 +4041,7 @@ fn an_agent_declaration_holds_every_shape_write_and_says_why() {
 fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
     for (width, height) in [(80, 24), (100, 30)] {
         for no_color in [false, true] {
-            let mut shape = done(long_draft()).with_agent(Some(agent(0)));
+            let mut shape = done(long_draft(), Some(agent(0)));
             let initial = screen(&mut shape, width, height, no_color);
             let bar = initial.lines().last().unwrap();
             assert!(bar.contains("pgup/dn read to end"), "{initial}");
@@ -4070,7 +4125,7 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
                 );
             }
             // Empty words gain their instruction on the first end frame too.
-            let mut empty = done(long_draft()).with_agent(Some(agent(0)));
+            let mut empty = done(long_draft(), Some(agent(0)));
             empty.scroll = u16::MAX;
             let text = screen(&mut empty, width, height, no_color);
             assert!(text.contains("type confirm, then Enter"), "{text}");
@@ -4094,7 +4149,7 @@ fn seed_confirmation_hints_follow_the_current_drafts_reading_gate() {
 #[test]
 fn down_reads_a_draft_to_its_end_while_the_confirm_box_has_the_words() {
     for (width, height) in [(100, 30), (80, 24)] {
-        let mut shape = done(long_draft()).with_agent(Some(agent(0)));
+        let mut shape = done(long_draft(), Some(agent(0)));
         screen(&mut shape, width, height, true);
         shape.paste("confirm");
         let mut text = String::new();
@@ -4124,7 +4179,7 @@ fn down_reads_a_draft_to_its_end_while_the_confirm_box_has_the_words() {
 #[test]
 fn f2_waits_until_the_whole_seed_draft_has_been_on_screen() {
     for (width, height) in [(100, 30), (80, 24)] {
-        let mut shape = done(long_draft()).with_agent(Some(agent(0)));
+        let mut shape = done(long_draft(), Some(agent(0)));
         screen(&mut shape, width, height, true);
         shape.paste("I confirm r1.");
         shape.key(key(KeyCode::F(2)));
@@ -4163,7 +4218,7 @@ fn read_to_end_survives_same_revision_rereads_but_not_a_new_revision() {
     for (width, height) in [(80, 24), (100, 30)] {
         for no_color in [false, true] {
             for change in ["same draft", "changed bytes", "new revision"] {
-                let mut shape = done(long_draft()).with_agent(Some(agent(0)));
+                let mut shape = done(long_draft(), Some(agent(0)));
                 shape.scroll = u16::MAX;
                 screen(&mut shape, width, height, no_color);
                 let changed = change != "same draft";
@@ -4239,11 +4294,13 @@ fn read_to_end_survives_same_revision_rereads_but_not_a_new_revision() {
 
 #[test]
 fn changing_the_words_clears_a_refusal_about_them_and_only_then() {
-    let mut shape = done(Shaped::Drafted {
-        revision: Some("r1".into()),
-        text: Some("TEST seed".into()),
-    })
-    .with_agent(Some(agent(0)));
+    let mut shape = done(
+        Shaped::Drafted {
+            revision: Some("r1".into()),
+            text: Some("TEST seed".into()),
+        },
+        Some(agent(0)),
+    );
     screen(&mut shape, 80, 24, true);
     shape.paste("I confirm\nr1.");
     shape.key(key(KeyCode::F(2)));
@@ -4265,11 +4322,13 @@ fn typing_in_a_teach_back_or_change_box_clears_the_refusal_about_its_empty_words
         ("Revise the draft", CHANGE_FIRST),
     ] {
         let mut shape = reading(
-            done(Shaped::Drafted {
-                revision: Some("r1".into()),
-                text: Some("TEST seed".into()),
-            })
-            .with_agent(Some(agent(1))),
+            done(
+                Shaped::Drafted {
+                    revision: Some("r1".into()),
+                    text: Some("TEST seed".into()),
+                },
+                Some(agent(1)),
+            ),
             dir.path(),
         );
         screen(&mut shape, 80, 24, true);
@@ -4306,7 +4365,7 @@ fn f1_offers_no_answer_action_on_a_read_without_a_ledger_version() {
             ),
             (review.clone(), &["Revise the answer"][..]),
         ] {
-            let mut shape = done(stage).with_agent(Some(agent(1)));
+            let mut shape = done(stage, Some(agent(1)));
             let Reading::Done(Ok(shaping)) = &mut shape.open.as_mut().unwrap().reading else {
                 panic!()
             };
@@ -4331,11 +4390,13 @@ fn a_fresh_read_under_an_open_teach_back_keeps_its_words_on_screen_and_unsent() 
         ("Revise the draft", "your change", "Change"),
     ] {
         let mut shape = reading(
-            done(Shaped::Drafted {
-                revision: Some("r1".into()),
-                text: Some("TEST seed".into()),
-            })
-            .with_agent(Some(agent(1))),
+            done(
+                Shaped::Drafted {
+                    revision: Some("r1".into()),
+                    text: Some("TEST seed".into()),
+                },
+                Some(agent(1)),
+            ),
             dir.path(),
         );
         screen(&mut shape, 80, 24, true);
@@ -4375,7 +4436,7 @@ fn a_fresh_read_under_an_open_teach_back_keeps_its_words_on_screen_and_unsent() 
 #[test]
 fn page_keys_move_about_one_screen_of_reading() {
     for (width, height) in [(80, 24), (100, 30), (160, 40)] {
-        let mut shape = done(long_draft());
+        let mut shape = done(long_draft(), None);
         screen(&mut shape, width, height, true);
         assert!(shape.page > 5, "{width}x{height}: {} rows", shape.page);
         shape.key(key(KeyCode::PageDown));
@@ -4399,7 +4460,12 @@ fn issue_314_captured_goal_names_missing_success_before_any_call() {
     for (width, height) in [(80, 24), (100, 30)] {
         for no_color in [false, true] {
             let host = agent(1);
-            let mut shape = Shape::session(&session).with_agent(Some(host.clone()));
+            let mut shape = Shape::new(
+                Open::Session(&session),
+                Some(host.clone()),
+                &GoalConfirmation::default(),
+                false,
+            );
             shape.open.as_mut().unwrap().reading =
                 Reading::Done(Ok(crate::shape::shaping::read(&session).unwrap()));
             let shown = screen(&mut shape, width, height, no_color);
@@ -4468,16 +4534,23 @@ print('TEST deliberately invalid reply')
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     let budget = CallBudget::new(2);
     let agent = Agent::new(
-        crate::pi::Harness::Pi,
-        program,
-        "test/stub".into(),
-        String::new(),
+        crate::pi::Drafting::new(
+            crate::pi::Harness::Pi,
+            program,
+            "test/stub".into(),
+            String::new(),
+            budget.clone(),
+        )
+        .unwrap(),
         Some(temp.path().into()),
-        budget.clone(),
         None,
-    )
-    .unwrap();
-    let mut shape = Shape::session(&session).with_agent(Some(Arc::new(agent)));
+    );
+    let mut shape = Shape::new(
+        Open::Session(&session),
+        Some(Arc::new(agent)),
+        &GoalConfirmation::default(),
+        false,
+    );
     let ready = |shape: &mut Shape| {
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
@@ -4534,7 +4607,7 @@ print('TEST deliberately invalid reply')
 #[test]
 fn retired_function_keys_do_nothing_and_f1_reaches_every_action() {
     let dir = tempfile::tempdir().unwrap();
-    let mut shape = reading(done(question()).with_agent(Some(agent(1))), dir.path());
+    let mut shape = reading(done(question(), Some(agent(1))), dir.path());
     shape.open.as_mut().unwrap().assumed.push(Assumption {
         text: "TEST default".into(),
         why: "TEST equal".into(),

@@ -461,8 +461,8 @@ impl Panel {
                     input.model
                 ))));
                 lines.push(Line::from("Starting sends these goals and the shown correction to the provider. No tools or external search."));
-                if let Some((_, budget)) = &self.context.call {
-                    lines.push(Line::from(budget.left()));
+                if let Some(drafting) = &self.context.call {
+                    lines.push(Line::from(drafting.budget.left()));
                 }
                 if self.record.as_ref().is_none_or(|r| r.input != *input) && !pending {
                     keys = "F2 find one connection   ↑↓ scroll sources   esc back";
