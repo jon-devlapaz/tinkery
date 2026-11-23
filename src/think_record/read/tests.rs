@@ -653,7 +653,13 @@ fn batch_origins_match_individual_strict_history_attribution() {
         ];
         for (path, goal) in sessions {
             match (read(&root, path, goal), read_for_shape(&root, path, goal)) {
-                (Ok(history), Ok(shape)) => assert_eq!(shape.made_in, history.made_in, "{case}"),
+                (Ok(history), Ok(Some(shape))) => {
+                    assert_eq!(shape.made_in, history.made_in, "{case}")
+                }
+                (Err(history), Ok(None)) => assert_eq!(
+                    history.message, "No Think history was found for this saved goal.",
+                    "{case}"
+                ),
                 (Err(history), Err(shape)) => {
                     assert_eq!(shape.message, history.message, "{case}");
                     assert_eq!(shape.details, history.details, "{case}");
@@ -759,7 +765,7 @@ fn optional_reading_metadata_cannot_invalidate_independent_originals_or_attribut
         "Reading sequence unavailable; saved words remain below."
     );
     assert!(history.details.contains("Tinkery source: unavailable"));
-    let shape = read_for_shape(&root, &session, GOAL).unwrap();
+    let shape = read_for_shape(&root, &session, GOAL).unwrap().unwrap();
     assert_eq!(shape.made_in, MadeIn::NoRepo);
     assert_eq!(shape.answered[0].question, "Why?");
     assert_eq!(shape.answered[0].answer, "  TEST because.\n");
@@ -983,7 +989,7 @@ fn shape_context_keeps_only_exact_submissions_in_one_verified_scan() {
     let record_before = fs::read(&path).unwrap();
     let ledger_before = fs::read(session.join("ledger.json")).unwrap();
     let counts = count_reads(&root);
-    let shape = read_for_shape(&root, &session, GOAL).unwrap();
+    let shape = read_for_shape(&root, &session, GOAL).unwrap().unwrap();
     assert_eq!(counts.totals(), (1, 1));
     assert_eq!(shape.made_in, MadeIn::NoRepo);
     assert_eq!(

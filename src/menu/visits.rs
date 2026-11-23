@@ -106,7 +106,7 @@ pub(super) fn tend(kept: &mut Kept) -> Tend {
         .repo
         .as_ref()
         .map(|repo| repo.root().to_path_buf());
-    let shape_agent = kept.launch.shape_agent.clone();
+    let drafting = kept.launch.drafting.clone();
     let actor = kept.launch.confirmation.clone().tend_save();
     let connect: tend::Connect = Box::new(move || {
         let sessions = sessions
@@ -122,7 +122,7 @@ pub(super) fn tend(kept: &mut Kept) -> Tend {
             records,
             store,
             repo,
-            call: shape_agent.as_ref().map(|agent| agent.drafting()),
+            call: drafting.clone(),
             actor: actor.clone(),
         })
     });
@@ -281,17 +281,10 @@ impl Visit for Shaping {
             && kept.discovery.fresh()
             && let Some(landed) = kept.discovery.landed()
         {
-            let unreadable = landed.outcome.as_ref().map_or(0, |found| found.unreadable);
-            shape.offer(
-                match &landed.outcome {
-                    Ok(found) => Ok(&found.sessions),
-                    Err(error) => Err(error.clone()),
-                },
-                unreadable,
-            );
-            if let Ok(found) = &landed.outcome {
-                shape.offer_failures(&found.failures);
-            }
+            shape.offer(match &landed.outcome {
+                Ok(found) => Ok((&found.sessions, found.unreadable, &found.failures)),
+                Err(error) => Err(error.clone()),
+            });
         }
         Outcome::Stay
     }

@@ -21,7 +21,6 @@ pub use step::Agent;
 pub mod answering;
 mod choices;
 pub mod command;
-mod discovery_help;
 mod forms;
 mod help;
 pub mod shaping;
@@ -32,7 +31,7 @@ use crate::words;
 use crate::seed_me::ledger::{AnswerAction, CheckMethod};
 use crate::{
     Palette,
-    seed_me::{Session, Stage},
+    seed_me::{ReadFailure, Session, Stage},
 };
 use answering::{Assumption, Authority, Ending, OBJECTION, PROBE, SAMPLE, UNOBSERVED};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
@@ -48,7 +47,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, mpsc},
 };
-use step::{CheckEdit, Done, Failure, RetryFeedback, Running, Steps, Why, Work};
+use step::{CheckEdit, Done, Failure, Reads, RetryFeedback, Running, Steps, Why, Work};
 use unicode_width::UnicodeWidthStr;
 use words::Words;
 
@@ -75,8 +74,8 @@ pub struct Shape {
     list: Option<Option<Result<Vec<Session>, String>>>,
     /// Session records discovery could not read; they may hide goals from the list.
     unreadable: usize,
-    failures: Vec<crate::seed_me::ReadFailure>,
-    help_scroll: u16,
+    failures: Vec<ReadFailure>,
+    help_scroll: crate::help::Scroll,
     actions: crate::actions::Page,
     selected: usize,
     open: Option<Opened>,
@@ -190,11 +189,11 @@ impl Notice {
     }
 }
 
-/// Which folder the next step reads: not known until a read with an agent lands, then where
-/// Think says the goal was made, or the operator's pick.
+/// What the next step reads: not known until a read with an agent lands, then where Think
+/// says the goal was made, or the operator's pick, with Think's answers.
 enum Folder {
     Unknown,
-    Known(PathBuf),
+    Known(Reads),
 }
 
 /// A read of the session, with the folder a step would read when there's an agent. Both land
@@ -205,63 +204,50 @@ enum Folder {
 )]
 enum Reading {
     NotStarted,
-    Waiting(mpsc::Receiver<(Result<Shaping, String>, Option<PathBuf>)>),
+    Waiting(mpsc::Receiver<(Result<Shaping, String>, Option<Reads>)>),
     Done(Result<Shaping, String>),
 }
 
+/// Where Shape opens.
+pub enum Open<'a> {
+    /// A list of goals waiting for a seed, pending until [`Shape::offer`].
+    List,
+    /// One session; its first [`Shape::tick`] reads the ledger off the paint path.
+    Session(&'a Path),
+}
+
 impl Shape {
-    /// Shape opened on one session; its first [`Shape::tick`] reads the ledger off the paint
-    /// path, or it says plainly that Shape isn't configured.
-    pub fn session(session: &Path) -> Self {
+    /// Shape for one launch, opened on `open`. `agent` answers, confirms and drafts; without one,
+    /// Shape cannot save answers, confirm seeds or call a model, and ending remains available.
+    /// Every write is attributed with the launch's declared `confirmation`. `held` makes Shape
+    /// only read: answering, confirming and ending are held, say what is missing, and `agent`
+    /// is never used.
+    pub fn new(
+        open: Open<'_>,
+        agent: Option<Arc<Agent>>,
+        confirmation: &GoalConfirmation,
+        held: bool,
+    ) -> Self {
+        let (list, open) = match open {
+            Open::List => (Some(None), None),
+            Open::Session(session) => (None, Some(Opened::start(session, confirmation.clone()))),
+        };
         Self {
-            list: None,
+            list,
             unreadable: 0,
             failures: Vec::new(),
-            help_scroll: 0,
+            help_scroll: crate::help::Scroll::default(),
             actions: crate::actions::Page::default(),
             selected: 0,
-            open: Some(Opened::start(session, GoalConfirmation::default())),
+            open,
             scroll: 0,
             page: 1,
-            agent: None,
-            held: false,
-            confirmation: GoalConfirmation::default(),
+            agent: agent.filter(|_| !held),
+            held,
+            confirmation: confirmation.clone(),
             model: false,
             approve: None,
         }
-    }
-
-    /// The same Shape, able to answer and confirm through `agent`. Without one, it cannot save
-    /// answers, confirm seeds or call a model; ending remains available.
-    pub fn with_agent(mut self, agent: Option<Arc<Agent>>) -> Self {
-        self.agent = agent.filter(|_| !self.held);
-        self
-    }
-
-    /// The same Shape for one launch: `agent` drafts, and every write is attributed with the
-    /// launch's declared `confirmation`. An agent operator without a drafting agent only reads.
-    pub(crate) fn launched(
-        mut self,
-        agent: Option<Arc<Agent>>,
-        confirmation: &GoalConfirmation,
-        agent_operator: bool,
-    ) -> Self {
-        self.confirmation = confirmation.clone();
-        if let Some(open) = &mut self.open {
-            open.confirmation = confirmation.clone();
-        }
-        self.held(agent_operator && agent.is_none())
-            .with_agent(agent)
-    }
-
-    /// The same Shape held to reading: answering, confirming and ending are held, and explain
-    /// what is missing.
-    fn held(mut self, held: bool) -> Self {
-        self.held = held;
-        if held {
-            self.agent = None;
-        }
-        self
     }
 
     /// Whether F1's Model and responses row was picked since the last ask. Asking clears it.
@@ -301,39 +287,30 @@ impl Shape {
         }
     }
 
-    /// Shape opened from the menu: a list of goals waiting for a seed, pending until [`Shape::offer`].
-    pub fn list() -> Self {
-        Self {
-            list: Some(None),
-            unreadable: 0,
-            failures: Vec::new(),
-            help_scroll: 0,
-            actions: crate::actions::Page::default(),
-            selected: 0,
-            open: None,
-            scroll: 0,
-            page: 1,
-            agent: None,
-            held: false,
-            confirmation: GoalConfirmation::default(),
-            model: false,
-            approve: None,
-        }
-    }
-
     /// Whether the list still waits on a read of the sessions.
     pub fn wants_sessions(&self) -> bool {
         matches!(self.list, Some(None))
     }
 
-    /// Supply readable sessions and the count of unreadable records, or the root failure.
-    /// Only goals waiting for a seed are listed. Failed reads discard any earlier count.
-    pub fn offer(&mut self, read: Result<&[Session], String>, unreadable: usize) {
+    /// Supply one discovery read: its readable sessions, the count of unreadable records and
+    /// their path and reason samples, or the root failure. Only goals waiting for a seed are
+    /// listed, and F1 keeps at most `MAX_READ_FAILURES` samples. A failed read discards any
+    /// earlier count and samples.
+    pub fn offer(&mut self, read: Result<(&[Session], usize, &[ReadFailure]), String>) {
         if self.list.is_some() {
-            self.failures.clear();
-            self.help_scroll = 0;
-            self.unreadable = if read.is_ok() { unreadable } else { 0 };
-            let listed: Result<Vec<Session>, String> = read.map(|sessions| {
+            self.help_scroll.reset();
+            (self.unreadable, self.failures) = match &read {
+                Ok((_, unreadable, failures)) => (
+                    *unreadable,
+                    failures
+                        .iter()
+                        .take(crate::seed_me::MAX_READ_FAILURES.min(*unreadable))
+                        .cloned()
+                        .collect(),
+                ),
+                Err(_) => (0, Vec::new()),
+            };
+            let listed: Result<Vec<Session>, String> = read.map(|(sessions, ..)| {
                 sessions
                     .iter()
                     .filter(|s| matches!(s.stage, Stage::GoalSaved | Stage::SeedDrafted))
@@ -469,18 +446,23 @@ impl Shape {
             && let Reading::Waiting(receiver) = &open.reading
         {
             match receiver.try_recv() {
-                Ok((result, folder)) => {
+                Ok((result, reads)) => {
                     if result.as_ref().ok().map(|read| &read.stage) != open.read_end.as_ref() {
                         open.read_end = None;
                     }
                     open.reading = Reading::Done(result);
-                    if let (Folder::Unknown, Some(folder)) = (&open.folder, folder) {
-                        open.folder = Folder::Known(folder);
+                    // The operator's folder stays; Think's answers are as of this read.
+                    match (&mut open.folder, reads) {
+                        (Folder::Unknown, Some(reads)) => open.folder = Folder::Known(reads),
+                        (Folder::Known(known), Some(reads)) => {
+                            *known = reads.reading(known.folder.clone());
+                        }
+                        (_, None) => {}
                     }
                     if !matches!((&open.reading, &open.folder),
                         (Reading::Done(Ok(Shaping { stage: Shaped::Waiting, version: Some(version), .. })),
-                            Folder::Known(folder)) if open.feedback.as_ref().is_some_and(|feedback|
-                                feedback.applies(&open.session, *version, folder)))
+                            Folder::Known(reads)) if open.feedback.as_ref().is_some_and(|feedback|
+                                feedback.applies(&open.session, *version, &reads.folder)))
                     {
                         open.feedback = None;
                     }
@@ -686,7 +668,7 @@ impl Shape {
                     self.list = Some(None);
                     self.unreadable = 0;
                     self.failures.clear();
-                    self.help_scroll = 0;
+                    self.help_scroll.reset();
                     self.scroll = 0;
                 }
                 KeyCode::Esc => return Leave::Back,
@@ -835,19 +817,7 @@ impl Shape {
             .into(),
             None,
         ));
-        let join = |gap: &str, short: bool| {
-            keys.iter()
-                .map(|(full, brief)| match brief {
-                    Some(brief) if short => *brief,
-                    _ => full.as_str(),
-                })
-                .collect::<Vec<_>>()
-                .join(gap)
-        };
-        [join("   ", false), join("  ", false)]
-            .into_iter()
-            .find(|bar| bar.width() <= width as usize)
-            .unwrap_or_else(|| join("  ", true))
+        crate::help::fit(&keys, width)
     }
 
     fn render_list(&self, frame: &mut Frame, mut area: Rect, palette: Palette) {
@@ -1193,10 +1163,12 @@ impl Opened {
         };
         match folder(typed).or_else(|| folder(typed.trim())) {
             Some(folder) => {
-                if !matches!(&self.folder, Folder::Known(previous) if previous == &folder) {
-                    self.feedback = None;
-                }
-                self.folder = Folder::Known(folder);
+                self.folder = match &self.folder {
+                    Folder::Known(previous) if previous.folder == folder => return None,
+                    Folder::Known(previous) => Folder::Known(previous.reading(folder)),
+                    Folder::Unknown => Folder::Known(Reads::from(folder)),
+                };
+                self.feedback = None;
                 None
             }
             None => Some(Notice::said(format!(
@@ -1208,7 +1180,7 @@ impl Opened {
 
     /// The name of the folder the next step reads, once known.
     fn folder_name(&self) -> Option<String> {
-        let Folder::Known(folder) = &self.folder else {
+        let Folder::Known(Reads { folder, .. }) = &self.folder else {
             return None;
         };
         Some(folder.file_name().map_or_else(
@@ -1227,10 +1199,12 @@ impl Opened {
         .text()
         .to_owned();
         let folder = match &self.folder {
-            Folder::Known(folder) => Some(folder.clone()),
+            Folder::Known(reads) => Some(reads.clone()),
             _ => None,
         };
-        let path = folder.clone().unwrap_or_default();
+        let path = folder
+            .clone()
+            .unwrap_or_else(|| Reads::from(PathBuf::new()));
         let mut work = match act {
             Act::RepairCheck(edit) => Work::RepairCheck { edit, words },
             Act::Respond {
@@ -1250,7 +1224,7 @@ impl Opened {
                 id,
                 expected,
                 action,
-                folder: path,
+                reads: path,
             },
             Act::Keep { id } => match self.version() {
                 Some(expected) => Work::Keep {
@@ -1269,7 +1243,7 @@ impl Opened {
                 id,
                 words,
                 expected,
-                folder: path,
+                reads: path,
             },
             Act::TeachBack {
                 revision,
@@ -1285,12 +1259,12 @@ impl Opened {
                 revision,
                 words,
                 expected,
-                folder: path,
+                reads: path,
             },
             Act::Look(expected) => Work::Look {
                 expected,
                 feedback: None,
-                folder: path,
+                reads: path,
             },
             Act::Confirm {
                 revision,
@@ -1331,11 +1305,11 @@ impl Opened {
         let feedback = self.feedback.take();
         if let Work::Look {
             expected,
-            folder,
+            reads,
             feedback: slot,
         } = &mut work
         {
-            *slot = feedback.filter(|f| f.applies(&self.session, *expected, folder));
+            *slot = feedback.filter(|f| f.applies(&self.session, *expected, &reads.folder));
         }
         if work.calls_model() || matches!(work, Work::Confirm { .. }) {
             let running = Running::start(
@@ -1357,20 +1331,20 @@ impl Opened {
         {
             let session = self.session.clone();
             std::thread::spawn(move || {
-                let (read, folder) = match shaping::read_with_base(&session) {
+                let (read, reads) = match shaping::read_with_base(&session) {
                     Ok((read, base)) => {
-                        match Steps::new(agent.as_deref(), &GoalConfirmation::default()).folder(
+                        match Steps::new(agent.as_deref(), &GoalConfirmation::default()).reads(
                             &session,
                             read.goal.as_deref(),
                             base.map(|base| base.checkout),
                         ) {
-                            Ok(folder) => (Ok(read), folder),
+                            Ok(reads) => (Ok(read), reads),
                             Err(why) => (Err(why), None),
                         }
                     }
                     Err(why) => (Err(why), None),
                 };
-                let _ = sender.send((read, folder));
+                let _ = sender.send((read, reads));
             });
         }
         self.reading = Reading::Waiting(receiver);
@@ -1763,11 +1737,15 @@ fn compose(open: &Opened, drafting: Option<&Agent>, held: bool, palette: Palette
         },
         _ => Stand {
             acts,
-            reads: (agent && open.offers_step()).then(|| match &name {
-                Some(name) => {
-                    format!("The step reads files in {name}. F1 picks another folder.")
+            reads: (agent && open.offers_step()).then(|| match (&name, &open.folder) {
+                (Some(name), Folder::Known(reads)) => {
+                    let unread = reads
+                        .unread()
+                        .map(|why| format!(" {why}"))
+                        .unwrap_or_default();
+                    format!("The step reads files in {name}. F1 picks another folder.{unread}")
                 }
-                None => "Finding which folder the step reads.".into(),
+                _ => "Finding which folder the step reads.".into(),
             }),
             words,
             act,

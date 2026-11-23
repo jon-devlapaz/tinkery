@@ -275,6 +275,46 @@ impl CallBudget {
     }
 }
 
+/// One launch's model transport: a call with a checked model and thinking level, and the
+/// response allowance every request through it counts against. Clones share the allowance. It
+/// knows no phase: each caller sets the folder and tools of its own request.
+#[derive(Clone, Debug)]
+pub struct Drafting {
+    /// The configured call; it starts in no folder and gives read-only tools.
+    pub call: Call,
+    /// The launch's allowance.
+    pub budget: Arc<CallBudget>,
+}
+
+impl Drafting {
+    /// `harness` at `program` with `model` and `thinking` (empty for its default), counted against
+    /// `budget`. Refuses a model or thinking level the harness does not accept. Starts nothing.
+    pub fn new(
+        harness: Harness,
+        program: PathBuf,
+        model: String,
+        thinking: String,
+        budget: Arc<CallBudget>,
+    ) -> Result<Self, String> {
+        harness.check_model(&model)?;
+        if !thinking.is_empty() {
+            harness.check_thinking(&thinking)?;
+        }
+        Ok(Self {
+            call: Call {
+                harness,
+                program,
+                model,
+                thinking,
+                read_only_tools: true,
+                folder: None,
+                timeout: Duration::from_secs(300),
+            },
+            budget,
+        })
+    }
+}
+
 /// How to start a host: which one, the executable, an explicit model, a thinking level (empty
 /// leaves the host's default), whether the model may read files, where it starts, and how long it
 /// may take.

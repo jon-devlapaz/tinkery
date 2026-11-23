@@ -14,10 +14,10 @@ use std::{
 };
 use tinkery::{
     Palette,
-    confirmation::Actor,
+    confirmation::{Actor, GoalConfirmation},
     pi::CallBudget,
     seed_me::ledger::{self, Value},
-    shape::{Agent, Shape},
+    shape::{Agent, Open, Shape},
 };
 
 const STAMP: &str = "2026-10-25T00:00:00+00:00";
@@ -110,16 +110,23 @@ fn screen(shape: &mut Shape, width: u16, height: u16, body_height: u16) -> Strin
 
 fn opened(session: &Path) -> Shape {
     let agent = Agent::new(
-        tinkery::pi::Harness::Pi,
-        PathBuf::from("/tinkery-TEST-no-provider"),
-        "TEST/fake".into(),
-        String::new(),
+        tinkery::pi::Drafting::new(
+            tinkery::pi::Harness::Pi,
+            PathBuf::from("/tinkery-TEST-no-provider"),
+            "TEST/fake".into(),
+            String::new(),
+            CallBudget::new(0),
+        )
+        .unwrap(),
         Some(session.into()),
-        CallBudget::new(0),
         None,
-    )
-    .unwrap();
-    let mut shape = Shape::session(session).with_agent(Some(Arc::new(agent)));
+    );
+    let mut shape = Shape::new(
+        Open::Session(session),
+        Some(Arc::new(agent)),
+        &GoalConfirmation::default(),
+        false,
+    );
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
         shape.tick();

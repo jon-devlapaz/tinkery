@@ -1,6 +1,7 @@
 //! Reply transport tests; semantic fact rules remain in the shared ledger.
 
 use super::*;
+use crate::pi::{CallBudget, Harness};
 
 /// One step through the screen's controller, as its keys start it.
 fn run(
@@ -229,20 +230,22 @@ print(json.dumps(reply))
 "##, reply = reply.to_string())).unwrap();
     fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
     let agent = Agent::new(
-        crate::pi::Harness::Pi,
-        program,
-        "test/stub".into(),
-        String::new(),
+        crate::pi::Drafting::new(
+            crate::pi::Harness::Pi,
+            program,
+            "test/stub".into(),
+            String::new(),
+            CallBudget::new(1),
+        )
+        .unwrap(),
         Some(root.path().into()),
-        CallBudget::new(1),
         None,
-    )
-    .unwrap();
+    );
     let result = run(
         &Work::Look {
             feedback: None,
             expected: version,
-            folder: root.path().into(),
+            reads: std::path::PathBuf::from(root.path()).into(),
         },
         &session,
         &agent,
@@ -283,20 +286,22 @@ fn zero_budget_refuses_revision_before_reading_or_publishing() {
     let ledger = root.path().join("ledger.json");
     std::fs::write(&ledger, "TEST untouched ledger").unwrap();
     let agent = Agent::new(
-        crate::pi::Harness::Pi,
-        root.path().join("TEST-never-run"),
-        "test/model".into(),
-        String::new(),
+        crate::pi::Drafting::new(
+            crate::pi::Harness::Pi,
+            root.path().join("TEST-never-run"),
+            "test/model".into(),
+            String::new(),
+            CallBudget::new(0),
+        )
+        .unwrap(),
         Some(root.path().into()),
-        CallBudget::new(0),
         None,
-    )
-    .unwrap();
+    );
     let work = Work::Respond {
         id: "TEST-choice".into(),
         expected: 1,
         action: crate::seed_me::ledger::AnswerAction::Revise("TEST replacement".into()),
-        folder: root.path().into(),
+        reads: std::path::PathBuf::from(root.path()).into(),
     };
     let saved = AtomicBool::new(false);
     assert_eq!(
@@ -323,15 +328,17 @@ fn teach_back_zero_budget_refuses_before_capture_or_any_read() {
     let path = root.path().join("ledger.json");
     std::fs::write(&path, "TEST untouched").unwrap();
     let agent = Agent::new(
-        crate::pi::Harness::Pi,
-        root.path().join("TEST-never-run"),
-        "test/model".into(),
-        String::new(),
+        crate::pi::Drafting::new(
+            crate::pi::Harness::Pi,
+            root.path().join("TEST-never-run"),
+            "test/model".into(),
+            String::new(),
+            CallBudget::new(0),
+        )
+        .unwrap(),
         Some(root.path().into()),
-        CallBudget::new(0),
         None,
-    )
-    .unwrap();
+    );
     let work = Work::TeachBack {
         revision: "r1".into(),
         words: "TEST exact words\r\n".into(),
@@ -502,17 +509,19 @@ fn verified_think_origin_selects_the_same_folder_or_existing_fallback() {
     )
     .unwrap();
     let original = std::fs::read(&record).unwrap();
-    let agent = Agent::new(
-        Harness::Pi,
-        root.path().join("TEST-never-run"),
-        "TEST/model".into(),
-        String::new(),
+    let agent = std::sync::Arc::new(Agent::new(
+        crate::pi::Drafting::new(
+            Harness::Pi,
+            root.path().join("TEST-never-run"),
+            "TEST/model".into(),
+            String::new(),
+            CallBudget::new(0),
+        )
+        .unwrap(),
         Some(fallback.clone()),
-        CallBudget::new(0),
         Some(records),
-    )
-    .unwrap();
-    assert_eq!(agent.folder(&session, goal).unwrap(), repo);
+    ));
+    assert_eq!(agent.reads(&session, goal).unwrap().folder, repo);
     for variant in ["no repo", "old schema", "wrong goal", "missing"] {
         let mut value: Value = serde_json::from_slice(&original).unwrap();
         match variant {
@@ -530,9 +539,82 @@ fn verified_think_origin_selects_the_same_folder_or_existing_fallback() {
         if variant != "missing" {
             std::fs::write(&record, serde_json::to_vec(&value).unwrap()).unwrap();
         }
-        assert_eq!(agent.folder(&session, goal).unwrap(), fallback, "{variant}");
+        let reads = agent.reads(&session, goal).unwrap();
+        assert_eq!(reads.folder, fallback, "{variant}");
+        // A record that exists but disagrees is reported, not silently dropped.
+        let unread = (variant == "wrong goal").then(|| {
+            "Think history disagrees with the saved goal. The step sends no Think answers.".into()
+        });
+        assert_eq!(reads.unread(), unread, "{variant}");
+        if variant == "wrong goal" {
+            let shown = shown_once_read(&session, agent.clone());
+            assert!(
+                shown.contains(
+                    "The step reads files in TEST-fallback. F1 picks another folder. Think \
+                     history disagrees with the saved goal. The step sends no Think answers."
+                ),
+                "{shown}"
+            );
+        }
         std::fs::write(&record, &original).unwrap();
     }
+    // A records folder that does not exist yet holds no record, so nothing is said (#997).
+    let absent = root.path().join("TEST-absent-records");
+    let fresh = std::sync::Arc::new(Agent::new(
+        crate::pi::Drafting::new(
+            Harness::Pi,
+            root.path().join("TEST-never-run"),
+            "TEST/model".into(),
+            String::new(),
+            CallBudget::new(0),
+        )
+        .unwrap(),
+        Some(fallback.clone()),
+        Some(absent.clone()),
+    ));
+    assert_eq!(fresh.reads(&session, goal).unwrap().unread(), None);
+    let shown = shown_once_read(&session, fresh);
+    assert!(
+        shown.contains("The step reads files in TEST-fallback. F1 picks another folder.")
+            && !shown.contains("Think history")
+            && !shown.contains("sends no Think answers"),
+        "{shown}"
+    );
+    assert!(!absent.exists());
     assert_eq!(agent.remaining(), 0);
     assert!(!root.path().join("TEST-never-run").exists());
+}
+
+/// Shape's screen on `session` once its read lands, flattened to single spaces.
+fn shown_once_read(session: &Path, agent: std::sync::Arc<Agent>) -> String {
+    use ratatui::{Terminal, backend::TestBackend, layout::Rect};
+    let mut shape = crate::shape::Shape::new(
+        crate::shape::Open::Session(session),
+        Some(agent),
+        &GoalConfirmation::default(),
+        false,
+    );
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        shape.tick();
+        let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+        terminal
+            .draw(|frame| shape.render(frame, Rect::new(0, 0, 100, 30), crate::Palette::new(true)))
+            .unwrap();
+        let buffer = terminal.backend().buffer();
+        let text = (0..30)
+            .map(|y| {
+                (0..100)
+                    .map(|x| buffer[(x, y)].symbol())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        if flat.contains("The step reads files in") {
+            return flat;
+        }
+        assert!(Instant::now() < deadline, "the read never landed: {flat}");
+        std::thread::sleep(Duration::from_millis(5));
+    }
 }

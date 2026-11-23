@@ -15,7 +15,7 @@ use crate::{
     confirmation::GoalConfirmation,
     data_roots::DataRoots,
     model_setup::{self, Controls, Setup},
-    pi::{CallBudget, Harness},
+    pi::{CallBudget, Drafting, Harness},
     repo::Repo,
     shape::Agent,
     think::brain_dump::{BrainDump, ModelHost},
@@ -363,6 +363,8 @@ pub struct Launch {
     pub(crate) default_sessions: bool,
     /// The repository Tinkery was started in, found by looking for `.git`.
     pub(crate) repo: Option<Repo>,
+    /// The launch's model transport and allowance, which Shape and Tend's connections share.
+    pub(crate) drafting: Option<Drafting>,
     /// The model Shape answers and drafts through; without one, Shape only reads.
     pub(crate) shape_agent: Option<Arc<Agent>>,
     pub(crate) think: ThinkConfig,
@@ -393,6 +395,7 @@ impl Launch {
             roots,
             default_sessions: false,
             repo: None,
+            drafting: None,
             shape_agent: None,
             sdlc_root: None,
             codex_report: None,
@@ -519,26 +522,30 @@ impl Launch {
             .and_then(|dir| Repo::enclosing(&dir));
         // Shape's agent step reads files where the goal was made, else in the named SDLC
         // checkout's repository, else where Tinkery started.
-        let shape_agent = launch
+        let drafting = launch
             .as_ref()
             .map(|launch| {
-                Agent::new(
+                Drafting::new(
                     launch.harness(),
                     program,
                     launch.model().into(),
                     launch.thinking().into(),
-                    sdlc_root
-                        .as_deref()
-                        .and_then(Repo::enclosing)
-                        .or_else(|| repo.clone())
-                        .map(|r| r.root().to_path_buf())
-                        .or_else(|| std::env::current_dir().ok()),
                     call_budget,
-                    roots.records.clone().ok(),
                 )
-                .map(Arc::new)
             })
             .transpose()?;
+        let shape_agent = drafting.clone().map(|drafting| {
+            Arc::new(Agent::new(
+                drafting,
+                sdlc_root
+                    .as_deref()
+                    .and_then(Repo::enclosing)
+                    .or_else(|| repo.clone())
+                    .map(|r| r.root().to_path_buf())
+                    .or_else(|| std::env::current_dir().ok()),
+                roots.records.clone().ok(),
+            ))
+        });
         let worker = match (worker_model, worker_responses) {
             (None, 0) => None,
             (model, responses) => {
@@ -566,6 +573,7 @@ impl Launch {
             roots,
             default_sessions,
             repo,
+            drafting,
             shape_agent,
             think,
             sdlc_root,

@@ -1025,7 +1025,10 @@ Delegation (#239), deferral (#240) and typed findings (#241) are shipped through
 - Before Enter is offered, the session read finds the folder: recorded Think repo,
   else the repository enclosing `--sdlc-root` when one is named (#467), else launch repo,
   else launch folder. Show `The step reads files in NAME. F1 picks
-  another folder.` above words; F1 has the path. F1's **Choose the folder** opens `Folder:` with the current
+  another folder.` above words; F1 has the path. The same read takes the questions Think's
+  record says the operator answered, once. With no record, none are sent. A record that
+  exists but cannot be attributed sends none, and the line adds its reason and
+  `The step sends no Think answers.`; `seed step` prints the same sentence. F1's **Choose the folder** opens `Folder:` with the current
   path. Ctrl+J inserts newline; Enter accepts an existing absolute folder or `~/…`.
   Try exact bytes first, including breaks and trailing whitespace; only if absent,
   try trimming surrounding whitespace. Esc keeps the previous choice; missing folders are refused. Selection lasts only this Shape visit, writes nowhere; step receipts name it.

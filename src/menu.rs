@@ -20,7 +20,7 @@ use crate::{
     data_roots::DataRoots,
     launch::Launch,
     measure, sdlc, seed_me,
-    shape::Shape,
+    shape::{self, Shape},
     taste::Taste,
     tend::{self, Discovery, Source, Tend},
     think::brain_dump::{self, BrainDump},
@@ -169,13 +169,15 @@ impl Kept {
         }
     }
 
-    /// `shape` for this launch: its drafting agent, its hold and its attribution.
-    fn shape(&self, shape: Shape) -> Shape {
+    /// Shape on `open` for this launch: its drafting agent, its attribution, and its hold: an
+    /// agent operator without a drafting agent only reads.
+    fn shape(&self, open: shape::Open<'_>) -> Shape {
         let launch = &self.launch;
-        shape.launched(
+        Shape::new(
+            open,
             launch.shape_agent.clone(),
             &launch.confirmation,
-            launch.agent,
+            launch.agent && launch.shape_agent.is_none(),
         )
     }
 
@@ -372,7 +374,7 @@ impl Home {
             Place::Tend => Box::new(visits::tend(kept)),
             Place::Shape => {
                 kept.request_sessions();
-                let mut shaping = visits::Shaping::new(kept.shape(Shape::list()));
+                let mut shaping = visits::Shaping::new(kept.shape(shape::Open::List));
                 shaping.poll(kept, Instant::now());
                 Box::new(shaping)
             }
@@ -477,14 +479,14 @@ impl Home {
             }
             Open::TendSession(path) => self.open_tend_session(&path),
             Open::Shape(path) => {
-                let shape = kept.shape(Shape::session(&path));
+                let shape = kept.shape(shape::Open::Session(&path));
                 let visit = visits::Shaping::new(shape);
                 self.push(Box::new(visit), None);
             }
             Open::Saved(path) => {
                 self.clear();
                 let kept = &mut self.kept;
-                let shape = kept.shape(Shape::session(&path));
+                let shape = kept.shape(shape::Open::Session(&path));
                 kept.request_sessions();
                 let visit = visits::Shaping::new(shape);
                 self.push(Box::new(visit), None);
