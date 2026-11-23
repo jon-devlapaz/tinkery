@@ -38,20 +38,21 @@ pub use checks::{checks_block, read_checks, readable_acceptance, validate_checks
 pub(crate) use seed::status_from_ledger;
 pub use seed::{decisions_block, seed_summary, status, verify_handoff};
 pub use storage::{
-    PublishError, SaveState, confirm_as, confirm_displayed_as, confirm_seed,
+    PublishError, PublishKind, SaveState, confirm_as, confirm_displayed_as, confirm_seed,
     confirm_with_teach_back, end, initialize, publish, record_teach_back, respond, revalidate,
     set_checks,
 };
 pub(crate) use storage::{initialize_at, initialize_for, repair_check, save_draft};
-mod python;
+mod text;
 mod value;
 pub use value::Value;
 
-use python::text;
 use std::{
     collections::{BTreeSet, VecDeque},
     path::Path,
 };
+use text::text;
+pub(crate) use text::whitespace;
 use value::{array, int, object};
 
 const STALE_VERSION: &str = "stale publication version";
@@ -148,14 +149,14 @@ pub fn validate_receipt(receipt: &Value) -> Result<()> {
         "invalid receipt: checked, at, and observed are required; check and artifact are optional; all non-blank strings",
     )?;
     require(
-        python::timestamp(receipt["at"].string().unwrap()),
+        text::timestamp(receipt["at"].string().unwrap()),
         "invalid receipt time: an ISO 8601 timestamp with a UTC offset",
     )?;
     require(
         !receipt
             .fields()
             .iter()
-            .any(|(_, v)| python::secret(v.string().unwrap())),
+            .any(|(_, v)| text::secret(v.string().unwrap())),
         "receipt appears to contain a secret: record where it lives, never its value",
     )
 }
@@ -615,7 +616,7 @@ fn visit(
 /// Read exact ledger bytes from an opened regular file without waiting for a FIFO writer.
 /// Symlinks to regular files remain readable; the bytes are never normalized or rewritten.
 pub(super) fn read_bytes(directory: &Path) -> std::io::Result<Vec<u8>> {
-    super::read_regular(&directory.join("ledger.json"), "ledger")
+    super::read_regular(&directory.join(super::files::LEDGER), "ledger")
 }
 
 /// Read today's regular ledger without rewriting it. Unknown schemas, inconsistent frontiers and

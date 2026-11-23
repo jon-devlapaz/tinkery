@@ -93,7 +93,7 @@ impl ExitReceipt {
                 let mut text = receipt.text();
                 text.push_str(&format!(
                     "\nSaved ledger: {}",
-                    receipt.session.join("ledger.json").display()
+                    receipt.session.join(super::files::LEDGER).display()
                 ));
                 if let Some(line) = record {
                     text.push_str(&format!("\n{line}"));
@@ -211,7 +211,7 @@ impl Config {
         {
             return Err("Session is not active for this actor; nothing overwritten.".into());
         }
-        if session.join("seed-contract.md").exists() {
+        if session.join(super::files::SEED).exists() {
             return Err("A Tink Contract already exists; reopen this session in Shape.".into());
         }
         if current["origin"] == super::ledger::Value::Null {

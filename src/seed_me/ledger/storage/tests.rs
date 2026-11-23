@@ -34,7 +34,7 @@ fn reviews_check_the_displayed_version_under_the_writer_lock() {
             Actor::OPERATOR
         )
         .unwrap_err()
-        .reason,
+        .to_string(),
         "session already has a writer"
     );
     drop(writer);
@@ -58,7 +58,7 @@ fn reviews_check_the_displayed_version_under_the_writer_lock() {
             Actor::OPERATOR
         )
         .unwrap_err()
-        .reason,
+        .to_string(),
         "stale publication version"
     );
     assert_eq!(fs::read(root.path().join("ledger.json")).unwrap(), before);
@@ -78,7 +78,7 @@ fn one_writer_blocks_another_and_releases_after_drop() {
             STAMP
         )
         .unwrap_err()
-        .reason,
+        .to_string(),
         "session already has a writer"
     );
     assert_eq!(load(root.path()).unwrap(), ledger);
@@ -106,21 +106,21 @@ fn draft_saves_share_the_lock_and_refuse_stale_or_replaced_inputs_before_writes(
         "session already has a writer"
     );
     drop(writer);
-    assert!(!root.path().join(super::super::checks::FILE).exists());
+    assert!(!root.path().join(super::files::CHECKS).exists());
     assert_eq!(
         save_draft(root.path(), 1, None, &records, draft).unwrap_err(),
         "stale publication version"
     );
-    assert!(!root.path().join(super::super::checks::FILE).exists());
+    assert!(!root.path().join(super::files::CHECKS).exists());
     save_draft(root.path(), 0, None, &records, draft).unwrap();
-    let checks = fs::read(root.path().join(super::super::checks::FILE)).unwrap();
+    let checks = fs::read(root.path().join(super::files::CHECKS)).unwrap();
     assert!(
         save_draft(root.path(), 0, None, &records, draft)
             .unwrap_err()
             .contains("Tink Contract changed")
     );
     fs::write(
-        root.path().join(super::super::seed::FILE),
+        root.path().join(crate::seed_me::files::SEED),
         "status: confirmed for intake\nTEST",
     )
     .unwrap();
@@ -136,7 +136,7 @@ fn draft_saves_share_the_lock_and_refuse_stale_or_replaced_inputs_before_writes(
         .contains("never replace")
     );
     assert_eq!(
-        fs::read(root.path().join(super::super::checks::FILE)).unwrap(),
+        fs::read(root.path().join(super::files::CHECKS)).unwrap(),
         checks
     );
 }
@@ -216,7 +216,7 @@ fn failed_writes_report_not_saved_or_unknown_from_read_back() {
             }
         );
         assert_eq!(
-            failed.reason,
+            failed.to_string(),
             format!(
                 "could not save the ledger: {}",
                 io::Error::from_raw_os_error(libc::EACCES)
@@ -257,7 +257,7 @@ fn successful_write_with_unreadable_read_back_never_claims_saved() {
     .unwrap_err();
     assert_eq!(failed.save_state, SaveState::Unknown);
     assert_eq!(
-        failed.reason,
+        failed.to_string(),
         "could not save the ledger: TEST unreadable after rename"
     );
 }
@@ -280,11 +280,11 @@ fn serialization_refusal_precedes_io_without_a_save_failure_prefix() {
         STAMP,
     )
     .unwrap_err();
-    assert!(!failed.reason.is_empty());
+    assert!(!failed.to_string().is_empty());
     assert!(
-        !failed.reason.starts_with("could not save the ledger:"),
+        !failed.to_string().starts_with("could not save the ledger:"),
         "{}",
-        failed.reason
+        failed.to_string()
     );
     assert_eq!(failed.save_state, SaveState::NotSaved);
     assert_eq!(fs::read_to_string(path).unwrap(), raw);
@@ -334,4 +334,21 @@ fn atomic_replace_is_private_and_leaves_no_temporary_file_and_noop_keeps_bytes()
         fs::metadata(path).unwrap().permissions().mode() & 0o777,
         0o640
     );
+}
+
+#[test]
+fn an_answer_action_names_a_busy_writer_instead_of_folder_permissions() {
+    let (root, _, _) = fixture();
+    let _writer = Writer::acquire(root.path()).unwrap();
+    let error = respond(
+        root.path(),
+        0,
+        "TEST",
+        &super::super::AnswerAction::Delegate,
+        STAMP,
+        Actor::OPERATOR,
+    )
+    .unwrap_err();
+    assert_eq!(error.kind, PublishKind::Busy);
+    assert_eq!(error.to_string(), "session already has a writer");
 }
