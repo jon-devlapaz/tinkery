@@ -1,5 +1,6 @@
 //! Saved-history navigation stays inside the selected goal and never copies under an overlay.
 
+use super::menu_tests::at;
 use super::*;
 use crate::data_roots::DataRoots;
 use crate::think_record::{self, Event, Origin, Session as RecordSession, Turn};
@@ -101,10 +102,7 @@ fn history_is_deliberate_and_help_copy_and_exit_keep_the_same_goal() {
     press(&mut home, KeyCode::Char('l'));
     press(&mut home, KeyCode::Enter);
     assert_eq!(rendered(&mut home), history);
-    assert!(
-        matches!(home.view, View::Tend(_)),
-        "History must stay in Tend"
-    );
+    assert!(at(&mut home) == "tend", "History must stay in Tend");
     press(&mut home, KeyCode::F(1));
     press(&mut home, KeyCode::Char('h'));
     assert!(rendered(&mut home).contains("How it works"));
@@ -123,7 +121,7 @@ fn history_is_deliberate_and_help_copy_and_exit_keep_the_same_goal() {
     press(&mut home, KeyCode::Char('r'));
     press(&mut home, KeyCode::F(10));
     home.tick();
-    assert!(matches!(home.view, View::Menu));
+    assert!(at(&mut home) == "menu");
     assert!(!home.quit);
 }
 

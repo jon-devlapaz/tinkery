@@ -1,5 +1,6 @@
 //! Measure's no-repo state, help ownership and quit routes; no implicit external reads.
 
+use super::menu_tests::at;
 use super::*;
 use crate::data_roots::DataRoots;
 
@@ -70,7 +71,7 @@ fn measure_help_closes_and_q_returns_to_a_closed_help_menu() {
             assert!(!text.contains("q quits"), "{text}");
         }
         press(&mut h, KeyCode::Char('q'));
-        assert!(!h.quit && !h.help && matches!(h.view, View::Menu));
+        assert!(!h.quit && !h.help && at(&mut h) == "menu");
         assert!(
             snapshot(80, 24, &mut h, true)
                 .unwrap()
@@ -86,7 +87,7 @@ fn measure_help_closes_and_q_returns_to_a_closed_help_menu() {
             .contains("No launch repository.")
     );
     press(&mut h, KeyCode::Esc);
-    assert!(!h.quit && !h.help && matches!(h.view, View::Menu));
+    assert!(!h.quit && !h.help && at(&mut h) == "menu");
 }
 
 #[test]
@@ -138,5 +139,5 @@ fn help_away_from_the_menu_says_q_goes_back() {
     assert!(help.contains("q goes back to the menu"), "{help}");
     assert!(!help.contains("q quits"), "{help}");
     press(&mut h, KeyCode::Char('q'));
-    assert!(!h.quit && matches!(h.view, View::Menu));
+    assert!(!h.quit && at(&mut h) == "menu");
 }

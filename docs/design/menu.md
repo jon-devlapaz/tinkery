@@ -20,6 +20,10 @@ owns the garden and handoff. Goal confirmation, intake approval and implementati
 permission remain separate. The menu also owns
 the deliberate [Ready Shape-to-Approve route](approve.md#from-a-confirmed-shape-seed),
 including its exact Shape/Tend Back context and F10 Home.
+Open places form one stack over the menu. Shape opened from Tend, Approve opened from
+Shape and a Taste retry review stack over the place that opened them; Back returns to it
+and F10 or Home returns to the menu. Every other open replaces the stack. Every quit route
+waits for a worker request in flight and shows the worker screen meanwhile.
 
 The muted key bar `↑↓ move   enter open   ? help   q quit` has one blank row below.
 The latest receipt keeps its row two blank rows below the list, aligned with place
@@ -120,7 +124,8 @@ These are not merge-commit checks, acceptance or proof of usefulness; missing ch
 stay unknown. No browser opens, no goal is inferred and no records are written.
 
 F1 or ? toggles Measure help. Esc closes help, then details, then returns to the
-menu; q returns to the menu with help closed. F10 or Ctrl-C quits Tinkery. Leaving
+menu; q returns to the menu with help closed. F10 or Ctrl-C quits Tinkery; as from every
+place, a worker request in flight finishes first. Leaving
 cancels and reaps the owned process group. One read runs at a time, with a 30-second
 deadline and bounded output. Pipe collection stops on cancellation or deadline even when
 an unowned detached writer keeps a pipe open; Measure closes its readers without signalling

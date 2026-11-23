@@ -16,10 +16,11 @@ pub(super) struct Review {
     notice: String,
     scroll: u16,
     page: u16,
+    help: bool,
 }
 
 impl Review {
-    fn new(rejected: Rejected) -> Self {
+    pub(super) fn new(rejected: Rejected) -> Self {
         let source = rejected.clone();
         Self {
             rejected,
@@ -29,10 +30,50 @@ impl Review {
             notice: String::new(),
             scroll: 0,
             page: 1,
+            help: false,
         }
     }
+}
 
-    fn poll(&mut self) -> Option<PathBuf> {
+impl Visit for Review {
+    /// Nothing but a plain key acts, and nothing acts while a save runs. Esc returns to Taste;
+    /// only F2 saves, outside help, for a human, after a clean read.
+    fn key(&mut self, key: KeyEvent, kept: &mut Kept) -> Outcome {
+        if !key.modifiers.is_empty() || self.saving.is_some() {
+            return Outcome::Stay;
+        }
+        let press = key.kind == KeyEventKind::Press;
+        match key.code {
+            KeyCode::F(1) | KeyCode::Char('?') if press => {
+                self.help = !self.help;
+                self.scroll = 0;
+            }
+            KeyCode::Esc if self.help => self.help = false,
+            KeyCode::Down => self.scroll = self.scroll.saturating_add(1),
+            KeyCode::Up => self.scroll = self.scroll.saturating_sub(1),
+            KeyCode::PageDown => self.scroll = self.scroll.saturating_add(self.page),
+            KeyCode::PageUp => self.scroll = self.scroll.saturating_sub(self.page),
+            KeyCode::Esc if press => return Outcome::Back,
+            KeyCode::F(10) if press => return Outcome::Home,
+            KeyCode::F(2)
+                if press && !self.help && !kept.launch.agent && self.notice.is_empty() =>
+            {
+                if let Some(review) = self.reviewed.clone() {
+                    let Some(root) = kept.sessions_root.clone() else {
+                        self.notice = "No session storage is configured. Name a --seed-session-root and reopen.".into();
+                        return Outcome::Stay;
+                    };
+                    let source = self.rejected.clone();
+                    self.saving = Some(Task::start(move |stop| source.save(&review, &root, stop)));
+                }
+            }
+            _ => {}
+        }
+        Outcome::Stay
+    }
+
+    /// A saved attempt opens Shape on its new session, in place of Taste and this review.
+    fn poll(&mut self, _kept: &mut Kept, _now: Instant) -> Outcome {
         if let Some(result) = self.reading.as_ref().and_then(Task::poll) {
             self.reading = None;
             match result {
@@ -43,21 +84,16 @@ impl Review {
         if let Some(result) = self.saving.as_ref().and_then(Task::poll) {
             self.saving = None;
             match result {
-                Ok(session) => return Some(session),
+                Ok(session) => return to(Open::Saved(session)),
                 Err(why) => self.notice = why,
             }
         }
-        None
+        Outcome::Stay
     }
 
-    pub(super) fn render(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        palette: Palette,
-        human: bool,
-        help: bool,
-    ) {
+    fn render(&mut self, frame: &mut Frame, palette: Palette, kept: &Kept) {
+        let area = visits::titled(frame, "tinkery › shape", palette);
+        let (human, help) = (!kept.launch.agent, self.help);
         let body = Rect {
             height: area.height.saturating_sub(1),
             ..area
@@ -125,92 +161,5 @@ impl Review {
             Paragraph::new(bar).style(palette.muted),
             Rect::new(area.x, body.bottom(), area.width, 1),
         );
-    }
-}
-
-impl Home {
-    pub(super) fn retry_key(&mut self, key: KeyEvent) {
-        if key.kind == KeyEventKind::Release || !key.modifiers.is_empty() {
-            return;
-        }
-        let View::Retry(view, _) = &mut self.view else {
-            return;
-        };
-        if view.saving.is_some() {
-            return;
-        }
-        match key.code {
-            KeyCode::F(1) | KeyCode::Char('?') if key.kind == KeyEventKind::Press => {
-                self.help = !self.help;
-                view.scroll = 0;
-            }
-            KeyCode::Esc if self.help => self.help = false,
-            KeyCode::Down => view.scroll = view.scroll.saturating_add(1),
-            KeyCode::Up => view.scroll = view.scroll.saturating_sub(1),
-            KeyCode::PageDown => view.scroll = view.scroll.saturating_add(view.page),
-            KeyCode::PageUp => view.scroll = view.scroll.saturating_sub(view.page),
-            KeyCode::Esc if key.kind == KeyEventKind::Press => {
-                if let View::Retry(_, back) = std::mem::replace(&mut self.view, View::Menu) {
-                    self.view = View::Taste(back);
-                    self.selected = Place::Taste;
-                }
-            }
-            KeyCode::F(10) if key.kind == KeyEventKind::Press => {
-                self.view = View::Menu;
-                self.help = false;
-            }
-            KeyCode::F(2)
-                if key.kind == KeyEventKind::Press
-                    && !self.help
-                    && !self.launch.agent
-                    && view.notice.is_empty() =>
-            {
-                if let Some(review) = view.reviewed.clone() {
-                    let Some(root) = self.sessions_root.clone() else {
-                        view.notice = "No session storage is configured. Name a --seed-session-root and reopen.".into();
-                        return;
-                    };
-                    let source = view.rejected.clone();
-                    view.saving = Some(Task::start(move |stop| source.save(&review, &root, stop)));
-                }
-            }
-            _ => {}
-        }
-    }
-
-    pub(super) fn poll_retry(&mut self) {
-        if let View::Retry(review, _) = &mut self.view
-            && let Some(session) = review.poll()
-        {
-            let shape = self.shape(Shape::session(&session));
-            self.view = View::Shape(Box::new(shape), None);
-            self.help = false;
-            self.request_sessions();
-        }
-    }
-
-    pub(super) fn taste_key(&mut self, key: KeyEvent) {
-        let View::Taste(taste) = &mut self.view else {
-            return;
-        };
-        if self.help {
-            if key.code == KeyCode::Char('q') {
-                self.help = false;
-                self.view = View::Menu;
-            }
-        } else if taste.key(key) {
-            self.view = View::Menu;
-        } else if let Some(rejected) = taste.take_retry() {
-            let View::Taste(back) = std::mem::replace(&mut self.view, View::Menu) else {
-                unreachable!()
-            };
-            self.selected = Place::Shape;
-            self.view = View::Retry(Box::new(Review::new(rejected)), back);
-        } else if let Some(draft) = taste.take_draft() {
-            let mut dump = self.think();
-            dump.offer_draft(draft);
-            self.selected = Place::Think;
-            self.view = View::Think(Box::new(dump));
-        }
     }
 }
