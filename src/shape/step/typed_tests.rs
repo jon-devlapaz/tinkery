@@ -558,6 +558,29 @@ fn verified_think_origin_selects_the_same_folder_or_existing_fallback() {
         }
         std::fs::write(&record, &original).unwrap();
     }
+    // A records folder that does not exist yet holds no record, so nothing is said (#997).
+    let absent = root.path().join("TEST-absent-records");
+    let fresh = std::sync::Arc::new(Agent::new(
+        crate::pi::Drafting::new(
+            Harness::Pi,
+            root.path().join("TEST-never-run"),
+            "TEST/model".into(),
+            String::new(),
+            CallBudget::new(0),
+        )
+        .unwrap(),
+        Some(fallback.clone()),
+        Some(absent.clone()),
+    ));
+    assert_eq!(fresh.reads(&session, goal).unwrap().unread(), None);
+    let shown = shown_once_read(&session, fresh);
+    assert!(
+        shown.contains("The step reads files in TEST-fallback. F1 picks another folder.")
+            && !shown.contains("Think history")
+            && !shown.contains("sends no Think answers"),
+        "{shown}"
+    );
+    assert!(!absent.exists());
     assert_eq!(agent.remaining(), 0);
     assert!(!root.path().join("TEST-never-run").exists());
 }

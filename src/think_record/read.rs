@@ -213,6 +213,10 @@ fn verified_record(
 ) -> Result<Option<VerifiedRecord>, Unavailable> {
     let selected = current_session(session, goal)?;
     require_unique(&identity_index([session])?, &selected)?;
+    // No records folder yet (a fresh install or a new --record-root) means no record.
+    if matches!(root.try_exists(), Ok(false)) {
+        return Ok(None);
+    }
     let mut found = None;
     for entry in record_files(root)? {
         let (path, record) = entry?;
