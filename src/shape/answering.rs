@@ -40,9 +40,12 @@ pub enum Refusal {
     Stale,
     /// Tinkery, or a check here, refused; the reason in plain words.
     Refused(String),
-    /// What a model reply proposed broke a ledger rule before anything was written. Unlike
+    /// A model reply was not in the shape Tinkery reads, so nothing from it was written. Unlike
     /// [`Refusal::Refused`], it never comes from storage, so it may be named back to the model.
     Rejected(String),
+    /// What a model reply proposed broke a ledger rule before anything was written. Like
+    /// [`Refusal::Rejected`], it may be named back to the model.
+    Rule(Rule),
 }
 
 impl std::fmt::Display for Refusal {
@@ -50,9 +53,103 @@ impl std::fmt::Display for Refusal {
         match self {
             Self::Stale => f.write_str("Another writer changed this session first."),
             Self::Refused(reason) | Self::Rejected(reason) => f.write_str(reason),
+            Self::Rule(rule) => rule.fmt(f),
         }
     }
 }
+
+/// A ledger rule a model reply broke, and the node that broke it when the ledger named one.
+/// Its display is Tinkery's whole refusal, which a retry hears; the rule alone is the operator's.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Rule {
+    /// The node the ledger named, when it named one.
+    pub node: Option<String>,
+    /// The rule in the ledger's words, without the node.
+    pub rule: String,
+}
+
+impl std::fmt::Display for Rule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.node {
+            Some(node) => write!(f, "Tinkery refused: node {node}: {}", self.rule),
+            None => write!(f, "Tinkery refused: {}", self.rule),
+        }
+    }
+}
+
+/// Who settled a decision, decoded once from the ledger's authority word.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Authority {
+    /// The operator's own words.
+    User,
+    /// Settled for the operator by an agent it delegated to.
+    Delegated,
+    /// A practice session's simulated operator.
+    Simulated,
+    /// Any other word, or `unrecorded` when the ledger records none; kept as written.
+    Other(String),
+}
+
+impl Authority {
+    /// Decode the ledger's `word`; a missing word is `unrecorded`.
+    pub fn of(word: Option<&str>) -> Self {
+        match word {
+            Some("user") => Self::User,
+            Some("delegated") => Self::Delegated,
+            Some("simulated") => Self::Simulated,
+            other => Self::Other(other.unwrap_or("unrecorded").into()),
+        }
+    }
+
+    /// The ledger's word for it.
+    pub fn word(&self) -> &str {
+        match self {
+            Self::User => "user",
+            Self::Delegated => "delegated",
+            Self::Simulated => "simulated",
+            Self::Other(word) => word,
+        }
+    }
+}
+
+/// How hard an option is to undo, as the question format names it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Undo {
+    /// Cheap to undo.
+    Cheap,
+    /// Moderately hard to undo.
+    Moderate,
+    /// Hard to undo, so the operator's instinct comes before any suggestion.
+    Hard,
+}
+
+impl Undo {
+    /// Decode a cost word as the question format writes it; any other word is none.
+    pub fn of(word: &str) -> Option<Self> {
+        match word {
+            "cheap" => Some(Self::Cheap),
+            "moderate" => Some(Self::Moderate),
+            "hard" => Some(Self::Hard),
+            _ => None,
+        }
+    }
+
+    /// The cost an option line records, read back from the end of a recorded question line.
+    pub fn of_line(line: &str) -> Option<Self> {
+        Self::of(line.strip_suffix('.')?.rsplit_once(UNDO_COST)?.1)
+    }
+
+    fn word(self) -> &'static str {
+        match self {
+            Self::Cheap => "cheap",
+            Self::Moderate => "moderate",
+            Self::Hard => "hard",
+        }
+    }
+}
+
+/// What an option line says before its undo cost.
+const UNDO_COST: &str = " Undo cost: ";
 
 /// A question an agent drafted, as the ledger records it. Its id is made unique when it's added.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -90,8 +187,8 @@ pub struct Alternative {
     pub choice: String,
     /// Its benefit and cost compared with the other.
     pub tradeoff: String,
-    /// How hard it is to undo: cheap, moderate or hard.
-    pub undo: String,
+    /// How hard it is to undo.
+    pub undo: Undo,
 }
 
 /// The question's lines that name its options, then the case against the suggestion. Shape
@@ -104,7 +201,7 @@ impl Ask {
     /// Whether either option is hard to undo, so the operator's instinct comes before any
     /// suggestion and the suggestion isn't recorded yet.
     pub fn hard(&self) -> bool {
-        self.options.iter().any(|o| o.undo == "hard")
+        self.options.iter().any(|o| o.undo == Undo::Hard)
     }
 
     /// The question as the ledger records it: the ask, then each option and the case against.
@@ -114,10 +211,10 @@ impl Ask {
         let mut text = self.question.clone();
         for (label, o) in OPTION_LABELS.iter().zip(&self.options) {
             text.push_str(&format!(
-                "\n{label}{}; {}. Undo cost: {}.",
+                "\n{label}{}; {}.{UNDO_COST}{}.",
                 bare(&o.choice),
                 bare(&o.tradeoff),
-                o.undo
+                o.undo.word()
             ));
         }
         if let Some(against) = self.against.as_deref().filter(|_| !self.options.is_empty()) {
@@ -443,11 +540,24 @@ pub fn contract() -> Result<String, Refusal> {
     seed_reply::instructions(include_str!("../seed_me/seed-contract.txt"))
 }
 
-/// A refusal from Tinkery's own ledger, which saved nothing; it never credits Seed Me. An
-/// unknown save is no refusal: it asks the operator to look before trying again.
-/// A ledger rule the reply's own proposal broke; see [`Refusal::Rejected`].
+/// A ledger rule the reply's own proposal broke; see [`Refusal::Rule`]. The ledger's
+/// `node ID: ` naming is decoded here, once.
 fn rejected(reason: String) -> Refusal {
-    Refusal::Rejected(format!("Tinkery refused: {reason}"))
+    Refusal::Rule(
+        match reason
+            .strip_prefix("node ")
+            .and_then(|named| named.split_once(": "))
+        {
+            Some((node, rule)) => Rule {
+                node: Some(node.into()),
+                rule: rule.into(),
+            },
+            None => Rule {
+                node: None,
+                rule: reason,
+            },
+        },
+    )
 }
 
 /// Check a reply-built `state` against the ledger's rules before any write, so a broken rule is
@@ -458,10 +568,24 @@ fn reply_fits(state: &Value) -> Result<(), Refusal> {
         .map_err(rejected)
 }
 
+/// Repair one check of the exact displayed draft `seed` with the operator's `words`, without a
+/// model. Every refusal, a stale version included, is Tinkery's reason in plain words.
+pub(crate) fn repair_check(
+    session: &Path,
+    expected: u64,
+    seed: &str,
+    edit: (&ledger::DraftCheck, ledger::CheckMethod, &str),
+    actor: Actor<'_>,
+) -> Result<(), Refusal> {
+    ledger::repair_check(session, expected, seed, edit, actor).map_err(Refusal::Refused)
+}
+
 fn not_saved(reason: String) -> Refusal {
     published(ledger::PublishError::from(reason))
 }
 
+/// A refusal from Tinkery's own ledger, which saved nothing; it never credits Seed Me. An
+/// unknown save is no refusal: it asks the operator to look before trying again.
 fn published(error: ledger::PublishError) -> Refusal {
     let reason = error.to_string();
     let first = |text: &str| text.lines().next().unwrap_or("").to_owned();
@@ -1219,7 +1343,7 @@ mod tests {
         let option = |choice: &str, tradeoff: &str| Alternative {
             choice: choice.into(),
             tradeoff: tradeoff.into(),
-            undo: "cheap".into(),
+            undo: Undo::Cheap,
         };
         let ask = Ask {
             prerequisites: None,

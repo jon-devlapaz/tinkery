@@ -132,9 +132,9 @@ pub fn show(session: &Path) -> Result<serde_json::Value, String> {
     let decided_without_you = shaping
         .decided
         .iter()
-        .filter(|d| d.authority != "user")
+        .filter(|d| d.authority != super::answering::Authority::User)
         .map(
-            |d| serde_json::json!({"what": d.title, "decided": d.answer, "authority": d.authority}),
+            |d| serde_json::json!({"what": d.title, "decided": d.answer, "authority": d.authority.word()}),
         )
         .chain(ledger["assumed"].as_array().into_iter().flatten().map(
             |a| serde_json::json!({"what": a["text"], "why": a["why"], "authority": "assumed"}),
@@ -267,6 +267,7 @@ pub fn step(
                 ),
                 Why::Model(reason) => format!("The model step failed: {reason}"),
                 Why::Refused(reason) => reason,
+                Why::Rule(rule) => rule.to_string(),
                 Why::Stopped => "The step was stopped.".into(),
             }
         )),

@@ -12,7 +12,7 @@ use crate::{
     confirmation::{Actor, GoalConfirmation},
     pi::{self, Call, CallBudget, Harness},
     seed_me::ledger,
-    shape::answering::{self, Alternative, Ask, Assumption, Found, Refusal},
+    shape::answering::{self, Alternative, Ask, Assumption, Found, Refusal, Rule, Undo},
     think_record::{self, MadeIn},
 };
 use serde_json::{Value, json};
@@ -390,10 +390,15 @@ impl Failure {
         folder: &Path,
         cancelled: &AtomicBool,
     ) -> Self {
+        let reason = match &self.why {
+            Why::Model(reason) | Why::Refused(reason) => Some(reason.clone()),
+            Why::Rule(rule) => Some(rule.to_string()),
+            _ => None,
+        };
         if !cancelled.load(Ordering::Relaxed)
-            && let Why::Model(reason) | Why::Refused(reason) = &self.why
+            && let Some(reason) = reason
         {
-            self.feedback = RetryFeedback::new(session, version, folder, reason).map(Box::new);
+            self.feedback = RetryFeedback::new(session, version, folder, &reason).map(Box::new);
         }
         self
     }
@@ -409,6 +414,8 @@ pub(super) enum Why {
     Model(String),
     /// Tinkery refused; the reason says whether anything saved.
     Refused(String),
+    /// The model's reply broke a ledger rule; nothing from it was saved.
+    Rule(Rule),
     /// The operator stopped it.
     Stopped,
 }
@@ -490,6 +497,7 @@ fn refused(answer_saved: bool) -> impl Fn(Refusal) -> Failure {
         why: match refusal {
             Refusal::Stale => Why::Stale,
             Refusal::Refused(reason) | Refusal::Rejected(reason) => Why::Refused(reason),
+            Refusal::Rule(rule) => Why::Rule(rule),
         },
     }
 }
@@ -682,16 +690,13 @@ impl<'a> Steps<'a> {
                     .map_err(refused(false))?;
                 Ok(Done::Confirmed)
             }
-            Work::RepairCheck { edit, words } => wrote(
-                ledger::repair_check(
-                    session,
-                    edit.expected,
-                    &edit.seed,
-                    (&edit.target, edit.method, words),
-                    actor,
-                )
-                .map_err(Refusal::Refused),
-            ),
+            Work::RepairCheck { edit, words } => wrote(answering::repair_check(
+                session,
+                edit.expected,
+                &edit.seed,
+                (&edit.target, edit.method, words),
+                actor,
+            )),
             Work::Revisit {
                 id,
                 expected,
@@ -751,7 +756,7 @@ fn look(
     let rejected = |failure: Failure| failure.rejected(session, expected, folder, cancelled);
     // A ledger rule the reply broke is retry feedback too; storage refusals never are (#432).
     let reply_refused = |refusal: Refusal| match refusal {
-        Refusal::Rejected(_) => rejected(refused(answer_saved)(refusal)),
+        Refusal::Rejected(_) | Refusal::Rule(_) => rejected(refused(answer_saved)(refusal)),
         refusal => refused(answer_saved)(refusal),
     };
     let ledger = answering::read(session).map_err(refused(answer_saved))?;
@@ -828,9 +833,10 @@ fn look(
                         .err()
                         .map(|e| format!(" Also: {e}"))
                         .unwrap_or_default();
-                    return Err(rejected(fail(Why::Refused(format!(
-                        "Tinkery refused: {rule}{also}"
-                    )))));
+                    return Err(rejected(fail(Why::Rule(Rule {
+                        node: None,
+                        rule: format!("{rule}{also}"),
+                    }))));
                 }
             };
             let revision = answering::draft_seed(
@@ -926,9 +932,7 @@ fn alternatives(value: &Value) -> Vec<Alternative> {
             Some(Alternative {
                 choice: field("choice")?,
                 tradeoff: field("tradeoff")?,
-                undo: field("undo")
-                    .map(|u| u.to_lowercase())
-                    .filter(|u| ["cheap", "moderate", "hard"].contains(&u.as_str()))?,
+                undo: Undo::of(&field("undo")?.to_lowercase())?,
             })
         })
         .collect();
