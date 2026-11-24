@@ -7,6 +7,7 @@ use serde_json::json;
 use std::{
     collections::HashSet,
     fs,
+    path::Path,
     sync::{
         Condvar, Mutex,
         atomic::{AtomicUsize, Ordering::SeqCst},
@@ -163,7 +164,7 @@ fn watch_f10_returns_home_from_help_without_quitting() {
         assert_eq!(screen(&mut h).contains("What Watch does"), help);
         h.handle_key(key(KeyCode::F(10)));
         assert!(
-            at(&mut h) == "menu" && !h.help && !h.quit,
+            at(&mut h) == "menu" && !menu_help(&mut h) && !h.quit,
             "F10 from Watch (help={help}) must return Home without quitting"
         );
         h.handle_key(key(KeyCode::F(10)));
@@ -187,15 +188,15 @@ fn watch_f10_returns_home_from_help_without_quitting() {
 }
 
 fn home(source: Source) -> Home {
-    home_in(source, None)
+    home_in(source, None, Err("TEST links unavailable".into()))
 }
 
-fn home_in(source: Source, repo: Option<crate::repo::Repo>) -> Home {
+fn home_in(source: Source, repo: Option<crate::repo::Repo>, tend: Result<PathBuf, String>) -> Home {
     Home::new(Launch {
         repo,
         ..Launch::practice(DataRoots {
             sessions: Ok(PathBuf::from("/TEST/sessions")),
-            tend: Err("TEST links unavailable".into()),
+            tend,
             ..DataRoots::from_home(None)
         })
     })
@@ -211,6 +212,42 @@ pub(super) fn think_saved(h: &mut Home, path: &Path) {
     let mut dump = h.kept.think();
     dump.set_saved(crate::seed_me::Receipt::test(path.to_path_buf()));
     h.push(Box::new(dump), None);
+}
+
+/// Tend on the saved session at `path`, reached the operator's way: `s` on Think's receipt.
+pub(super) fn tend_on_receipt(h: &mut Home, path: &Path) {
+    think_saved(h, path);
+    h.handle_key(key(KeyCode::Char('s')));
+    h.tick();
+}
+
+/// The menu's count column, one entry per place; empty where nothing is counted.
+pub(super) fn counts(h: &mut Home) -> Vec<String> {
+    let frame = screen(h);
+    let rows: Vec<_> = frame.lines().collect();
+    PLACES
+        .iter()
+        .enumerate()
+        .map(|(i, place)| {
+            let row: String = rows[FIRST_ROW as usize + i * ROW_GAP as usize]
+                .chars()
+                .take(20)
+                .collect();
+            let label = format!("  {}  {}", i + 1, place.label().0);
+            row.strip_prefix(&label).unwrap().trim().to_string()
+        })
+        .collect()
+}
+
+/// The menu's Tend count, if the menu shows one.
+fn tend_count(h: &mut Home) -> Option<String> {
+    assert_eq!(at(h), "menu");
+    Some(counts(h).swap_remove(1)).filter(|count| !count.is_empty())
+}
+
+/// Whether the menu's own help overlay shows.
+pub(super) fn menu_help(h: &mut Home) -> bool {
+    screen(h).contains("Esc     Close help")
 }
 
 /// Which screen shows, read from its title row: "menu", a place's name, or "think" for
@@ -281,7 +318,7 @@ fn blocked_discovery_still_paints_six_places_and_handles_queued_input() {
         assert!(!frame.contains("Reading") && !frame.contains("No saved"));
     }
     assert_eq!(
-        h.count(Place::Tend),
+        tend_count(&mut h),
         None,
         "unknown is not shown as a number or zero"
     );
@@ -370,16 +407,16 @@ fn tend_opened_during_discovery_is_responsive_and_never_says_no_sessions() {
     h.handle_key(key(KeyCode::Char('2')));
     h.handle_key(key(KeyCode::Esc));
     assert!(at(&mut h) == "menu");
-    let selected = h.selected;
     gate.release(8);
     settle(&mut h);
     assert!(at(&mut h) == "menu", "a late result never reopens tend");
-    assert_eq!(h.selected, selected, "or moves the menu selection");
     assert_eq!(
-        h.count(Place::Tend),
+        tend_count(&mut h),
         Some("1".into()),
         "the count appears once complete"
     );
+    h.handle_key(key(KeyCode::Enter));
+    assert!(at(&mut h) == "tend", "or moves the menu selection off tend");
 }
 
 #[test]
@@ -446,7 +483,7 @@ fn a_slow_read_behind_a_saved_session_says_so_too() {
     let mut h = home(gate.source());
     h.tick();
     wait_until("the worker to start", || gate.entered.load(SeqCst) == 1);
-    h.open_tend_session(Path::new("/TEST/new"));
+    tend_on_receipt(&mut h, Path::new("/TEST/new"));
     let since = h.kept.discovery.running_since().expect("a read is pending");
     h.tick_at(since + tend::STILL_READING_AFTER - Duration::from_millis(1));
     assert!(screen(&mut h).contains("Reading your sessions. Esc goes back."));
@@ -646,8 +683,7 @@ fn landed_discovery_does_not_cancel_or_redirect_link_picking() {
     ];
     let gate = Gate::new(found(sessions.clone()));
     gate.release(4);
-    let mut h = home(gate.source());
-    h.kept.link_root = Ok(tmp.path().join("TEST-links"));
+    let mut h = home_in(gate.source(), None, Ok(tmp.path().join("TEST-links")));
     h.open(Place::Tend);
     settle(&mut h);
     h.handle_key(key(KeyCode::Char('l')));
@@ -680,7 +716,7 @@ fn receipt_detail_waits_for_a_read_that_can_contain_the_session() {
     let mut h = home(gate.source());
     h.tick();
     wait_until("first read started", || gate.entered.load(SeqCst) == 1);
-    h.open_tend_session(&target);
+    tend_on_receipt(&mut h, &target);
     assert!(screen(&mut h).contains("Reading your sessions"));
     // The read that began before the save lands without it: still waiting, not "unavailable".
     gate.release(1);
@@ -713,7 +749,7 @@ fn receipt_detail_for_a_session_a_complete_read_lacks_is_explicit() {
     let gate = Gate::new(found(vec![]));
     gate.release(4);
     let mut h = home(gate.source());
-    h.open_tend_session(Path::new("/TEST/missing"));
+    tend_on_receipt(&mut h, Path::new("/TEST/missing"));
     settle(&mut h);
     assert!(screen(&mut h).contains("Saved session unavailable. F1 then h for details."));
     assert!(how_it_works(&mut h).contains("Saved session is unavailable: /TEST/missing"));
@@ -728,7 +764,7 @@ fn a_late_receipt_target_does_not_resurrect_an_exited_visit() {
         "2026-10-09T10:00:00Z",
     )]));
     let mut h = home(gate.source());
-    h.open_tend_session(Path::new("/TEST/a"));
+    tend_on_receipt(&mut h, Path::new("/TEST/a"));
     h.handle_key(key(KeyCode::Esc));
     assert!(at(&mut h) == "menu");
     h.handle_key(key(KeyCode::Char('4')));
@@ -757,12 +793,11 @@ fn counts_are_exact_only_after_complete_current_reads() {
         .unwrap();
     let gate = Gate::new(found(sessions.clone()));
     gate.release(1);
-    let mut h = home(gate.source());
-    h.kept.link_root = Ok(tmp.path().join("TEST-links"));
-    assert_eq!(h.count(Place::Tend), None, "not known before any read");
+    let mut h = home_in(gate.source(), None, Ok(tmp.path().join("TEST-links")));
+    assert_eq!(tend_count(&mut h), None, "not known before any read");
     settle(&mut h);
     assert_eq!(
-        h.count(Place::Tend),
+        tend_count(&mut h),
         Some("2".into()),
         "ended sessions are not active"
     );
@@ -775,11 +810,6 @@ fn counts_are_exact_only_after_complete_current_reads() {
     gate.release(1);
     h.open(Place::Tend);
     settle(&mut h);
-    assert_eq!(
-        h.count(Place::Tend),
-        None,
-        "incomplete is not an exact result"
-    );
     let frame = screen(&mut h);
     assert!(
         frame.contains("1 saved record couldn't be read; this view may be missing sessions."),
@@ -789,20 +819,28 @@ fn counts_are_exact_only_after_complete_current_reads() {
         frame.contains("goal a") && frame.contains("goal b"),
         "{frame}"
     );
+    h.handle_key(key(KeyCode::Esc));
+    assert_eq!(
+        tend_count(&mut h),
+        None,
+        "incomplete is not an exact result"
+    );
     // A failed root is not "no sessions" and not a count.
     gate.set(Err("Cannot read /TEST: boom".into()));
     gate.release(1);
     h.open(Place::Tend);
     settle(&mut h);
-    assert_eq!(h.count(Place::Tend), None);
     assert!(!screen(&mut h).contains("No saved sessions"));
+    h.handle_key(key(KeyCode::Esc));
+    assert_eq!(tend_count(&mut h), None);
     // Complete and empty is the only way to "no sessions".
     gate.set(found(vec![]));
     gate.release(1);
     h.open(Place::Tend);
     settle(&mut h);
     assert!(screen(&mut h).contains("No saved sessions yet"));
-    assert_eq!(h.count(Place::Tend), None, "zero is never printed");
+    h.handle_key(key(KeyCode::Esc));
+    assert_eq!(tend_count(&mut h), None, "zero is never printed");
 }
 
 #[test]
@@ -834,33 +872,34 @@ fn returning_from_think_and_reopening_tend_read_again_and_hide_a_stale_count() {
         ..DataRoots::from_home(None)
     }));
     settle(&mut h);
-    assert_eq!(h.count(Place::Tend), Some("1".into()));
+    assert_eq!(tend_count(&mut h), Some("1".into()));
     h.open(Place::Think);
     write_session(tmp.path(), "saved-in-think", "2026-10-10T10:00:00Z");
     h.handle_key(key(KeyCode::Esc));
     h.tick();
     assert!(at(&mut h) == "menu");
     assert_eq!(
-        h.count(Place::Tend),
+        tend_count(&mut h),
         None,
         "the old number is not shown while rereading"
     );
     settle(&mut h);
     assert_eq!(
-        h.count(Place::Tend),
+        tend_count(&mut h),
         Some("2".into()),
         "count refreshed after saving"
     );
     write_session(tmp.path(), "later", "2026-10-11T10:00:00Z");
     h.open(Place::Tend);
     settle(&mut h);
+    let frame = screen(&mut h);
+    assert!(frame.contains("goal later"), "{frame}");
+    h.handle_key(key(KeyCode::Esc));
     assert_eq!(
-        h.count(Place::Tend),
+        tend_count(&mut h),
         Some("3".into()),
         "deliberate reopening reads again"
     );
-    let frame = screen(&mut h);
-    assert!(frame.contains("goal later"), "{frame}");
 }
 
 fn write_session(root: &Path, id: &str, updated: &str) {
@@ -907,7 +946,7 @@ fn scan_reads_thousands_once_each_newest_first_with_exact_active_count() {
         ..DataRoots::from_home(None)
     }));
     settle(&mut h);
-    assert_eq!(h.count(Place::Tend), Some((total - total / 5).to_string()));
+    assert_eq!(tend_count(&mut h), Some((total - total / 5).to_string()));
 }
 
 #[test]
@@ -978,7 +1017,7 @@ fn unavailable_session_root_never_scans_or_claims_an_empty_list() {
     h.tick();
     h.discover_for_snapshot(Duration::from_secs(1));
     assert!(!h.kept.discovery.running());
-    assert_eq!(h.count(Place::Tend), None);
+    assert_eq!(tend_count(&mut h), None);
     for _ in 0..2 {
         h.open(Place::Tend);
         h.tick();
@@ -1009,7 +1048,7 @@ fn links_destination_survives_menu_reopening_and_standalone_receipt_handoff() {
             ..DataRoots::from_home(None)
         }));
         if receipt {
-            h.open_tend_session(&sessions.join("goal"));
+            tend_on_receipt(&mut h, &sessions.join("goal"));
         }
         for _ in 0..2 {
             h.open(Place::Tend);
@@ -1027,10 +1066,11 @@ fn links_destination_survives_menu_reopening_and_standalone_receipt_handoff() {
 #[test]
 fn unavailable_linking_does_not_stop_tend_reading_sessions() {
     let reason = "TEST linking unavailable; pass --link-root PATH";
-    let mut h = home(Arc::new(|_| {
-        found(vec![sess("goal", Stage::GoalSaved, "")])
-    }));
-    h.kept.link_root = Err(reason.into());
+    let mut h = home_in(
+        Arc::new(|_| found(vec![sess("goal", Stage::GoalSaved, "")])),
+        None,
+        Err(reason.into()),
+    );
     h.open(Place::Tend);
     settle(&mut h);
     assert!(selected_line(&mut h).starts_with("goal goal "));
@@ -1046,6 +1086,7 @@ fn the_menu_names_the_repository_once_and_says_nothing_outside_one() {
     let mut h = home_in(
         Arc::new(|_| found(vec![])),
         crate::repo::Repo::enclosing(&root),
+        Err("TEST links unavailable".into()),
     );
     let menu = screen(&mut h);
     let title = menu.lines().nth(1).unwrap();
