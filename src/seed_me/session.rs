@@ -28,13 +28,17 @@ impl Stage {
     /// The stage a ledger `status` and the seed contract's text (if one exists) mean. Anything
     /// it doesn't recognise is `Unknown`, never a guess.
     pub fn from_files(status: &str, seed: Option<&str>) -> Self {
-        match (status, seed.and_then(|s| s.lines().next())) {
+        use super::files::Status;
+        let line = seed
+            .and_then(|s| s.lines().next())
+            .map(super::files::status);
+        match (status, line) {
             ("completed", _) => Self::Completed,
             ("stopped", _) => Self::Stopped,
             ("active", None) => Self::GoalSaved,
-            ("active", Some(super::files::DRAFT)) => Self::SeedDrafted,
-            ("active", Some(super::files::CONFIRMED)) => Self::SeedUnchecked,
-            ("active", Some(super::files::SIMULATED)) => Self::Simulated,
+            ("active", Some(Some(Status::Draft))) => Self::SeedDrafted,
+            ("active", Some(Some(Status::Confirmed))) => Self::SeedUnchecked,
+            ("active", Some(Some(Status::Simulated))) => Self::Simulated,
             _ => Self::Unknown,
         }
     }
@@ -70,6 +74,12 @@ impl Stage {
             _ => None,
         }
     }
+}
+
+/// A ledger id that can name a session or a link end: nonempty, without control characters.
+/// The one id rule; every ledger or link id read from disk passes it before use.
+pub(crate) fn valid_id(id: &str) -> bool {
+    !id.is_empty() && !id.chars().any(char::is_control)
 }
 
 /// One readable session.
@@ -156,7 +166,7 @@ pub fn read(path: &Path) -> Record {
     let id = ledger
         .get("session_id")
         .and_then(Value::as_str)
-        .filter(|id| !id.is_empty() && !id.chars().any(char::is_control))
+        .filter(|id| valid_id(id))
         .map(str::to_owned);
     let goal = ledger
         .get("goal")
