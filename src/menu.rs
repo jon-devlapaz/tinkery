@@ -5,6 +5,7 @@
 
 mod place;
 mod retry;
+mod visits;
 
 pub use place::{PLACES, Place};
 
@@ -19,11 +20,11 @@ use crate::{
     data_roots::DataRoots,
     launch::Launch,
     measure, sdlc, seed_me,
-    shape::{self, Leave, Shape},
+    shape::{self, Shape},
     taste::Taste,
     tend::{self, Discovery, Source, Tend},
-    think::brain_dump::{self, BrainDump, Exit},
-    watch::{self, Watch},
+    think::brain_dump::{self, BrainDump},
+    watch::Watch,
     worker,
 };
 use crossterm::event::{
@@ -39,115 +40,133 @@ use ratatui::{
 const FIRST_ROW: u16 = 4;
 const ROW_GAP: u16 = 2;
 
-/// The menu and whichever place is open in it. It routes input to the open place and owns what
-/// outlives a visit: the key bar preference, receipts to print on exit, and the one session
-/// scan tend reads from. A place returns here by its own exit; nothing opens by itself.
-pub struct Home {
-    /// The operator chose to leave Tinkery; the terminal loop stops after this tick.
-    pub quit: bool,
+/// The one contract every open place keeps with the menu. A place owns its keys, help and
+/// reads, and answers each input or poll with an [`Outcome`]; the menu owns where that leads.
+/// No method starts an agent: a place opens another only through [`Outcome::Open`].
+trait Visit {
+    /// One press or repeat; releases never arrive.
+    fn key(&mut self, key: KeyEvent, kept: &mut Kept) -> Outcome;
+    /// Literal words; pasting never submits, saves or launches.
+    fn paste(&mut self, _text: &str) {}
+    /// One mouse event in a terminal of size `area`.
+    fn mouse(&mut self, _event: MouseEvent, _area: Rect, _now: Instant, _kept: &Kept) -> Outcome {
+        Outcome::Stay
+    }
+    /// Advance this place's own reads without blocking, including the menu's session scan.
+    fn poll(&mut self, _kept: &mut Kept, _now: Instant) -> Outcome {
+        Outcome::Stay
+    }
+    /// Paint the whole screen.
+    fn render(&mut self, frame: &mut Frame, palette: Palette, kept: &Kept);
+    /// The place above this one closed and this one shows again.
+    fn resumed(&mut self, _kept: &mut Kept) {}
+    /// This place leaves the screen for good; hand back what outlives the visit.
+    fn close(self: Box<Self>, _kept: &mut Kept) {}
+    /// Work this place admitted is still in flight; quitting waits for it.
+    fn busy(&self) -> bool {
+        false
+    }
+    /// Text the operator asked to copy, taken once.
+    fn take_copy(&mut self) -> Option<String> {
+        None
+    }
+    /// Whether the last copy reached the clipboard.
+    fn copy_result(&mut self, _sent: bool) {}
+    /// The Think reading this frame shows, if one awaits successful output.
+    fn presentation(&self) -> Option<brain_dump::Presentation> {
+        None
+    }
+    /// Successful terminal output of `presentation`.
+    fn presented(&mut self, _presentation: brain_dump::Presentation) {}
+}
+
+/// What a place asks of the menu.
+enum Outcome {
+    Stay,
+    /// Open the launch's Model panel.
+    Model,
+    /// Close this place and show the one it was opened over, or the menu.
+    Back,
+    /// Close every place and show the menu.
+    Home,
+    /// Leave Tinkery; a busy worker finishes first.
+    Quit,
+    /// Navigation the operator asked for, or the next step of a finished save.
+    Open(Box<Open>),
+}
+
+fn to(open: Open) -> Outcome {
+    Outcome::Open(Box::new(open))
+}
+
+/// Where navigation leads. Each one only builds a place; none starts work.
+enum Open {
+    /// A place from the menu, fresh.
+    Place(Place),
+    /// A fresh Think holding Tend's unsent thought.
+    Words(String),
+    /// A fresh Think offering Taste's rejection draft.
+    Draft(crate::think_record::DraftSuggestion),
+    /// Tend on this saved session.
+    TendSession(PathBuf),
+    /// Shape on this session, over the place that asked.
+    Shape(PathBuf),
+    /// Shape on the session a retry just saved, in place of everything open.
+    Saved(PathBuf),
+    /// Approve on Shape's ready seed, over Shape.
+    Seed(seed_me::ready::SeedTarget),
+    /// Taste's retry review of one rejection, over Taste.
+    Retry(crate::taste::Rejected),
+    /// The worker panel reviewing this start; a busy panel stays as it is.
+    Review(worker::Review),
+    /// The worker panel for an existing run; a busy panel stays as it is.
+    Run {
+        root: PathBuf,
+        slug: String,
+        id: String,
+    },
+    /// The worker panel as it was left.
+    Worker,
+    /// Watch over a run's checkout.
+    Watch(PathBuf),
+    /// Taste over a run's checkout.
+    Taste(PathBuf),
+}
+
+/// What outlives a visit and what places read from the launch.
+struct Kept {
     /// The one resolved launch every place opens from.
     launch: Launch,
     sessions_root: Option<PathBuf>,
     link_root: Result<PathBuf, String>,
-    selected: Place,
-    view: View,
-    help: bool,
+    record_root: Result<PathBuf, String>,
+    /// The one session scan Tend, Shape, Approve and the menu read from.
+    discovery: Discovery,
+    /// One verifier across Approve visits.
+    approve_reader: approve::Reader,
     /// The muted key bar preference lasts the session, across visits to think.
     key_bar: bool,
     receipts: Vec<seed_me::ExitReceipt>,
-    discovery: Discovery,
-    record_root: Result<PathBuf, String>,
-    approve_reader: approve::Reader,
-    approve_origin: Option<ApproveOrigin>,
-    /// `m` on the menu asked for the Model panel, which the launch owns.
-    model_request: bool,
-    worker_panel: Option<worker::Panel>,
-    quit_after_worker: bool,
     thought_saved: Option<(String, bool)>,
+    /// The worker panel while it is not on screen.
+    worker: Option<worker::Panel>,
+    quit_after_worker: bool,
+    /// Think was launched on its own and nothing has left it yet: no session scan runs.
+    alone: bool,
 }
 
-enum View {
-    Menu,
-    Think(Box<BrainDump>),
-    Tend(Box<Tend>),
-    /// Shape, and the tend it was opened from, restored as it was when Shape is left.
-    Shape(Box<Shape>, Option<Box<Tend>>),
-    Approve(Box<approve::Approve>),
-    Worker,
-    Measure(Box<measure::Measure>),
-    Watch(Box<Watch>),
-    Taste(Box<Taste>),
-    Retry(Box<retry::Review>, Box<Taste>),
-}
-
-/// Only the deliberate Shape-to-Approve visit returns here; F10 discards it for Home.
-struct ApproveOrigin {
-    shape: Box<Shape>,
-    tend: Option<Box<Tend>>,
-    selected: Place,
-}
-
-impl Home {
-    /// A menu on its first row, for `launch`. Each Think visit is a fresh one from the launch;
-    /// tend reads the sessions root or shows its refusal without scanning. Think records and
-    /// Tend's stores use the launch's other roots (or their refusals).
-    pub fn new(launch: Launch) -> Self {
-        let DataRoots {
-            sessions,
-            records,
-            tend,
-        } = launch.roots.clone();
-        let (sessions_root, discovery) = match sessions {
-            Ok(root) => (Some(root), Discovery::new(Arc::new(tend::scan))),
-            Err(reason) => (None, Discovery::unavailable(reason)),
-        };
-        Self {
-            quit: false,
-            launch,
-            sessions_root,
-            link_root: tend,
-            selected: Place::Think,
-            view: View::Menu,
-            help: false,
-            key_bar: true,
-            receipts: Vec::new(),
-            discovery,
-            record_root: records,
-            approve_reader: approve::Reader::default(),
-            approve_origin: None,
-            model_request: false,
-            worker_panel: None,
-            quit_after_worker: false,
-            thought_saved: None,
+impl Kept {
+    fn request_sessions(&mut self) {
+        self.discovery.scope_to_repo(
+            self.launch
+                .repo
+                .as_ref()
+                .map(|repo| repo.root().to_path_buf()),
+            self.record_root.clone(),
+        );
+        if let Some(root) = &self.sessions_root {
+            self.discovery.request(root);
         }
-    }
-
-    /// Replace the reader for a selected root; never override a root refusal.
-    pub fn with_discovery_source(mut self, source: Source) -> Self {
-        if self.sessions_root.is_some() {
-            self.discovery = Discovery::new(source);
-        }
-        self
-    }
-
-    /// The menu think returns to after saving a goal when it was launched on its own: the same
-    /// `launch`, so Shape keeps its agent, its hold and its attribution. The receipt carries
-    /// over; `open_tend` opens the saved session.
-    pub fn from_receipt(
-        mut dump: BrainDump,
-        session: &Path,
-        open_tend: bool,
-        launch: Launch,
-    ) -> Self {
-        let mut home = Self::new(launch);
-        home.key_bar = dump.key_bar_on();
-        if let Some(receipt) = dump.finish_handoff() {
-            home.receipts.push(receipt);
-        }
-        if open_tend {
-            home.open_tend_session(session);
-        }
-        home
     }
 
     /// Shape on `open` for this launch: its drafting agent, its attribution, and its hold: an
@@ -170,6 +189,100 @@ impl Home {
             .with_thoughts(self.link_root.clone(), self.launch.repo.clone())
     }
 
+    fn approve_watch_root(&self) -> Option<PathBuf> {
+        self.launch.sdlc_root.clone().or_else(|| {
+            let root = self.launch.repo.as_ref()?.root();
+            sdlc::installed(root).then(|| root.to_path_buf())
+        })
+    }
+
+    /// Share the declaration and relay snapshot without granting permission on navigation.
+    fn worker_gate(&self) -> worker::Gate {
+        worker::Gate::new(self.launch.agent, self.launch.worker_authorization.clone())
+    }
+}
+
+/// An open place and the menu selection to restore when it closes, if it changes one.
+struct Entry {
+    visit: Box<dyn Visit>,
+    back_to: Option<Place>,
+}
+
+/// The menu and the stack of places open over it. It routes input to the top place and owns
+/// what outlives a visit: the key bar preference, receipts to print on exit, the worker panel
+/// and the one session scan. A place returns here by its own exit; nothing opens by itself.
+pub struct Home {
+    /// The operator chose to leave Tinkery; the terminal loop stops after this tick.
+    pub quit: bool,
+    kept: Kept,
+    stack: Vec<Entry>,
+    selected: Place,
+    /// The menu's own help overlay.
+    help: bool,
+    /// `m` on the menu, or a place, asked for the Model panel, which the launch owns.
+    model_request: bool,
+}
+
+impl Home {
+    /// A menu on its first row, for `launch`. Each Think visit is a fresh one from the launch;
+    /// tend reads the sessions root or shows its refusal without scanning. Think records and
+    /// Tend's stores use the launch's other roots (or their refusals).
+    pub fn new(launch: Launch) -> Self {
+        let DataRoots {
+            sessions,
+            records,
+            tend,
+        } = launch.roots.clone();
+        let (sessions_root, discovery) = match sessions {
+            Ok(root) => (Some(root), Discovery::new(Arc::new(tend::scan))),
+            Err(reason) => (None, Discovery::unavailable(reason)),
+        };
+        Self {
+            quit: false,
+            kept: Kept {
+                launch,
+                sessions_root,
+                link_root: tend,
+                record_root: records,
+                discovery,
+                approve_reader: approve::Reader::default(),
+                key_bar: true,
+                receipts: Vec::new(),
+                thought_saved: None,
+                worker: None,
+                quit_after_worker: false,
+                alone: false,
+            },
+            stack: Vec::new(),
+            selected: Place::Think,
+            help: false,
+            model_request: false,
+        }
+    }
+
+    /// Think launched on its own. Leaving it without a saved goal quits Tinkery; a saved goal
+    /// shows the menu for the same `launch`, or Tend on that goal. No session scan runs before.
+    pub fn alone(launch: Launch) -> Self {
+        let dump = launch.think();
+        let mut home = Self::new(launch);
+        home.kept.alone = true;
+        home.push(Box::new(dump), None);
+        home
+    }
+
+    /// Whether Think still runs alone, as [`Home::alone`] opened it.
+    pub fn is_alone(&self) -> bool {
+        self.kept.alone
+    }
+
+    /// Replace the reader for a selected root; never override a root refusal.
+    pub fn with_discovery_source(mut self, source: Source) -> Self {
+        if self.kept.sessions_root.is_some() {
+            self.kept.discovery = Discovery::new(source);
+        }
+        self
+    }
+
     /// Advances time: keeps the session scan moving and tend's wait notice current. Never
     /// blocks; a slow scan shows as waiting, not as a frozen screen.
     pub fn tick(&mut self) {
@@ -178,165 +291,43 @@ impl Home {
 
     /// [`Home::tick`] with the clock as an input, so tests never sleep.
     fn tick_at(&mut self, now: Instant) {
-        if let Some(panel) = &mut self.worker_panel {
+        if let Some(panel) = &mut self.kept.worker {
             panel.poll();
         }
-        if self.quit_after_worker && !self.worker_busy() {
+        if !self.kept.alone {
+            if !self.kept.discovery.requested() {
+                self.kept.request_sessions();
+            }
+            self.kept.discovery.poll();
+        }
+        self.kept.approve_reader.poll(None);
+        if let Some(top) = self.stack.last_mut() {
+            let outcome = top.visit.poll(&mut self.kept, now);
+            self.apply(outcome);
+        }
+        if self.kept.quit_after_worker && !self.busy() {
             self.quit = true;
-        }
-
-        if let View::Watch(watch) = &mut self.view {
-            watch.poll();
-        }
-        if let View::Measure(measure) = &mut self.view {
-            measure.poll();
-        }
-        if let View::Taste(taste) = &mut self.view {
-            taste.poll();
-        }
-        self.poll_retry();
-        if !self.discovery.requested() {
-            self.request_sessions();
-        }
-        self.discovery.poll();
-        if let View::Tend(tend) = &mut self.view
-            && let Some(receipt) = tend.poll(&self.discovery, now)
-        {
-            let shape = self.shape(shape::Open::Session(&receipt.session));
-            self.shape_from_tend(shape);
-            self.receipts.push(seed_me::ExitReceipt::Saved {
-                receipt,
-                record: None,
-            });
-        }
-        self.sync_shape();
-        self.sync_approve();
-        self.approve_reader
-            .poll(if let View::Approve(view) = &mut self.view {
-                Some(view)
-            } else {
-                None
-            });
-        let mut tend_request = None;
-        if let View::Think(dump) = &mut self.view {
-            dump.tick();
-            if let Some(saved) = dump.take_thought_saved() {
-                self.thought_saved = Some(saved);
-            }
-            if let Exit::Tend(path) = dump.exit() {
-                tend_request = Some(path.clone());
-            }
-            if *dump.exit() != Exit::Stay {
-                self.key_bar = dump.key_bar_on();
-                if let Some(receipt) = dump.finish_handoff() {
-                    self.receipts.push(receipt);
-                }
-                self.view = View::Menu;
-                // Back from think: a goal may have been saved, so read again.
-                self.request_sessions();
-            }
-        }
-        if let Some(path) = tend_request {
-            self.open_tend_session(&path);
-        }
-    }
-
-    /// Hand Shape the readable sessions and unreadable count from its fresh discovery result,
-    /// and let an open session's read finish.
-    fn sync_shape(&mut self) {
-        let View::Shape(shape, _) = &mut self.view else {
-            return;
-        };
-        shape.tick();
-        if shape.wants_sessions()
-            && self.discovery.fresh()
-            && let Some(landed) = self.discovery.landed()
-        {
-            shape.offer(match &landed.outcome {
-                Ok(found) => Ok((&found.sessions, found.unreadable, &found.failures)),
-                Err(error) => Err(error.clone()),
-            });
-        }
-    }
-
-    fn sync_approve(&mut self) {
-        let View::Approve(view) = &mut self.view else {
-            return;
-        };
-        if view.wants_sessions()
-            && self.discovery.fresh()
-            && let Some(landed) = self.discovery.landed()
-        {
-            let (sessions, unavailable, reasons) = match &landed.outcome {
-                Ok(found) => (
-                    Ok(found.sessions.clone()),
-                    found.unreadable,
-                    found
-                        .failures
-                        .iter()
-                        .map(|f| format!("{}: {}", f.path.display(), f.reason))
-                        .collect(),
-                ),
-                Err(reason) => (Err(reason.clone()), 0, Vec::new()),
-            };
-            view.offer(
-                sessions,
-                unavailable,
-                reasons,
-                &mut self.approve_reader,
-                self.record_root.clone(),
-            );
         }
     }
 
     /// Read once and wait a bounded time, for the non-interactive `--snapshot` view only.
     pub fn discover_for_snapshot(&mut self, wait: Duration) {
-        if self.sessions_root.is_none() {
+        if self.kept.sessions_root.is_none() {
             return;
         }
-        self.request_sessions();
+        self.kept.request_sessions();
         let deadline = Instant::now() + wait;
-        while !self.discovery.poll() && Instant::now() < deadline {
+        while !self.kept.discovery.poll() && Instant::now() < deadline {
             std::thread::sleep(Duration::from_millis(1));
-        }
-    }
-
-    fn request_sessions(&mut self) {
-        self.discovery.scope_to_repo(
-            self.launch
-                .repo
-                .as_ref()
-                .map(|repo| repo.root().to_path_buf()),
-            self.record_root.clone(),
-        );
-        if let Some(root) = &self.sessions_root {
-            self.discovery.request(root);
-        }
-    }
-
-    fn shape_from_tend(&mut self, shape: Shape) {
-        if let View::Tend(tend) = std::mem::replace(&mut self.view, View::Menu) {
-            self.view = View::Shape(Box::new(shape), Some(tend));
-        }
-    }
-
-    fn open_tend_session(&mut self, path: &Path) {
-        self.open(Place::Tend);
-        if let View::Tend(tend) = &mut self.view {
-            tend.open_session(path);
-            tend.offer(&self.discovery);
         }
     }
 
     /// Receipts from confirmed goals, printed after the terminal is restored.
     pub fn finish(&mut self) -> Option<String> {
-        if let View::Think(dump) = &mut self.view
-            && let Some(receipt) = dump.finish_handoff()
-        {
-            self.receipts.push(receipt);
-        }
-        (!self.receipts.is_empty()).then(|| {
-            self.receipts
+        self.clear();
+        let receipts = &self.kept.receipts;
+        (!receipts.is_empty()).then(|| {
+            receipts
                 .iter()
                 .map(seed_me::ExitReceipt::text)
                 .collect::<Vec<_>>()
@@ -346,52 +337,28 @@ impl Home {
 
     /// Paste literal words into the active editor. Pasting never submits, saves or launches.
     pub fn paste(&mut self, text: &str) {
-        match &mut self.view {
-            View::Think(dump) => dump.paste(text),
-            View::Tend(tend) => tend.paste(text),
-            View::Shape(shape, _) if !self.help => shape.paste(text),
-            View::Taste(taste) if !self.help => taste.paste(text),
-            _ => {}
+        if let Some(top) = self.stack.last_mut() {
+            top.visit.paste(text);
         }
     }
 
     /// Text the open place asked to copy, taken once. The terminal loop does the copying and
     /// reports back through [`Home::copy_result`].
     pub fn take_copy_request(&mut self) -> Option<String> {
-        match &mut self.view {
-            View::Think(dump) => dump.take_copy_request(),
-            View::Approve(view) => view.take_copy_request(),
-            View::Taste(view) => view.take_copy_request(),
-            _ => None,
-        }
+        self.stack.last_mut()?.visit.take_copy()
     }
 
     /// Whether `m` on the menu, or F1's Model and responses row in Think or Shape, asked for the
     /// Model panel since the last ask. Asking clears it.
     pub fn take_model_request(&mut self) -> bool {
-        let place = match &mut self.view {
-            View::Think(dump) => dump.take_model_request(),
-            View::Shape(shape, _) => shape.take_model_request(),
-            _ => false,
-        };
-        std::mem::take(&mut self.model_request) || place
+        std::mem::take(&mut self.model_request)
     }
 
     /// Whether the last copy reached the clipboard, so the place can say so.
     pub fn copy_result(&mut self, sent: bool) {
-        match &mut self.view {
-            View::Think(dump) => dump.copy_result(sent),
-            View::Approve(view) => view.copy_result(sent),
-            View::Taste(view) => view.copy_result(sent),
-            _ => {}
+        if let Some(top) = self.stack.last_mut() {
+            top.visit.copy_result(sent);
         }
-    }
-
-    fn approve_watch_root(&self) -> Option<PathBuf> {
-        self.launch.sdlc_root.clone().or_else(|| {
-            let root = self.launch.repo.as_ref()?.root();
-            sdlc::installed(root).then(|| root.to_path_buf())
-        })
     }
 
     /// Opens a place. Opening tend asks for a fresh scan; opening never starts an agent.
@@ -399,125 +366,173 @@ impl Home {
         if self.quit {
             return;
         }
-        self.approve_reader.cancel();
-        self.approve_origin = None;
+        self.clear();
         self.selected = place;
-        self.help = false;
-        self.view = match place {
-            Place::Think => View::Think(Box::new(self.think())),
-            Place::Tend => {
-                // Deliberate reopening reads again; the last result shows meanwhile.
-                self.request_sessions();
-                let (sessions, records, store) = (
-                    self.sessions_root.clone(),
-                    self.record_root.clone(),
-                    self.link_root.clone(),
-                );
-                let repo = self
-                    .launch
-                    .repo
-                    .as_ref()
-                    .map(|repo| repo.root().to_path_buf());
-                let drafting = self.launch.drafting.clone();
-                let actor = self.launch.confirmation.clone().tend_save();
-                let connect: tend::Connect = Box::new(move || {
-                    let sessions = sessions
-                        .clone()
-                        .ok_or("The sessions folder is unavailable.")?;
-                    let records = records.clone()?;
-                    let store = store.clone()?;
-                    let repo = repo
-                        .clone()
-                        .ok_or("Open Tinkery inside a repository first.")?;
-                    Ok(tend::connection::Context {
-                        sessions,
-                        records,
-                        store,
-                        repo,
-                        call: drafting.clone(),
-                        actor: actor.clone(),
-                    })
-                });
-                let mut tend = Tend::new(
-                    self.link_root.clone(),
-                    self.launch.repo.as_ref().map(|repo| repo.root()),
-                    self.record_root.clone(),
-                    connect,
-                );
-                if let Some((words, duplicate)) = self.thought_saved.take() {
-                    tend.thought_saved(&words, duplicate);
-                }
-                View::Tend(Box::new(tend))
-            }
+        let kept = &mut self.kept;
+        let visit: Box<dyn Visit> = match place {
+            Place::Think => Box::new(kept.think()),
+            Place::Tend => Box::new(visits::tend(kept)),
             Place::Shape => {
-                self.request_sessions();
-                View::Shape(Box::new(self.shape(shape::Open::List)), None)
+                kept.request_sessions();
+                let mut shaping = visits::Shaping::new(kept.shape(shape::Open::List));
+                shaping.poll(kept, Instant::now());
+                Box::new(shaping)
             }
-            Place::Approve => {
-                self.request_sessions();
-                View::Approve(Box::new(approve::Approve::open(self.approve_watch_root())))
-            }
-            Place::Watch => View::Watch(Box::new(
-                Watch::open(self.approve_watch_root())
-                    .with_codex_report(self.launch.codex_report.clone()),
+            Place::Approve => Box::new(visits::Approving::new(
+                approve::Approve::open(kept.approve_watch_root()),
+                kept,
             )),
-            Place::Taste => View::Taste(Box::new(Taste::open(
-                self.launch.sdlc_root.clone(),
-                self.launch.agent,
+            Place::Watch => Box::new(visits::Helped::new(
+                Watch::open(kept.approve_watch_root())
+                    .with_codex_report(kept.launch.codex_report.clone()),
+            )),
+            Place::Taste => Box::new(visits::Helped::new(Taste::open(
+                kept.launch.sdlc_root.clone(),
+                kept.launch.agent,
             ))),
-            Place::Measure => {
-                View::Measure(Box::new(measure::Measure::open(self.launch.repo.clone())))
-            }
+            Place::Measure => Box::new(visits::Helped::new(measure::Measure::open(
+                kept.launch.repo.clone(),
+            ))),
         };
-        if let View::Tend(tend) = &mut self.view {
-            tend.offer(&self.discovery);
-        }
-        self.sync_shape();
-        self.sync_approve();
+        self.push(visit, None);
     }
 
-    /// Open only the chosen seed through normal verification, keeping this Ready return context.
-    fn open_ready_seed(&mut self, target: crate::seed_me::ready::SeedTarget) {
-        let View::Shape(shape, tend) = std::mem::replace(&mut self.view, View::Menu) else {
+    fn open_tend_session(&mut self, path: &Path) {
+        if self.quit {
             return;
-        };
-        let origin = ApproveOrigin {
-            shape,
-            tend,
-            selected: self.selected,
-        };
-        self.approve_reader.cancel();
-        self.request_sessions();
-        self.selected = Place::Approve;
-        self.help = false;
-        self.view = View::Approve(Box::new(
-            approve::Approve::open(self.approve_watch_root()).for_seed(target),
-        ));
-        self.approve_origin = Some(origin);
-        self.sync_approve();
-    }
-
-    /// Share the declaration and relay snapshot without granting permission on navigation.
-    fn worker_gate(&self) -> worker::Gate {
-        worker::Gate::new(self.launch.agent, self.launch.worker_authorization.clone())
-    }
-
-    fn worker_busy(&self) -> bool {
-        self.worker_panel.as_ref().is_some_and(worker::Panel::busy)
-    }
-
-    fn open_worker(&mut self, review: worker::Review) {
-        if !self.worker_busy() {
-            self.worker_panel = Some(worker::Panel::review(
-                review,
-                self.record_root.clone(),
-                self.launch.worker.clone(),
-                self.worker_gate(),
-            ));
         }
-        self.approve_reader.cancel();
+        self.clear();
+        self.selected = Place::Tend;
+        let mut tend = visits::tend(&mut self.kept);
+        tend.open_session(path);
+        tend.offer(&self.kept.discovery);
+        self.push(Box::new(tend), None);
+    }
+
+    fn push(&mut self, visit: Box<dyn Visit>, back_to: Option<Place>) {
         self.help = false;
-        self.view = View::Worker;
+        self.stack.push(Entry { visit, back_to });
+    }
+
+    /// Close every open place, top first.
+    fn clear(&mut self) {
+        while let Some(entry) = self.stack.pop() {
+            entry.visit.close(&mut self.kept);
+        }
+    }
+
+    fn busy(&self) -> bool {
+        self.kept.worker.as_ref().is_some_and(worker::Panel::busy)
+            || self.stack.iter().any(|entry| entry.visit.busy())
+    }
+
+    /// Show the worker panel, in place of everything open.
+    fn show_worker(&mut self) {
+        self.clear();
+        if let Some(panel) = self.kept.worker.take() {
+            self.push(Box::new(panel), None);
+        }
+    }
+
+    fn apply(&mut self, outcome: Outcome) {
+        match outcome {
+            Outcome::Stay => {}
+            Outcome::Model => self.model_request = true,
+            Outcome::Back => {
+                if let Some(entry) = self.stack.pop() {
+                    entry.visit.close(&mut self.kept);
+                    if let Some(place) = entry.back_to {
+                        self.selected = place;
+                    }
+                }
+                if let Some(top) = self.stack.last_mut() {
+                    top.visit.resumed(&mut self.kept);
+                }
+            }
+            Outcome::Home => self.clear(),
+            Outcome::Quit if self.busy() => {
+                self.kept.quit_after_worker = true;
+                self.show_worker();
+                self.help = false;
+            }
+            Outcome::Quit => self.quit = true,
+            Outcome::Open(open) => self.go(*open),
+        }
+    }
+
+    fn go(&mut self, open: Open) {
+        let kept = &mut self.kept;
+        match open {
+            Open::Place(place) => self.open(place),
+            Open::Words(words) => {
+                let mut dump = kept.think();
+                dump.paste(&words);
+                self.clear();
+                self.push(Box::new(dump), None);
+            }
+            Open::Draft(draft) => {
+                let mut dump = kept.think();
+                dump.offer_draft(draft);
+                self.clear();
+                self.selected = Place::Think;
+                self.push(Box::new(dump), None);
+            }
+            Open::TendSession(path) => self.open_tend_session(&path),
+            Open::Shape(path) => {
+                let shape = kept.shape(shape::Open::Session(&path));
+                let visit = visits::Shaping::new(shape);
+                self.push(Box::new(visit), None);
+            }
+            Open::Saved(path) => {
+                self.clear();
+                let kept = &mut self.kept;
+                let shape = kept.shape(shape::Open::Session(&path));
+                kept.request_sessions();
+                let visit = visits::Shaping::new(shape);
+                self.push(Box::new(visit), None);
+            }
+            Open::Seed(target) => {
+                let view = approve::Approve::open(kept.approve_watch_root()).for_seed(target);
+                let visit = visits::Approving::new(view, kept);
+                let back_to = Some(std::mem::replace(&mut self.selected, Place::Approve));
+                self.push(Box::new(visit), back_to);
+            }
+            Open::Retry(rejected) => {
+                self.selected = Place::Shape;
+                self.push(Box::new(retry::Review::new(rejected)), Some(Place::Taste));
+            }
+            Open::Review(review) => {
+                self.clear();
+                if !self.busy() {
+                    let kept = &mut self.kept;
+                    kept.worker = Some(worker::Panel::review(
+                        review,
+                        kept.record_root.clone(),
+                        kept.launch.worker.clone(),
+                        kept.worker_gate(),
+                    ));
+                }
+                self.show_worker();
+            }
+            Open::Run { root, slug, id } => {
+                self.clear();
+                if !self.busy() {
+                    let gate = self.kept.worker_gate();
+                    self.kept.worker = Some(worker::Panel::existing(root, slug, id, gate));
+                }
+                self.show_worker();
+            }
+            Open::Worker => self.show_worker(),
+            Open::Watch(root) => {
+                self.clear();
+                self.push(Box::new(visits::Helped::new(Watch::open(Some(root)))), None);
+            }
+            Open::Taste(root) => {
+                self.clear();
+                let taste = Taste::open(Some(root), self.kept.launch.agent);
+                self.push(Box::new(visits::Helped::new(taste)), None);
+            }
+        }
     }
 
     /// One key press, routed to the open place or the menu. Releases are ignored.
@@ -525,268 +540,61 @@ impl Home {
         if key.kind == KeyEventKind::Release {
             return;
         }
-        let quitting = (key.modifiers.contains(KeyModifiers::CONTROL)
-            && key.code == KeyCode::Char('c'))
-            || (matches!(self.view, View::Menu)
-                && matches!(key.code, KeyCode::Char('q') | KeyCode::F(10)));
-        if quitting && self.worker_busy() {
-            self.quit_after_worker = true;
-            self.view = View::Worker;
-            self.help = false;
-            return;
-        }
-        if matches!(self.view, View::Worker) {
-            if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
-                self.quit = true;
-            } else if let Some(destination) = self.worker_panel.as_mut().and_then(|p| p.key(key)) {
-                self.help = false;
-                self.view = match destination {
-                    worker::Destination::Home => View::Menu,
-                    worker::Destination::Watch(root) => {
-                        View::Watch(Box::new(Watch::open(Some(root))))
-                    }
-                    worker::Destination::Taste(root) => {
-                        View::Taste(Box::new(Taste::open(Some(root), self.launch.agent)))
-                    }
-                };
-            }
-            return;
-        }
-        if let View::Tend(tend) = &mut self.view {
-            match tend.key(key) {
-                tend::Next::Stay => {}
-                tend::Next::Menu => {
-                    self.view = View::Menu;
-                    self.help = false;
-                }
-                tend::Next::Think(None) => self.open(Place::Think),
-                tend::Next::Think(Some(words)) => {
-                    let mut dump = self.think();
-                    dump.paste(&words);
-                    self.help = false;
-                    self.view = View::Think(Box::new(dump));
-                }
-                tend::Next::Shape(path) => {
-                    let shape = self.shape(shape::Open::Session(&path));
-                    self.shape_from_tend(shape);
-                }
-            }
-            return;
-        }
-        if let View::Think(dump) = &mut self.view {
-            dump.handle_key(key);
-            return;
-        }
-        if let View::Approve(view) = &mut self.view {
-            if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
-                self.approve_reader.cancel();
-                self.quit = true;
-            } else if key.modifiers == KeyModifiers::NONE && view.key(key, &mut self.help) {
-                self.approve_reader.cancel();
-                self.help = false;
-                self.view = match self.approve_origin.take() {
-                    Some(mut origin) if key.code != KeyCode::F(10) => {
-                        self.selected = origin.selected;
-                        origin.shape.reread();
-                        View::Shape(origin.shape, origin.tend)
-                    }
-                    _ => View::Menu,
-                };
-            }
-            if let View::Approve(view) = &mut self.view
-                && let Some(review) = view.take_worker_request()
-            {
-                self.open_worker(review);
-            }
-            return;
-        }
-        if matches!(self.view, View::Retry(..)) {
-            self.retry_key(key);
-            return;
-        }
-        if matches!(self.view, View::Shape(..)) {
-            self.shape_key(key);
-            return;
-        }
-        if matches!(self.view, View::Watch(_) | View::Taste(_)) && key.code == KeyCode::F(10) {
-            // A label being saved finishes first, so its outcome is never left unknown.
-            let saving = matches!(&self.view, View::Taste(taste) if taste.saving());
-            if !saving && key.modifiers == KeyModifiers::NONE && key.kind == KeyEventKind::Press {
-                self.help = false;
-                self.view = View::Menu;
-            }
-            return;
-        }
+        let ctrl_c =
+            key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c');
+        let outcome = if ctrl_c && self.busy() {
+            Outcome::Quit
+        } else if let Some(top) = self.stack.last_mut() {
+            top.visit.key(key, &mut self.kept)
+        } else {
+            self.menu_key(key)
+        };
+        self.apply(outcome);
+    }
+
+    fn menu_key(&mut self, key: KeyEvent) -> Outcome {
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         if ctrl && key.code == KeyCode::Char('c') || key.code == KeyCode::F(10) {
-            self.quit = true;
-            return;
-        }
-        // Taste's label form takes words: `?` and q type; F1 still opens help.
-        if let View::Taste(taste) = &mut self.view
-            && taste.takes_text()
-            && !self.help
-            && key.code != KeyCode::F(1)
-        {
-            taste.key(key);
-            return;
+            return Outcome::Quit;
         }
         if matches!(key.code, KeyCode::Char('?') | KeyCode::F(1)) {
             self.help = !self.help;
-            return;
+            return Outcome::Stay;
         }
-        if self.help && key.code == KeyCode::Esc {
-            self.help = false;
-            return;
-        }
-        if self.help && matches!(self.view, View::Menu) {
-            if key.code == KeyCode::Char('q') {
-                self.quit = true;
+        if self.help {
+            if key.code == KeyCode::Esc {
+                self.help = false;
+            } else if key.code == KeyCode::Char('q') {
+                return Outcome::Quit;
             }
-            return;
-        }
-        match &mut self.view {
-            View::Menu => match key.code {
-                KeyCode::Char(c @ '1'..='7') => self.open(PLACES[c as usize - '1' as usize]),
-                KeyCode::Down | KeyCode::Char('j') | KeyCode::Up | KeyCode::Char('k') => {
-                    let index = PLACES
-                        .iter()
-                        .position(|place| *place == self.selected)
-                        .unwrap();
-                    let step = if matches!(key.code, KeyCode::Down | KeyCode::Char('j')) {
-                        1
-                    } else {
-                        PLACES.len() - 1
-                    };
-                    self.selected = PLACES[(index + step) % PLACES.len()];
-                }
-                KeyCode::Enter => self.open(self.selected),
-                KeyCode::Char('q') => self.quit = true,
-                KeyCode::Char('m') => self.model_request = true,
-                KeyCode::Char('b')
-                    if self.worker_panel.is_some()
-                        && key.kind == KeyEventKind::Press
-                        && key.modifiers == KeyModifiers::NONE =>
-                {
-                    self.view = View::Worker;
-                }
-                _ => {}
-            },
-            View::Measure(measure) => {
-                if self.help {
-                    if key.code == KeyCode::Char('q') {
-                        self.help = false;
-                        self.view = View::Menu;
-                    }
-                } else if measure.key(key) {
-                    self.view = View::Menu;
-                }
-            }
-            View::Watch(watch) => {
-                if self.help {
-                    if key.code == KeyCode::Char('q') {
-                        self.help = false;
-                        self.view = View::Menu;
-                    }
-                    return;
-                }
-                match watch.key(key) {
-                    Some(watch::Exit::Leave) => self.view = View::Menu,
-                    Some(watch::Exit::Worker { root, slug, id }) => {
-                        if !self.worker_busy() {
-                            self.worker_panel =
-                                Some(worker::Panel::existing(root, slug, id, self.worker_gate()));
-                        }
-                        self.view = View::Worker;
-                    }
-                    None => {}
-                }
-            }
-            View::Taste(_) => self.taste_key(key),
-            View::Retry(..) => {}
-            View::Think(_) | View::Tend(_) | View::Shape(..) | View::Approve(_) | View::Worker => {}
-        }
-    }
-
-    /// Shape's keys: F1 (or ? when Shape isn't taking words) for help, where a digit runs its
-    /// numbered action, and Esc steps back (to the same Tend detail, freshly read). Held keys
-    /// don't repeat an open, a save or a confirmation. Shift types capitals. Only F2 and the
-    /// numbered actions write or run.
-    fn shape_key(&mut self, key: KeyEvent) {
-        let typing = matches!(&self.view, View::Shape(shape, _) if shape.takes_text());
-        let editor_key = typing
-            && !self.help
-            && matches!(
-                key.code,
-                KeyCode::Char(_)
-                    | KeyCode::Left
-                    | KeyCode::Right
-                    | KeyCode::Up
-                    | KeyCode::Down
-                    | KeyCode::Home
-                    | KeyCode::End
-                    | KeyCode::Backspace
-                    | KeyCode::Delete
-                    | KeyCode::Enter
-                    | KeyCode::Tab
-            );
-        let shifted_char =
-            key.modifiers == KeyModifiers::SHIFT && matches!(key.code, KeyCode::Char(_));
-        if key.modifiers != KeyModifiers::NONE && !editor_key && !shifted_char
-            || key.kind == KeyEventKind::Repeat
-                && (matches!(key.code, KeyCode::F(2..=5)) || key.code == KeyCode::Enter && !typing)
-        {
-            return;
+            return Outcome::Stay;
         }
         match key.code {
-            KeyCode::Char('?') if typing && !self.help => {
-                if let View::Shape(shape, _) = &mut self.view {
-                    shape.key(key);
-                }
-            }
-            KeyCode::F(1) | KeyCode::Char('?') => {
-                self.help = !self.help;
-                if let View::Shape(shape, _) = &mut self.view {
-                    shape.reset_help();
-                }
-            }
-            KeyCode::Esc if self.help => self.help = false,
-            _ if self.help => {
-                if let View::Shape(shape, _) = &mut self.view {
-                    if shape.pick(key) {
-                        self.help = false;
-                    } else {
-                        shape.scroll_help(key.code);
-                    }
-                }
-            }
-            _ => {
-                let View::Shape(shape, _) = &mut self.view else {
-                    return;
+            KeyCode::Char(c @ '1'..='7') => to(Open::Place(PLACES[c as usize - '1' as usize])),
+            KeyCode::Down | KeyCode::Char('j') | KeyCode::Up | KeyCode::Char('k') => {
+                let index = PLACES
+                    .iter()
+                    .position(|place| *place == self.selected)
+                    .unwrap();
+                let step = if matches!(key.code, KeyCode::Down | KeyCode::Char('j')) {
+                    1
+                } else {
+                    PLACES.len() - 1
                 };
-                let leave = shape.key(key);
-                if shape.wants_sessions() {
-                    self.request_sessions();
-                }
-                if leave == Leave::Back {
-                    let View::Shape(_, back) = std::mem::replace(&mut self.view, View::Menu) else {
-                        unreachable!()
-                    };
-                    if let Some(mut tend) = back {
-                        tend.returned();
-                        self.request_sessions();
-                        tend.offer(&self.discovery);
-                        self.view = View::Tend(tend);
-                    }
-                }
+                self.selected = PLACES[(index + step) % PLACES.len()];
+                Outcome::Stay
             }
-        }
-        let target = match &mut self.view {
-            View::Shape(shape, _) => shape.take_approve_request(),
-            _ => None,
-        };
-        if let Some(target) = target {
-            self.open_ready_seed(target);
+            KeyCode::Enter => to(Open::Place(self.selected)),
+            KeyCode::Char('q') => Outcome::Quit,
+            KeyCode::Char('m') => Outcome::Model,
+            KeyCode::Char('b')
+                if self.kept.worker.is_some()
+                    && key.kind == KeyEventKind::Press
+                    && key.modifiers == KeyModifiers::NONE =>
+            {
+                to(Open::Worker)
+            }
+            _ => Outcome::Stay,
         }
     }
 
@@ -797,18 +605,12 @@ impl Home {
 
     /// [`Home::handle_mouse`] with the clock as an input, so double-click tests never sleep.
     fn handle_mouse_at(&mut self, event: MouseEvent, area: Rect, now: Instant) {
-        if let View::Think(dump) = &mut self.view {
-            dump.handle_mouse(event, area);
-            return;
-        }
-        if let View::Tend(tend) = &mut self.view {
-            tend.pointer(event, body(area), now);
+        if let Some(top) = self.stack.last_mut() {
+            let outcome = top.visit.mouse(event, area, now, &self.kept);
+            self.apply(outcome);
             return;
         }
         if event.kind != MouseEventKind::Down(MouseButton::Left) {
-            return;
-        }
-        if !matches!(self.view, View::Menu) {
             return;
         }
         if event.row == 1 && event.column + 3 >= area.width {
@@ -829,16 +631,13 @@ impl Home {
 
     /// The Think reading associated with this frame, if one awaits successful output.
     pub fn presentation(&self) -> Option<brain_dump::Presentation> {
-        match &self.view {
-            View::Think(dump) => dump.presentation(),
-            _ => None,
-        }
+        self.stack.last()?.visit.presentation()
     }
 
     /// Acknowledge successful terminal output to the open Think visit only.
     pub fn presented(&mut self, presentation: brain_dump::Presentation) {
-        if let View::Think(dump) = &mut self.view {
-            dump.presented(presentation);
+        if let Some(top) = self.stack.last_mut() {
+            top.visit.presented(presentation);
         }
     }
 
@@ -848,7 +647,8 @@ impl Home {
         if place != Place::Tend {
             return None;
         }
-        self.discovery
+        self.kept
+            .discovery
             .exact_active()
             .filter(|active| *active > 0)
             .map(|active| active.to_string())
@@ -857,29 +657,79 @@ impl Home {
 
 /// Paints the menu or the open place. Painting never waits on the session scan.
 pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
-    if let View::Think(dump) = &mut home.view {
-        brain_dump::render(frame, dump, palette);
+    if let Some(top) = home.stack.last_mut() {
+        top.visit.render(frame, palette, &home.kept);
         return;
     }
     let area = frame.area();
-    frame.render_widget(Paragraph::new("").style(palette.ink), area);
-    let title = match &home.view {
-        View::Menu => "tinkery".to_string(),
-        View::Tend(_) => "tinkery › tend".into(),
-        View::Shape(..) | View::Retry(..) => "tinkery › shape".into(),
-        View::Approve(_) => "tinkery › approve".into(),
-        View::Worker => "tinkery › worker".into(),
-        View::Measure(measure) => measure.title(),
-        View::Watch(_) => "tinkery › watch".into(),
-        View::Taste(_) => "tinkery › taste".into(),
-        View::Think(_) => unreachable!(),
-    };
-    let mut title = vec![Span::styled(title, palette.ink)];
-    if let (View::Menu, Some(repo)) = (&home.view, &home.launch.repo) {
+    let mut title = vec![Span::styled("tinkery", palette.ink)];
+    if let Some(repo) = &home.kept.launch.repo {
         title.push(Span::styled(format!("  in {}", repo.name()), palette.muted));
     }
+    chrome(frame, Line::from(title), palette);
+    for (i, place) in PLACES.iter().enumerate() {
+        let (name, description) = place.label();
+        let y = FIRST_ROW + i as u16 * ROW_GAP;
+        if y >= area.height.saturating_sub(2) {
+            break;
+        }
+        let style = if *place == home.selected {
+            palette.jade
+        } else {
+            palette.ink
+        };
+        let mut spans = vec![Span::styled(format!("{}  {name}", i + 1), style)];
+        spans.push(Span::styled(
+            format!(
+                "{:>width$}  {description}",
+                home.count(*place).unwrap_or_default(),
+                width = 15 - name.len()
+            ),
+            palette.muted,
+        ));
+        frame.render_widget(
+            Paragraph::new(Line::from(spans)),
+            Rect::new(2, y, area.width.saturating_sub(4), 1),
+        );
+    }
+    if let Some(receipt) = home.kept.receipts.last() {
+        frame.render_widget(
+            Paragraph::new(receipt.label()).style(palette.muted),
+            Rect::new(
+                5,
+                FIRST_ROW + PLACES.len() as u16 * ROW_GAP + 1,
+                area.width.saturating_sub(7),
+                1,
+            ),
+        );
+    }
+    if home.help {
+        render_menu_help(frame, palette);
+    } else {
+        frame.render_widget(
+            Paragraph::new(if home.kept.worker.is_some() {
+                "↑↓ move   enter open   b worker   ? help   q quit"
+            } else {
+                "↑↓ move   enter open   ? help   q quit"
+            })
+            .style(palette.muted),
+            Rect::new(
+                2,
+                area.height.saturating_sub(2),
+                area.width.saturating_sub(4),
+                1,
+            ),
+        );
+    }
+}
+
+/// The shared frame of every screen but Think: the title row, the theme switch and the `?`
+/// control. Returns the body below it.
+fn chrome(frame: &mut Frame, title: Line, palette: Palette) -> Rect {
+    let area = frame.area();
+    frame.render_widget(Paragraph::new("").style(palette.ink), area);
     frame.render_widget(
-        Paragraph::new(Line::from(title)),
+        Paragraph::new(title),
         Rect::new(
             2,
             1,
@@ -894,119 +744,7 @@ pub fn render(frame: &mut Frame, home: &mut Home, palette: Palette) {
             Rect::new(area.width - 3, 1, 1, 1),
         );
     }
-    let body = body(area);
-    if matches!(home.view, View::Worker) {
-        if let Some(panel) = &mut home.worker_panel {
-            panel.render(frame, body, palette);
-        }
-        if home.quit_after_worker {
-            frame.render_widget(
-                Paragraph::new("Finishing the current request before exit…").style(palette.muted),
-                Rect::new(body.x, body.bottom().saturating_sub(2), body.width, 1),
-            );
-        }
-        return;
-    }
-    if let View::Retry(view, _) = &mut home.view {
-        view.render(frame, body, palette, !home.launch.agent, home.help);
-        return;
-    }
-    if let View::Approve(view) = &mut home.view {
-        view.render(frame, body, palette, home.help);
-        return;
-    }
-    if let View::Measure(measure) = &mut home.view {
-        measure.render(frame, body, palette, home.help);
-        return;
-    }
-    if home.help && !matches!(home.view, View::Menu) {
-        if let View::Shape(shape, _) = &mut home.view {
-            shape.render_help(frame, body, palette);
-            return;
-        }
-        if let View::Taste(taste) = &home.view {
-            frame.render_widget(
-                Paragraph::new(taste.help_text())
-                    .style(palette.ink)
-                    .wrap(Wrap { trim: false }),
-                body,
-            );
-            return;
-        }
-        if let View::Watch(watch) = &home.view {
-            frame.render_widget(
-                Paragraph::new(watch.help_text())
-                    .style(palette.ink)
-                    .wrap(Wrap { trim: false }),
-                body,
-            );
-            return;
-        }
-    }
-    match &mut home.view {
-        View::Menu => {
-            for (i, place) in PLACES.iter().enumerate() {
-                let (name, description) = place.label();
-                let y = FIRST_ROW + i as u16 * ROW_GAP;
-                if y >= area.height.saturating_sub(2) {
-                    break;
-                }
-                let style = if *place == home.selected {
-                    palette.jade
-                } else {
-                    palette.ink
-                };
-                let mut spans = vec![Span::styled(format!("{}  {name}", i + 1), style)];
-                spans.push(Span::styled(
-                    format!(
-                        "{:>width$}  {description}",
-                        home.count(*place).unwrap_or_default(),
-                        width = 15 - name.len()
-                    ),
-                    palette.muted,
-                ));
-                frame.render_widget(
-                    Paragraph::new(Line::from(spans)),
-                    Rect::new(2, y, area.width.saturating_sub(4), 1),
-                );
-            }
-            if let Some(receipt) = home.receipts.last() {
-                frame.render_widget(
-                    Paragraph::new(receipt.label()).style(palette.muted),
-                    Rect::new(
-                        5,
-                        FIRST_ROW + PLACES.len() as u16 * ROW_GAP + 1,
-                        area.width.saturating_sub(7),
-                        1,
-                    ),
-                );
-            }
-            if home.help {
-                render_menu_help(frame, palette);
-            } else {
-                frame.render_widget(
-                    Paragraph::new(if home.worker_panel.is_some() {
-                        "↑↓ move   enter open   b worker   ? help   q quit"
-                    } else {
-                        "↑↓ move   enter open   ? help   q quit"
-                    })
-                    .style(palette.muted),
-                    Rect::new(
-                        2,
-                        area.height.saturating_sub(2),
-                        area.width.saturating_sub(4),
-                        1,
-                    ),
-                );
-            }
-        }
-        View::Tend(tend) => tend.render(frame, body, palette),
-        View::Shape(shape, _) => shape.render(frame, body, palette),
-        View::Measure(_) | View::Retry(..) => unreachable!(),
-        View::Watch(watch) => watch.render(frame, body, palette),
-        View::Taste(taste) => taste.render(frame, body, palette),
-        View::Think(_) | View::Approve(_) | View::Worker => {}
-    }
+    body(area)
 }
 
 fn body(area: Rect) -> Rect {
@@ -1017,7 +755,6 @@ fn body(area: Rect) -> Rect {
         area.height.saturating_sub(4),
     )
 }
-
 fn render_menu_help(frame: &mut Frame, palette: Palette) {
     let area = frame.area();
     let width = 38.min(area.width.saturating_sub(4));
@@ -1087,7 +824,7 @@ mod measure_tests;
 mod menu_tests;
 #[cfg(test)]
 mod tests {
-    use super::menu_tests::{how_it_works, in_detail, selected_line};
+    use super::menu_tests::{at, how_it_works, in_detail, selected_line, think_saved};
     use super::*;
     use crate::tend::{Stage, load_sessions};
     use serde_json::Value;
@@ -1110,7 +847,10 @@ mod tests {
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {
             h.tick();
-            if h.discovery.requested() && !h.discovery.running() && h.discovery.fresh() {
+            if h.kept.discovery.requested()
+                && !h.kept.discovery.running()
+                && h.kept.discovery.fresh()
+            {
                 return;
             }
             assert!(Instant::now() < deadline, "discovery did not settle");
@@ -1317,15 +1057,13 @@ mod tests {
                 },
                 Rect::new(0, 0, 80, 24),
             );
-            assert!(
-                h.help && matches!(h.view, View::Menu) && h.selected == Place::Think && !h.quit
-            );
+            assert!(h.help && at(&mut h) == "menu" && h.selected == Place::Think && !h.quit);
         }
         for close in [KeyCode::Esc, KeyCode::F(1), KeyCode::Char('?')] {
             let mut h = home(tmp.path());
             h.handle_key(key(KeyCode::F(1)));
             h.handle_key(key(close));
-            assert!(!h.help && matches!(h.view, View::Menu) && !h.quit);
+            assert!(!h.help && at(&mut h) == "menu" && !h.quit);
         }
         let mut h = home(tmp.path());
         h.handle_key(key(KeyCode::F(1)));
@@ -1338,7 +1076,7 @@ mod tests {
             },
             Rect::new(0, 0, 80, 24),
         );
-        assert!(!h.help && matches!(h.view, View::Menu));
+        assert!(!h.help && at(&mut h) == "menu");
         for quit in [
             key(KeyCode::Char('q')),
             key(KeyCode::F(10)),
@@ -1376,23 +1114,15 @@ mod tests {
                         assert_eq!(screen.matches(description).count(), 1);
                     }
                     assert!(screen.lines().nth(19).unwrap().is_empty());
-                    assert!(matches!(h.view, View::Menu));
+                    assert!(at(&mut h) == "menu");
                     assert!(!h.quit && h.take_copy_request().is_none());
                     h.handle_key(key(KeyCode::Down));
                 }
                 let saved = tmp.path().join("TEST-saved");
-                let mut dump = BrainDump::default();
-                dump.set_saved(seed_me::Receipt::test(saved.clone()));
-                let mut h = Home::from_receipt(
-                    dump,
-                    &saved,
-                    false,
-                    Launch::practice(DataRoots {
-                        sessions: Ok(tmp.path().to_path_buf()),
-                        tend: Ok(tmp.path().join("TEST-links")),
-                        ..DataRoots::from_home(None)
-                    }),
-                );
+                let mut h = home(tmp.path());
+                think_saved(&mut h, &saved);
+                h.handle_key(key(KeyCode::Esc));
+                h.tick();
                 let screen = snapshot(width, height, &mut h, no_color).unwrap();
                 assert_eq!(screen.lines().nth(19).unwrap().trim(), "Saved.");
                 for description in descriptions {
@@ -1445,23 +1175,24 @@ mod tests {
         h.open(Place::Tend);
         settle(&mut h);
         h.handle_key(key(KeyCode::Char('s')));
-        assert!(matches!(h.view, View::Tend(_)), "the garden has no s");
+        assert!(at(&mut h) == "tend", "the garden has no s");
         h.handle_key(key(KeyCode::Enter));
         let mut held = key(KeyCode::Char('s'));
         held.kind = KeyEventKind::Repeat;
         h.handle_key(held);
-        assert!(matches!(h.view, View::Tend(_)), "a held key opens nothing");
+        assert!(at(&mut h) == "tend", "a held key opens nothing");
         h.handle_key(key(KeyCode::Char('s')));
-        assert!(matches!(h.view, View::Shape(..)));
+        assert!(at(&mut h) == "shape");
         let screen = snapshot(100, 30, &mut h, true).unwrap();
         assert!(screen.contains("tinkery › shape"), "{screen}");
         assert!(screen.contains("Checking this Tink."), "{screen}");
         // A terminal may report ? with Shift; it still opens and closes help.
         let shifted = KeyEvent::new(KeyCode::Char('?'), KeyModifiers::SHIFT);
         h.handle_key(shifted);
-        assert!(h.help, "Shift+? opens help");
+        let help = |h: &mut Home| snapshot(100, 30, h, true).unwrap().contains("F1 close");
+        assert!(help(&mut h), "Shift+? opens help");
         h.handle_key(shifted);
-        assert!(!h.help, "Shift+? closes help");
+        assert!(!help(&mut h), "Shift+? closes help");
         h.handle_key(key(KeyCode::Esc));
         assert!(in_detail(&mut h));
         settle(&mut h);
@@ -1472,10 +1203,7 @@ mod tests {
         settle(&mut h);
         h.handle_key(key(KeyCode::Enter));
         h.handle_key(key(KeyCode::Char('s')));
-        assert!(
-            matches!(h.view, View::Tend(_)),
-            "no s when the stage is unknown"
-        );
+        assert!(at(&mut h) == "tend", "no s when the stage is unknown");
     }
 
     #[test]
@@ -1499,7 +1227,7 @@ mod tests {
             settle(&mut h);
             h.handle_key(key(KeyCode::Enter));
             h.handle_key(key(KeyCode::Char('s')));
-            assert!(matches!(h.view, View::Shape(..)));
+            assert!(at(&mut h) == "shape");
             session(
                 tmp.path(),
                 "a",
@@ -1531,14 +1259,14 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let mut h = home(tmp.path());
         h.handle_key(key(KeyCode::Char('4')));
-        assert!(matches!(h.view, View::Approve(_)));
+        assert!(at(&mut h) == "approve");
         let shown = snapshot(100, 30, &mut h, true).unwrap();
         assert!(shown.contains("tinkery › approve") && shown.contains("esc back"));
         assert!(h.take_copy_request().is_none());
         h.handle_key(key(KeyCode::Esc));
-        assert!(matches!(h.view, View::Menu));
+        assert!(at(&mut h) == "menu");
         h.handle_key(key(KeyCode::Char('1')));
-        assert!(matches!(h.view, View::Think(_)));
+        assert!(at(&mut h) == "think");
     }
 
     #[test]
@@ -1546,11 +1274,9 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let mut h = home(tmp.path());
         h.open(Place::Think);
-        if let View::Think(dump) = &mut h.view {
-            dump.handle_key(key(KeyCode::Esc));
-        }
+        h.handle_key(key(KeyCode::Esc));
         h.tick();
-        assert!(matches!(h.view, View::Menu));
+        assert!(at(&mut h) == "menu");
         assert!(!h.quit);
     }
 
@@ -1559,18 +1285,30 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let mut h = home(tmp.path());
         h.open(Place::Think);
-        if let View::Think(dump) = &mut h.view {
-            assert!(dump.key_bar_on(), "on by default");
-            dump.handle_key(key(KeyCode::F(1)));
-            dump.handle_key(key(KeyCode::Char('b')));
-            dump.handle_key(key(KeyCode::Esc));
-            dump.handle_key(key(KeyCode::Esc));
+        let on = snapshot(100, 30, &mut h, true).unwrap();
+        for code in [
+            KeyCode::F(1),
+            KeyCode::Char('b'),
+            KeyCode::Esc,
+            KeyCode::Esc,
+        ] {
+            h.handle_key(key(code));
         }
         h.tick();
-        assert!(matches!(h.view, View::Menu));
+        assert!(at(&mut h) == "menu");
         h.open(Place::Think);
-        let View::Think(dump) = &h.view else { panic!() };
-        assert!(!dump.key_bar_on(), "turned off stays off");
+        assert_ne!(
+            snapshot(100, 30, &mut h, true).unwrap(),
+            on,
+            "turned off stays off"
+        );
+        let mut fresh = home(tmp.path());
+        fresh.open(Place::Think);
+        assert_eq!(
+            snapshot(100, 30, &mut fresh, true).unwrap(),
+            on,
+            "on by default"
+        );
     }
 
     #[test]
@@ -1617,11 +1355,7 @@ mod tests {
         let path = tmp.path().join("old");
         let before = fs::read(path.join("ledger.json")).unwrap();
         let mut h = home(tmp.path());
-        h.open(Place::Think);
-        let View::Think(dump) = &mut h.view else {
-            panic!()
-        };
-        dump.set_saved(crate::seed_me::Receipt::test(path.clone()));
+        think_saved(&mut h, &path);
         h.handle_key(key(KeyCode::Char('s')));
         h.tick();
         settle(&mut h);
@@ -1642,7 +1376,7 @@ mod tests {
         {
             let alias = tmp.path().join("alias-root");
             std::os::unix::fs::symlink(tmp.path(), &alias).unwrap();
-            h.sessions_root = Some(alias);
+            h.kept.sessions_root = Some(alias);
             h.open_tend_session(&path.canonicalize().unwrap());
             settle(&mut h);
             assert!(in_detail(&mut h));
@@ -1651,14 +1385,14 @@ mod tests {
                     .unwrap()
                     .contains("goal old")
             );
-            h.sessions_root = Some(tmp.path().to_path_buf());
+            h.kept.sessions_root = Some(tmp.path().to_path_buf());
         }
         h.open_tend_session(&tmp.path().join("missing"));
         settle(&mut h);
         assert!(how_it_works(&mut h).contains("Saved session is unavailable"));
         assert!(!in_detail(&mut h));
-        h.sessions_root = Some(tmp.path().join("not-a-directory"));
-        fs::write(h.sessions_root.as_ref().unwrap(), "not a directory").unwrap();
+        h.kept.sessions_root = Some(tmp.path().join("not-a-directory"));
+        fs::write(h.kept.sessions_root.as_ref().unwrap(), "not a directory").unwrap();
         h.open_tend_session(&path);
         settle(&mut h);
         let frame = snapshot(100, 30, &mut h, true).unwrap();
@@ -1800,7 +1534,7 @@ mod tests {
             assert!(!in_detail(&mut h));
             h.handle_key(key(KeyCode::Enter));
             h.handle_key(key(KeyCode::F(10)));
-            assert!(matches!(h.view, View::Menu) && !h.quit);
+            assert!(at(&mut h) == "menu" && !h.quit);
             assert_eq!(fs::read(path.join("ledger.json")).unwrap(), before);
         }
     }
