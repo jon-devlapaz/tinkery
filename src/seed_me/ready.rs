@@ -151,7 +151,7 @@ pub(crate) fn standing(session: &Path) -> Result<Standing, String> {
                     session: session.canonicalize().ok()?,
                     session_id: json["session_id"]
                         .as_str()
-                        .filter(|id| !id.is_empty() && !id.chars().any(char::is_control))?
+                        .filter(|id| super::session::valid_id(id))?
                         .to_owned(),
                     retry: retry.clone(),
                     version: json.get("version").and_then(Value::as_u64)?,
@@ -184,6 +184,7 @@ pub(crate) fn standing(session: &Path) -> Result<Standing, String> {
 /// Where the seed stands, from the ledger and its verified `status`. An open question comes
 /// before a seed, so a reopened decision is never hidden behind an older draft.
 pub(crate) fn stand(ledger: &Value, status: &Value) -> Stand {
+    use super::files::Status;
     let text = |value: &Value, key: &str| {
         value
             .get(key)
@@ -205,9 +206,12 @@ pub(crate) fn stand(ledger: &Value, status: &Value) -> Stand {
         .and_then(Value::as_bool)
         == Some(true);
     let seed = status.get("seed").filter(|s| !s.is_null());
-    let line = seed.and_then(|s| s.get("line_1")).and_then(Value::as_str);
+    let line = seed
+        .and_then(|s| s.get("line_1"))
+        .and_then(Value::as_str)
+        .map(super::files::status);
     let revision = seed.and_then(|s| text(s, "revision"));
-    if state == "completed" && line == Some(super::files::CONFIRMED) && verified {
+    if state == "completed" && line == Some(Some(Status::Confirmed)) && verified {
         return Stand::Ready {
             revision,
             ended: true,
@@ -246,13 +250,13 @@ pub(crate) fn stand(ledger: &Value, status: &Value) -> Stand {
         return Stand::Waiting;
     }
     match line {
-        Some(super::files::DRAFT) => Stand::Drafted(revision),
-        Some(super::files::SIMULATED) => Stand::Practice,
-        Some(super::files::CONFIRMED) if verified => Stand::Ready {
+        Some(Some(Status::Draft)) => Stand::Drafted(revision),
+        Some(Some(Status::Simulated)) => Stand::Practice,
+        Some(Some(Status::Confirmed)) if verified => Stand::Ready {
             revision,
             ended: false,
         },
-        Some(super::files::CONFIRMED) => Stand::Unverified(
+        Some(Some(Status::Confirmed)) => Stand::Unverified(
             handoff
                 .and_then(|h| text(h, "reason"))
                 .unwrap_or_else(|| "Tinkery gave no reason.".into()),

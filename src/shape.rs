@@ -1660,29 +1660,30 @@ fn compose(open: &Opened, drafting: Option<&Agent>, held: bool, palette: Palette
         }
         Reading::Done(Ok(shaping)) => shaping,
     };
+    let view = shaping.seed_view();
+    let nothing_found = view.as_ref().is_some_and(|view| view.nothing_found);
     let editing_check = match open.editor() {
         Editor::Aside(Aside::RepairCheck(edit), _) => Some(&edit.target),
         _ => None,
     };
-    let top = match (&shaping.stage, editing_check) {
-        (_, Some(check)) => Some(Text::styled(
-            format!("Edit check {}\n\n{}", check.index + 1, check.statement()),
-            palette.ink,
-        )),
-        (
-            Shaped::Drafted {
-                revision,
-                text: Some(_),
-            },
-            _,
-        ) => shaping
-            .seed_view()
-            .map(|view| seed_view(view, revision.as_deref(), shaping, agent && !held, palette)),
-        _ => shaping
-            .goal
-            .as_deref()
-            .map(|goal| Text::styled(goal.lines().next().unwrap_or("").to_owned(), palette.ink)),
-    };
+    let top =
+        match (&shaping.stage, editing_check) {
+            (_, Some(check)) => Some(Text::styled(
+                format!("Edit check {}\n\n{}", check.index + 1, check.statement()),
+                palette.ink,
+            )),
+            (
+                Shaped::Drafted {
+                    revision,
+                    text: Some(_),
+                },
+                _,
+            ) => view
+                .map(|view| seed_view(view, revision.as_deref(), shaping, agent && !held, palette)),
+            _ => shaping.goal.as_deref().map(|goal| {
+                Text::styled(goal.lines().next().unwrap_or("").to_owned(), palette.ink)
+            }),
+        };
     let name = open.folder_name();
     let typing = open.typing().filter(|_| agent);
     let act = typing.as_ref().map(|t| &t.act);
@@ -1763,7 +1764,7 @@ fn compose(open: &Opened, drafting: Option<&Agent>, held: bool, palette: Palette
             instinct: open.instinct_first(),
         },
     };
-    let (mut said, mut input, mut editor_at) = standing(shaping, stand, palette);
+    let (mut said, mut input, mut editor_at) = standing(shaping, nothing_found, stand, palette);
     if !matches!(open.mode, Mode::Running(..))
         && open.offers_answers()
         && let Some(drafting) = drafting.filter(|a| a.remaining() == 1)
@@ -2106,10 +2107,11 @@ struct Stand<'a> {
 /// thing to act on (jade); its suggestion is a guess (italic). The operator's words are in ink.
 /// At most one Next line: none when the key bar already names the one next action and nothing
 /// was said, and a notice's own next step replaces the stage's. While a step runs, the question and the words
-/// stay, muted, under what the step is doing. Also returns the index of the input line the words
-/// box follows, when there is one.
+/// stay, muted, under what the step is doing. `nothing_found` comes from the render's one seed
+/// view. Also returns the index of the input line the words box follows, when there is one.
 fn standing(
     shaping: &Shaping,
+    nothing_found: bool,
     stand: Stand,
     palette: Palette,
 ) -> (Text<'static>, Text<'static>, Option<usize>) {
@@ -2290,7 +2292,7 @@ fn standing(
                 ));
             }
             // Beside the words box, so a long seed can't scroll it away.
-            if !calm && shaping.seed_view().is_some_and(|view| view.nothing_found) {
+            if !calm && nothing_found {
                 flag = Some(Line::styled(
                     "Nothing found: this Tink Contract records nothing checked in the repository.",
                     palette.ink,
