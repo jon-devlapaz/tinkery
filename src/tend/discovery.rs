@@ -17,6 +17,7 @@ use std::{
 };
 
 use super::{self as tend, Session};
+pub(crate) use crate::seed_me::valid_id;
 use crate::seed_me::{self, Record};
 
 /// What one scan found.
@@ -36,11 +37,12 @@ impl Found {
     }
 
     /// The ledger ids of every readable session, ended ones included: the one uniqueness rule
-    /// that linking, the graph, readiness and connections share.
+    /// that linking, the graph, readiness and connections share. [`seed_me::read`] already
+    /// refused invalid ids, so every id held here is valid.
     pub fn identities(&self) -> Identities {
         let mut ids = HashMap::new();
         for session in &self.sessions {
-            let Some(id) = session.id.as_deref().filter(|id| valid_id(id)) else {
+            let Some(id) = session.id.as_deref() else {
                 continue;
             };
             ids.entry(id.to_owned())
@@ -80,11 +82,6 @@ impl Identities {
             .is_some_and(|held| held.path == session.path)
             .then_some(id)
     }
-}
-
-/// A ledger id that can name a session or a link end: non-empty, without control characters.
-pub(crate) fn valid_id(id: &str) -> bool {
-    !id.is_empty() && !id.chars().any(char::is_control)
 }
 
 /// `Err` means the root itself could not be read.

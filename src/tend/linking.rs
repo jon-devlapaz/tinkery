@@ -54,11 +54,7 @@ impl Tend {
     }
 
     fn link_id<'a>(&self, session: &'a Session) -> Result<&'a str, String> {
-        if !session
-            .id
-            .as_deref()
-            .is_some_and(super::discovery::valid_id)
-        {
+        if session.id.is_none() {
             return Err(format!(
                 "Cannot link {}: no valid ledger session id.",
                 session.path.display()

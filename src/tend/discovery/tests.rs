@@ -75,3 +75,33 @@ fn repo_discovery_reads_each_of_400_records_once_per_refresh() {
         }
     }
 }
+
+#[test]
+fn scan_never_offers_an_empty_or_control_ledger_id_as_an_identity() {
+    let dir = tempfile::tempdir().unwrap();
+    let bad = ["", "line\nbreak", "null\0", "delete\u{7f}", "next\u{85}"];
+    for (index, id) in bad.iter().chain(["TEST-good"].iter()).enumerate() {
+        let session = dir.path().join(format!("TEST-{index}"));
+        fs::create_dir_all(&session).unwrap();
+        fs::write(
+            session.join("ledger.json"),
+            serde_json::json!({
+                "schema_version": 1, "session_id": id, "status": "active", "goal": "TEST goal"
+            })
+            .to_string(),
+        )
+        .unwrap();
+    }
+    let found = scan(dir.path()).unwrap();
+    assert_eq!(found.sessions.len(), 6);
+    let ids = found.identities();
+    for session in &found.sessions {
+        let held = ids.id(session);
+        assert_eq!(held, session.id.as_deref());
+        assert!(held.is_none_or(|id| id == "TEST-good"), "{held:?}");
+    }
+    for id in bad {
+        assert!(ids.session(id).is_none() && !ids.ambiguous(id), "{id:?}");
+    }
+    assert!(ids.session("TEST-good").is_some());
+}

@@ -15,6 +15,7 @@ mod session;
 mod tests;
 
 pub use save::{Affirmed, Choice, Config, ExitReceipt, Original, Receipt};
+pub(crate) use session::valid_id;
 pub use session::{MAX_READ_FAILURES, ReadFailure, Record, Session, Stage, read, session_id};
 
 use std::path::{Path, PathBuf};
