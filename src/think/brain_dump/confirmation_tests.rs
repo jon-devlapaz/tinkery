@@ -176,9 +176,15 @@ fn stacker_terminal_confirmation_keeps_declared_human_agent_and_unknown_distinct
 fn terminal_declaration_is_session_frozen_but_never_sent_to_the_model() {
     for value in [Some("human"), Some("agent"), None] {
         let confirmation = GoalConfirmation::terminal(value).unwrap();
+        let args = value.map_or(vec![], |v| vec!["--operator", v]);
+        let launch = super::tests::launch(&args);
+        for _ in 0..2 {
+            let mut visit = launch.think();
+            assert_eq!(visit.handoff.confirmation, confirmation);
+            assert!(visit.set_goal_confirmation(agent()).is_err());
+        }
         let mut a = app(serde_json::json!({"parts": parts()}));
         a.set_goal_confirmation(confirmation.clone()).unwrap();
-        assert_eq!(a.fresh_factory()().handoff.confirmation, confirmation);
         assert!(
             a.set_goal_confirmation(operator())
                 .unwrap_err()
@@ -472,12 +478,19 @@ fn bare_agent_declaration_saves_as_the_agent() {
 
 #[test]
 fn new_visits_do_not_inherit_goal_authorization_and_review_cannot_be_relabelled() {
-    let mut a = declared();
-    let fresh = a.fresh_factory()();
+    let launch = super::tests::launch(&["--operator", "agent"]);
+    let mut first = launch.think();
+    first.paste("TEST first visit words");
+    first.submit();
+    super::tests::settle(&mut first);
+    assert!(first.originals().contains("TEST first visit words"));
+    let next = launch.think();
+    assert!(!next.originals().contains("TEST first visit words"));
     assert_eq!(
-        fresh.handoff.confirmation,
+        next.handoff.confirmation,
         GoalConfirmation::terminal(Some("agent")).unwrap()
     );
+    let mut a = declared();
     a.review_goal();
     assert!(
         a.set_goal_confirmation(operator())

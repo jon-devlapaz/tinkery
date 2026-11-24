@@ -476,7 +476,7 @@ print(json.dumps(dict(parts=dict(who='I',outcome='finish TEST-GOOD-REPLY',why='t
 
 #[cfg(unix)]
 #[test]
-fn new_goals_keep_their_own_checks_and_the_standalone_record_setting() {
+fn new_goals_keep_their_own_checks_and_the_launch_record_setting() {
     use std::os::unix::fs::PermissionsExt;
     let dir = tempfile::tempdir().unwrap();
     let program = dir.path().join("pi");
@@ -488,19 +488,28 @@ marker=r['sources'][0]['text']
 print(json.dumps(dict(parts=dict(who='I',outcome='finish '+marker,why='the work is stuck',done_when='tests pass for '+marker),questions=[])))
 "#).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let host = Arc::new(
-        ModelHost::new(
-            crate::pi::Harness::Pi,
-            program,
-            "test/model".into(),
-            crate::pi::CallBudget::new(8),
-        )
-        .unwrap(),
-    );
     let root = dir.path().join("TEST-records");
-    let mut first = BrainDump::with_host(host.clone())
-        .with_sessions(None)
-        .with_record_root(root.clone());
+    let program = program.to_str().unwrap();
+    let launch = super::tests::launch(&[
+        "--operator",
+        "agent",
+        "--shape-pi",
+        "--harness",
+        "pi",
+        "--model",
+        "test/model",
+        "--thinking",
+        "low",
+        "--shape-budget",
+        "8",
+        "--pi-command",
+        program,
+        "--record-root",
+        root.to_str().unwrap(),
+        "--seed-session-root",
+        dir.path().join("TEST-sessions").to_str().unwrap(),
+    ]);
+    let mut first = launch.think();
     first.paste("ALPHA");
     first.submit();
     settle(&mut first);
@@ -515,16 +524,9 @@ print(json.dumps(dict(parts=dict(who='I',outcome='finish '+marker,why='the work 
     let alpha: serde_json::Value = serde_json::from_slice(&alpha_bytes).unwrap();
     assert_eq!(shaping_checks(&alpha), 2);
 
-    // Home passes its configured prototype again; standalone uses fresh_factory.
-    for (name, mut next) in [
-        (
-            "BRAVO",
-            BrainDump::with_host(host)
-                .with_sessions(None)
-                .with_record_root(root.clone()),
-        ),
-        ("CHARLIE", first.fresh_factory()()),
-    ] {
+    // Each later visit from the menu is a fresh one from the same launch.
+    for name in ["BRAVO", "CHARLIE"] {
+        let mut next = launch.think();
         assert!(next.records(), "a new visit lost --record-root");
         next.paste(name);
         next.submit();
@@ -611,11 +613,26 @@ fn the_repository_is_shown_before_confirm_kept_in_the_record_and_never_sent_to_t
     let record: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(&files[0]).unwrap()).unwrap();
     assert_eq!(record["repo"], repo_root.to_str().unwrap());
-    assert_eq!(
-        a.fresh_factory()().repo().map(crate::repo::Repo::root),
-        Some(repo_root.as_path()),
-        "the next goal from the menu keeps where Tinkery was started"
-    );
+    let started = crate::repo::Repo::enclosing(&std::env::current_dir().unwrap())
+        .expect("tests run inside a checkout");
+    let launch = super::tests::launch(&[
+        "--shape-pi",
+        "--harness",
+        "pi",
+        "--model",
+        "test/model",
+        "--pi-command",
+        "TEST-pi",
+        "--seed-session-root",
+        dir.path().join("TEST-sessions").to_str().unwrap(),
+    ]);
+    for _ in 0..2 {
+        assert_eq!(
+            launch.think().repo().map(crate::repo::Repo::root),
+            Some(started.root()),
+            "the next goal from the menu keeps where Tinkery was started"
+        );
+    }
     let sent = spy.0.lock().unwrap();
     assert!(!sent.is_empty(), "the session made readings");
     assert!(

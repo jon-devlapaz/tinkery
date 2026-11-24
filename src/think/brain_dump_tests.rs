@@ -157,6 +157,16 @@ pub(super) fn choose(a: &mut BrainDump, label: &str) {
 pub(super) fn offers(a: &BrainDump, label: &str) -> bool {
     a.rows().iter().any(|row| row.label.contains(label))
 }
+/// The launch these command-line options resolve to, as `main` makes it. Each
+/// [`crate::launch::Launch::think`] is the fresh visit the menu opens.
+pub(super) fn launch(args: &[&str]) -> crate::launch::Launch {
+    let crate::launch::Args::Run(options) =
+        crate::launch::parse(args.iter().map(|a| a.to_string())).unwrap()
+    else {
+        panic!("{args:?} is not a run");
+    };
+    crate::launch::Launch::resolve(&options).unwrap().0
+}
 pub(super) fn settle(a: &mut BrainDump) {
     let deadline = Instant::now() + Duration::from_secs(3);
     while a.running() && Instant::now() < deadline {
