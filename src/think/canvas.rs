@@ -11,7 +11,7 @@ use pinstar::{
 use ratatui::layout::Rect;
 
 pub(super) struct Canvas {
-    pub state: PinstarState,
+    state: PinstarState,
     pub area: Rect,
     captured: bool,
     captured_button: MouseButton,
@@ -95,6 +95,14 @@ impl Canvas {
     }
     pub(super) fn selected_id(&self) -> Option<&str> {
         self.state.selection.primary.as_deref()
+    }
+    /// Zooms and pans so that every card fits the area last drawn.
+    pub(super) fn fit(&mut self) {
+        self.state.fit_to_view(self.area);
+    }
+    /// A card's words are open in pinstar's editor. Think never keeps it open.
+    pub(super) fn editing(&self) -> bool {
+        self.state.floating_editor.is_some()
     }
 
     pub(super) fn finish_edit(&mut self) {

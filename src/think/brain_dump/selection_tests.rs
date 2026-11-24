@@ -631,7 +631,8 @@ fn raw_controls_are_safe_in_sources_titles_cards_and_selections() {
     a.conversation.sources_mut()[0].text = raw.into();
     a.extract_range(1, 0, raw.len()).unwrap();
     assert_eq!(a.conversation.fragments()[0].text, raw);
-    assert_eq!(a.screen.canvas.state.data.nodes[0].text(), raw);
+    let area = a.screen.canvas.area;
+    assert_eq!(a.screen.canvas.cards(area).next().unwrap().0.text(), raw);
     assert!(!intact_view::title(raw).chars().any(char::is_control));
     for cards in [false, true] {
         a.screen.show_extractions = cards;

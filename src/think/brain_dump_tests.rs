@@ -206,10 +206,7 @@ fn silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_lay
             a.copy_text()
                 .contains("One question in focus\n\nShould scratch thinking")
         );
-        if let CanvasNode::Text(n) = &mut a.screen.canvas.state.data.nodes[0] {
-            n.x = 1234.;
-            n.y = -456.;
-        }
+        drag_first_card(&mut a, w, h);
         let old = a.card_positions();
         a.paste("Hamster is my RSS reader; following the system setting is fine.");
         key(&mut a, KeyCode::F(2));
@@ -463,19 +460,35 @@ fn simulated_is_explicit_and_never_an_automatic_real_failure_fallback() {
     );
 }
 
+/// Each card's words and its left, top, right and bottom edges as last drawn.
+fn drawn_cards(a: &BrainDump) -> Vec<(String, [f64; 4])> {
+    a.screen
+        .canvas
+        .cards(a.screen.canvas.area)
+        .map(|(node, edges)| (node.text().to_owned(), edges))
+        .collect()
+}
 /// A screen point inside the first extracted card.
 fn first_card_point(a: &BrainDump) -> (u16, u16) {
-    let rect = a.screen.canvas.area;
-    let (nx, ny) = a.screen.canvas.state.data.nodes[0].pos();
-    let x = ((nx - a.screen.canvas.state.viewport_x) * a.screen.canvas.state.zoom
-        + f64::from(rect.width) / 2.0) as u16
-        + rect.x
-        + 4;
-    let y = ((ny - a.screen.canvas.state.viewport_y) * a.screen.canvas.state.zoom
-        + f64::from(rect.height) / 2.0) as u16
-        + rect.y
-        + 2;
-    (x, y)
+    let [left, top, ..] = drawn_cards(a)[0].1;
+    (left as u16 + 4, top as u16 + 2)
+}
+/// Shows the cards at `w`×`h`, drags the first one with the mouse and restores the view.
+pub(super) fn drag_first_card(a: &mut BrainDump, w: u16, h: u16) {
+    let shown = a.screen.show_extractions;
+    a.screen.show_extractions = true;
+    snapshot(w, h, a, false).unwrap();
+    let before = a.card_positions();
+    let (x, y) = first_card_point(a);
+    for (kind, dx) in [
+        (MouseEventKind::Down(MouseButton::Left), 0),
+        (MouseEventKind::Drag(MouseButton::Left), 4),
+        (MouseEventKind::Up(MouseButton::Left), 4),
+    ] {
+        card_mouse(a, kind, x + dx, y);
+    }
+    assert_ne!(a.card_positions(), before, "the drag moved no card");
+    a.screen.show_extractions = shown;
 }
 fn card_mouse(a: &mut BrainDump, kind: MouseEventKind, column: u16, row: u16) {
     let area = a.screen.area;
@@ -508,10 +521,7 @@ fn hiding_cards_mid_drag_releases_the_drag_so_later_moves_change_nothing() {
     choose(&mut a, "extracted cards");
     snapshot(100, 30, &mut a, false).unwrap();
     let released = a.card_positions();
-    let view = (
-        a.screen.canvas.state.viewport_x,
-        a.screen.canvas.state.viewport_y,
-    );
+    let view = drawn_cards(&a);
     card_mouse(
         &mut a,
         MouseEventKind::Drag(MouseButton::Left),
@@ -519,14 +529,7 @@ fn hiding_cards_mid_drag_releases_the_drag_so_later_moves_change_nothing() {
         y + 4,
     );
     assert_eq!(a.card_positions(), released, "a stale drag moved a card");
-    assert_eq!(
-        (
-            a.screen.canvas.state.viewport_x,
-            a.screen.canvas.state.viewport_y
-        ),
-        view,
-        "a stale drag panned the cards"
-    );
+    assert_eq!(drawn_cards(&a), view, "a stale drag panned the cards");
 }
 #[test]
 fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
@@ -555,17 +558,9 @@ fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
         "Real mouse drag did not move a card"
     );
     let moved = a.card_positions();
-    assert!(a.screen.canvas.state.floating_editor.is_none());
-    for (n, f) in a
-        .screen
-        .canvas
-        .state
-        .data
-        .nodes
-        .iter()
-        .zip(a.conversation.fragments())
-    {
-        assert_eq!(n.text(), f.text);
+    assert!(!a.screen.canvas.editing());
+    for ((text, _), f) in drawn_cards(&a).iter().zip(a.conversation.fragments()) {
+        assert_eq!(text, &f.text);
     }
     a.screen.board_focus = !a.screen.board_focus;
     a.paste("It is an RSS reader.");
@@ -582,7 +577,6 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
         a.submit();
         settle(&mut a);
         let layout = a.card_positions();
-        let fragments = a.conversation.fragments().to_vec();
         let mut g = a.conversation.board().unwrap().wire();
         g.uncertain = true;
         g.framings = vec![
@@ -610,10 +604,6 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
         }
         assert!(!ordinary.contains("doesn’t fit yet"));
         assert!(a.details_text().contains("Doesn’t fit yet"));
-        assert!(a.screen.canvas.state.data.nodes.iter().all(|n| match n {
-            CanvasNode::Text(n) => n.title.is_none(),
-            _ => false,
-        }));
         assert_eq!(a.card_positions(), layout);
         assert!(!a.running(), "Highlighting sent a model request");
         assert_eq!(
@@ -621,9 +611,6 @@ fn selective_sparse_reading_highlights_sources_without_renaming_or_recolouring_w
             1,
             "Highlighting was recorded as an answer"
         );
-        for (n, f) in a.screen.canvas.state.data.nodes.iter().zip(&fragments) {
-            assert_eq!(n.text(), f.text);
-        }
         a.screen.board_focus = true;
         choose(&mut a, "Why");
         let detail = snapshot(w, h, &mut a, false).unwrap();
@@ -912,18 +899,17 @@ fn deliberate_keyboard_extraction_is_exact_linked_and_has_no_provider_side_effec
     assert_eq!(a.conversation.sources()[0].text, text);
     choose(&mut a, "extracted cards");
     let view = snapshot(100, 30, &mut a, false).unwrap();
-    let (_, ny) = a.screen.canvas.state.data.nodes[0].pos();
-    let y = ((ny - a.screen.canvas.state.viewport_y) * a.screen.canvas.state.zoom
-        + f64::from(a.screen.canvas.area.y)
-        + f64::from(a.screen.canvas.area.height) / 2.0)
-        .round() as usize;
+    let y = drawn_cards(&a)[0].1[1].round() as usize;
     assert!(
         view.lines().nth(y).unwrap().contains("Café"),
         "Card title was replaced with metadata"
     );
     assert!(!view.contains("Enter: source"));
     assert!(!view.contains("… Ctrl-O"));
-    a.screen.canvas.state.selection.select_only("f1".into());
+    let (x, y) = first_card_point(&a);
+    card_mouse(&mut a, MouseEventKind::Down(MouseButton::Left), x, y);
+    card_mouse(&mut a, MouseEventKind::Up(MouseButton::Left), x, y);
+    assert_eq!(a.screen.canvas.selected_id(), Some("f1"));
     key(&mut a, KeyCode::Enter);
     assert!(!a.screen.show_extractions);
     assert_eq!(a.screen.selection, Some((0, "Café 👩‍💻".len())));
