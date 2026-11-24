@@ -218,6 +218,7 @@ impl Gate {
         target: Option<&SeedTarget>,
         config: &Config,
         action: &str,
+        step: &str,
     ) -> Result<(), String> {
         let Some(relay) = self.bind(target, config)? else {
             return Ok(());
@@ -228,7 +229,7 @@ impl Gate {
                 Relay::Standing(_) => "operator, standing grant, relayed",
             },
             "provenance": PROVENANCE, "authorization": relay, "action": action,
-            "run_id": run.id, "step": "build", "checkout": run.root,
+            "run_id": run.id, "step": step, "checkout": run.root,
         });
         let path = run
             .root

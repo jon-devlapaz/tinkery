@@ -26,6 +26,7 @@ use std::{
     time::Duration,
 };
 
+/// Tinkery's worker steps are `build`, then `build-2`, `build-3`… Other step names stay SDLC's.
 const STEP: &str = "build";
 // Official resolution may take 15 s, followed by admission taking 60 s.
 const ADMISSION: Duration = Duration::from_secs(90);
@@ -188,6 +189,15 @@ impl State {
         })
     }
 
+    /// States whose step can take no further action, so only a new step moves the work on.
+    /// A started run with no step, an uncertain launch, a completed or a stopped step.
+    pub(crate) fn needs_new_step(self) -> bool {
+        matches!(
+            self,
+            Self::NotStarted | Self::Uncertain | Self::Completed | Self::Stopped { .. }
+        )
+    }
+
     /// The one wording for a step state, never a completion or acceptance claim.
     pub(crate) fn words(self) -> &'static str {
         match self {
@@ -212,11 +222,44 @@ impl State {
 
 const UNSUPPORTED: &str = "The worker state is not supported; inspect SDLC before continuing.";
 
+/// The position of a Tinkery step name: `build` is 1, `build-N` is N; other names are not ours.
+fn step_number(name: &str) -> Option<u32> {
+    if name == STEP {
+        return Some(1);
+    }
+    let n = name.strip_prefix("build-")?;
+    (!n.starts_with('0') && n.bytes().all(|b| b.is_ascii_digit()))
+        .then(|| n.parse().ok())
+        .flatten()
+        .filter(|n| *n > 1)
+}
+
+/// The newest Tinkery step SDLC reports, the one every worker action addresses.
+fn latest_step(steps: &[sdlc::Step]) -> Option<(u32, &sdlc::Step)> {
+    steps
+        .iter()
+        .filter_map(|step| Some((step_number(step.data["name"].as_str()?)?, step)))
+        .max_by_key(|(n, _)| *n)
+}
+
+/// The name a new step takes after `number`, or `build` when there is none.
+fn step_name(number: u32) -> String {
+    if number == 1 {
+        STEP.into()
+    } else {
+        format!("{STEP}-{number}")
+    }
+}
+
 /// One current SDLC observation for presentation and explicitly requested follow-up actions.
 #[derive(Clone, Debug)]
 struct Snapshot {
     /// Stable source identity used to recheck the next action.
     run: Run,
+    /// The step every action addresses: the newest Tinkery step, or `build` before any exists.
+    step: String,
+    /// The name a new step would take.
+    next_step: String,
     /// Effective immutable step pin, empty when there is no step.
     model: String,
     /// Effective cumulative response cap, zero when there is no step.
@@ -251,6 +294,10 @@ enum Action {
     Finish,
     /// Run the checkout's verification commands, separately from worker completion.
     Verify,
+    /// Prepare and launch a new uniquely named step under this launch's separate allowance,
+    /// first opening the build checkout if a refused start left none. Only for a state where
+    /// no other action moves the work on, and only while the observed step is unchanged.
+    Next { pin: Option<Pin>, config: Config },
     /// Stop the known step, never as normal completion. The reason is cap only if the step's
     /// Pi logs show the launcher's cap marker after at least cap responses; otherwise operator.
     Stop,
@@ -455,6 +502,21 @@ fn committed_source(root: &Path) -> Result<String, String> {
     Ok(head)
 }
 
+/// SDLC's stage 3 commits the run's records, so it refuses without a Git identity. Check the
+/// same names it reads (environment, then repository config) before anything is created.
+fn committer_identity(root: &Path) -> Result<(), String> {
+    for who in ["COMMITTER", "AUTHOR"] {
+        for (field, key) in [("NAME", "user.name"), ("EMAIL", "user.email")] {
+            let set = std::env::var(format!("GIT_{who}_{field}")).is_ok_and(|v| !v.is_empty())
+                || git(root, &["config", key]).is_ok_and(|v| !v.trim().is_empty());
+            if !set {
+                return Err("Git has no user.name and user.email here, and stage 3 must commit the run's records. Set them (git config user.name …; git config user.email …).".into());
+            }
+        }
+    }
+    Ok(())
+}
+
 fn start(request: Start) -> Result<Snapshot, Failure> {
     let (intake, source_commit) = (|| {
         request
@@ -480,6 +542,7 @@ fn start(request: Start) -> Result<Snapshot, Failure> {
             );
         }
         let source_commit = committed_source(&intake.root)?;
+        committer_identity(&intake.root)?;
         if request
             .target
             .retry
@@ -558,54 +621,19 @@ fn start(request: Start) -> Result<Snapshot, Failure> {
         let value = current(&build)?;
         require_seed(&value)?;
         ready::execution(&request.target, &intake.root)?;
-        request
-            .authorization
-            .record(&build, Some(&request.target), &request.config, "start")?;
-        let report = build
-            .root
-            .join("runs")
-            .join(&build.slug)
-            .join("worker-report.md");
-        let launcher = build.root.join("_system/scripts/pi-launcher");
-        command(
-            &build.root,
-            &[
-                "step".into(),
-                build.slug.clone(),
-                STEP.into(),
-                "prepare".into(),
-                "--report".into(),
-                report.to_string_lossy().into_owned(),
-                "--model".into(),
-                request.config.model.clone(),
-                "--launcher".into(),
-                launcher.to_string_lossy().into_owned(),
-                "--max-responses".into(),
-                request.config.responses.to_string(),
-            ],
-            sdlc::DEADLINE,
+        request.authorization.record(
+            &build,
+            Some(&request.target),
+            &request.config,
+            "start",
+            STEP,
         )?;
-        let prepared = snapshot(&build)?;
-        if prepared.state != State::Prepared
-            || prepared.model != request.config.model
-            || prepared.responses != request.config.responses
-        {
-            return Err("The prepared worker differs from the displayed model or allowance. No worker was launched.".into());
-        }
+        prepare(&build, STEP, &request.config)?;
         let value = current(&build)?;
         require_seed(&value)?;
         ready::execution(&request.target, &intake.root)?;
         check_retry_source(&build, Some(&request.target))?;
-        command(
-            &build.root,
-            &[
-                "step".into(),
-                build.slug.clone(),
-                STEP.into(),
-                "launch".into(),
-            ],
-            ADMISSION,
-        )?;
+        command(&build.root, &step_args(&build, STEP, "launch"), ADMISSION)?;
         snapshot(&build)
     })();
     result.map_err(|message| match known {
@@ -624,6 +652,101 @@ fn start(request: Start) -> Result<Snapshot, Failure> {
     })
 }
 
+fn step_args(run: &Run, step: &str, action: &str) -> Vec<String> {
+    vec!["step".into(), run.slug.clone(), step.into(), action.into()]
+}
+
+/// Prepare one pinned step with a fresh report path, and confirm SDLC recorded the displayed
+/// model and cap before anything can launch it.
+fn prepare(run: &Run, step: &str, config: &Config) -> Result<(), String> {
+    let report = if step == STEP {
+        "worker-report.md".to_string()
+    } else {
+        format!("worker-report-{}.md", &step[STEP.len() + 1..])
+    };
+    let mut args = step_args(run, step, "prepare");
+    args.extend([
+        "--report".into(),
+        run.root
+            .join("runs")
+            .join(&run.slug)
+            .join(report)
+            .to_string_lossy()
+            .into_owned(),
+        "--model".into(),
+        config.model.clone(),
+        "--launcher".into(),
+        run.root
+            .join("_system/scripts/pi-launcher")
+            .to_string_lossy()
+            .into_owned(),
+        "--max-responses".into(),
+        config.responses.to_string(),
+    ]);
+    command(&run.root, &args, sdlc::DEADLINE)?;
+    let prepared = snapshot(run)?;
+    if prepared.step != step
+        || prepared.state != State::Prepared
+        || prepared.model != config.model
+        || prepared.responses != config.responses
+    {
+        return Err("The prepared worker differs from the displayed model or allowance. No worker was launched.".into());
+    }
+    Ok(())
+}
+
+/// A new step for a run whose current step can do nothing more. The build checkout is the one
+/// on the run's own branch; a start refused before stage 3 left only the intake checkout.
+fn next_step(
+    gate: &Gate,
+    run: &Run,
+    pin: Option<Pin>,
+    config: &Config,
+) -> Result<Snapshot, String> {
+    let observed = snapshot(run)?;
+    if observed.pin != pin || !observed.state.needs_new_step() {
+        return Err(
+            "The worker changed since it was read. Nothing was prepared; read it again.".into(),
+        );
+    }
+    config.validate()?;
+    let value = current(run)?;
+    let seed = require_seed(&value)?;
+    let target = seed.target.as_ref();
+    gate.check(target, config)?;
+    let mut run = run.clone();
+    let branch =
+        git(&run.root, &["symbolic-ref", "--quiet", "--short", "HEAD"]).unwrap_or_default();
+    if observed.state == State::NotStarted && branch.trim() != run.slug {
+        if target.is_some_and(|t| t.retry.is_some()) {
+            return Err("This retry run has no build checkout. Inspect it in Watch; a retry is restarted from Taste.".into());
+        }
+        committer_identity(&run.root)?;
+        command(
+            &run.root,
+            &["stage".into(), run.slug.clone(), "3".into()],
+            STAGE,
+        )?;
+        let build = identity(&run.root, &run.slug, &status(&run.root, &run.slug)?)?;
+        if build.id != run.id || build.root == run.root {
+            return Err(
+                "Stage 3 did not report this run's separate build checkout; no worker was started."
+                    .into(),
+            );
+        }
+        run = build;
+        require_seed(&current(&run)?)?;
+    }
+    gate.record(&run, target, config, "new step", &observed.next_step)?;
+    prepare(&run, &observed.next_step, config)?;
+    command(
+        &run.root,
+        &step_args(&run, &observed.next_step, "launch"),
+        ADMISSION,
+    )?;
+    snapshot(&run)
+}
+
 fn act(gate: &Gate, run: &Run, action: Action) -> Result<Snapshot, String> {
     if matches!(action, Action::Refresh) {
         let value = status(&run.root, &run.slug)?;
@@ -637,16 +760,26 @@ fn act(gate: &Gate, run: &Run, action: Action) -> Result<Snapshot, String> {
     if matches!(action, Action::Resume(_) | Action::Verify) {
         require_seed(&value)?;
     }
-    let step = |action: &str| vec!["step".into(), run.slug.clone(), STEP.into(), action.into()];
+    if let Action::Next { pin, config } = action {
+        return next_step(gate, run, pin, &config);
+    }
+    let name = value
+        .steps
+        .as_deref()
+        .and_then(latest_step)
+        .and_then(|(_, step)| step.data["name"].as_str())
+        .unwrap_or(STEP)
+        .to_owned();
+    let step = |action: &str| step_args(run, &name, action);
     match action {
-        Action::Refresh => {}
+        Action::Refresh | Action::Next { .. } => {}
         Action::Launch(pin) => {
             let seed = require_seed(&value)?;
-            admit(gate, run, pin, true, seed.target.as_ref())?;
+            admit(gate, run, &name, pin, true, seed.target.as_ref())?;
         }
         Action::Resume(pin) => {
             let seed = require_seed(&value)?;
-            admit(gate, run, pin, false, seed.target.as_ref())?;
+            admit(gate, run, &name, pin, false, seed.target.as_ref())?;
         }
         Action::Finish => {
             // Only a machine-checked pass finishes; pending judgments are not passing checks.
@@ -659,7 +792,7 @@ fn act(gate: &Gate, run: &Run, action: Action) -> Result<Snapshot, String> {
             let mut args = step("complete");
             args.extend([
                 "--stopped-by".into(),
-                if orientation::stopped_at_cap(run, STEP) {
+                if orientation::stopped_at_cap(run, &name) {
                     "cap"
                 } else {
                     "operator"
@@ -693,6 +826,7 @@ fn act(gate: &Gate, run: &Run, action: Action) -> Result<Snapshot, String> {
 fn admit(
     gate: &Gate,
     run: &Run,
+    step: &str,
     pin: Pin,
     launch: bool,
     target: Option<&ready::SeedTarget>,
@@ -721,15 +855,11 @@ fn admit(
             responses: observed.responses,
         },
         if launch { "launch" } else { "resume" },
+        step,
     )?;
     command(
         &run.root,
-        &[
-            "step".into(),
-            run.slug.clone(),
-            STEP.into(),
-            if launch { "launch" } else { "resume" }.into(),
-        ],
+        &step_args(run, step, if launch { "launch" } else { "resume" }),
         ADMISSION,
     )?;
     Ok(())
@@ -741,15 +871,14 @@ fn snapshot(run: &Run) -> Result<Snapshot, String> {
         .steps
         .as_ref()
         .ok_or("This runtime does not report worker steps.")?;
-    let step = steps
-        .iter()
-        .find(|step| step.data["name"].as_str() == Some(STEP));
-    let (state, model, responses, pin) = if let Some(step) = step {
-        let output = command(
-            &run.root,
-            &["step".into(), run.slug.clone(), STEP.into(), "show".into()],
-            sdlc::DEADLINE,
-        )?;
+    let latest = latest_step(steps);
+    let name = latest
+        .and_then(|(_, step)| step.data["name"].as_str())
+        .unwrap_or(STEP)
+        .to_owned();
+    let next_step = step_name(latest.map_or(1, |(n, _)| n + 1));
+    let (state, model, responses, pin) = if let Some((_, step)) = latest {
+        let output = command(&run.root, &step_args(run, &name, "show"), sdlc::DEADLINE)?;
         let contract = sdlc::StepContract::read(
             serde_json::from_str(&output).map_err(|error| error.to_string())?,
             &run.id,
@@ -817,6 +946,8 @@ fn snapshot(run: &Run) -> Result<Snapshot, String> {
     };
     Ok(Snapshot {
         run: run.clone(),
+        step: name,
+        next_step,
         model,
         responses,
         pin,

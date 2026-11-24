@@ -55,6 +55,8 @@ pub(crate) struct Panel {
     disclosure: String,
     advice: Option<Advice>,
     gate: Gate,
+    /// This launch's separate worker allowance; a new step uses it, never a saved default.
+    allowance: Option<Config>,
     start: Option<Start>,
     /// The start in flight; it comes back for an explicit retry only if nothing was started.
     starting: Option<Start>,
@@ -78,6 +80,7 @@ impl Panel {
         config: Option<Config>,
         gate: Gate,
     ) -> Self {
+        let allowance = config.clone();
         let (start, disclosure, advice) = match (seed.target, config) {
             (Some(target), Some(config)) => {
                 let (send, landed) = mpsc::channel();
@@ -115,6 +118,7 @@ impl Panel {
             disclosure,
             advice,
             gate,
+            allowance,
             start,
             starting: None,
             run: None,
@@ -131,7 +135,13 @@ impl Panel {
 
     /// Open an existing run that Watch selected, pinned to the identity Watch read; this reads
     /// only, and no new allowance is inferred.
-    pub(crate) fn existing(root: PathBuf, slug: String, id: String, gate: Gate) -> Self {
+    pub(crate) fn existing(
+        root: PathBuf,
+        slug: String,
+        id: String,
+        gate: Gate,
+        allowance: Option<Config>,
+    ) -> Self {
         let run = Run { root, slug, id };
         let job = Job::act(gate.clone(), run.clone(), Action::Refresh);
         Self {
@@ -139,6 +149,7 @@ impl Panel {
             disclosure: gate.disclosure(None),
             advice: None,
             gate,
+            allowance,
             start: None,
             starting: None,
             run: Some(run),
@@ -307,6 +318,20 @@ impl Panel {
                     .map(|pin| run(Action::Resume(pin.clone()))),
             ),
             (
+                KeyCode::Char('n'),
+                "n new worker step",
+                Some("End to start a new step"),
+                self.allowance
+                    .clone()
+                    .filter(|_| current && self.can_start_new_step())
+                    .map(|config| {
+                        run(Action::Next {
+                            pin: pin.cloned(),
+                            config,
+                        })
+                    }),
+            ),
+            (
                 KeyCode::Char('r'),
                 "r read",
                 None,
@@ -369,6 +394,12 @@ impl Panel {
                 .is_some_and(|s| s.verification.is(Verification::Current))
     }
 
+    fn can_start_new_step(&self) -> bool {
+        self.snapshot
+            .as_ref()
+            .is_some_and(|s| s.state.needs_new_step())
+    }
+
     fn can_launch(&self) -> bool {
         self.snapshot
             .as_ref()
@@ -400,6 +431,7 @@ impl Panel {
             add(
                 "Worker actions\n\nF2 starts only the reviewed Tink with its separate worker allowance.\n\
                  r reads status. l launches a prepared step; u resumes an ended turn on its existing model/session and cumulative cap.\n\
+                 n starts a new step (build-2, build-3…) when the current one can do nothing more: no step yet, launch uncertain, completed or stopped. It uses this launch's worker allowance as a new cap.\n\
                  v verifies first. Only current passing checks allow f to record the normally ended worker.\n\
                  After a refused request, only r and s work until a read succeeds.\n\
                  Failed checks keep the ended worker resumable after that read. s stops it. The recorded reason is the response cap only if the worker's log shows the cap marker.\n\
@@ -415,9 +447,10 @@ impl Panel {
                 );
             }
             add(&format!(
-                "Worker: {}\n\nRun: {}\nCheckout: {}",
+                "Worker: {}\n\nRun: {}  step: {}\nCheckout: {}",
                 snapshot.state.words(),
                 snapshot.run.slug,
+                snapshot.step,
                 snapshot.run.root.display()
             ));
             if !snapshot.model.is_empty() {
@@ -433,7 +466,7 @@ impl Panel {
             ));
             if snapshot.verification.is(Verification::AwaitingAttestation) {
                 add(&format!(
-                    "waiting on your judgment: {}\nOnly a person can record these judgments in tink-sdlc.",
+                    "waiting on your judgment: {}\nOnly a person can record these judgments in tink-sdlc. Then v verifies again and f records the ended turn.",
                     snapshot.pending_attestations.join(", ")
                 ));
             }
@@ -441,6 +474,17 @@ impl Panel {
                 add(
                     "\nl sends this prepared task and source context to the displayed provider within its existing cap. It grants no extra responses.",
                 );
+            }
+            if self.fresh && self.can_start_new_step() {
+                add(&match &self.allowance {
+                    Some(config) => format!(
+                        "\nNext: n prepares step {} and launches it with {} and a new cap of {} responses, separate from earlier steps. \
+                         If no build checkout exists yet, it opens one (stage 3) first. \
+                         It sends the task and source context to that provider. The new step reads the brief in runs/{}/brief.md; add the finding there first.",
+                        snapshot.next_step, config.model, config.responses, snapshot.run.slug
+                    ),
+                    None => "\nNext: a new worker step needs this launch's allowance. Relaunch with --worker-model provider/model:thinking and --worker-responses N, then press b.".into(),
+                });
             }
             if self.fresh && self.can_resume() {
                 add(
