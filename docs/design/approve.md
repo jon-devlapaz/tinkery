@@ -195,7 +195,8 @@ Navigation and copying never start a worker.
 
 With a configured worker allowance, the worker review reads the cap guidance off the
 terminal thread and shows `Reading recent Pi launch logs…` until it lands; F2 is offered
-only after that. It selects up to five
+only after that. If the reading thread ends without guidance, the review shows
+`Cap guidance unavailable.` and offers F2. It selects up to five
 recent Pi launches by the start time in each log filename. Only runs in the named
 checkout and their matching Git worktrees are considered. Empty run folders add
 no samples. It reads log contents only in the checkout each run reports. A log must match that run's step contract,
@@ -234,7 +235,9 @@ checkout only from SDLC's explicit report and matching run ID.
 On that screen, `r` reads status, `l` launches an inspected prepared step, `u` resumes
 an ended turn, `f` records a normally
 ended worker, `v` verifies, `s` stops it and records the response cap as the reason only if the worker log shows the cap marker. These are separate
-explicit actions. Verify before finishing: `f` refuses without current passing
+explicit actions. A step whose launcher reached its response cap reads `Worker: reached its
+response cap`, never `running`. Its actions are `r`, `v` and `s`; `u` and `f` are not offered.
+Verify before finishing: `f` refuses without current passing
 verification, so a failed check leaves the ended worker resumable after a successful reread.
 An `awaiting-attestation` reading says `waiting on your judgment`, names the pending
 IDs and keeps Finish refused. Taste can inspect its unaccepted candidate; only a
