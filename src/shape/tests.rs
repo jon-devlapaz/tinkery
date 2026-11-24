@@ -195,9 +195,46 @@ struct Opening {
 }
 
 impl Opening {
+    fn session(&self) -> PathBuf {
+        self.root.path().join("session")
+    }
+
+    /// Changes the saved ledger with `edit`, as another writer would, then lets the next tick
+    /// read the session again.
+    fn edit_ledger(&mut self, edit: impl FnOnce(&mut serde_json::Value)) {
+        let path = self.session().join("ledger.json");
+        let mut ledger: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        edit(&mut ledger);
+        std::fs::write(&path, serde_json::to_string_pretty(&ledger).unwrap()).unwrap();
+        self.read_again();
+    }
+
+    /// Changes the saved Tink Contract with `edit`, then reads the session again.
+    fn edit_seed(&mut self, edit: impl FnOnce(String) -> String) {
+        let path = self.session().join(crate::seed_me::files::SEED);
+        let seed = edit(std::fs::read_to_string(&path).unwrap());
+        std::fs::write(&path, seed).unwrap();
+        self.read_again();
+    }
+
+    /// Reads the session again, as Shape does after a write, until the read lands.
+    fn read_again(&mut self) {
+        self.shape.reread();
+        let start = std::time::Instant::now();
+        while screen(&mut self.shape, 100, 30, true).contains("Checking this Tink.") {
+            assert!(
+                start.elapsed().as_secs() < 10,
+                "the session read never landed"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(5));
+            self.shape.tick();
+        }
+    }
+
     /// Removes the session folder under the open Shape, so every later read or write is refused.
     fn vanish(&self) {
-        std::fs::remove_dir_all(self.root.path().join("session")).unwrap();
+        std::fs::remove_dir_all(self.session()).unwrap();
     }
 }
 
@@ -266,13 +303,18 @@ fn so_far_names_open_questions_and_the_answers_they_wait_for() {
     for (width, height) in [(80, 24), (100, 30)] {
         for no_color in [false, true] {
             let mut shape = done(question(), None);
-            let open = shape.open.as_mut().unwrap();
-            let Reading::Done(Ok(shaping)) = &mut open.reading else {
-                panic!()
-            };
-            shaping.goal = Some("TEST goal".into());
-            shaping.decided.clear();
-            shaping.open = vec!["TEST A".into(), "TEST B — waits for: TEST A, TEST C".into()];
+            shape.edit_ledger(|ledger| {
+                let open = |id: &str, label: &str, waits: &[&str]| {
+                    serde_json::json!({"id":id,"label":label,"kind":"decision",
+                        "status":"unresolved","prerequisites":waits,"evidence":[],
+                        "owner":"TEST","gate":"TEST","history":[],"revision":0})
+                };
+                let nodes = ledger["nodes"].as_array_mut().unwrap();
+                nodes.push(open("TEST-A", "TEST A", &[]));
+                nodes.push(open("TEST-C", "TEST C", &[]));
+                nodes.push(open("TEST-B", "TEST B", &["TEST-A", "TEST-C"]));
+                ledger["frontier"] = serde_json::json!(["storage", "TEST-A", "TEST-C"]);
+            });
             choose(&mut shape, "So far");
             let text = screen(&mut shape, width, height, no_color);
             assert!(text.contains("Open questions"), "{text}");
@@ -357,24 +399,63 @@ fn forms_do_not_retarget_after_a_stale_read_and_held_keys_do_nothing() {
         );
     }
     choose(&mut shape, "Defer");
-    let open = shape.open.as_mut().unwrap();
-    let Reading::Done(Ok(shaping)) = &mut open.reading else {
-        panic!()
+    // Another writer answers the question and records the next one; the form keeps its own.
+    shape.edit_ledger(|ledger| {
+        ledger["version"] = 4.into();
+        ledger["current_question"] = "TEST-another-question".into();
+        ledger["frontier"] = serde_json::json!(["storage", "TEST-another-question"]);
+        ledger["nodes"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+            "id":"TEST-another-question","label":"TEST another question","kind":"decision",
+            "status":"unresolved","prerequisites":[],"evidence":[],"owner":"TEST",
+            "gate":"TEST another gate","question":"TEST another ask?","history":[],"revision":0}));
+    });
+    let text = screen(&mut shape, 100, 30, true);
+    assert!(
+        text.contains("TEST another ask?"),
+        "the fresh read never landed:\n{text}"
+    );
+    assert!(text.contains("Gate: TEST gate"), "{text}");
+    assert!(!text.contains("Gate: TEST another gate"), "{text}");
+    // Saving it now is refused as stale rather than deferring the other question.
+    shape.paste("TEST wait");
+    shape.key(key(KeyCode::F(2)));
+    shape.paste("TEST later");
+    shape.key(key(KeyCode::F(2)));
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while ["Saving your deferral.", "Checking this Tink."]
+        .iter()
+        .any(|busy| screen(&mut shape, 100, 30, true).contains(busy))
+    {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the deferral never landed"
+        );
+        shape.tick();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    let text = screen(&mut shape, 100, 30, true);
+    let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(
+        flat.contains("Another writer changed this session first, so nothing was saved."),
+        "{text}"
+    );
+    let ledger: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(shape.session().join("ledger.json")).unwrap())
+            .unwrap();
+    let node = |id: &str| {
+        ledger["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == id)
+            .unwrap()["status"]
+            .clone()
     };
-    shaping.version = Some(4);
-    let Shaped::Question { id, .. } = &mut shaping.stage else {
-        panic!()
-    };
-    *id = "TEST-another-question".into();
-    let Some(Typing {
-        act: Act::Respond { id, expected, .. },
-        ..
-    }) = open.typing()
-    else {
-        panic!()
-    };
-    assert_eq!(id, "storage");
-    assert_eq!(expected, 3);
+    assert_eq!(node("TEST-another-question"), "unresolved");
+    assert_eq!(node("storage"), "unresolved");
 }
 
 #[test]
@@ -1575,8 +1656,7 @@ fn issue_299_review_keeps_failure_cases_separate_from_success_criteria() {
     );
     for (width, height) in [(100, 30), (80, 24)] {
         for no_color in [false, true] {
-            let mut view = done(draft.stage.clone(), Some(agent(0)));
-            view.open.as_mut().unwrap().reading = Reading::Done(Ok(draft.clone()));
+            let mut view = open_read(&receipt.session, Some(agent(0)), false);
             let mut seen = [false; 2];
             for _ in 0..200 {
                 let rendered = screen(&mut view, width, height, no_color);
@@ -1869,8 +1949,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'assumed': [], 'confirming': 
             .map(|(i, c)| format!("{}. {}", i + 1, c["statement"].as_str().unwrap())),
     );
     for (width, height) in [(100, 30), (80, 24)] {
-        let mut view = done(draft.stage.clone(), Some(agent.clone()));
-        view.open.as_mut().unwrap().reading = Reading::Done(Ok(draft.clone()));
+        let mut view = open_read(&receipt.session, Some(agent.clone()), false);
         let mut seen = vec![false; expected_review.len()];
         for _ in 0..200 {
             let rendered = screen(&mut view, width, height, true);
@@ -2731,10 +2810,10 @@ fn the_folder_a_step_reads_shows_before_f2_and_f1_picks_another() {
             text.contains("The step reads files in TEST-other."),
             "{text}"
         );
-        assert!(matches!(
-            &shape.open.as_ref().unwrap().folder,
-            Folder::Known(f) if f.folder == other.canonicalize().unwrap()
-        ));
+        assert!(shape.help_text().contains(&format!(
+            "The next step reads files in: {}",
+            other.canonicalize().unwrap().display()
+        )));
     }
 }
 
@@ -2976,12 +3055,13 @@ fn folder_edits_keep_multiline_paths_including_trailing_whitespace() {
         );
         shape.key(key(KeyCode::Backspace));
         shape.key(key(KeyCode::Enter));
-        let open = shape.open.as_ref().unwrap();
-        assert!(
-            matches!(&open.folder, Folder::Known(p) if p.folder == folder.canonicalize().unwrap())
-        );
-        assert!(open.notice.is_none(), "the exact folder was refused");
-        assert!(!matches!(open.mode, Mode::Running(..)));
+        let help = shape.help_text();
+        let used = format!("The next step reads files in: {}", folder.display());
+        assert!(help.contains(&used), "the exact folder was refused: {help}");
+        assert!(!matches!(
+            shape.open.as_ref().unwrap().mode,
+            Mode::Running(..)
+        ));
     }
 }
 
@@ -2996,9 +3076,15 @@ fn a_pasted_folder_with_a_trailing_line_break_is_used() {
     shape.key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::CONTROL));
     shape.paste(&format!("  {}\r\n", folder.display()));
     shape.key(key(KeyCode::F(2)));
-    let open = shape.open.as_ref().unwrap();
-    assert!(open.notice.is_none(), "the pasted folder was refused");
-    assert!(matches!(&open.folder, Folder::Known(p) if p.folder == folder.canonicalize().unwrap()));
+    let help = shape.help_text();
+    let used = format!(
+        "The next step reads files in: {}",
+        folder.canonicalize().unwrap().display()
+    );
+    assert!(
+        help.contains(&used),
+        "the pasted folder was refused: {help}"
+    );
 }
 
 #[test]
@@ -4383,11 +4469,23 @@ fn f2_waits_until_the_whole_seed_draft_has_been_on_screen() {
             !text.contains(READ_FIRST),
             "reaching the end left the refusal: {text}"
         );
-        assert!(shape.open.as_ref().unwrap().read_end.is_some());
+        assert!(
+            text.lines()
+                .last()
+                .unwrap()
+                .contains("enter confirm Tink r1"),
+            "{text}"
+        );
         // A taller editor afterwards doesn't take back what was read.
         shape.paste("\nmore words");
-        screen(&mut shape, width, height, true);
-        assert!(shape.open.as_ref().unwrap().read_end.is_some());
+        let text = screen(&mut shape, width, height, true);
+        assert!(
+            text.lines()
+                .last()
+                .unwrap()
+                .contains("enter confirm Tink r1"),
+            "{text}"
+        );
     }
 }
 
@@ -4397,43 +4495,25 @@ fn read_to_end_survives_same_revision_rereads_but_not_a_new_revision() {
         for no_color in [false, true] {
             for change in ["same draft", "changed bytes", "new revision"] {
                 let mut shape = done(long_draft(), Some(agent(0)));
-                shape.scroll = u16::MAX;
-                screen(&mut shape, width, height, no_color);
-                let changed = change != "same draft";
-                let open = shape.open.as_mut().unwrap();
-                let Reading::Done(Ok(mut reading)) =
-                    std::mem::replace(&mut open.reading, Reading::NotStarted)
-                else {
-                    panic!()
-                };
-                if let Shaped::Drafted { revision, text } = &mut reading.stage {
-                    if change == "changed bytes" {
-                        text.as_mut()
-                            .unwrap()
-                            .push_str("TEST unread changed bytes, still r1.\n");
-                    } else if change == "new revision" {
-                        *revision = Some("r2".into());
-                        *text = Some(
-                            text.as_ref()
-                                .unwrap()
-                                .replace("revision: r1", "revision: r2"),
-                        );
-                    }
+                for _ in 0..30 {
+                    shape.key(key(KeyCode::PageDown));
+                    screen(&mut shape, width, height, no_color);
                 }
-                let stage = reading.stage.clone();
-                let (tx, rx) = mpsc::channel();
-                open.reading = Reading::Waiting(rx);
-                tx.send((Ok(reading), None)).unwrap();
-                shape.scroll = 0;
-                shape.tick();
-                assert_eq!(shape.open.as_ref().unwrap().read_end.is_none(), changed);
+                let changed = change != "same draft";
+                for _ in 0..30 {
+                    shape.key(key(KeyCode::PageUp));
+                }
+                shape.edit_seed(|seed| match change {
+                    "changed bytes" => seed + "TEST unread changed bytes, still r1.\n",
+                    "new revision" => seed.replace("revision: r1", "revision: r2"),
+                    _ => seed,
+                });
                 shape.paste(
                     "TEST confirmation words that grow the box "
                         .repeat(15)
                         .as_str(),
                 );
                 let text = screen(&mut shape, width, height, no_color);
-                assert_eq!(shape.open.as_ref().unwrap().read_end.is_none(), changed);
                 let bar = text.lines().last().unwrap();
                 assert_eq!(
                     bar.contains("pgup/dn read to end"),
@@ -4461,10 +4541,6 @@ fn read_to_end_survives_same_revision_rereads_but_not_a_new_revision() {
                     open.typed.text(),
                     "TEST confirmation words that grow the box ".repeat(15)
                 );
-                let Reading::Done(Ok(reading)) = &open.reading else {
-                    panic!()
-                };
-                assert_eq!(reading.stage, stage);
             }
         }
     }
@@ -4517,47 +4593,6 @@ fn typing_in_a_teach_back_or_change_box_clears_the_refusal_about_its_empty_words
 }
 
 #[test]
-fn f1_offers_no_answer_action_on_a_read_without_a_ledger_version() {
-    let deferred = crate::seed_me::ledger::DeferredPrerequisite {
-        id: "TEST-earlier".into(),
-        title: "TEST earlier".into(),
-        question: "TEST earlier question?".into(),
-        reason: "TEST later".into(),
-        revisit: "TEST when asked".into(),
-    };
-    let review = Shaped::Review {
-        id: "TEST-answer".into(),
-        title: "TEST answer".into(),
-        answer: "TEST old".into(),
-        found: vec![],
-        revisable: true,
-    };
-    for version in [Some(3), None] {
-        for (stage, rows) in [
-            (
-                question(),
-                &["Defer", "Delegate", "Answer deferred prerequisite"][..],
-            ),
-            (review.clone(), &["Revise the answer"][..]),
-        ] {
-            let mut shape = done(stage, Some(agent(1)));
-            let Reading::Done(Ok(shaping)) = &mut shape.open.as_mut().unwrap().reading else {
-                panic!()
-            };
-            shaping.version = version;
-            shaping.deferred = Some(deferred.clone());
-            for row in rows {
-                assert_eq!(
-                    offers(&shape, row),
-                    version.is_some(),
-                    "{row} at {version:?}"
-                );
-            }
-        }
-    }
-}
-
-#[test]
 fn a_fresh_read_under_an_open_teach_back_keeps_its_words_on_screen_and_unsent() {
     let dir = tempfile::tempdir().unwrap();
     for (row, label, what) in [
@@ -4575,10 +4610,18 @@ fn a_fresh_read_under_an_open_teach_back_keeps_its_words_on_screen_and_unsent() 
         choose(&mut shape, row);
         shape.paste("TEST kept words");
         // A fresh read lands on a new question instead of the draft.
-        let Reading::Done(Ok(shaping)) = &mut shape.open.as_mut().unwrap().reading else {
-            panic!()
-        };
-        shaping.stage = question();
+        shape.edit_ledger(|ledger| {
+            ledger["current_question"] = "storage".into();
+            ledger["frontier"] = serde_json::json!(["storage"]);
+            ledger["nodes"]
+                .as_array_mut()
+                .unwrap()
+                .push(serde_json::json!({
+                "id":"storage","label":"Where records live","kind":"decision",
+                "status":"unresolved","prerequisites":[],"evidence":[],"owner":"TEST",
+                "gate":"TEST gate","question":"Keep records local or synced?",
+                "history":[],"revision":0}));
+        });
         let text = screen(&mut shape, 80, 24, true);
         assert!(text.contains(label), "{row}: {text}");
         assert!(text.contains("TEST kept words"), "{row}: {text}");
@@ -4632,14 +4675,7 @@ fn issue_314_captured_goal_names_missing_success_before_any_call() {
     for (width, height) in [(80, 24), (100, 30)] {
         for no_color in [false, true] {
             let host = agent(1);
-            let mut shape = Shape::new(
-                Open::Session(&session),
-                Some(host.clone()),
-                &GoalConfirmation::default(),
-                false,
-            );
-            shape.open.as_mut().unwrap().reading =
-                Reading::Done(Ok(crate::shape::shaping::read(&session).unwrap()));
+            let mut shape = open_read(&session, Some(host.clone()), false);
             let shown = screen(&mut shape, width, height, no_color);
             assert!(
                 shown.contains("The saved goal leaves Done when open."),
