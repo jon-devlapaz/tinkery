@@ -431,7 +431,8 @@ impl Panel {
             add(
                 "Worker actions\n\nF2 starts only the reviewed Tink with its separate worker allowance.\n\
                  r reads status. l launches a prepared step; u resumes an ended turn on its existing model/session and cumulative cap.\n\
-                 n starts a new step (build-2, build-3…) when the current one can do nothing more: no step yet, launch uncertain, completed or stopped. It uses this launch's worker allowance as a new cap.\n\
+                 n starts a new step (build-2, build-3…) when the current one can do nothing more:\n\
+                 no step yet, launch uncertain, completed or stopped. Its cap is this launch's worker allowance.\n\
                  v verifies first. Only current passing checks allow f to record the normally ended worker.\n\
                  After a refused request, only r and s work until a read succeeds.\n\
                  Failed checks keep the ended worker resumable after that read. s stops it. The recorded reason is the response cap only if the worker's log shows the cap marker.\n\
