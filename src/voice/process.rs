@@ -1,6 +1,6 @@
-//! Running the voice helper: finding Node, starting the embedded helper script, and moving
-//! commands and events across its pipes on a worker thread, with bounded queues and line
-//! lengths. Think sees none of this; it talks to [`VoiceHost`].
+//! Running the voice helper: it finds Node, starts the embedded helper script and carries its
+//! commands and events off Think's thread. Queues and line lengths are bounded, so a stuck or
+//! chatty helper never blocks or floods Think. Think sees none of this; it talks to [`VoiceHost`].
 
 use super::{Command, Event, Failure, Kind, VoiceHost, key_label, protocol::MAX_LINE};
 use crate::process;

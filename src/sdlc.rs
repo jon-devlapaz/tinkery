@@ -274,7 +274,6 @@ pub(crate) struct Run {
 /// Why a recorded checkout cannot name a folder.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CheckoutGap {
-    /// Not text.
     NotText,
     /// Text containing NUL, which no folder name holds.
     Nul,
@@ -303,11 +302,9 @@ pub(crate) enum Outcome {
 /// One gate decision receipt, verbatim; missing words stay unknown.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Decision {
-    /// The gated stage number.
     pub(crate) stage: Option<u64>,
     /// The recorded decision word.
     pub(crate) decision: Option<String>,
-    /// The recorded reviewer.
     pub(crate) reviewer: Option<String>,
     /// Who recorded it; only an operator's receipt is a person's gate.
     pub(crate) by: Attribution,

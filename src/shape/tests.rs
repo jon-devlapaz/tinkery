@@ -3630,7 +3630,6 @@ fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
     };
     let version = answering::read(&session).unwrap().version();
     let version = answering::ask(&session, version, &ask, temp.path()).unwrap();
-    // Both defaults are recorded.
     let state = || {
         serde_json::from_str::<serde_json::Value>(&answering::read(&session).unwrap().context())
             .unwrap()
