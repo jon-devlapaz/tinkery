@@ -3056,7 +3056,10 @@ fn folder_edits_keep_multiline_paths_including_trailing_whitespace() {
         shape.key(key(KeyCode::Backspace));
         shape.key(key(KeyCode::Enter));
         let help = shape.help_text();
-        let used = format!("The next step reads files in: {}", folder.display());
+        let used = format!(
+            "The next step reads files in: {}",
+            folder.canonicalize().unwrap().display()
+        );
         assert!(help.contains(&used), "the exact folder was refused: {help}");
         assert!(!matches!(
             shape.open.as_ref().unwrap().mode,
