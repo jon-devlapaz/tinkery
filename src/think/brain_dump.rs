@@ -894,30 +894,6 @@ impl BrainDump {
             self.refuse(layout::LIMIT_TEXT);
         }
     }
-    /// Makes a blank think with this one's host, saving and voice settings, for the next visit
-    /// from the menu. Only the session's frozen launch declaration carries over, never
-    /// conversation, named confirmer attribution or goal-scoped authorization.
-    pub fn fresh_factory(&self) -> Box<dyn Fn() -> Self> {
-        let host = self.host.clone();
-        let real = self.real;
-        let config = self.handoff.config.clone();
-        let voice = self.voice.is_some();
-        let shift_enter = self.screen.shift_enter;
-        let record_root = self.handoff.record_root.clone();
-        let repo = self.handoff.repo.clone();
-        let declaration = self.handoff.confirmation.fresh_declaration();
-        Box::new(move || {
-            let mut dump = Self::with_mode(host.clone(), real).with_shift_enter(shift_enter);
-            dump.handoff.config = config.as_ref().map(seed_me::Config::fresh);
-            dump.handoff.record_root = record_root.clone();
-            dump.handoff.repo = repo.clone();
-            dump.handoff.confirmation = declaration.clone();
-            if voice {
-                dump = dump.with_voice(Box::new(crate::voice::ProcessHost::new()));
-            }
-            dump
-        })
-    }
     /// Text think asked to copy, taken once; see [`BrainDump::copy_result`].
     pub fn take_copy_request(&mut self) -> Option<String> {
         self.copy.take()

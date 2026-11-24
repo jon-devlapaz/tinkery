@@ -222,15 +222,6 @@ impl GoalConfirmation {
         }
     }
 
-    /// Keep launch kind across a fresh visit; named context from older records becomes the plain declaration.
-    pub(crate) fn fresh_declaration(&self) -> Self {
-        match self {
-            Self::Terminal { .. } => self.clone(),
-            Self::Agent { .. } => Self::terminal_declaration(DECLARED_AGENT),
-            _ => Self::default(),
-        }
-    }
-
     /// Checks completeness and delegation eligibility, not whether the cited source grants authority.
     pub(crate) fn validate(&self) -> Result<(), String> {
         let nonblank = |text: &str| !text.trim().is_empty();

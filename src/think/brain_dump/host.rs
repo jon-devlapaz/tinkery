@@ -119,12 +119,6 @@ impl ModelHost {
         &self.budget
     }
 
-    /// Leaves the thinking level to the host's own default.
-    pub fn with_default_thinking(mut self) -> Self {
-        self.thinking.clear();
-        self
-    }
-
     fn complete(
         &self,
         kind: Request,

@@ -376,7 +376,7 @@ root=pathlib.Path(__file__).parent
 r=json.load(sys.stdin)
 mode={mode:?}
 kind=r.get('kind','shape')
-assert '--thinking' not in sys.argv
+assert sys.argv[sys.argv.index('--thinking')+1]=='low'
 log=root/'calls.jsonl'
 previous=[json.loads(s) for s in log.read_text().splitlines()] if log.exists() else []
 with log.open('a') as f:f.write(json.dumps(dict(kind=kind,request=r))+'\n')
@@ -402,8 +402,7 @@ print(json.dumps(dict(parts=dict(who='I',outcome='judge the result',why='w'*3150
             "test/model".into(),
             crate::pi::CallBudget::new(2),
         )
-        .unwrap()
-        .with_default_thinking();
+        .unwrap();
         let result = pi.reshape(r.clone(), &AtomicBool::new(false));
         assert_eq!(result.is_ok(), success, "{mode}: {result:?}");
         let calls = std::fs::read_to_string(dir.path().join("calls.jsonl")).unwrap();
