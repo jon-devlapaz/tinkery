@@ -604,7 +604,7 @@ fn published(error: ledger::PublishError) -> Refusal {
     }
 }
 
-/// Read `session`'s editable ledger at one version, without writing or calling the helper.
+/// Read `session`'s editable ledger at one version, without writing.
 pub fn read(session: &Path) -> Result<Ledger, Refusal> {
     let unreadable =
         |reason: String| Refusal::Refused(format!("Cannot read this session: {reason}"));

@@ -253,7 +253,7 @@ pub fn validate_rationale(node: &Value) -> Result<()> {
     )
 }
 
-/// Copy editable fields, preserving node key order and removing helper-owned history/counters.
+/// Copy editable fields, preserving node key order and removing ledger-owned history/counters.
 /// Missing fields, non-iterable nodes and malformed node objects refuse rather than crashing.
 pub fn editable(ledger: &Value) -> Result<Value> {
     let nodes = &ledger["nodes"];
@@ -619,7 +619,7 @@ pub(super) fn read_bytes(directory: &Path) -> std::io::Result<Vec<u8>> {
 }
 
 /// Read today's regular ledger without rewriting it. Unknown schemas, inconsistent frontiers and
-/// malformed helper history refuse; duplicate JSON keys keep their first position and last value.
+/// malformed history refuse; duplicate JSON keys keep their first position and last value.
 pub fn load(directory: &Path) -> Result<Value> {
     super::migration::refuse_old_root(directory)?;
     let input = String::from_utf8(read_bytes(directory).map_err(|e| e.to_string())?)
@@ -799,7 +799,7 @@ fn flag(flags: &mut Value, id: &str, source: &str, why: &str) {
 }
 
 /// Derive review requests against each node's own last review; never reopen or erase answers.
-/// Input nodes are validated ledger nodes, with nonnegative helper counters.
+/// Input nodes are validated ledger nodes, with nonnegative ledger counters.
 pub fn review_flags(nodes: &Value) -> Value {
     let contradicted = contradictions(nodes);
     let mut flags = object(&[]);

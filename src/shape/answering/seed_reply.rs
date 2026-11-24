@@ -172,7 +172,7 @@ mod tests {
         )
         .unwrap();
         // A valid Full artifact supplies every heading described by the attached old contract,
-        // including the confirmation summary, helper-rendered checks and ledger-owned blocks.
+        // including the confirmation summary, ledger-rendered checks and ledger-owned blocks.
         let artifact = std::fs::read_to_string(session.join("seed-contract.md")).unwrap();
         let historical = format!(
             "## You are confirming\n{}",

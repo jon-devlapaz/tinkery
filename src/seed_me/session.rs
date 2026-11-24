@@ -1,5 +1,5 @@
 //! Reading one saved session straight from session files. Read-only: nothing here writes.
-//! Files are read directly rather than through the helper, so a scan of thousands of
+//! Files are read directly rather than through a full ledger load, so a scan of thousands of
 //! sessions stays fast (see menu.md's measured scope).
 
 use std::path::{Path, PathBuf};
@@ -13,7 +13,7 @@ pub enum Stage {
     GoalSaved,
     /// Active, with a seed contract still in draft.
     SeedDrafted,
-    /// Active, with a seed declaring confirmation; only the helper can verify it.
+    /// Active, with a seed declaring confirmation; only Tinkery's ledger can verify it.
     SeedUnchecked,
     /// Finished: the only stage that satisfies a need.
     Completed,

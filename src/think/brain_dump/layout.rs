@@ -808,7 +808,7 @@ pub(super) fn render_leave_prompt(frame: &mut Frame, app: &BrainDump, palette: P
     );
 }
 
-// Qualify the actual viewport, not offscreen text or the reading's heading.
+/// Whether `area`'s on-screen cells paint anything; offscreen text never counts.
 pub(super) fn visible_content(frame: &mut Frame, area: Rect) -> bool {
     let area = area.intersection(frame.area());
     let buffer = frame.buffer_mut();

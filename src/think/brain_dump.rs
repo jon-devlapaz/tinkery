@@ -2,9 +2,9 @@
 //! the receipt, wired to the conversation, the model and ledger.
 //!
 //! The rules live in the parts: [`Conversation`] decides what is asked and sent, `reading` and
-//! `review` own the model's contracts, [`board`] verifies a reply, and `seed_me` saves. This
-//! file routes input to them and paints the result. Nothing is sent without F2.
-//! Saving a goal requires typed `confirm`; saving a fresh thought requires F3.
+//! `review` own the model's contracts, [`board`] verifies a reply, and `seed_me` saves. Think
+//! itself owns none of their rules: it routes input to them and paints the result. Nothing is
+//! sent without F2. Saving a goal requires typed `confirm`; saving a fresh thought requires F3.
 
 use super::{
     Motion, Note,
