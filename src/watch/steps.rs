@@ -16,14 +16,9 @@ pub(super) fn render(run: &sdlc::Run) -> Result<Option<(Vec<String>, Worker)>, S
     let mut worker = Worker::Idle;
     for step in run.steps.as_ref().ok_or_else(refuse)? {
         let name = step.data["name"].as_str().ok_or_else(refuse)?;
-        let cap_reached = match step.data.get("response_cap_reached") {
-            Some(value) => value.as_bool().ok_or_else(refuse)?,
-            None => false,
-        };
+        let state = State::read(&step.state, &step.stopped_by, step).map_err(|_| refuse())?;
+        let cap_reached = state == State::Active { turn: Turn::AtCap };
         if cap_reached {
-            if !step.state.is(S::Active) || !step.turn.is(T::Running) || step.stopped_by.present() {
-                return Err(refuse().into());
-            }
             worker = Worker::AtCap;
         }
         if let Some(stop) = step.data.get("cap_stop") {
@@ -76,7 +71,6 @@ pub(super) fn render(run: &sdlc::Run) -> Result<Option<(Vec<String>, Worker)>, S
             ));
             continue;
         }
-        let state = State::read(&step.state, &step.turn, &step.stopped_by).map_err(|_| refuse())?;
         let seen = match state {
             State::Active { turn } => {
                 let words = step.data["observed_turn"].as_str().ok_or_else(refuse)?;

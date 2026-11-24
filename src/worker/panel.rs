@@ -161,7 +161,12 @@ impl Panel {
     /// Land one source-owned outcome, never an inferred success or automatic next action.
     pub(crate) fn poll(&mut self) {
         if let Some(advice) = &self.advice
-            && let Ok(words) = advice.landed.try_recv()
+            && let Some(words) = match advice.landed.try_recv() {
+                Ok(words) => Some(words),
+                Err(mpsc::TryRecvError::Empty) => None,
+                // The reading thread ended without guidance; F2 is offered without it.
+                Err(mpsc::TryRecvError::Disconnected) => Some("Cap guidance unavailable.".into()),
+            }
         {
             self.advice = None;
             if let Some(start) = self.start.as_ref().or(self.starting.as_ref()) {

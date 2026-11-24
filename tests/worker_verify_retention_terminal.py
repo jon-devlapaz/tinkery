@@ -132,16 +132,16 @@ def journey(case, width, height):
 def reversion():
     path = REPO / 'src/worker/panel.rs'
     original = path.read_text()
-    guard = ('                    if !self.fresh && !matches!(action, Action::Refresh | Action::StopOperator) {\n'
-             '                        return None;\n'
-             '                    }\n')
+    # A stale panel offers only r and s: every other request needs a fresh read.
+    guard = ('        let current = has_run && self.fresh;\n', '        let current = has_run;\n')
     patches = (
         ('retention', '            Err(failure) => {\n',
          '            Err(failure) => {\n                self.snapshot = None;\n',
          'ended-state retention:'),
-        ('freshness', guard, '', 'stale-action no-mutation:'),
-        ('no-launch', guard, '', 'no-extra-launch call-count:'),
-        ('freshness', ' | Action::StopOperator', '', 'stale stop did not reach SDLC:'),
+        ('freshness', *guard, 'stale-action no-mutation:'),
+        ('no-launch', *guard, 'no-extra-launch call-count:'),
+        ('freshness', '        let can_stop = has_run\n', '        let can_stop = has_run && self.fresh\n',
+         'stale footer must offer stop:'),
     )
     env = subprocess.environment()
     build = ['cargo', '+stable', 'build', '--locked', '--quiet', '--bin', 'tinkery']

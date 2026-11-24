@@ -116,8 +116,17 @@ CASES = ['awaiting', 'worker', 'watch', 'finish-reread', 'worker-refusals', 'wat
 
 
 def reversion():
+    # The Local preview guard: a current receipt that passed, or one awaiting only judgments.
+    guard = ('        if !parsed.receipt_current\n'
+             '            || !(parsed.receipt_result.is(sdlc::ReceiptResult::Passed)\n'
+             '                || parsed\n'
+             '                    .verification\n'
+             '                    .is(sdlc::Verification::AwaitingAttestation)\n'
+             '                    && parsed.pending_attestations.is_ok())\n'
+             '        {\n')
+    awaiting = '                || parsed\n                    .verification\n'
     patches = [
-        ('src/taste/preview.rs', '        if !passed && !awaiting {', '        if !passed {',
+        ('src/taste/preview.rs', awaiting, '                || false && parsed\n                    .verification\n',
          'awaiting', 'candidate-label:'),
         ('src/taste/view.rs', '"Unaccepted candidate"', '"Local checked result"',
          'awaiting', 'candidate-label:'),
@@ -132,14 +141,12 @@ def reversion():
         ('src/worker/panel.rs', '.is_some_and(|s| s.verification.is(Verification::Current))',
          '.is_some_and(|s| s.verification.is(Verification::AwaitingAttestation))',
          'worker', 'finish-offer:'),
-        ('src/worker.rs', '!value.verification.is(sdlc::Verification::Current)\n                || value.data["verification"]["passed"].as_bool() != Some(true)',
-         'false', 'finish-reread', 'finish-reread: pending judgment completed worker'),
-        ('src/taste/preview.rs', '        if !passed && !awaiting {', '        if false {',
-         'failed', 'refusal-failed:'),
-        ('src/taste/preview.rs', '        if !passed && !awaiting {', '        if false {',
-         'person-failed', 'refusal-person-failed:'),
-        ('src/taste/preview.rs', '        if !passed && !awaiting {', '        if false {',
-         'stale', 'refusal-stale:'),
+        ('src/worker.rs',
+         'if !(value.verification.is(sdlc::Verification::Current) && value.receipt_current) {',
+         'if false {', 'finish-reread', 'finish-reread: pending judgment completed worker'),
+        ('src/taste/preview.rs', guard, '        if false {\n', 'failed', 'refusal-failed:'),
+        ('src/taste/preview.rs', guard, '        if false {\n', 'person-failed', 'refusal-person-failed:'),
+        ('src/taste/preview.rs', guard, '        if false {\n', 'stale', 'refusal-stale:'),
         ('src/sdlc.rs', 'Invalid => "invalid",', 'Invalid => "TEST-unknown",',
          'unknown', 'unknown-worker:'),
         ('src/sdlc/source.rs', '    compare(&[&paths[..], &[":(exclude)AGENTS.md"]].concat()).map_err(|_| differs)?;',

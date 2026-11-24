@@ -18,7 +18,6 @@ use crate::{
     seed_me::{ready, runs},
     think_record,
 };
-use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
     path::{Path, PathBuf},
@@ -123,6 +122,8 @@ pub(crate) enum Turn {
     Running,
     /// The adapter could not establish the turn state.
     Unknown,
+    /// The launcher reached the response cap; the turn has not ended and only a stop is owed.
+    AtCap,
 }
 
 /// One step's state, without converting stopped or uncertain work into completion. Watch and
@@ -146,14 +147,23 @@ pub(crate) enum State {
 }
 
 impl State {
-    /// The one mapping from SDLC's step words. Without a step there is `NotStarted`. A word,
-    /// turn or stop reason this reader does not know is refused with the field that failed.
+    /// The one mapping from SDLC's step words. Without a step there is `NotStarted`. The state
+    /// and stop reason come from the caller, the turn and cap flag from the step's status. A
+    /// word, turn or stop reason this reader does not know is refused with the field that
+    /// failed, and so is a cap flag on a step that is not active, running and unstopped.
     pub(crate) fn read(
         state: &sdlc::Word<sdlc::StepState>,
-        turn: &sdlc::Word<sdlc::TurnStatus>,
         stopped_by: &sdlc::Word<sdlc::StopReason>,
+        step: &sdlc::Step,
     ) -> Result<Self, &'static str> {
         use sdlc::{StepState as S, StopReason as R, TurnStatus as T};
+        let turn = &step.turn;
+        if step.cap_reached? {
+            if !state.is(S::Active) || !turn.is(T::Running) || stopped_by.present() {
+                return Err("The worker reports its response cap in an unsupported state.");
+            }
+            return Ok(Self::Active { turn: Turn::AtCap });
+        }
         Ok(match state.known() {
             Some(S::Prepared) => Self::Prepared,
             Some(S::Active) => Self::Active {
@@ -190,6 +200,7 @@ impl State {
             Self::Active {
                 turn: Turn::Unknown,
             } => "turn state unknown; inspect before resuming",
+            Self::Active { turn: Turn::AtCap } => "reached its response cap",
             Self::Uncertain => "launch uncertain; inspect before starting another",
             Self::Completed => "turn completed; verification is separate",
             Self::Stopped { cap: true } => "stopped by response cap",
@@ -739,21 +750,19 @@ fn snapshot(run: &Run) -> Result<Snapshot, String> {
             &["step".into(), run.slug.clone(), STEP.into(), "show".into()],
             sdlc::DEADLINE,
         )?;
-        let record: Value = serde_json::from_str(&output).map_err(|error| error.to_string())?;
-        if record["schema"].as_u64() != Some(1)
-            || record["run_id"].as_str() != Some(&run.id)
-            || record["checkout"].as_str() != run.root.to_str()
-        {
-            return Err(
-                "The worker contract does not belong to this exact run and checkout.".into(),
-            );
-        }
+        let contract = sdlc::StepContract::read(
+            serde_json::from_str(&output).map_err(|error| error.to_string())?,
+            &run.id,
+            &run.root,
+        )
+        .ok_or("The worker contract does not belong to this exact run and checkout.")?;
+        let record = &contract.record;
         let model = record["model"]
             .as_str()
             .ok_or("The worker model pin is unavailable.")?
             .to_owned();
-        let responses = record["max_responses"]
-            .as_u64()
+        let responses = contract
+            .max_responses
             .and_then(|n| usize::try_from(n).ok())
             .ok_or("The worker has no response cap; this interface cannot resume it.")?;
         Config {
@@ -778,12 +787,12 @@ fn snapshot(run: &Run) -> Result<Snapshot, String> {
         }) {
             return Err("The worker launcher fingerprint is unavailable or malformed.".into());
         }
-        let parsed = sdlc::Run::parse(&record);
         if matches!(
-            parsed.state.known(),
+            contract.state.known(),
             Some(sdlc::StepState::Active | sdlc::StepState::Completed | sdlc::StepState::Stopped)
-        ) && record["session"]
-            .as_str()
+        ) && contract
+            .session
+            .as_deref()
             .is_none_or(|value| value.trim().is_empty())
         {
             return Err("The worker has no recorded session identity.".into());
@@ -798,7 +807,7 @@ fn snapshot(run: &Run) -> Result<Snapshot, String> {
             "{:x}",
             Sha256::digest(fixed.to_string().as_bytes())
         ));
-        let state = match State::read(&parsed.state, &step.turn, &parsed.stopped_by)? {
+        let state = match State::read(&contract.state, &contract.stopped_by, step)? {
             State::Unreadable => return Err(UNSUPPORTED.into()),
             state => state,
         };

@@ -200,6 +200,13 @@ word_enum!(StepState, None, {
 word_enum!(TurnStatus, None, { Ended => "ended", Running => "not-ended", Unknown => "unknown" });
 word_enum!(StopReason, None, { Cap => "cap", Operator => "operator" });
 
+fn word<T>(value: Option<&Value>, read: fn(&Value) -> Option<T>) -> Word<T> {
+    Word {
+        known: value.and_then(read),
+        value: value.cloned(),
+    }
+}
+
 /// A boundary word retains missing, null, malformed and unfamiliar values for contextual refusals.
 #[derive(Debug, Clone)]
 pub(crate) struct Word<T> {
@@ -247,10 +254,6 @@ pub(crate) struct Run {
     pub(crate) steps: Option<Vec<Step>>,
     /// Whether the report supplied steps at all.
     pub(crate) steps_present: bool,
-    /// Contract state when this record is a worker contract rather than run status.
-    pub(crate) state: Word<StepState>,
-    /// Contract stop reason, meaningful only for a stopped contract.
-    pub(crate) stopped_by: Word<StopReason>,
     /// An open local result: the source records a null PR and no closure.
     pub(crate) local: bool,
     /// The receipt covers its candidate now: a fresh pass, or a fresh result awaiting only
@@ -418,18 +421,50 @@ pub(crate) struct Step {
     pub(crate) turn: Word<TurnStatus>,
     /// Stop attribution, never inferred from observed turn text.
     pub(crate) stopped_by: Word<StopReason>,
+    /// Whether the launcher reached the step's response cap; omission is false, and a value
+    /// that is not a boolean is refused rather than read as either.
+    pub(crate) cap_reached: Result<bool, &'static str>,
+}
+
+/// A worker step contract read once for one exact run and checkout. Another schema, run or
+/// checkout is refused; every other field keeps its source form for the caller's own checks.
+#[derive(Debug, Clone)]
+pub(crate) struct StepContract {
+    /// The whole record, for fingerprints and caller-specific path checks.
+    pub(crate) record: Value,
+    /// Recorded step state.
+    pub(crate) state: Word<StepState>,
+    /// Recorded stop reason, meaningful only for a stopped contract.
+    pub(crate) stopped_by: Word<StopReason>,
+    /// The recorded cumulative response cap; absent or not a whole number is `None`.
+    pub(crate) max_responses: Option<u64>,
+    /// The recorded session text; absent or not text is `None`, and empty text is kept.
+    pub(crate) session: Option<String>,
+}
+
+impl StepContract {
+    /// Read a contract bound to `run_id` and `checkout`, or `None` for any other.
+    pub(crate) fn read(record: Value, run_id: &str, checkout: &Path) -> Option<Self> {
+        if record["schema"].as_u64() != Some(1)
+            || record["run_id"].as_str() != Some(run_id)
+            || record["checkout"].as_str() != checkout.to_str()
+        {
+            return None;
+        }
+        Some(Self {
+            state: word(record.get("state"), StepState::read),
+            stopped_by: word(record.get("stopped_by"), StopReason::read),
+            max_responses: record["max_responses"].as_u64(),
+            session: record["session"].as_str().map(Into::into),
+            record,
+        })
+    }
 }
 
 impl Run {
     /// The sole API-word parse entry point. Optional detail fields and unknown words retain their
     /// distinctions so each operation can preserve its existing requirements and refusal wording.
     pub(crate) fn parse(value: &Value) -> Self {
-        fn word<T>(value: Option<&Value>, read: fn(&Value) -> Option<T>) -> Word<T> {
-            Word {
-                known: value.and_then(read),
-                value: value.cloned(),
-            }
-        }
         fn metadata(value: &Value, keys: &[&str]) -> Value {
             let mut value = value.clone();
             if let Some(object) = value.as_object_mut() {
@@ -441,14 +476,7 @@ impl Run {
         }
         let mut data = metadata(
             value,
-            &[
-                "verification_status",
-                "gates",
-                "checklist",
-                "steps",
-                "state",
-                "stopped_by",
-            ],
+            &["verification_status", "gates", "checklist", "steps"],
         );
         if let Some(receipt) = data.get_mut("verification").and_then(Value::as_object_mut) {
             receipt.remove("result");
@@ -545,16 +573,23 @@ impl Run {
                 steps
                     .iter()
                     .map(|step| Step {
-                        data: metadata(step, &["state", "turn", "stopped_by"]),
+                        data: metadata(
+                            step,
+                            &["state", "turn", "stopped_by", "response_cap_reached"],
+                        ),
                         state: word(step.get("state"), StepState::read),
                         turn: word(step.get("turn"), TurnStatus::read),
                         stopped_by: word(step.get("stopped_by"), StopReason::read),
+                        cap_reached: match step.get("response_cap_reached") {
+                            None => Ok(false),
+                            Some(flag) => flag
+                                .as_bool()
+                                .ok_or("The worker cap flag is not reported in a supported form."),
+                        },
                     })
                     .collect()
             }),
             steps_present: value.get("steps").is_some(),
-            state: word(value.get("state"), StepState::read),
-            stopped_by: word(value.get("stopped_by"), StopReason::read),
             local: value.get("pr") == Some(&Value::Null) && value["closure"].is_null(),
             receipt_current: (Verification::read(&value["verification_status"])
                 == Some(Verification::Current)

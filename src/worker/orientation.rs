@@ -192,26 +192,23 @@ fn open_log(
     log: &sdlc::Log,
     run: &Run,
 ) -> Option<(Option<u64>, impl Iterator<Item = Option<String>>)> {
-    let contract: Value =
-        serde_json::from_slice(&files.read(&format!("steps/{}.json", log.step)).ok()?).ok()?;
-    if contract["schema"] != 1
-        || contract["run_id"] != run.id
-        || contract["checkout"].as_str() != run.root.to_str()
-    {
-        return None;
-    }
-    let session = contract["session"].as_str().filter(|s| !s.is_empty())?;
+    let contract = sdlc::StepContract::read(
+        serde_json::from_slice(&files.read(&format!("steps/{}.json", log.step)).ok()?).ok()?,
+        &run.id,
+        &run.root,
+    )?;
+    let session = contract.session.as_deref().filter(|s| !s.is_empty())?;
     let mut lines = files.lines(&format!("steps/{}", log.name))?.into_iter();
     // Pi may print warnings before the header; the header is the first JSON line.
     let header: Value = lines.find_map(|line| serde_json::from_str(&line?).ok())?;
     if header["type"] != "session"
         || header["version"] != 3
         || header["id"] != session
-        || header["cwd"] != contract["checkout"]
+        || header["cwd"] != contract.record["checkout"]
     {
         return None;
     }
-    let cap = contract["max_responses"].as_u64().filter(|n| *n > 0);
+    let cap = contract.max_responses.filter(|n| *n > 0);
     Some((cap, lines))
 }
 

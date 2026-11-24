@@ -1,7 +1,7 @@
 //! Public worker transactions against a logging TEST SDLC process; no provider or operator data.
 
 use super::*;
-use serde_json::json;
+use serde_json::{Value, json};
 use std::process::Command;
 use std::{fs, time::Instant};
 
@@ -1149,6 +1149,7 @@ def view():
  if data.get('step'):
   record=data['step']; step={'name':'build','state':record['state']}
   if step['state']=='active': step['turn']=data['turn']
+  if step['state']=='active' and data.get('cap_reached'): step['response_cap_reached']=True
   if step['state']=='stopped': step['stopped_by']=record['stopped_by']
   run['steps']=[step]
  return run
@@ -1283,4 +1284,45 @@ fn f2_waits_until_the_cap_guidance_it_discloses_is_shown() {
     };
     assert!(landed.contains("F2 start worker"), "{landed}");
     assert!(!panel.busy(), "showing guidance started nothing");
+}
+
+#[test]
+fn worker_screen_names_the_response_cap_and_offers_only_stop_read_and_verify() {
+    // Sweep 1 fix 2: SDLC reports the cap on an active step whose turn has not ended.
+    let fixture = Fixture::new();
+    let run = fixture.start().run;
+    fixture.edit(|value| value["cap_reached"] = true.into());
+    let mut panel = Panel::existing(run.root, run.slug, run.id, Gate::new(false, Ok(None)));
+    let until = Instant::now() + Duration::from_secs(15);
+    while panel.busy() {
+        assert!(Instant::now() < until, "worker read timed out");
+        thread::sleep(Duration::from_millis(5));
+        panel.poll();
+    }
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 40)).unwrap();
+    terminal
+        .draw(|f| panel.render(f, f.area(), crate::Palette::new(true)))
+        .unwrap();
+    let rows: Vec<String> = terminal
+        .backend()
+        .buffer()
+        .content
+        .chunks(100)
+        .map(|row| {
+            row.iter()
+                .map(|c| c.symbol())
+                .collect::<String>()
+                .trim_end()
+                .into()
+        })
+        .collect();
+    assert!(
+        rows.iter()
+            .any(|row| row == "Worker: reached its response cap"),
+        "{rows:#?}"
+    );
+    assert_eq!(
+        rows.last().unwrap(),
+        "r read  v verify  s stop  t taste  ? help  esc back"
+    );
 }
