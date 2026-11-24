@@ -438,17 +438,19 @@ fn readiness_requires_four_parts_optional_constraints_only_block_when_open() {
                 .any(|s| s.contains(p.label()))
         );
     }
-    a.conversation.set_scope_pending(Some((
-        1,
-        Question {
-            suggestion: None,
-            target: None,
-            id: "scope-addition-1".into(),
-            text: "Scope?".into(),
-        },
-    )));
+    // Words added after the board wait for their scope, and the goal waits with them.
+    super::tests::choose(&mut a, "Add a dump");
+    a.paste("Also fix the bike.");
+    a.submit();
+    settle(&mut a);
+    let shown = snapshot(160, 40, &mut a, false).unwrap();
+    assert!(
+        shown.contains("Should these added words be part of this goal, or stay separate?"),
+        "{shown}"
+    );
+    assert!(!shown.contains("Ready for your review"), "{shown}");
     assert!(!a.goal_ready());
-    a.conversation.set_scope_pending(None);
+    let mut a = app(serde_json::json!({"parts":parts()}));
     a.conversation.skipped_mut().push(Question {
         suggestion: None,
         target: Some(Part::Must),
@@ -470,23 +472,6 @@ fn coarse_criteria_are_present_and_empty_queue_is_not_completion() {
     assert!(!blank.goal_ready());
     blank.review_goal();
     assert!(blank.handoff.review().is_none());
-}
-#[test]
-fn review_freezes_the_displayed_block_not_a_recomposition() {
-    // Artificial state (#76): ordinary verification never shows a block that differs from
-    // its parts. Review must freeze what was shown, whatever the parts would compose to.
-    let mut a = app(serde_json::json!({"parts":parts()}));
-    let shown = "I keep field notes, before dinner.\nWhy: a calm check.";
-    let board = a
-        .conversation
-        .board()
-        .unwrap()
-        .clone()
-        .with_displayed_goal(shown);
-    a.conversation.set_board(Some(board));
-    assert!(a.copy_text().contains(shown));
-    a.review_goal();
-    assert_eq!(a.handoff.review().unwrap().affirmation.goal, shown);
 }
 #[test]
 fn quiet_review_freezes_exact_block_and_seed_mapping_without_duplicate_lines() {

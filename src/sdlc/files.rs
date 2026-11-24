@@ -17,7 +17,6 @@ pub(crate) const MAX_ENTRIES: usize = 256;
 pub(crate) enum FileGap {
     /// Missing, or reached through a link.
     Unreachable,
-    /// Not a regular file.
     NotRegular,
     /// Larger than the one size limit.
     TooLarge,

@@ -268,7 +268,7 @@ impl Shape {
     }
 
     /// Whether keys now type words (an answer, seed confirmation or folder), so letters aren't
-    /// commands. Never while an ending or objection asks, or the helper carries one out.
+    /// commands. Never while an ending or objection asks, or the ledger carries one out.
     pub fn takes_text(&self) -> bool {
         self.agent.is_some()
             && self.open.as_ref().is_some_and(|open| match open.mode {
@@ -1927,7 +1927,6 @@ fn seed_view(
     Text::from(lines)
 }
 
-/// What a finished step needs to say, and its own next step when the stage's won't do.
 /// What choosing an ending asks, and how to answer it.
 fn asked(ending: Ending) -> Notice {
     match ending {

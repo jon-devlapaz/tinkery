@@ -70,7 +70,7 @@ struct Start {
     target: ready::SeedTarget,
     /// Canonical checkout shown before the action; a substituted path is refused.
     root: PathBuf,
-    /// Think records used to refuse a known different repository origin.
+    /// Where Think records live; a record naming a different repository origin refuses the start.
     record_root: Result<PathBuf, String>,
     /// The separately disclosed worker allowance.
     config: Config,

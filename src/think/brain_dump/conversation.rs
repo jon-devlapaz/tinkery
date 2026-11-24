@@ -664,9 +664,6 @@ impl Conversation {
     pub(super) fn skipped_mut(&mut self) -> &mut Vec<Question> {
         &mut self.skipped
     }
-    pub(super) fn set_scope_pending(&mut self, pending: Option<(usize, Question)>) {
-        self.scope_pending = pending;
-    }
     pub(super) fn ask_counts(&self) -> &BTreeMap<Part, u8> {
         &self.ask_counts
     }

@@ -48,7 +48,6 @@ pub(super) struct Closed {
 
 /// One `decide` receipt. Only the operator's count as gates.
 pub(super) struct Decision {
-    /// The gated stage.
     pub(super) stage: u64,
     /// `approved` or `changes-requested`, verbatim.
     pub(super) decision: String,
