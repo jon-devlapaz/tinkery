@@ -49,6 +49,12 @@ pub(crate) fn confirmed(directory: &Path, goal: &str, revision: &str) {
     node.set("revision", value::int(0));
     ledger.set("nodes", Value::Array(vec![node]));
     fs::write(directory.join("ledger.json"), ledger.pretty().unwrap()).unwrap();
+    confirm_saved(directory, revision);
+}
+
+/// Draft and confirm a Tink Contract for the human session already saved in `directory`.
+pub(crate) fn confirm_saved(directory: &Path, revision: &str) {
+    let ledger = load(directory).unwrap();
     let records =
         Value::parse(r#"[{"statement":"TEST exact café  ","kind":"judge","source":"TEST","how_to_judge":"TEST exact café  "}]"#)
             .unwrap();
