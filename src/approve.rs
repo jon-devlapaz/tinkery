@@ -70,11 +70,15 @@ impl Reader {
         }
     }
 
-    /// Land only the current visit's result, or reap an abandoned worker without showing it.
+    /// Land only the current visit's result, or reap a cancelled worker without showing it.
     pub(crate) fn poll(&mut self, view: Option<&mut Approve>) {
         let Some((rx, stop)) = &self.running else {
             return;
         };
+        // A live visit's read waits for that visit; only an abandoned one is reaped unseen.
+        if view.is_none() && !stop.load(Ordering::SeqCst) {
+            return;
+        }
         let result = match rx.try_recv() {
             Ok(found) => Ok(found),
             Err(mpsc::TryRecvError::Empty) => return,

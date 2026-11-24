@@ -26,7 +26,6 @@ use tinkery::{
     launch::{self, Launch},
     menu::{self, Home},
     model_setup::Controls,
-    think::brain_dump::{self, BrainDump, Exit},
 };
 
 fn seed_read(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
@@ -84,13 +83,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         launch.at_terminal(crossterm::terminal::supports_keyboard_enhancement().unwrap_or(false))
     };
     let mut app = if options.home {
-        let mut menu = Home::new(launch.clone());
+        let mut menu = Home::new(launch);
         if snapshot {
             menu.discover_for_snapshot(std::time::Duration::from_secs(5));
         }
-        Intake::Home(Box::new(menu))
+        menu
     } else {
-        Intake::Brain(Box::new(launch.think()))
+        Home::alone(launch)
     };
     if snapshot {
         println!("{}", screen_text(&mut app, &controls, options.no_color)?);
@@ -105,7 +104,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         &mut app,
         options.full_redraw,
-        &launch,
         migration,
     );
     ratatui::restore();
@@ -115,97 +113,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-enum Intake {
-    Home(Box<Home>),
-    Brain(Box<BrainDump>),
-}
-impl Intake {
-    fn quit(&self) -> bool {
-        match self {
-            Self::Home(a) => a.quit,
-            Self::Brain(a) => *a.exit() == Exit::Menu && a.saved().is_none(),
-        }
-    }
-    fn tick(&mut self, launch: &Launch) {
-        match self {
-            Self::Home(a) => a.tick(),
-            Self::Brain(a) => a.tick(),
-        }
-        if let Self::Brain(dump) = self {
-            let session = match dump.exit() {
-                Exit::Stay => None,
-                Exit::Menu => dump.saved().map(|r| (r.session.clone(), false)),
-                Exit::Tend(path) => Some((path.clone(), true)),
-            };
-            if let Some((session, open_tend)) = session {
-                let Self::Brain(dump) = std::mem::replace(self, Self::Brain(Box::default())) else {
-                    unreachable!()
-                };
-                *self = Self::Home(Box::new(Home::from_receipt(
-                    *dump,
-                    &session,
-                    open_tend,
-                    launch.clone(),
-                )));
-            }
-        }
-    }
-    fn render(&mut self, f: &mut ratatui::Frame, p: Palette) {
-        match self {
-            Self::Home(a) => menu::render(f, a, p),
-            Self::Brain(a) => brain_dump::render(f, a, p),
-        }
-    }
-    fn handle_key(&mut self, k: crossterm::event::KeyEvent) {
-        match self {
-            Self::Home(a) => a.handle_key(k),
-            Self::Brain(a) => a.handle_key(k),
-        }
-    }
-    fn paste(&mut self, text: &str) {
-        match self {
-            Self::Home(a) => a.paste(text),
-            Self::Brain(a) => a.paste(text),
-        }
-    }
-    fn handle_mouse(&mut self, e: crossterm::event::MouseEvent, area: ratatui::layout::Rect) {
-        match self {
-            Self::Home(a) => a.handle_mouse(e, area),
-            Self::Brain(a) => a.handle_mouse(e, area),
-        }
-    }
-    fn take_copy_request(&mut self) -> Option<String> {
-        match self {
-            Self::Home(a) => a.take_copy_request(),
-            Self::Brain(a) => a.take_copy_request(),
-        }
-    }
-    fn copy_result(&mut self, sent: bool) {
-        match self {
-            Self::Home(a) => a.copy_result(sent),
-            Self::Brain(a) => a.copy_result(sent),
-        }
-    }
-    fn presentation(&self) -> Option<brain_dump::Presentation> {
-        match self {
-            Self::Home(a) => a.presentation(),
-            Self::Brain(a) => a.presentation(),
-        }
-    }
-    fn presented(&mut self, presentation: brain_dump::Presentation) {
-        match self {
-            Self::Home(a) => a.presented(presentation),
-            Self::Brain(a) => a.presented(presentation),
-        }
-    }
-    fn take_model_request(&mut self) -> bool {
-        match self {
-            Self::Home(a) => a.take_model_request(),
-            Self::Brain(a) => a.take_model_request(),
-        }
-    }
-}
-
 // The header's two switches the loop owns over every screen: light or dark, and the model.
 struct Header {
     theme: ThemeSwitch,
@@ -213,21 +120,21 @@ struct Header {
 }
 
 // The screen, then the model label and panel over it; the loop and --snapshot draw the same.
-fn draw(frame: &mut ratatui::Frame, app: &mut Intake, controls: &Controls, palette: Palette) {
-    app.render(frame, palette);
+fn draw(frame: &mut ratatui::Frame, app: &mut Home, controls: &Controls, palette: Palette) {
+    menu::render(frame, app, palette);
     controls.render(frame, palette);
 }
 
 // The 100 x 30 view as text: no terminal mode, no model requests. Home lines are trimmed.
 fn screen_text(
-    app: &mut Intake,
+    app: &mut Home,
     controls: &Controls,
     no_color: bool,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let (width, height) = (100, 30);
     let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height))?;
     terminal.draw(|frame| draw(frame, app, controls, Palette::new(no_color)))?;
-    let trim = matches!(app, Intake::Home(_));
+    let trim = !app.is_alone();
     let buffer = terminal.backend().buffer();
     Ok((0..height)
         .map(|y| {
@@ -323,9 +230,8 @@ fn finish_frame<T>(
 fn run_shape(
     terminal: &mut ratatui::DefaultTerminal,
     header: Header,
-    app: &mut Intake,
+    app: &mut Home,
     full_redraw: bool,
-    launch: &Launch,
     mut migration: Option<String>,
 ) -> io::Result<Option<String>> {
     let _input_guard = InputGuard;
@@ -345,8 +251,8 @@ fn run_shape(
         mut theme,
         model: mut controls,
     } = header;
-    while !app.quit() {
-        app.tick(launch);
+    while !app.quit {
+        app.tick();
         execute!(io::stdout(), BeginSynchronizedUpdate)?;
         let mut presentation = None;
         let drawn = (|| {
@@ -428,7 +334,7 @@ fn run_shape(
                 if app.take_model_request() {
                     controls.open();
                 }
-                if app.quit() || !terminal_input.poll() {
+                if app.quit || !terminal_input.poll() {
                     break;
                 }
             }
@@ -439,10 +345,7 @@ fn run_shape(
             }
         }
     }
-    Ok(match app {
-        Intake::Home(a) => a.finish(),
-        Intake::Brain(a) => a.finish_handoff().map(|receipt| receipt.text()),
-    })
+    Ok(app.finish())
 }
 
 #[cfg(test)]
