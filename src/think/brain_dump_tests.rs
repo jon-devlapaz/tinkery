@@ -569,6 +569,29 @@ fn hiding_cards_mid_drag_releases_the_drag_so_later_moves_change_nothing() {
     assert_eq!(drawn_cards(&a), view, "a stale drag panned the cards");
 }
 #[test]
+fn right_clicking_a_card_opens_no_menu_and_changes_nothing() {
+    let mut a = BrainDump::with_host(Arc::new(Recording::default()));
+    snapshot(100, 30, &mut a, false).unwrap();
+    a.paste("Read comfortably. Hamster is unfamiliar.");
+    a.submit();
+    settle(&mut a);
+    a.extract_range(1, 0, "Read comfortably.".len()).unwrap();
+    a.screen.board_focus = !a.screen.board_focus;
+    choose(&mut a, "extracted cards");
+    let before = snapshot(100, 30, &mut a, false).unwrap();
+    let cards = drawn_cards(&a);
+    let (x, y) = first_card_point(&a);
+    card_mouse(&mut a, MouseEventKind::Down(MouseButton::Right), x, y);
+    card_mouse(&mut a, MouseEventKind::Up(MouseButton::Right), x, y);
+    let after = snapshot(100, 30, &mut a, false).unwrap();
+    for item in ["Rename Node", "Delete Node", "Create Connection"] {
+        assert!(!after.contains(item), "{item} offered:\n{after}");
+    }
+    assert_eq!(after, before, "a right-click changed the screen");
+    assert_eq!(drawn_cards(&a), cards, "a right-click changed the cards");
+    assert_eq!(a.screen.canvas.selected_id(), None);
+}
+#[test]
 fn actual_drag_keeps_exact_words_and_layout_on_the_next_submit() {
     let host = Arc::new(Recording::default());
     let mut a = BrainDump::with_host(host);
