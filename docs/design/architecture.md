@@ -152,7 +152,7 @@ Structural PRs name the rows they move.
 | Phase reaches across phases | none allowed |
 | `BrainDump` fields / `pub` fields | 13 / 0 |
 | Long non-test source lines | See `LONG_LINE` and `LONG_LINES` in [the owning check](../../tests/architecture.rs) |
-| Test calls to `Conversation`'s test-only accessors | 76 |
+| Test calls to `Conversation`'s test-only accessors | 74 |
 | Library files without a `//!` comment, `pub` items without a doc comment | none allowed |
 
 Checks fail whenever code differs from a limit, even by improving it. Lower improved

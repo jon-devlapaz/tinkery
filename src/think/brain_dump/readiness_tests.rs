@@ -438,17 +438,19 @@ fn readiness_requires_four_parts_optional_constraints_only_block_when_open() {
                 .any(|s| s.contains(p.label()))
         );
     }
-    a.conversation.set_scope_pending(Some((
-        1,
-        Question {
-            suggestion: None,
-            target: None,
-            id: "scope-addition-1".into(),
-            text: "Scope?".into(),
-        },
-    )));
+    // Words added after the board wait for their scope, and the goal waits with them.
+    super::tests::choose(&mut a, "Add a dump");
+    a.paste("Also fix the bike.");
+    a.submit();
+    settle(&mut a);
+    let shown = snapshot(160, 40, &mut a, false).unwrap();
+    assert!(
+        shown.contains("Should these added words be part of this goal, or stay separate?"),
+        "{shown}"
+    );
+    assert!(!shown.contains("Ready for your review"), "{shown}");
     assert!(!a.goal_ready());
-    a.conversation.set_scope_pending(None);
+    let mut a = app(serde_json::json!({"parts":parts()}));
     a.conversation.skipped_mut().push(Question {
         suggestion: None,
         target: Some(Part::Must),

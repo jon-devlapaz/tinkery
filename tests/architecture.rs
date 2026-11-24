@@ -25,7 +25,7 @@ const LONG_LINES: usize = 5;
 const LONG_LINE: usize = 200;
 /// Most calls to the test-only accessors on Think's `Conversation`. Tests that poke private state
 /// break on refactors that keep behavior; new tests drive Think through its real input instead.
-const CONVERSATION_TEST_ACCESS: usize = 76;
+const CONVERSATION_TEST_ACCESS: usize = 74;
 const CONVERSATION_TEST_ACCESSORS: &[&str] = &[
     "sources_mut",
     "fragments_mut",
@@ -35,7 +35,6 @@ const CONVERSATION_TEST_ACCESSORS: &[&str] = &[
     "set_board",
     "set_applied",
     "skipped_mut",
-    "set_scope_pending",
     "ask_counts_mut",
     "ask_counts",
 ];
