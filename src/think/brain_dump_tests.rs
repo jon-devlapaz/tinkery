@@ -241,6 +241,43 @@ fn silent_entry_intact_sources_and_deliberate_extractions_survive_answer_and_lay
     }
 }
 #[test]
+fn a_failed_reading_shows_the_retained_goal_in_italic_below_plain_failure_text() {
+    use ratatui::style::Modifier;
+    let host = Arc::new(Recording::default());
+    let mut a = BrainDump::with_host(host.clone());
+    a.paste("Read comfortably. Hamster is unfamiliar.");
+    a.submit();
+    settle(&mut a);
+    host.fail.store(true, Ordering::Relaxed);
+    a.paste("A second dump.");
+    a.submit();
+    settle(&mut a);
+    let goal = agent_text(a.conversation.board().unwrap().goal().unwrap());
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
+    terminal
+        .draw(|f| render(f, &mut a, Palette::new(true)))
+        .unwrap();
+    let buffer = terminal.backend().buffer();
+    let area = a.screen.agent_area;
+    let italic_at = |words: &str| {
+        let prefix: String = words.chars().take(12).collect();
+        (area.y..area.bottom())
+            .find_map(|y| {
+                let row: String = (area.x..area.right())
+                    .map(|x| buffer[(x, y)].symbol())
+                    .collect();
+                let x = area.x + row[..row.find(&prefix)?].chars().count() as u16;
+                Some(buffer[(x, y)].modifier.contains(Modifier::ITALIC))
+            })
+            .unwrap_or_else(|| panic!("{prefix:?} not shown"))
+    };
+    assert!(!italic_at("Reading failed"), "failure text is italic");
+    assert!(
+        italic_at(goal.lines().next().unwrap()),
+        "retained goal is not italic"
+    );
+}
+#[test]
 fn failure_retry_skip_no_implicit_confirmation_or_new_note_edit_trap() {
     let host = Arc::new(Recording::default());
     let mut a = BrainDump::with_host(host.clone());
