@@ -1,6 +1,7 @@
 //! Public worker transactions against a logging TEST SDLC process; no provider or operator data.
 
 use super::*;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::{Value, json};
 use std::process::Command;
 use std::{fs, time::Instant};
@@ -1332,6 +1333,63 @@ fn agent_new_step_needs_relayed_words_for_its_own_cap() {
         refused.message
     );
     assert_eq!(steps_named(&fixture, "prepare"), ["build"]);
+}
+
+fn screen(panel: &mut Panel) -> Vec<String> {
+    let until = Instant::now() + Duration::from_secs(15);
+    while panel.busy() {
+        assert!(Instant::now() < until, "worker read timed out");
+        thread::sleep(Duration::from_millis(5));
+        panel.poll();
+    }
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 60)).unwrap();
+    terminal
+        .draw(|f| panel.render(f, f.area(), crate::Palette::new(true)))
+        .unwrap();
+    terminal
+        .backend()
+        .buffer()
+        .content
+        .chunks(100)
+        .map(|row| {
+            row.iter()
+                .map(|c| c.symbol())
+                .collect::<String>()
+                .trim_end()
+                .into()
+        })
+        .collect()
+}
+
+#[test]
+fn worker_screen_names_the_new_step_and_its_cap_or_the_missing_allowance() {
+    let fixture = Fixture::new();
+    let run = fixture.start().run;
+    fixture.edit(|value| value["step"]["state"] = "completed".into());
+    let gate = Gate::new(false, Ok(None));
+    let open = |allowance| {
+        Panel::existing(
+            run.root.clone(),
+            run.slug.clone(),
+            run.id.clone(),
+            gate.clone(),
+            allowance,
+        )
+    };
+    let mut panel = open(Some(allowance(6)));
+    let rows = screen(&mut panel).join("\n");
+    assert!(rows.contains("n prepares step build-2"), "{rows}");
+    assert!(rows.contains("a new cap of 6 responses"), "{rows}");
+    let press = |panel: &mut Panel, code| {
+        panel.key(KeyEvent::new(code, KeyModifiers::NONE));
+    };
+    press(&mut panel, KeyCode::End);
+    let footer = screen(&mut panel).last().unwrap().clone();
+    assert!(footer.starts_with("n new worker step"), "{footer}");
+    let mut without = open(None);
+    let rows = screen(&mut without).join("\n");
+    assert!(rows.contains("needs this launch's allowance"), "{rows}");
+    assert!(!rows.lines().last().unwrap().contains("n new"), "{rows}");
 }
 
 const SCRIPT: &str = r#"import hashlib,json,pathlib,shutil,subprocess,sys,time

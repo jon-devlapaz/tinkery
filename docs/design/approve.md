@@ -218,7 +218,8 @@ own definition gates, worktree creation, model resolution, launcher hashing,
 session identity and cumulative cap. No copied shell text is executed and no
 approval or worker report is invented. A refusal stops the sequence; there is no
 automatic retry. Partial progress retains the source-owned run for inspection.
-Only a refusal before run creation is attempted (such as uncommitted source) offers F2
+Only a refusal before run creation is attempted (such as uncommitted source, or no Git
+`user.name` and `user.email`, which stage 3 needs to commit the run's records) offers F2
 again after the operator fixes the cause; a run created meanwhile makes that retry
 refuse rather than start twice (#738). Once creation is attempted, a failed command or
 identity read cannot establish that nothing was saved. The transaction names the attempted
@@ -254,6 +255,22 @@ it cannot silently use changed settings or add allowance. Unknown admission neve
 becomes a successful launch or an automatic retry. The preflight identity read is
 not an atomic lock against concurrent external record edits; SDLC rechecks its own
 contracts when executing each action.
+
+### New worker step
+
+Every worker screen names one way forward. A step that can do nothing more takes a new,
+uniquely named step: `n` for a run with no step (a start refused after creation), an
+uncertain launch, or a completed or stopped step (for example after a cap stop, a failed
+check on a completed step or a Taste finding). Tinkery's steps are `build`, then
+`build-2`, `build-3`; every action addresses the newest one, and other step names stay
+SDLC's. `n` uses this launch's `--worker-model` and `--worker-responses` as a new cap,
+separate from earlier steps, and the screen states the step, model and cap before the key
+works. Without that allowance it names the relaunch instead. An agent needs relayed
+words bound to that exact cap. If the run's checkout is not on the run's own branch, `n`
+opens the build checkout with stage 3 first (not for retry runs). It records the new step's
+authorization, prepares it with a fresh `worker-report-N.md`, confirms the prepared model
+and cap, then launches. It refuses when the step changed since the read. A finding for the
+new step goes in `runs/<slug>/brief.md` before `n`.
 
 `w` opens Watch and `t` opens Taste; neither navigation starts a preview. Completion,
 current verification and human acceptance remain separate. The shared `worker`

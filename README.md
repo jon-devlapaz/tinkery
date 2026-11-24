@@ -101,7 +101,10 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   responses workers used before editing. The review warns when your cap leaves too little
   room for an edit and a follow-up. The worker screen retains
   requests across navigation and offers explicit refresh, resume, finish, stop and
-  verification. Home `b` reopens it; Watch `b` selects an existing run.
+  verification. When the current step can do nothing more (a start refused after the run
+  was created, an uncertain launch, a completed or stopped step), `n` starts a new step
+  (`build-2`, …) under this launch's worker allowance as a new cap; an agent needs relayed
+  words for that cap. Home `b` reopens it; Watch `b` selects an existing run.
   Intake rechecks the Tink Contract through this executable with `--tinkery PATH`.
   A Tink known to come from another repository stays readable but cannot be copied
   into the named checkout; unknown origins keep copy with a note.
