@@ -685,7 +685,7 @@ def write_logs(build, run_id, marker, name='build.launch-100.pi.log', responses=
 def journey(width, height, case, mono=False):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-worker-terminal-') as directory:
         fixture = Fixture(Path(directory).resolve(), scenario=case)
-        if case in ('success', 'quit-busy'):
+        if case in ('success', 'quit-busy', 'measure-busy'):
             fixture.change(lambda value: value.update(hold=True))
         terminal = Terminal(fixture, width, height, budget=case != 'no-budget', mono=mono)
         try:
@@ -761,17 +761,23 @@ def journey(width, height, case, mono=False):
                     assert fixture.read()['step']['max_responses'] == CAP
                 else:
                     terminal.send(F2, 'Request in progress')
-                    if case in ('success', 'quit-busy'):
+                    if case in ('success', 'quit-busy', 'measure-busy'):
                         terminal.wait(lambda: len(fixture.admissions()) == 1)
-                        if case == 'quit-busy':
+                        if case == 'measure-busy':
+                            # F10 quits from Measure; like Ctrl-C it waits for the admitted request.
+                            terminal.send(F10, '1 think')
+                            terminal.send(b'7', 'r read GitHub')
+                            terminal.send(F10, 'Finishing the current request before exit')
+                        elif case == 'quit-busy':
                             terminal.send(b'\x03', 'Finishing the current request before exit')
+                        if case in ('quit-busy', 'measure-busy'):
                             assert terminal.process.poll() is None, 'quit abandoned in-flight admission'
                             fixture.release.touch()
                             assert terminal.wait_exit() == 0
                             assert fixture.read()['step']['state'] == 'active'
                             assert len(fixture.admissions()) == 1
                             assert not (fixture.root / 'unexpected-provider').exists()
-                            print(f'PASS worker quit-busy: {width}x{height}; exit waited for admitted state')
+                            print(f'PASS worker {case}: {width}x{height}; exit waited for admitted state')
                             return
                         terminal.send(F10, '1 think')
                         terminal.send(b'b', 'Request in progress')
@@ -860,7 +866,7 @@ if __name__ == '__main__':
     journey(80, 24, 'success')
     journey(100, 30, 'success', mono=True)
     for scenario in ('no-budget', 'changed-seed', 'dirty-source', 'pending-gate', 'uncertain', 'changed-run',
-                     'changed-pin', 'cap', 'quit-busy', 'launch-refused'):
+                     'changed-pin', 'cap', 'quit-busy', 'measure-busy', 'launch-refused'):
         journey(80, 24, scenario, mono=True)
     real_runtime_journey()
     real_runtime_journey(fail_first=True)
