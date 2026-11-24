@@ -1184,11 +1184,7 @@ impl BrainDump {
             KeyCode::PageUp => {
                 self.screen.paper_scroll = self.screen.paper_scroll.saturating_sub(5)
             }
-            KeyCode::Char('f') if self.screen.board_focus && ctrl => self
-                .screen
-                .canvas
-                .state
-                .fit_to_view(self.screen.canvas.area),
+            KeyCode::Char('f') if self.screen.board_focus && ctrl => self.screen.canvas.fit(),
             KeyCode::Char(c) if !ctrl => {
                 // Typing always writes; the app returns focus to the writing box itself.
                 self.focus_writing();
@@ -1551,7 +1547,7 @@ impl BrainDump {
             )
         {
             self.screen.canvas.mouse(event);
-            if self.screen.canvas.state.floating_editor.is_some() {
+            if self.screen.canvas.editing() {
                 self.screen.canvas.finish_edit();
             }
         }

@@ -358,13 +358,11 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
     .split(right);
     app.screen.agent_area = rows[0].union(rows[1]);
     let failure = app.conversation.last_failure().filter(|_| !app.running());
+    let retained = failure
+        .and_then(|_| app.conversation.board()?.goal())
+        .map(agent_text)
+        .unwrap_or_default();
     let content = if let Some(error) = failure {
-        let retained = app
-            .conversation
-            .board()
-            .and_then(|g| g.goal())
-            .map(agent_text)
-            .unwrap_or_default();
         let left = app
             .host
             .calls_left()
@@ -413,12 +411,7 @@ pub(super) fn render(frame: &mut Frame, app: &mut BrainDump, palette: Palette) {
         text = ratatui::text::Text::from(lines);
     }
     if failure.is_some() {
-        let retained_lines = app
-            .conversation
-            .board()
-            .and_then(|g| g.goal())
-            .map_or(0, |goal| agent_text(goal).lines().count());
-        let known = text.lines.len().saturating_sub(retained_lines);
+        let known = text.lines.len().saturating_sub(retained.lines().count());
         for line in text.lines.iter_mut().take(known) {
             line.style = palette.ink.remove_modifier(Modifier::ITALIC);
         }

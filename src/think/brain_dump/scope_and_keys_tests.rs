@@ -958,19 +958,7 @@ fn size_cache_tracks_edits_waiting_reply_scope_and_cards() {
     assert!(!a.card_positions().is_empty());
     assert_cached_size(&mut a);
     let before = a.encoded_bytes();
-    let CanvasNode::Text(node) = &mut a.screen.canvas.state.data.nodes[0] else {
-        panic!("extracted text card");
-    };
-    node.x = 12345.0;
-    a.handle_mouse(
-        MouseEvent {
-            kind: MouseEventKind::Moved,
-            column: 0,
-            row: 0,
-            modifiers: KeyModifiers::NONE,
-        },
-        Rect::new(0, 0, 100, 30),
-    );
+    super::tests::drag_first_card(&mut a, 100, 30);
     assert!(a.shaping.encoded_bytes.is_none());
     assert_cached_size(&mut a);
     assert_ne!(a.encoded_bytes(), before);
