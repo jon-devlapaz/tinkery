@@ -45,7 +45,7 @@ pub(crate) fn initialize_for(
 }
 
 /// Initialize an owned private staging directory with its fixed future session identity.
-/// The caller creates and owns the directory; this helper never selects another destination.
+/// The caller creates and owns the directory; this never selects another destination.
 pub(crate) fn initialize_at(
     path: &Path,
     id: &str,
@@ -341,7 +341,7 @@ fn publication(
     if result != *ledger && result["status"].string() == Some("completed") {
         return Err("publish cannot complete a session: use `end --status completed`, which checks the confirmed Tink".to_owned().into());
     }
-    // JSON refusals precede the IO attempt, as in the helper's atomic_write.
+    // JSON refusals precede the IO attempt, as in the former helper's atomic_write.
     let bytes = if result != *ledger {
         result.pretty()?
     } else {

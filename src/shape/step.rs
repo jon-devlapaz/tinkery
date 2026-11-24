@@ -442,7 +442,7 @@ pub(super) enum Why {
 }
 
 /// A running step, off the paint path. Dropping it asks the step to stop; a model call stops
-/// promptly, and a helper call already started finishes.
+/// promptly, and a ledger write already started finishes.
 pub(super) struct Running {
     cancelled: Arc<AtomicBool>,
     saved: Arc<AtomicBool>,
