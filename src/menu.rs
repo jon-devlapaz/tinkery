@@ -10,7 +10,7 @@ mod visits;
 pub use place::{PLACES, Place};
 
 use std::{
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -270,11 +270,6 @@ impl Home {
         home
     }
 
-    /// Whether Think still runs alone, as [`Home::alone`] opened it.
-    pub fn is_alone(&self) -> bool {
-        self.kept.alone
-    }
-
     /// Replace the reader for a selected root; never override a root refusal.
     pub fn with_discovery_source(mut self, source: Source) -> Self {
         if self.kept.sessions_root.is_some() {
@@ -361,7 +356,8 @@ impl Home {
         }
     }
 
-    /// Opens a place. Opening tend asks for a fresh scan; opening never starts an agent.
+    /// Opens a place, closing everything open. Opening Tend or Shape asks for a fresh scan;
+    /// opening never starts an agent.
     pub fn open(&mut self, place: Place) {
         if self.quit {
             return;
@@ -395,18 +391,6 @@ impl Home {
             ))),
         };
         self.push(visit, None);
-    }
-
-    fn open_tend_session(&mut self, path: &Path) {
-        if self.quit {
-            return;
-        }
-        self.clear();
-        self.selected = Place::Tend;
-        let mut tend = visits::tend(&mut self.kept);
-        tend.open_session(path);
-        tend.offer(&self.kept.discovery);
-        self.push(Box::new(tend), None);
     }
 
     fn push(&mut self, visit: Box<dyn Visit>, back_to: Option<Place>) {
@@ -477,7 +461,17 @@ impl Home {
                 self.selected = Place::Think;
                 self.push(Box::new(dump), None);
             }
-            Open::TendSession(path) => self.open_tend_session(&path),
+            Open::TendSession(path) => {
+                if self.quit {
+                    return;
+                }
+                self.clear();
+                self.selected = Place::Tend;
+                let mut tend = visits::tend(&mut self.kept);
+                tend.open_session(&path);
+                tend.offer(&self.kept.discovery);
+                self.push(Box::new(tend), None);
+            }
             Open::Shape(path) => {
                 let shape = kept.shape(shape::Open::Session(&path));
                 let visit = visits::Shaping::new(shape);
@@ -598,7 +592,8 @@ impl Home {
         }
     }
 
-    /// One mouse event in a terminal of size `area`. Routes deliberate presses to the open place.
+    /// One mouse event in a terminal of size `area`. An open place gets every event; the menu
+    /// acts only on left presses.
     pub fn handle_mouse(&mut self, event: MouseEvent, area: Rect) {
         self.handle_mouse_at(event, area, Instant::now());
     }
@@ -642,7 +637,7 @@ impl Home {
     }
 
     /// Memory only: an exact count of active sessions once a complete, current read has
-    /// landed. Unknown, partial or failed reads show nothing, never zero.
+    /// landed. Unknown, partial or failed reads show nothing, never zero. Only Tend counts.
     pub fn count(&self, place: Place) -> Option<String> {
         if place != Place::Tend {
             return None;
@@ -792,8 +787,8 @@ fn render_menu_help(frame: &mut Frame, palette: Palette) {
     frame.render_widget(Paragraph::new(lines).style(palette.ink).block(block), panel);
 }
 
-/// The screen as plain text at `width`×`height`, for `--snapshot` and tests. No terminal mode,
-/// no provider calls.
+/// The screen as plain text at `width`×`height`, line ends trimmed, for tests. No terminal
+/// mode, no provider calls.
 pub fn snapshot(
     width: u16,
     height: u16,
@@ -824,11 +819,13 @@ mod measure_tests;
 mod menu_tests;
 #[cfg(test)]
 mod tests {
-    use super::menu_tests::{at, how_it_works, in_detail, selected_line, think_saved};
+    use super::menu_tests::{
+        at, counts, how_it_works, in_detail, menu_help, selected_line, tend_on_receipt, think_saved,
+    };
     use super::*;
     use crate::tend::{Stage, load_sessions};
     use serde_json::Value;
-    use std::fs;
+    use std::{fs, path::Path};
 
     fn key(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::NONE)
@@ -884,8 +881,7 @@ mod tests {
             assert!(screen.contains(name), "{name} missing:\n{screen}");
         }
         assert!(screen.contains("tinkery"));
-        assert_eq!(h.count(Place::Tend), Some("1".into()));
-        assert_eq!(h.count(Place::Think), None);
+        assert_eq!(counts(&mut h), ["", "1", "", "", "", "", ""]);
     }
 
     #[test]
@@ -1057,13 +1053,16 @@ mod tests {
                 },
                 Rect::new(0, 0, 80, 24),
             );
-            assert!(h.help && at(&mut h) == "menu" && h.selected == Place::Think && !h.quit);
+            assert!(menu_help(&mut h) && at(&mut h) == "menu" && !h.quit);
+            h.handle_key(key(KeyCode::Esc));
+            h.handle_key(key(KeyCode::Enter));
+            assert!(at(&mut h) == "think", "the selection stayed on think");
         }
         for close in [KeyCode::Esc, KeyCode::F(1), KeyCode::Char('?')] {
             let mut h = home(tmp.path());
             h.handle_key(key(KeyCode::F(1)));
             h.handle_key(key(close));
-            assert!(!h.help && at(&mut h) == "menu" && !h.quit);
+            assert!(!menu_help(&mut h) && at(&mut h) == "menu" && !h.quit);
         }
         let mut h = home(tmp.path());
         h.handle_key(key(KeyCode::F(1)));
@@ -1076,7 +1075,7 @@ mod tests {
             },
             Rect::new(0, 0, 80, 24),
         );
-        assert!(!h.help && at(&mut h) == "menu");
+        assert!(!menu_help(&mut h) && at(&mut h) == "menu");
         for quit in [
             key(KeyCode::Char('q')),
             key(KeyCode::F(10)),
@@ -1376,8 +1375,8 @@ mod tests {
         {
             let alias = tmp.path().join("alias-root");
             std::os::unix::fs::symlink(tmp.path(), &alias).unwrap();
-            h.kept.sessions_root = Some(alias);
-            h.open_tend_session(&path.canonicalize().unwrap());
+            let mut h = home(&alias);
+            tend_on_receipt(&mut h, &path.canonicalize().unwrap());
             settle(&mut h);
             assert!(in_detail(&mut h));
             assert!(
@@ -1385,15 +1384,15 @@ mod tests {
                     .unwrap()
                     .contains("goal old")
             );
-            h.kept.sessions_root = Some(tmp.path().to_path_buf());
         }
-        h.open_tend_session(&tmp.path().join("missing"));
+        tend_on_receipt(&mut h, &tmp.path().join("missing"));
         settle(&mut h);
         assert!(how_it_works(&mut h).contains("Saved session is unavailable"));
         assert!(!in_detail(&mut h));
-        h.kept.sessions_root = Some(tmp.path().join("not-a-directory"));
-        fs::write(h.kept.sessions_root.as_ref().unwrap(), "not a directory").unwrap();
-        h.open_tend_session(&path);
+        let not_a_directory = tmp.path().join("not-a-directory");
+        fs::write(&not_a_directory, "not a directory").unwrap();
+        let mut h = home(&not_a_directory);
+        tend_on_receipt(&mut h, &path);
         settle(&mut h);
         let frame = snapshot(100, 30, &mut h, true).unwrap();
         assert!(frame.contains("Saved session unavailable."), "{frame}");
@@ -1495,7 +1494,7 @@ mod tests {
         receipt.goal = goal.into();
         for (w, height) in [(80, 24), (100, 30), (160, 40), (320, 40)] {
             let mut h = home(tmp.path());
-            h.open_tend_session(&path);
+            tend_on_receipt(&mut h, &path);
             settle(&mut h);
             let screen = snapshot(w, height, &mut h, false).unwrap();
             let normalized = screen.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -1565,7 +1564,7 @@ mod tests {
         ] {
             session(tmp.path(), id, status, "2026-10-11T00:00:00Z", seed);
             let mut h = home(tmp.path());
-            h.open_tend_session(&tmp.path().join(id));
+            tend_on_receipt(&mut h, &tmp.path().join(id));
             settle(&mut h);
             let screen = snapshot(100, 30, &mut h, false).unwrap();
             if let Some(next) = next {

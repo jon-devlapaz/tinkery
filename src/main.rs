@@ -92,7 +92,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Home::alone(launch)
     };
     if snapshot {
-        println!("{}", screen_text(&mut app, &controls, options.no_color)?);
+        let screen = screen_text(&mut app, &controls, options.no_color, options.home)?;
+        println!("{screen}");
         return Ok(());
     }
     let mut terminal = ratatui::try_init()?;
@@ -125,16 +126,17 @@ fn draw(frame: &mut ratatui::Frame, app: &mut Home, controls: &Controls, palette
     controls.render(frame, palette);
 }
 
-// The 100 x 30 view as text: no terminal mode, no model requests. Home lines are trimmed.
+// The 100 x 30 view as text: no terminal mode, no model requests. `trim` (the menu, not Think
+// alone) trims line ends.
 fn screen_text(
     app: &mut Home,
     controls: &Controls,
     no_color: bool,
+    trim: bool,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let (width, height) = (100, 30);
     let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height))?;
     terminal.draw(|frame| draw(frame, app, controls, Palette::new(no_color)))?;
-    let trim = !app.is_alone();
     let buffer = terminal.backend().buffer();
     Ok((0..height)
         .map(|y| {

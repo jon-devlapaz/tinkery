@@ -3,15 +3,15 @@
 /// One of the seven places the operator can open from Home.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Place {
-    /// Clarify a goal.
+    /// Clarify a goal or save a thought.
     Think,
-    /// Open saved goals.
+    /// Saved goals and thoughts.
     Tend,
     /// Prepare a brief.
     Shape,
-    /// Prepare work for approval.
+    /// Work to approve, read with the project's status script.
     Approve,
-    /// See work status.
+    /// Runs, read with the project's status script.
     Watch,
     /// Review a result.
     Taste,
