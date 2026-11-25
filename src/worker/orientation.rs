@@ -313,10 +313,13 @@ fn observe(launch: &Launch, run: &Run, value: &sdlc::Run, cancel: &AtomicBool) -
     let stopped_at_cap =
         step.state.is(sdlc::StepState::Stopped) && step.stopped_by.is(sdlc::StopReason::Cap);
     let (cap, lines) = open_log(&launch.files, &launch.log, run)?;
-    // A shell `git commit` (or `git -C dir commit`) whose tool result succeeded is the first commit.
-    let commit_command =
-        regex::Regex::new(r"(?:^|[\s;&|(])git(?:\s+-C\s+\S+)?\s+commit\b([^;&|\n]*)")
-            .expect("commit pattern");
+    // A shell `git commit` that starts a command and whose tool result succeeded is the first
+    // commit. Global options such as `-C dir` or `-c user.name=x` may come before `commit`.
+    let commit_command = regex::Regex::new(
+        r"(?:^|[;&|(\n])\s*(?:\S*/)?git(?:\s+-[Cc]\s+\S+|\s+--\S+)*\s+commit(?:\s|$)([^;&|\n]*)",
+    )
+    .expect("commit pattern");
+    let dry_run = regex::Regex::new(r"(?:^|\s)--dry-run(?:\s|$)").expect("dry-run pattern");
     let mut commits = HashSet::new();
     let (mut edit, mut commit) = (None, None);
     let mut responses = 0;
@@ -354,7 +357,7 @@ fn observe(launch: &Launch, run: &Run, value: &sdlc::Run, cancel: &AtomicBool) -
                             && arguments["command"].as_str().is_some_and(|c| {
                                 commit_command
                                     .captures_iter(c)
-                                    .any(|m| !m[1].contains("--dry-run"))
+                                    .any(|m| !dry_run.is_match(&m[1]))
                             })
                         {
                             commits.insert(id);

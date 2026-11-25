@@ -620,7 +620,8 @@ def cap_review(case):
             # A failed commit and shell calls that only mention a commit do not count.
             done = 'git add -A && git commit -qm "TEST work"'
             record('build', CAP + 5, edit=True, commits={
-                2: ('git log --grep commit', False), 3: ('git commit --dry-run', False),
+                2: ('git log --grep commit; echo git commit && git commit-tree HEAD^{tree}', False),
+                3: ('git commit --dry-run', False),
                 4: (done, True), CAP + 4: (done, False)})
         elif case == 'at-minimum':
             record('build', CAP - 1, edit=True)
