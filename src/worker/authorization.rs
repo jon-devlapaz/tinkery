@@ -34,15 +34,12 @@ pub(crate) enum Relay {
 pub(crate) struct Exact {
     words: String,
     seed_sha256: String,
-    /// The step these words pay for; `build` when absent.
-    #[serde(default = "first_step")]
-    step: String,
+    /// The step these words pay for; `build` when absent. Kept as given, so the record cites
+    /// the operator's file unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    step: Option<String>,
     model: String,
     responses: usize,
-}
-
-fn first_step() -> String {
-    "build".into()
 }
 
 /// The operator's standing grant, its date, and the starting agent's own risk class for this Tink.
@@ -164,13 +161,13 @@ impl Gate {
         {
             return Err("Relayed authorization does not exactly match the reviewed Tink, model and response cap.".into());
         }
-        if let Relay::Exact(exact) = relay
-            && exact.step != step
-        {
-            return Err(format!(
-                "Relayed authorization pays for step {}, not {step}. A new step needs new words naming it (\"step\": \"{step}\").",
-                exact.step
-            ));
+        if let Relay::Exact(exact) = relay {
+            let paid = exact.step.as_deref().unwrap_or("build");
+            if paid != step {
+                return Err(format!(
+                    "Relayed authorization pays for step {paid}, not {step}. A new step needs new words naming it (\"step\": \"{step}\")."
+                ));
+            }
         }
         if let Relay::Standing(_) = relay {
             let saved: serde_json::Value =

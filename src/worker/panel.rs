@@ -63,6 +63,9 @@ pub(crate) struct Panel {
     run: Option<Run>,
     snapshot: Option<Snapshot>,
     fresh: bool,
+    /// SDLC refused the last `l`; only then may `n` replace a prepared step.
+    launch_refused: bool,
+    launching: bool,
     job: Option<Job>,
     notice: String,
     help: bool,
@@ -124,6 +127,8 @@ impl Panel {
             run: None,
             snapshot: None,
             fresh: false,
+            launch_refused: false,
+            launching: false,
             job: None,
             notice: String::new(),
             help: false,
@@ -155,6 +160,8 @@ impl Panel {
             run: Some(run),
             snapshot: None,
             fresh: false,
+            launch_refused: false,
+            launching: false,
             job: Some(job),
             notice: "Reading worker…".into(),
             help: false,
@@ -191,8 +198,12 @@ impl Panel {
         self.job = None;
         self.scroll = 0;
         let starting = self.starting.take();
+        let launching = std::mem::take(&mut self.launching);
         match result {
             Ok(snapshot) => {
+                if snapshot.state != State::Prepared {
+                    self.launch_refused = false;
+                }
                 self.run = Some(snapshot.run.clone());
                 self.snapshot = Some(snapshot);
                 self.fresh = true;
@@ -200,6 +211,7 @@ impl Panel {
                     "Read from tink-sdlc. r reads again; nothing resumes automatically.".into();
             }
             Err(failure) => {
+                self.launch_refused |= launching;
                 self.fresh = false;
                 self.notice = format!("Request refused or uncertain: {}", failure.message);
                 match failure.recovery {
@@ -266,6 +278,7 @@ impl Panel {
                     "Starting worker… Leaving this screen does not cancel admission.".into();
             }
             Some(Request::Run(action)) => {
+                self.launching = matches!(action, Action::Launch(_));
                 let run = self.run.clone().expect("offered run action");
                 self.fresh = false;
                 self.job = Some(Job::act(self.gate.clone(), run, action));
@@ -396,7 +409,9 @@ impl Panel {
 
     fn can_start_new_step(&self) -> bool {
         self.snapshot.as_ref().is_some_and(|s| {
-            s.state.needs_new_step() && !(s.state == State::Uncertain && self.gate.agent())
+            s.state.needs_new_step()
+                && !(s.state == State::Uncertain && self.gate.agent())
+                && (s.state != State::Prepared || self.launch_refused)
         })
     }
 
@@ -483,7 +498,7 @@ impl Panel {
                 // Say first what the current step still needs, so n is never the default.
                 add(match state {
                     State::Prepared => {
-                        "\nNext: l launches this step. If SDLC refuses it every time, n replaces it with a new step."
+                        "\nNext: SDLC refused to launch this step. If l keeps being refused, n replaces it with a new step."
                     }
                     State::Uncertain => {
                         "\nNext: a worker may still be running. Check it with \

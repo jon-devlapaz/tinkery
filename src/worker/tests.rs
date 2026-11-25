@@ -1624,6 +1624,49 @@ fn uncommitted_source_refuses_the_new_step_before_stage_three() {
     assert_eq!(stages, 1);
 }
 
+#[test]
+fn a_prepared_step_offers_n_only_after_its_launch_is_refused() {
+    let fixture = Fixture::new();
+    fixture.edit(|value| value["refusal"] = "gate".into());
+    let Recovery::Run(run) = wait(Job::start(fixture.request.clone()))
+        .unwrap_err()
+        .recovery
+    else {
+        panic!("refused launch keeps its run");
+    };
+    let mut panel = Panel::existing(
+        run.root,
+        run.slug,
+        run.id,
+        Gate::new(false, Ok(None)),
+        Some(allowance(2)),
+    );
+    let press = |panel: &mut Panel, code| {
+        panel.key(KeyEvent::new(code, KeyModifiers::NONE));
+    };
+    screen(&mut panel);
+    press(&mut panel, KeyCode::End);
+    let footer = screen(&mut panel).last().unwrap().clone();
+    assert!(
+        footer.starts_with("l launch prepared") && !footer.contains("n new"),
+        "{footer}"
+    );
+    press(&mut panel, KeyCode::Char('l'));
+    screen(&mut panel);
+    press(&mut panel, KeyCode::Char('r'));
+    screen(&mut panel);
+    press(&mut panel, KeyCode::End);
+    let rows = screen(&mut panel);
+    assert!(
+        rows.join("\n").contains("SDLC refused to launch this step"),
+        "{rows:#?}"
+    );
+    assert!(
+        rows.last().unwrap().contains("n new worker step"),
+        "{rows:#?}"
+    );
+}
+
 const SCRIPT: &str = r#"import hashlib,json,pathlib,shutil,subprocess,sys,time
 state=pathlib.Path(@STATE@)
 data=json.loads(state.read_text())
