@@ -512,7 +512,9 @@ impl Home {
                 self.clear();
                 if !self.busy() {
                     let gate = self.kept.worker_gate();
-                    self.kept.worker = Some(worker::Panel::existing(root, slug, id, gate));
+                    let allowance = self.kept.launch.worker.clone();
+                    self.kept.worker =
+                        Some(worker::Panel::existing(root, slug, id, gate, allowance));
                 }
                 self.show_worker();
             }

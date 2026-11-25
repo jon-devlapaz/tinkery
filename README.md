@@ -87,9 +87,9 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   imports the run, prepares its isolated build checkout and launches the worker.
   Supply `--worker-model provider/model:thinking --worker-responses N`; the default
   worker allowance is zero, separate from drafting.
-  With `--operator agent`, F2, `l` and `u` share one relayed-authorization door:
+  With `--operator agent`, F2, `l`, `u` and `n` share one relayed-authorization door:
   supply `--worker-authorization FILE` containing the operator's verbatim words bound exactly
-  to the Tink Contract hash, model pin and response cap. Missing or mismatched authorization refuses
+  to the Tink Contract hash, step, model pin and response cap. Missing or mismatched authorization refuses
   before work. The review shows the words and authority `operator, relayed`; provenance
   cannot be verified. Each admission appends to `runs/<slug>/worker-authorization.jsonl`.
   Human and undeclared F2, `l` and `u` keep their existing direct consent without a relay file.
@@ -101,7 +101,10 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   responses workers used before editing. The review warns when your cap leaves too little
   room for an edit and a follow-up. The worker screen retains
   requests across navigation and offers explicit refresh, resume, finish, stop and
-  verification. Home `b` reopens it; Watch `b` selects an existing run.
+  verification. When the current step can do nothing more (a start refused after the run
+  was created, an uncertain launch, a completed or stopped step), `n` starts a new step
+  (`build-2`, …) under this launch's worker allowance as a new cap; an agent needs relayed
+  words for that cap. Home `b` reopens it; Watch `b` selects an existing run.
   Intake rechecks the Tink Contract through this executable with `--tinkery PATH`.
   A Tink known to come from another repository stays readable but cannot be copied
   into the named checkout; unknown origins keep copy with a note.

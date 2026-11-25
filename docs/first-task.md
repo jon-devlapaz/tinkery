@@ -104,7 +104,9 @@ with its source error; it does not start a substitute worker.
 On the worker screen, `r` reads progress. An ended turn can be resumed with `u`
 within its existing cap. Run `v` to verify before `f` records completion; failed
 checks keep the worker resumable.
-`s` stops a worker. It records the response cap as the reason only if the worker log shows the cap marker. Home `b` returns to the screen;
+`s` stops a worker. It records the response cap as the reason only if the worker log shows the cap marker.
+If a step can do nothing more (stopped, completed, launch uncertain, or a start refused after the
+run was created), `n` starts a new step with this launch's allowance as its own cap. Home `b` returns to the screen;
 Watch `b` selects an existing run. When verified, `t` opens Taste. Read with `r`
 and use `v` on the review to open a committed [local preview](design/taste.md#local-preview).
 The worker must commit its code and a `tinkery.preview` declaration. A preview is

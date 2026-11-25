@@ -55,12 +55,17 @@ pub(crate) struct Panel {
     disclosure: String,
     advice: Option<Advice>,
     gate: Gate,
+    /// This launch's separate worker allowance; a new step uses it, never a saved default.
+    allowance: Option<Config>,
     start: Option<Start>,
     /// The start in flight; it comes back for an explicit retry only if nothing was started.
     starting: Option<Start>,
     run: Option<Run>,
     snapshot: Option<Snapshot>,
     fresh: bool,
+    /// SDLC refused the last `l`; only then may `n` replace a prepared step.
+    launch_refused: bool,
+    launching: bool,
     job: Option<Job>,
     notice: String,
     help: bool,
@@ -78,6 +83,7 @@ impl Panel {
         config: Option<Config>,
         gate: Gate,
     ) -> Self {
+        let allowance = config.clone();
         let (start, disclosure, advice) = match (seed.target, config) {
             (Some(target), Some(config)) => {
                 let (send, landed) = mpsc::channel();
@@ -115,11 +121,14 @@ impl Panel {
             disclosure,
             advice,
             gate,
+            allowance,
             start,
             starting: None,
             run: None,
             snapshot: None,
             fresh: false,
+            launch_refused: false,
+            launching: false,
             job: None,
             notice: String::new(),
             help: false,
@@ -131,7 +140,13 @@ impl Panel {
 
     /// Open an existing run that Watch selected, pinned to the identity Watch read; this reads
     /// only, and no new allowance is inferred.
-    pub(crate) fn existing(root: PathBuf, slug: String, id: String, gate: Gate) -> Self {
+    pub(crate) fn existing(
+        root: PathBuf,
+        slug: String,
+        id: String,
+        gate: Gate,
+        allowance: Option<Config>,
+    ) -> Self {
         let run = Run { root, slug, id };
         let job = Job::act(gate.clone(), run.clone(), Action::Refresh);
         Self {
@@ -139,11 +154,14 @@ impl Panel {
             disclosure: gate.disclosure(None),
             advice: None,
             gate,
+            allowance,
             start: None,
             starting: None,
             run: Some(run),
             snapshot: None,
             fresh: false,
+            launch_refused: false,
+            launching: false,
             job: Some(job),
             notice: "Reading worker…".into(),
             help: false,
@@ -180,8 +198,12 @@ impl Panel {
         self.job = None;
         self.scroll = 0;
         let starting = self.starting.take();
+        let launching = std::mem::take(&mut self.launching);
         match result {
             Ok(snapshot) => {
+                if snapshot.state != State::Prepared {
+                    self.launch_refused = false;
+                }
                 self.run = Some(snapshot.run.clone());
                 self.snapshot = Some(snapshot);
                 self.fresh = true;
@@ -189,6 +211,7 @@ impl Panel {
                     "Read from tink-sdlc. r reads again; nothing resumes automatically.".into();
             }
             Err(failure) => {
+                self.launch_refused |= launching;
                 self.fresh = false;
                 self.notice = format!("Request refused or uncertain: {}", failure.message);
                 match failure.recovery {
@@ -255,6 +278,7 @@ impl Panel {
                     "Starting worker… Leaving this screen does not cancel admission.".into();
             }
             Some(Request::Run(action)) => {
+                self.launching = matches!(action, Action::Launch(_));
                 let run = self.run.clone().expect("offered run action");
                 self.fresh = false;
                 self.job = Some(Job::act(self.gate.clone(), run, action));
@@ -305,6 +329,20 @@ impl Panel {
                 Some("End to resume"),
                 pin.filter(|_| current && self.can_resume())
                     .map(|pin| run(Action::Resume(pin.clone()))),
+            ),
+            (
+                KeyCode::Char('n'),
+                "n new worker step",
+                Some("End to start a new step"),
+                self.allowance
+                    .clone()
+                    .filter(|_| current && self.can_start_new_step())
+                    .map(|config| {
+                        run(Action::Next {
+                            pin: pin.cloned(),
+                            config,
+                        })
+                    }),
             ),
             (
                 KeyCode::Char('r'),
@@ -369,6 +407,14 @@ impl Panel {
                 .is_some_and(|s| s.verification.is(Verification::Current))
     }
 
+    fn can_start_new_step(&self) -> bool {
+        self.snapshot.as_ref().is_some_and(|s| {
+            s.state.needs_new_step()
+                && !(s.state == State::Uncertain && self.gate.agent())
+                && (s.state != State::Prepared || self.launch_refused)
+        })
+    }
+
     fn can_launch(&self) -> bool {
         self.snapshot
             .as_ref()
@@ -400,6 +446,8 @@ impl Panel {
             add(
                 "Worker actions\n\nF2 starts only the reviewed Tink with its separate worker allowance.\n\
                  r reads status. l launches a prepared step; u resumes an ended turn on its existing model/session and cumulative cap.\n\
+                 n starts a new step (build-2, build-3…) when the current one can do nothing more:\n\
+                 no step yet, launch uncertain, completed or stopped. Its cap is this launch's worker allowance.\n\
                  v verifies first. Only current passing checks allow f to record the normally ended worker.\n\
                  After a refused request, only r and s work until a read succeeds.\n\
                  Failed checks keep the ended worker resumable after that read. s stops it. The recorded reason is the response cap only if the worker's log shows the cap marker.\n\
@@ -415,9 +463,10 @@ impl Panel {
                 );
             }
             add(&format!(
-                "Worker: {}\n\nRun: {}\nCheckout: {}",
+                "Worker: {}\n\nRun: {}  step: {}\nCheckout: {}",
                 snapshot.state.words(),
                 snapshot.run.slug,
+                snapshot.step,
                 snapshot.run.root.display()
             ));
             if !snapshot.model.is_empty() {
@@ -433,7 +482,7 @@ impl Panel {
             ));
             if snapshot.verification.is(Verification::AwaitingAttestation) {
                 add(&format!(
-                    "waiting on your judgment: {}\nOnly a person can record these judgments in tink-sdlc.",
+                    "waiting on your judgment: {}\nOnly a person can record these judgments in tink-sdlc. Then v verifies again and f records the ended turn.",
                     snapshot.pending_attestations.join(", ")
                 ));
             }
@@ -441,6 +490,33 @@ impl Panel {
                 add(
                     "\nl sends this prepared task and source context to the displayed provider within its existing cap. It grants no extra responses.",
                 );
+            }
+            if self.fresh && self.can_start_new_step() {
+                let state = snapshot.state;
+                let finished =
+                    state == State::Completed && snapshot.verification.is(Verification::Current);
+                // Say first what the current step still needs, so n is never the default.
+                add(match state {
+                    State::Prepared => {
+                        "\nNext: SDLC refused to launch this step. If l keeps being refused, n replaces it with a new step."
+                    }
+                    State::Uncertain => {
+                        "\nNext: a worker may still be running. Check it with \
+                         python3 _system/scripts/sdlc.py step <run> <step> show. \
+                         Only when none runs does n start a new step. An agent cannot press n here."
+                    }
+                    _ if finished => "\nNext: t opens Taste. Press n only for a Taste finding.",
+                    _ => "",
+                });
+                add(&match &self.allowance {
+                    Some(config) => format!(
+                        "\nn prepares step {} and launches it with {} and a new cap of {} responses, separate from earlier steps. \
+                         If no build checkout exists yet, it opens one (stage 3) first. \
+                         It sends the task and source context to that provider. The new step reads the brief in runs/{}/brief.md; add the finding there first.",
+                        snapshot.next_step, config.model, config.responses, snapshot.run.slug
+                    ),
+                    None => "\nA new worker step needs this launch's allowance. Relaunch with --worker-model provider/model:thinking and --worker-responses N, then press b.".into(),
+                });
             }
             if self.fresh && self.can_resume() {
                 add(

@@ -1,6 +1,7 @@
 //! Public worker transactions against a logging TEST SDLC process; no provider or operator data.
 
 use super::*;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::{Value, json};
 use std::process::Command;
 use std::{fs, time::Instant};
@@ -55,6 +56,8 @@ impl Fixture {
         fs::write(root.join("AGENTS.md"), "TEST committed instructions\n").unwrap();
         fs::write(root.join(".gitignore"), "cache/\n").unwrap();
         git_test(&root, &["init", "-q"]);
+        git_test(&root, &["config", "user.name", "TEST Worker"]);
+        git_test(&root, &["config", "user.email", "test@localhost"]);
         git_test(&root, &["add", "."]);
         git_test(&root, &["commit", "-qm", "TEST baseline"]);
         let request = Start {
@@ -1131,6 +1134,539 @@ fn drop_waits_for_admission_receipt_without_killing_or_retrying_it() {
     assert_eq!(value["calls"], 1);
 }
 
+fn allowance(responses: usize) -> Config {
+    Config {
+        model: "test/exact:low".into(),
+        responses,
+    }
+}
+
+fn steps_named(fixture: &Fixture, verb: &str) -> Vec<String> {
+    fixture
+        .commands()
+        .into_iter()
+        .filter(|c| c[0] == "step" && c[3] == verb)
+        .map(|c| c[2].clone())
+        .collect()
+}
+
+#[test]
+fn missing_git_identity_refuses_start_before_anything_is_created() {
+    let fixture = Fixture::new();
+    git_test(&fixture.root, &["config", "user.name", ""]);
+    let failure = wait(Job::start(fixture.request.clone())).unwrap_err();
+    assert!(failure.message.contains("user.name"), "{}", failure.message);
+    assert!(matches!(failure.recovery, Recovery::Retry));
+    assert!(
+        !fixture.commands().iter().any(|c| c[0] != "status"),
+        "{:?}",
+        fixture.commands()
+    );
+}
+
+#[test]
+fn start_refused_after_run_creation_continues_with_a_new_step() {
+    let fixture = Fixture::new();
+    fixture.edit(|value| value["fail_stage3"] = 1.into());
+    let failure = wait(Job::start(fixture.request.clone())).unwrap_err();
+    let Recovery::Run(run) = failure.recovery else {
+        panic!("{failure:?}");
+    };
+    let gate = Gate::new(false, Ok(None));
+    let read = wait(Job::act(gate.clone(), run.clone(), Action::Refresh)).unwrap();
+    assert_eq!(
+        (read.state, read.next_step.as_str()),
+        (State::NotStarted, "build")
+    );
+    let next = wait(Job::act(
+        gate,
+        run.clone(),
+        Action::Next {
+            pin: read.pin,
+            config: allowance(4),
+        },
+    ))
+    .unwrap();
+    assert_eq!(
+        next.state,
+        State::Active {
+            turn: Turn::Running
+        }
+    );
+    assert_eq!((next.step.as_str(), next.responses), ("build", 4));
+    assert_ne!(
+        next.run.root, run.root,
+        "stage 3 opened the separate build checkout"
+    );
+    let stages = fixture
+        .commands()
+        .iter()
+        .filter(|c| c[0] == "stage" && c[2] == "3")
+        .count();
+    assert_eq!(stages, 2);
+    assert_eq!(steps_named(&fixture, "prepare"), ["build"]);
+    assert_eq!(steps_named(&fixture, "launch"), ["build"]);
+}
+
+/// A new step after `done`: it gets its own name, report and cap, and later actions address it.
+fn assert_new_step(fixture: &Fixture, done: Snapshot) {
+    let gate = Gate::new(false, Ok(None));
+    assert!(done.state.needs_new_step(), "{:?}", done.state);
+    assert_eq!(done.next_step, "build-2");
+    let next = wait(Job::act(
+        gate.clone(),
+        done.run.clone(),
+        Action::Next {
+            pin: done.pin,
+            config: allowance(5),
+        },
+    ))
+    .unwrap();
+    assert_eq!((next.step.as_str(), next.responses), ("build-2", 5));
+    assert_eq!(
+        next.state,
+        State::Active {
+            turn: Turn::Running
+        }
+    );
+    let prepare = fixture
+        .commands()
+        .into_iter()
+        .find(|c| c[0] == "step" && c[2] == "build-2" && c[3] == "prepare")
+        .unwrap();
+    assert!(
+        prepare
+            .iter()
+            .any(|a| a.ends_with("runs/test/worker-report-2.md"))
+    );
+    assert!(prepare.windows(2).any(|w| w == ["--max-responses", "5"]));
+    wait(Job::act(gate, next.run, Action::Stop)).unwrap();
+    assert_eq!(steps_named(fixture, "complete").last().unwrap(), "build-2");
+}
+
+#[test]
+fn a_running_step_refuses_a_new_step() {
+    let fixture = Fixture::new();
+    let running = fixture.start();
+    let refused = wait(Job::act(
+        Gate::new(false, Ok(None)),
+        running.run,
+        Action::Next {
+            pin: running.pin,
+            config: allowance(5),
+        },
+    ))
+    .unwrap_err();
+    assert!(
+        refused.message.contains("use its own keys"),
+        "{}",
+        refused.message
+    );
+    assert_eq!(steps_named(&fixture, "prepare"), ["build"]);
+}
+
+#[test]
+fn a_completed_step_continues_as_a_new_step_under_its_own_cap() {
+    let fixture = Fixture::new();
+    let run = fixture.start().run;
+    fixture.edit(|value| value["step"]["state"] = "completed".into());
+    let done = wait(Job::act(Gate::new(false, Ok(None)), run, Action::Refresh)).unwrap();
+    assert_new_step(&fixture, done);
+}
+
+#[test]
+fn a_stopped_step_continues_as_a_new_step_under_its_own_cap() {
+    let fixture = Fixture::new();
+    let run = fixture.start().run;
+    let done = wait(Job::act(Gate::new(false, Ok(None)), run, Action::Stop)).unwrap();
+    assert_new_step(&fixture, done);
+}
+
+#[test]
+fn uncertain_launch_continues_only_as_a_new_step() {
+    let fixture = Fixture::new();
+    fixture.edit(|value| value["refusal"] = "uncertain".into());
+    let Recovery::Run(run) = wait(Job::start(fixture.request.clone()))
+        .unwrap_err()
+        .recovery
+    else {
+        panic!("uncertain launch keeps its run");
+    };
+    fixture.edit(|value| {
+        value.as_object_mut().unwrap().remove("refusal");
+    });
+    let gate = Gate::new(false, Ok(None));
+    let read = wait(Job::act(gate.clone(), run.clone(), Action::Refresh)).unwrap();
+    assert_eq!(read.state, State::Uncertain);
+    let next = wait(Job::act(
+        gate,
+        run,
+        Action::Next {
+            pin: read.pin,
+            config: allowance(2),
+        },
+    ))
+    .unwrap();
+    assert_eq!(next.step, "build-2");
+    assert_eq!(steps_named(&fixture, "launch"), ["build", "build-2"]);
+}
+
+#[test]
+fn agent_new_step_needs_relayed_words_for_its_own_cap() {
+    let fixture = Fixture::new();
+    let run = fixture.start().run;
+    fixture.edit(|value| value["step"]["state"] = "completed".into());
+    let read = wait(Job::act(
+        Gate::new(false, Ok(None)),
+        run.clone(),
+        Action::Refresh,
+    ))
+    .unwrap();
+    let refused = wait(Job::act(
+        Gate::new(true, Ok(None)),
+        run,
+        Action::Next {
+            pin: read.pin,
+            config: allowance(5),
+        },
+    ))
+    .unwrap_err();
+    assert!(
+        refused.message.contains("--worker-authorization"),
+        "{}",
+        refused.message
+    );
+    assert_eq!(steps_named(&fixture, "prepare"), ["build"]);
+}
+
+fn screen(panel: &mut Panel) -> Vec<String> {
+    let until = Instant::now() + Duration::from_secs(15);
+    while panel.busy() {
+        assert!(Instant::now() < until, "worker read timed out");
+        thread::sleep(Duration::from_millis(5));
+        panel.poll();
+    }
+    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 60)).unwrap();
+    terminal
+        .draw(|f| panel.render(f, f.area(), crate::Palette::new(true)))
+        .unwrap();
+    terminal
+        .backend()
+        .buffer()
+        .content
+        .chunks(100)
+        .map(|row| {
+            row.iter()
+                .map(|c| c.symbol())
+                .collect::<String>()
+                .trim_end()
+                .into()
+        })
+        .collect()
+}
+
+#[test]
+fn worker_screen_names_the_new_step_and_its_cap_or_the_missing_allowance() {
+    let fixture = Fixture::new();
+    let run = fixture.start().run;
+    fixture.edit(|value| value["step"]["state"] = "completed".into());
+    let gate = Gate::new(false, Ok(None));
+    let open = |allowance| {
+        Panel::existing(
+            run.root.clone(),
+            run.slug.clone(),
+            run.id.clone(),
+            gate.clone(),
+            allowance,
+        )
+    };
+    let mut panel = open(Some(allowance(6)));
+    let rows = screen(&mut panel).join("\n");
+    assert!(rows.contains("n prepares step build-2"), "{rows}");
+    assert!(rows.contains("a new cap of 6 responses"), "{rows}");
+    let press = |panel: &mut Panel, code| {
+        panel.key(KeyEvent::new(code, KeyModifiers::NONE));
+    };
+    let mut without = open(None);
+    let rows = screen(&mut without).join("\n");
+    assert!(rows.contains("needs this launch's allowance"), "{rows}");
+    let footer = rows.lines().last().unwrap();
+    assert!(!footer.contains("n new"), "{footer}");
+    press(&mut panel, KeyCode::End);
+    let footer = screen(&mut panel).last().unwrap().clone();
+    assert!(footer.starts_with("n new worker step"), "{footer}");
+    press(&mut panel, KeyCode::Char('n'));
+    let rows = screen(&mut panel).join("\n");
+    assert!(rows.contains("step: build-2"), "{rows}");
+    let prepare = fixture
+        .commands()
+        .into_iter()
+        .find(|c| c[0] == "step" && c[2] == "build-2" && c[3] == "prepare")
+        .unwrap();
+    assert!(prepare.windows(2).any(|w| w == ["--max-responses", "6"]));
+}
+
+fn relay(fixture: &Fixture, step: Option<&str>, responses: usize) -> Gate {
+    let mut words = json!({
+        "words": "TEST operator words", "seed_sha256": fixture.request.target.sha256,
+        "model": "test/exact:low", "responses": responses,
+    });
+    if let Some(step) = step {
+        words["step"] = step.into();
+    }
+    Gate::new(true, Ok(Some(serde_json::from_value(words).unwrap())))
+}
+
+#[test]
+fn one_relay_pays_for_one_step_and_a_new_step_needs_words_naming_it() {
+    let fixture = Fixture::new();
+    let mut request = fixture.request.clone();
+    request.authorization = relay(&fixture, None, 3);
+    let run = wait(Job::start(request)).unwrap().run;
+    fixture.edit(|value| value["step"]["state"] = "completed".into());
+    let read = wait(Job::act(
+        Gate::new(false, Ok(None)),
+        run.clone(),
+        Action::Refresh,
+    ))
+    .unwrap();
+    let next = |gate| {
+        Job::act(
+            gate,
+            run.clone(),
+            Action::Next {
+                pin: read.pin.clone(),
+                config: allowance(3),
+            },
+        )
+    };
+    let refused = wait(next(relay(&fixture, None, 3))).unwrap_err();
+    assert!(
+        refused.message.contains("pays for step build, not build-2"),
+        "{}",
+        refused.message
+    );
+    assert_eq!(steps_named(&fixture, "prepare"), ["build"]);
+    assert_eq!(
+        wait(next(relay(&fixture, Some("build-2"), 3)))
+            .unwrap()
+            .step,
+        "build-2"
+    );
+}
+
+#[test]
+fn an_agent_cannot_start_a_new_step_over_an_uncertain_launch() {
+    let fixture = Fixture::new();
+    fixture.edit(|value| value["refusal"] = "uncertain".into());
+    let Recovery::Run(run) = wait(Job::start(fixture.request.clone()))
+        .unwrap_err()
+        .recovery
+    else {
+        panic!("uncertain launch keeps its run");
+    };
+    let read = wait(Job::act(
+        Gate::new(false, Ok(None)),
+        run.clone(),
+        Action::Refresh,
+    ))
+    .unwrap();
+    let refused = wait(Job::act(
+        relay(&fixture, Some("build-2"), 2),
+        run,
+        Action::Next {
+            pin: read.pin,
+            config: allowance(2),
+        },
+    ))
+    .unwrap_err();
+    assert!(
+        refused.message.contains("may still be running"),
+        "{}",
+        refused.message
+    );
+    assert_eq!(steps_named(&fixture, "prepare"), ["build"]);
+}
+
+#[test]
+fn an_unfinished_step_with_another_name_blocks_a_new_step() {
+    let fixture = Fixture::new();
+    let run = fixture.start().run;
+    fixture.edit(|value| {
+        value["step"]["state"] = "completed".into();
+        value["more"] = json!({"fix": {"state": "active"}});
+    });
+    let read = wait(Job::act(
+        Gate::new(false, Ok(None)),
+        run.clone(),
+        Action::Refresh,
+    ))
+    .unwrap();
+    let refused = wait(Job::act(
+        Gate::new(false, Ok(None)),
+        run,
+        Action::Next {
+            pin: read.pin,
+            config: allowance(2),
+        },
+    ))
+    .unwrap_err();
+    assert!(
+        refused.message.contains("Step fix is active"),
+        "{}",
+        refused.message
+    );
+    assert_eq!(steps_named(&fixture, "prepare"), ["build"]);
+}
+
+#[test]
+fn a_prepared_step_that_never_launches_is_replaced_by_a_new_step() {
+    let fixture = Fixture::new();
+    fixture.edit(|value| value["refusal"] = "gate".into());
+    let Recovery::Run(run) = wait(Job::start(fixture.request.clone()))
+        .unwrap_err()
+        .recovery
+    else {
+        panic!("refused launch keeps its run");
+    };
+    let gate = Gate::new(false, Ok(None));
+    let read = wait(Job::act(gate.clone(), run.clone(), Action::Refresh)).unwrap();
+    assert_eq!(read.state, State::Prepared);
+    fixture.edit(|value| {
+        value.as_object_mut().unwrap().remove("refusal");
+    });
+    let next = wait(Job::act(
+        gate.clone(),
+        run,
+        Action::Next {
+            pin: read.pin,
+            config: allowance(2),
+        },
+    ))
+    .unwrap();
+    assert_eq!(
+        (next.step.as_str(), next.state),
+        (
+            "build-2",
+            State::Active {
+                turn: Turn::Running
+            }
+        )
+    );
+    // The abandoned prepared step can never be completed, so it must not block the next one.
+    let stopped = wait(Job::act(gate.clone(), next.run.clone(), Action::Stop)).unwrap();
+    let third = wait(Job::act(
+        gate,
+        next.run,
+        Action::Next {
+            pin: stopped.pin,
+            config: allowance(2),
+        },
+    ))
+    .unwrap();
+    assert_eq!(third.step, "build-3");
+}
+
+#[test]
+fn a_completed_step_with_current_checks_points_to_taste_first() {
+    let fixture = Fixture::new();
+    let run = fixture.start().run;
+    fixture.edit(|value| {
+        value["step"]["state"] = "completed".into();
+        value["verification"] = "current".into();
+    });
+    let mut panel = Panel::existing(
+        run.root,
+        run.slug,
+        run.id,
+        Gate::new(false, Ok(None)),
+        Some(allowance(2)),
+    );
+    let rows = screen(&mut panel).join("\n");
+    assert!(
+        rows.contains("Next: t opens Taste. Press n only for a Taste finding."),
+        "{rows}"
+    );
+}
+
+#[test]
+fn uncommitted_source_refuses_the_new_step_before_stage_three() {
+    let fixture = Fixture::new();
+    fixture.edit(|value| value["fail_stage3"] = 1.into());
+    let Recovery::Run(run) = wait(Job::start(fixture.request.clone()))
+        .unwrap_err()
+        .recovery
+    else {
+        panic!("refused stage 3 keeps its run");
+    };
+    fs::write(fixture.root.join("context.txt"), "TEST uncommitted fix").unwrap();
+    let gate = Gate::new(false, Ok(None));
+    let read = wait(Job::act(gate.clone(), run.clone(), Action::Refresh)).unwrap();
+    let refused = wait(Job::act(
+        gate,
+        run,
+        Action::Next {
+            pin: read.pin,
+            config: allowance(2),
+        },
+    ))
+    .unwrap_err();
+    assert!(
+        refused.message.contains("Commit source changes first"),
+        "{}",
+        refused.message
+    );
+    let stages = fixture
+        .commands()
+        .iter()
+        .filter(|c| c[0] == "stage" && c[2] == "3")
+        .count();
+    assert_eq!(stages, 1);
+}
+
+#[test]
+fn a_prepared_step_offers_n_only_after_its_launch_is_refused() {
+    let fixture = Fixture::new();
+    fixture.edit(|value| value["refusal"] = "gate".into());
+    let Recovery::Run(run) = wait(Job::start(fixture.request.clone()))
+        .unwrap_err()
+        .recovery
+    else {
+        panic!("refused launch keeps its run");
+    };
+    let mut panel = Panel::existing(
+        run.root,
+        run.slug,
+        run.id,
+        Gate::new(false, Ok(None)),
+        Some(allowance(2)),
+    );
+    let press = |panel: &mut Panel, code| {
+        panel.key(KeyEvent::new(code, KeyModifiers::NONE));
+    };
+    screen(&mut panel);
+    press(&mut panel, KeyCode::End);
+    let footer = screen(&mut panel).last().unwrap().clone();
+    assert!(
+        footer.starts_with("l launch prepared") && !footer.contains("n new"),
+        "{footer}"
+    );
+    press(&mut panel, KeyCode::Char('l'));
+    screen(&mut panel);
+    press(&mut panel, KeyCode::Char('r'));
+    screen(&mut panel);
+    press(&mut panel, KeyCode::End);
+    let rows = screen(&mut panel);
+    assert!(
+        rows.join("\n").contains("SDLC refused to launch this step"),
+        "{rows:#?}"
+    );
+    assert!(
+        rows.last().unwrap().contains("n new worker step"),
+        "{rows:#?}"
+    );
+}
+
 const SCRIPT: &str = r#"import hashlib,json,pathlib,shutil,subprocess,sys,time
 state=pathlib.Path(@STATE@)
 data=json.loads(state.read_text())
@@ -1138,20 +1674,24 @@ args=sys.argv[1:]
 with pathlib.Path(data['log']).open('a') as log: log.write(json.dumps(args)+'\n')
 root=pathlib.Path.cwd().resolve()
 def save(): state.write_text(json.dumps(data))
+def restore():
+ if 'step_saved' in data:
+  cur=data.pop('cur'); data['more'][cur]=data['step']; data['step']=data.pop('step_saved')
 def fail(text):
- print(text,file=sys.stderr);save();sys.exit(1)
+ restore();print(text,file=sys.stderr);save();sys.exit(1)
 def view():
  run={'slug':data.get('slug','test'),'run_id':data['id'],'seed_contract':data.get('seed'),'steps':[],
       'verification_status':data['verification'],
       'verification':{'passed':data.get('passed',data['verification']=='current')},'next_action':'TEST next action',
       'actions':{'verify':{'allowed':True,'reason':'','timeout_seconds':5}}}
  if data.get('built') and root==pathlib.Path(data['source']): run['checkout']=data['build']
- if data.get('step'):
-  record=data['step']; step={'name':'build','state':record['state']}
+ records=({'build':data['step']} if data.get('step') else {})|data.get('more',{})
+ for name,record in sorted(records.items()):
+  step={'name':name,'state':record['state']}
   if step['state']=='active': step['turn']=data['turn']
   if step['state']=='active' and data.get('cap_reached'): step['response_cap_reached']=True
   if step['state']=='stopped': step['stopped_by']=record['stopped_by']
-  run['steps']=[step]
+  run['steps'].append(step)
  return run
 if args[0]=='status':
  out={'protocol':'tink-sdlc','api_version':1}
@@ -1169,6 +1709,7 @@ elif args[0]=='stage' and args[2]=='1':
   subprocess.run(['git','-c','user.name=TEST Worker','-c','user.email=test@localhost','-c','commit.gpgsign=false',
                   '-c','core.hooksPath=/dev/null','commit','--allow-empty','-qm','TEST concurrent commit'],check=True)
 elif args[0]=='stage' and args[2]=='3':
+ if data.get('fail_stage3'): data['fail_stage3']-=1; fail('TEST stage 3 refused: no committer identity')
  build=pathlib.Path(data['build'])
  if 'retry_stage' in data:
   # SDLC commits the run's evidence before forking its build. A project edit in that commit is outside the pin.
@@ -1183,15 +1724,18 @@ elif args[0]=='stage' and args[2]=='3':
   (build/'runs'/args[1]/'TEST-stage-log').write_text('TEST runtime evidence')
   if data.get('edit_at') == 'checkout': (build/'context.txt').write_text('TEST post-checkout change')
  else:
-  (build/'.git').mkdir(parents=True)
-  (build/'_system/scripts').mkdir(parents=True);(build/'runs/test').mkdir(parents=True)
-  shutil.copy(root/'_system/scripts/sdlc.py',build/'_system/scripts/sdlc.py')
+  # Like SDLC, the build checkout is a Git worktree on the run's own branch.
+  subprocess.run(['git','worktree','add','-q','-b',args[1],str(build),'HEAD'],check=True)
+  (build/'runs/test').mkdir(parents=True,exist_ok=True)
  (build/'_system/scripts/pi-launcher').write_text('TEST adapter')
  data['built']=True
 elif args[0]=='step':
  op=args[3]
+ if args[2]!='build':
+  data['step_saved']=data.get('step'); data['cur']=args[2]; data['step']=data.setdefault('more',{}).get(args[2])
  if op=='prepare':
   if data.get('step'):fail('TEST step exists')
+  if args[2]!='build': data['turn']='not-ended'; data['calls']=0
   if data.get('edit_at') == 'prepare': (root/'extra-context.txt').write_text('TEST file created after prepare')
   data['step']={'schema':1,'run_id':data['id'],'checkout':str(root),'state':'prepared',
    'model':args[args.index('--model')+1],'max_responses':int(args[args.index('--max-responses')+1]),
@@ -1210,6 +1754,7 @@ elif args[0]=='step':
   else:data['step']['state']='completed'
  elif op!='show':fail('TEST unknown step operation')
  print(json.dumps(data['step']))
+ restore()
 elif args[0]=='verify':
  if data.get('fail_verify'):data['verification']='failed';fail('TEST verification failed')
  data['verification']='current'
@@ -1292,7 +1837,7 @@ fn worker_screen_names_the_response_cap_and_offers_only_stop_read_and_verify() {
     let fixture = Fixture::new();
     let run = fixture.start().run;
     fixture.edit(|value| value["cap_reached"] = true.into());
-    let mut panel = Panel::existing(run.root, run.slug, run.id, Gate::new(false, Ok(None)));
+    let mut panel = Panel::existing(run.root, run.slug, run.id, Gate::new(false, Ok(None)), None);
     let until = Instant::now() + Duration::from_secs(15);
     while panel.busy() {
         assert!(Instant::now() < until, "worker read timed out");

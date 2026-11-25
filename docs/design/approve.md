@@ -146,17 +146,20 @@ screen. It hides worker actions while a request is pending.
 allowance for this launch. The default is zero. Drafting calls never supply it.
 One response may already be in flight at the cap. Configuration is not permission to start on navigation.
 
-With `--operator agent`, F2, `l` and `u` share one relayed-authorization door requiring
+With `--operator agent`, F2, `l`, `u` and `n` share one relayed-authorization door requiring
 `--worker-authorization FILE`. The operator
 supplies their explicit start authorization through the relay. The agent must not create
 consent or infer a budget from the words. The file is a UTF-8 JSON object, at most 16 KiB,
 with only these fields:
 
 ```json
-{"words":"The operator's verbatim start authorization", "seed_sha256":"64 lowercase hex characters", "model":"provider/model:thinking", "responses":7}
+{"words":"The operator's verbatim start authorization", "seed_sha256":"64 lowercase hex characters", "step":"build", "model":"provider/model:thinking", "responses":7}
 ```
 
-The seed SHA-256, model pin and response cap must exactly match the reviewed admission.
+The seed SHA-256, step, model pin and response cap must exactly match the reviewed admission.
+`step` defaults to `build`. An exact file pays for one step: a [new worker step](#new-worker-step)
+needs new words naming it, such as `"step":"build-2"`. A standing grant names no step, so it
+covers each new step for its Tink, each within its own cap.
 
 A standing grant ([#932](https://github.com/jon-devlapaz/tinkery/issues/932), Yohaku Art. 2)
 replaces `seed_sha256` with the date the operator gave the words and the starting agent's own
@@ -182,7 +185,7 @@ claim, not verified operator identity or proof that an agent did not invent the 
 Tinkery never generates the file. It reads it at launch and binds that snapshot when
 opening the review; replacing the file cannot change the displayed authorization.
 Every admission appends that snapshot, the agent declaration, relayed authority, unverified
-provenance, exact run/step/checkout and `action` (`start`, `launch` or `resume`) as one JSON
+provenance, exact run/step/checkout and `action` (`start`, `launch`, `resume` or `new step`) as one JSON
 object to `runs/<slug>/worker-authorization.jsonl` in the build checkout. F2 records before
 preparing; `l` and `u` record before their command. Records are never overwritten.
 A recording failure refuses admission. This is Tinkery's disclosure, not an SDLC approval
@@ -218,7 +221,8 @@ own definition gates, worktree creation, model resolution, launcher hashing,
 session identity and cumulative cap. No copied shell text is executed and no
 approval or worker report is invented. A refusal stops the sequence; there is no
 automatic retry. Partial progress retains the source-owned run for inspection.
-Only a refusal before run creation is attempted (such as uncommitted source) offers F2
+Only a refusal before run creation is attempted (such as uncommitted source, or no Git
+`user.name` and `user.email`, which stage 3 needs to commit the run's records) offers F2
 again after the operator fixes the cause; a run created meanwhile makes that retry
 refuse rather than start twice (#738). Once creation is attempted, a failed command or
 identity read cannot establish that nothing was saved. The transaction names the attempted
@@ -254,6 +258,27 @@ it cannot silently use changed settings or add allowance. Unknown admission neve
 becomes a successful launch or an automatic retry. The preflight identity read is
 not an atomic lock against concurrent external record edits; SDLC rechecks its own
 contracts when executing each action.
+
+### New worker step
+
+Every worker screen names one way forward. A step that can do nothing more takes a new,
+uniquely named step: `n` for a run with no step (a start refused after creation), a prepared
+step whose launch SDLC keeps refusing (the new step replaces it), an uncertain launch, or a
+completed or stopped step (for example after a cap stop, a failed check on a completed step or
+a Taste finding). The screen first says what the current step still needs: `l` for a prepared
+step, a check that no worker still runs for an uncertain launch, and Taste for a completed step
+with current checks. An agent cannot press `n` over an uncertain launch. `n` refuses while any
+other step, whatever its name, is active or unreadable, since it may still write to the checkout. Tinkery's steps are `build`, then
+`build-2`, `build-3`; every action addresses the newest one, and other step names stay
+SDLC's. `n` uses this launch's `--worker-model` and `--worker-responses` as a new cap,
+separate from earlier steps, and the screen states the step, model and cap before the key
+works. Without that allowance it names the relaunch instead. An agent needs relayed
+words bound to that exact cap. If the run's checkout is not on the run's own branch, `n`
+rechecks the confirmed Tink and committed source as F2 does, then opens the build checkout
+with stage 3 (not for retry runs). It records the new step's
+authorization, prepares it with a fresh `worker-report-N.md`, confirms the prepared model
+and cap, then launches. It refuses when the step changed since the read. A finding for the
+new step goes in `runs/<slug>/brief.md` before `n`.
 
 `w` opens Watch and `t` opens Taste; neither navigation starts a preview. Completion,
 current verification and human acceptance remain separate. The shared `worker`
