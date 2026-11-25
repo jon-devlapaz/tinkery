@@ -1,12 +1,12 @@
-//! Estimate room for a first edit from recent, run-bound Pi launch logs. A missing log,
-//! a resume, a different session or a failed tool call cannot establish a first edit.
+//! Estimate room for a first edit and a first commit from recent, run-bound Pi launch logs.
+//! A missing log, a resume, a different session or a failed tool call establishes neither.
 
 use super::{Run, identity, read_status};
 use crate::{process, sdlc};
 use serde::Deserialize;
 use serde_json::Value;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
     process::Command,
@@ -21,22 +21,32 @@ struct Launch {
     slug: String,
 }
 
+#[derive(Clone, Copy)]
 enum Observation {
-    FirstEdit(usize),
-    NoEditThrough(usize),
+    /// The first successful edit/write, or commit, came with this response.
+    At(usize),
+    /// The launch reached its cap at this response without one.
+    NoneThrough(usize),
 }
 
 impl Observation {
-    fn minimum(&self) -> usize {
+    fn minimum(self) -> usize {
         match self {
-            Self::FirstEdit(n) => n + 1,
-            Self::NoEditThrough(n) => n + 2,
+            Self::At(n) => n + 1,
+            Self::NoneThrough(n) => n + 2,
         }
     }
 }
 
-/// Advisory only. Sample at most five recent Pi launches in the named repository.
-/// Never inspect Pi's session store, send log contents or alter the allowance.
+/// What one launch log shows; at least one of the two is known.
+struct Seen {
+    edit: Option<Observation>,
+    commit: Option<Observation>,
+}
+
+/// Advisory only. Sample at most five recent Pi launches in the named repository and warn
+/// when `cap` is below what they needed. Never inspect Pi's session store, send log contents
+/// or alter the allowance.
 pub(crate) fn cap_advice(root: &Path, cap: usize, cancel: &AtomicBool) -> String {
     let folders = entries(&root.join("runs")).unwrap_or_default();
     if folders.is_empty() {
@@ -79,32 +89,46 @@ pub(crate) fn cap_advice(root: &Path, cap: usize, cancel: &AtomicBool) -> String
             Some((identity(root, &launch.slug, &value).ok()?, value))
         });
         if let Some((run, value)) = source
-            && let Some(observation) = observe(launch, run, value, cancel)
+            && let Some(seen) = observe(launch, run, value, cancel)
         {
-            samples.push((launch, observation));
+            samples.push((launch, seen));
         }
     }
-    let Some((source, observed)) = samples.iter().max_by_key(|(_, o)| o.minimum()) else {
+    if samples.is_empty() {
         return NO_SAMPLE.into();
-    };
-    let minimum = observed.minimum();
-    let reason = match observed {
-        Observation::FirstEdit(n) => {
-            format!("first edit/write at response {n}. Allow one follow-up")
-        }
-        Observation::NoEditThrough(n) => {
-            format!("no edit/write through response {n}. Allow one edit and one follow-up")
-        }
-    };
+    }
+    let mut minimum = 0;
+    let mut lines = Vec::new();
+    let edits = samples.iter().filter_map(|(l, seen)| Some((l, seen.edit?)));
+    let commits = samples
+        .iter()
+        .filter_map(|(l, seen)| Some((l, seen.commit?)));
+    for (what, verb, observed) in [
+        ("edit/write", "edit", edits.collect::<Vec<_>>()),
+        ("commit", "commit", commits.collect()),
+    ] {
+        let Some((source, observed)) = observed.into_iter().max_by_key(|(_, o)| o.minimum()) else {
+            lines.push(format!("No {what} in these logs."));
+            continue;
+        };
+        minimum = minimum.max(observed.minimum());
+        let reason = match observed {
+            Observation::At(n) => format!("first {what} at response {n}. Allow one follow-up"),
+            Observation::NoneThrough(n) => {
+                format!("no {what} through response {n}. Allow one {verb} and one follow-up")
+            }
+        };
+        lines.push(format!("{}/{}: {reason}.", source.slug, source.log.step));
+    }
     let count = samples.len();
     let noun = if count == 1 { "log" } else { "logs" };
     let mut text = format!(
-        "Suggested minimum: {minimum} responses. Based on {count} recent Pi launch {noun}.\n{}/{}: {reason}.",
-        source.slug, source.log.step
+        "Suggested minimum: {minimum} responses. Based on {count} recent Pi launch {noun}.\n{}",
+        lines.join("\n")
     );
     if cap < minimum {
         text.push_str(&format!(
-            "\n! Your cap of {cap} is below this minimum. F2 keeps your cap."
+            "\n! Your cap of {cap} is below this minimum. Starting keeps your cap."
         ));
     }
     text
@@ -175,9 +199,33 @@ enum Event {
 #[serde(tag = "role")]
 enum Message {
     #[serde(rename = "assistant")]
-    Assistant,
+    Assistant {
+        #[serde(default)]
+        content: Vec<Content>,
+    },
     #[serde(rename = "toolResult", rename_all = "camelCase")]
-    Tool { tool_name: String, is_error: bool },
+    Tool {
+        tool_name: String,
+        is_error: bool,
+        #[serde(default)]
+        tool_call_id: String,
+    },
+    #[serde(other)]
+    Other,
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "type")]
+enum Content {
+    #[serde(rename = "toolCall")]
+    Call {
+        #[serde(default)]
+        id: String,
+        #[serde(default)]
+        name: String,
+        #[serde(default)]
+        arguments: Value,
+    },
     #[serde(other)]
     Other,
 }
@@ -239,7 +287,7 @@ pub(crate) fn stopped_at_cap(run: &Run, step: &str) -> bool {
             let Ok(Event::End { message }) = serde_json::from_str(&line) else {
                 continue;
             };
-            if matches!(message, Message::Assistant) {
+            if matches!(message, Message::Assistant { .. }) {
                 responses += 1;
             }
         }
@@ -247,12 +295,7 @@ pub(crate) fn stopped_at_cap(run: &Run, step: &str) -> bool {
     false
 }
 
-fn observe(
-    launch: &Launch,
-    run: &Run,
-    value: &sdlc::Run,
-    cancel: &AtomicBool,
-) -> Option<Observation> {
+fn observe(launch: &Launch, run: &Run, value: &sdlc::Run, cancel: &AtomicBool) -> Option<Seen> {
     if sdlc::RunFiles::open(&run.root, &run.slug)?.folder() != launch.files.folder() {
         return None;
     }
@@ -270,29 +313,77 @@ fn observe(
     let stopped_at_cap =
         step.state.is(sdlc::StepState::Stopped) && step.stopped_by.is(sdlc::StopReason::Cap);
     let (cap, lines) = open_log(&launch.files, &launch.log, run)?;
+    // A shell `git commit` that starts a command and whose tool result succeeded is the first
+    // commit. Global options such as `-C dir` or `-c user.name=x` may come before `commit`.
+    // Unclear cases (`sudo git commit`, a message naming --dry-run) count as no commit, which
+    // only leaves the suggestion to the other evidence.
+    let commit_command = regex::Regex::new(
+        r"(?:^|[;&|(\n])\s*(?:\S*/)?git(?:\s+-[Cc]\s+\S+|\s+--\S+)*\s+commit(?:\s|$)([^;&|\n]*)",
+    )
+    .expect("commit pattern");
+    let dry_run = regex::Regex::new(r"(?:^|\s)--dry-run(?:\s|$)").expect("dry-run pattern");
+    let mut commits = HashSet::new();
+    let (mut edit, mut commit) = (None, None);
     let mut responses = 0;
     for line in lines {
         if cancel.load(Ordering::SeqCst) {
             return None;
         }
-        let line = line?;
+        // An unreadable line ends the reading; what came before it still counts.
+        let Some(line) = line else { break };
         if stopped_at_cap && cap_marker(cap, &line) {
-            return cap
-                .is_some_and(|n| responses as u64 >= n)
-                .then_some(Observation::NoEditThrough(responses));
+            if !cap.is_some_and(|n| responses as u64 >= n) {
+                return None;
+            }
+            let through = Some(Observation::NoneThrough(responses));
+            return Some(Seen {
+                edit: edit.or(through),
+                commit: commit.or(through),
+            });
         }
-        if let Event::End { message } = serde_json::from_str(&line).ok()? {
+        let Ok(event) = serde_json::from_str::<Event>(&line) else {
+            break;
+        };
+        if let Event::End { message } = event {
             match message {
-                Message::Assistant => responses += 1,
+                Message::Assistant { content } => {
+                    responses += 1;
+                    for part in content {
+                        if let Content::Call {
+                            id,
+                            name,
+                            arguments,
+                        } = part
+                            && name == "bash"
+                            && !id.is_empty()
+                            && arguments["command"].as_str().is_some_and(|c| {
+                                commit_command
+                                    .captures_iter(c)
+                                    .any(|m| !dry_run.is_match(&m[1]))
+                            })
+                        {
+                            commits.insert(id);
+                        }
+                    }
+                }
                 Message::Tool {
                     tool_name,
                     is_error: false,
-                } if matches!(tool_name.as_str(), "edit" | "write") => {
-                    return (responses > 0).then_some(Observation::FirstEdit(responses));
+                    tool_call_id,
+                } if responses > 0 => {
+                    if edit.is_none() && matches!(tool_name.as_str(), "edit" | "write") {
+                        edit = Some(Observation::At(responses));
+                    }
+                    if commit.is_none() && commits.contains(&tool_call_id) {
+                        commit = Some(Observation::At(responses));
+                    }
                 }
                 _ => {}
             }
         }
+        if edit.is_some() && commit.is_some() {
+            break;
+        }
     }
-    None
+    (edit.is_some() || commit.is_some()).then_some(Seen { edit, commit })
 }

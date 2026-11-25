@@ -1339,30 +1339,35 @@ fn agent_new_step_needs_relayed_words_for_its_own_cap() {
     assert_eq!(steps_named(&fixture, "prepare"), ["build"]);
 }
 
+/// The screen once the read and any cap guidance have landed.
 fn screen(panel: &mut Panel) -> Vec<String> {
     let until = Instant::now() + Duration::from_secs(15);
-    while panel.busy() {
+    loop {
+        panel.poll();
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 60)).unwrap();
+        terminal
+            .draw(|f| panel.render(f, f.area(), crate::Palette::new(true)))
+            .unwrap();
+        let rows: Vec<String> = terminal
+            .backend()
+            .buffer()
+            .content
+            .chunks(100)
+            .map(|row| {
+                row.iter()
+                    .map(|c| c.symbol())
+                    .collect::<String>()
+                    .trim_end()
+                    .into()
+            })
+            .collect();
+        if !panel.busy() && !rows.iter().any(|row| row.contains("Reading recent Pi")) {
+            return rows;
+        }
         assert!(Instant::now() < until, "worker read timed out");
         thread::sleep(Duration::from_millis(5));
-        panel.poll();
     }
-    let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 60)).unwrap();
-    terminal
-        .draw(|f| panel.render(f, f.area(), crate::Palette::new(true)))
-        .unwrap();
-    terminal
-        .backend()
-        .buffer()
-        .content
-        .chunks(100)
-        .map(|row| {
-            row.iter()
-                .map(|c| c.symbol())
-                .collect::<String>()
-                .trim_end()
-                .into()
-        })
-        .collect()
 }
 
 #[test]
