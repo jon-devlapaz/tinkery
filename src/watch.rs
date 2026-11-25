@@ -108,6 +108,10 @@ impl Run {
                     || a.worker.is_some_and(|worker| {
                         worker.ended()
                             || worker == Worker::AtCap
+                            || worker
+                                == Worker::Step(crate::worker::State::Active {
+                                    turn: crate::worker::Turn::Gone,
+                                })
                             || worker == Worker::Step(crate::worker::State::Uncertain)
                     })
             })
@@ -407,7 +411,9 @@ pub(crate) enum Exit {
 pub(crate) struct Watch {
     root: Option<PathBuf>,
     list: Option<Load<Vec<Run>>>,
-    selected: usize,
+    /// The highlighted run's slug and ID, so a reread that reorders or drops runs never moves the
+    /// highlight to another run. None highlights the first row.
+    selected: Option<(String, Option<String>)>,
     detail: Option<(String, Load<Detail>)>,
     inspection: Option<(usize, Load<Detail>)>,
     scroll: u16,
@@ -432,7 +438,7 @@ impl Watch {
         let mut watch = Self {
             root,
             list: None,
-            selected: 0,
+            selected: None,
             detail: None,
             inspection: None,
             scroll: 0,
@@ -444,14 +450,25 @@ impl Watch {
         watch
     }
 
-    /// The run `b` names: the open detail, else the selected row. A run without a stable ID
-    /// names nothing.
+    /// The highlighted row in `rows`; None when the highlighted run is no longer listed.
+    fn highlighted(&self, rows: &[&Run]) -> Option<usize> {
+        match &self.selected {
+            None => (!rows.is_empty()).then_some(0),
+            Some((slug, id)) => rows
+                .iter()
+                .position(|run| &run.slug == slug && &run.id == id),
+        }
+    }
+
+    /// The run `b` names: the open detail, else the highlighted row. A run without a stable ID,
+    /// or a highlighted run that is no longer listed, names nothing.
     fn selected_run(&self) -> Option<Exit> {
         let runs = self.runs()?;
         let run = if let Some((slug, _)) = &self.detail {
             runs.iter().find(|run| &run.slug == slug)?
         } else {
-            *ordered(runs).get(self.selected)?
+            let rows = ordered(runs);
+            rows[self.highlighted(&rows)?]
         };
         Some(Exit::Worker {
             root: self.root.clone()?,
@@ -461,8 +478,12 @@ impl Watch {
     }
 
     fn read_list(&mut self) {
+        if self.selected.is_none()
+            && let Some(run) = self.runs().and_then(|runs| ordered(runs).first().copied())
+        {
+            self.selected = Some((run.slug.clone(), run.id.clone()));
+        }
         self.inspection = None;
-        self.selected = 0;
         let Some(root) = &self.root else { return };
         self.list = Some(if sdlc::installed(root) {
             Load::start(
@@ -576,23 +597,29 @@ impl Watch {
             }
             return None;
         }
-        let count = self.runs().map_or(0, <[Run]>::len);
-        match key.code {
+        let rows = self.runs().map(ordered).unwrap_or_default();
+        let at = self.highlighted(&rows);
+        // A run that is no longer listed highlights nothing until a move picks the first row.
+        let to = match key.code {
             KeyCode::Esc | KeyCode::Char('q') => return Some(Exit::Leave),
-            KeyCode::Char('r') => self.read_list(),
-            KeyCode::Down | KeyCode::Char('j') if count > 0 => {
-                self.selected = (self.selected + 1).min(count - 1)
+            KeyCode::Char('r') => {
+                self.read_list();
+                return None;
             }
-            KeyCode::Up | KeyCode::Char('k') => self.selected = self.selected.saturating_sub(1),
+            KeyCode::Down | KeyCode::Char('j') => {
+                at.map_or(0, |at| (at + 1).min(rows.len().saturating_sub(1)))
+            }
+            KeyCode::Up | KeyCode::Char('k') => at.map_or(0, |at| at.saturating_sub(1)),
             KeyCode::Enter => {
-                if let Some(run) = self
-                    .runs()
-                    .and_then(|runs| ordered(runs).get(self.selected).map(|r| r.slug.clone()))
-                {
-                    self.read_detail(run);
+                if let Some(slug) = at.map(|at| rows[at].slug.clone()) {
+                    self.read_detail(slug);
                 }
+                return None;
             }
-            _ => {}
+            _ => return None,
+        };
+        if let Some(run) = rows.get(to) {
+            self.selected = Some((run.slug.clone(), run.id.clone()));
         }
         None
     }
@@ -735,6 +762,20 @@ impl Watch {
             )),
             Some(Load::Done(Ok(runs), _)) => {
                 let rows = ordered(runs);
+                let highlighted = self.highlighted(&rows);
+                if let (Some((slug, _)), None) = (&self.selected, highlighted) {
+                    lines.push(Line::styled(
+                        format!(
+                            "! {slug} is no longer listed. b names nothing until you choose a run."
+                        ),
+                        palette.rust,
+                    ));
+                    lines.push(Line::styled(
+                        "Watch lists the runs in this checkout's current files. If you switched branches, its records can be on another branch or worktree.",
+                        palette.ink,
+                    ));
+                    lines.push(Line::default());
+                }
                 let waiting = rows.iter().filter(|run| run.needs_you()).count();
                 lines.push(Line::styled("Needs you", palette.ink.bold()));
                 if waiting == 0 {
@@ -748,13 +789,17 @@ impl Watch {
                         lines.push(Line::default());
                         lines.push(Line::styled("Quiet", palette.ink.bold()));
                     }
-                    let mark = if index == self.selected { "› " } else { "  " };
-                    let name = if index == self.selected {
+                    let mark = if Some(index) == highlighted {
+                        "› "
+                    } else {
+                        "  "
+                    };
+                    let name = if Some(index) == highlighted {
                         palette.jade
                     } else {
                         palette.ink
                     };
-                    if index == self.selected {
+                    if Some(index) == highlighted {
                         selected_line = lines.len();
                     }
                     if run.needs_you() {

@@ -140,6 +140,9 @@ def journey(width, height, no_color, configured=True):
                 set_state(list=envelope(runs=[run('quiet-a', 'failed'), run('waits', 'blocked')]))
                 send(b'r', 'quiet-a  verification failed')
                 assert calls() == ['status --json', 'status quiet-a --json', 'status waits --json'] * 2
+                # tinkery#1015: the reread reorders the rows, and the highlight stays on its run.
+                assert '› waits' in screen.text(), screen.text()
+                send(b'\x1b[A', '› quiet-a')
                 send(b'\r', 'Stage 3 gate: approved')
                 assert 'Checklist: 1/2 passed. How each is checked: 2 automated, 0 by you.' in ' '.join(screen.text().split())
                 assert 'This run has no confirmed Tink.' in screen.text()
@@ -156,7 +159,7 @@ def journey(width, height, no_color, configured=True):
                 set_state(list=envelope(runs=[run('TEST-pending', 'blocked')]),
                           details={'TEST-pending': pending})
                 send(b'r', 'TEST-pending')
-                send(b'\r', 'Stage 3 gate: pending')
+                send(b'\x1b[A\r', 'Stage 3 gate: pending')
                 assert ('Checklist: 0/4 passed. How each is checked: 0 automated, 4 by you.'
                         in ' '.join(screen.text().split())), screen.text()
                 assert '4 by your attestation' not in screen.text()
@@ -172,7 +175,7 @@ def journey(width, height, no_color, configured=True):
                 text = screen.text()
                 assert text.index('observe') < text.index('quiet-a'), text
                 before_detail = len(calls())
-                send(b'\r', 'TEST executable check')
+                send(b'\x1b[A\r', 'TEST executable check')
                 assert 'TEST-LAST-ERROR' not in screen.text()
                 send(b'\x1b[F', 'TEST-LAST-ERROR')
                 send(b'\x1b[5~', 'TEST explanation')
@@ -188,7 +191,7 @@ def journey(width, height, no_color, configured=True):
                     set_state(list=envelope(runs=[run(slug, 'blocked')]),
                               details={slug: accepted})
                     send(b'r', slug)
-                    send(b'\r', 'TEST executable check')
+                    send(b'\x1b[A\r', 'TEST executable check')
                     send(b'\x1b[F', 'TEST-ACCEPTED-TAIL')
                     assert 'too long' not in screen.text(), screen.text()
                     send(b'\x1b', 'Needs you')
@@ -206,7 +209,7 @@ def journey(width, height, no_color, configured=True):
                     set_state(list=envelope(runs=[run(slug, 'blocked'), run('TEST-readable', 'current')]),
                               details={slug: oversized})
                     send(b'r', slug)
-                    send(b'\r', 'Detail is too long to show completely.')
+                    send(b'\x1b[A\r', 'Detail is too long to show completely.')
                     assert 'status <slug> --json' in screen.text(), screen.text()
                     assert 'TEST-UNREACHABLE-TAIL' not in screen.text()
                     assert 'Checklist:' not in screen.text(), 'oversized detail looked complete'
@@ -231,7 +234,7 @@ def journey(width, height, no_color, configured=True):
                     set_state(list=envelope(runs=[row]))
                     send(b'r', 'TEST-selected')
                     set_state(list=envelope(runs=[row]), identity=identity)
-                    send(b'\r', 'Run identity changed or is missing.')
+                    send(b'\x1b[A\r', 'Run identity changed or is missing.')
                     assert 'Next:' not in screen.text() and 'Checklist:' not in screen.text(), screen.text()
                     send(b'\x1b', 'TEST-selected')
                     send(b'r', "Couldn't read the runs.")
@@ -251,7 +254,7 @@ def journey(width, height, no_color, configured=True):
                 send(b'r', 'older run')
                 assert "can't be read" not in screen.text() and 'UUIDv4' not in screen.text(), screen.text()
                 read_count = len(calls())
-                send(b'\r', 'No run files were changed.')
+                send(b'\x1b[A\r', 'No run files were changed.')
                 assert 'This run has no canonical run ID.' in screen.text(), screen.text()
                 assert 'Checklist:' not in screen.text() and 'Stage' not in screen.text(), screen.text()
                 send(b'r', 'Needs you')
@@ -313,7 +316,7 @@ def journey(width, height, no_color, configured=True):
                     assert 'TEST exact goal tail' not in text, text
                     assert (unknown in text) == (seed_case not in ('matched', 'no-seed')), text
                     assert absent not in text, text
-                    send(b'\r', 'Stage 3 gate: pending')
+                    send(b'\x1b[A\r', 'Stage 3 gate: pending')
                     expected = {'matched': 'TEST exact goal tail', 'no-seed': absent}.get(seed_case, unknown)
                     assert expected in screen.text(), screen.text()
                     assert 'TEST changed goal' not in screen.text(), screen.text()
@@ -334,7 +337,7 @@ def journey(width, height, no_color, configured=True):
                             started = time.monotonic()
                             send(b'r', "Goal unknown. Tinkery could not verify the original Tink Contract.")
                             assert time.monotonic() - started < 2, f'non-regular {file.name} delayed Watch'
-                            send(b'\r', 'Stage 3 gate: pending')
+                            send(b'\x1b[A\r', 'Stage 3 gate: pending')
                             send(b'\x1b', 'Needs you')
                             send(b'\x1b', '1  think')
                             assert time.monotonic() - started < 2, f'non-regular {file.name} delayed Escape'
@@ -349,7 +352,7 @@ def journey(width, height, no_color, configured=True):
                     file.symlink_to(target)
                     try:
                         send(b'r', 'TEST café')
-                        send(b'\r', 'TEST exact goal tail')
+                        send(b'\x1b[A\r', 'TEST exact goal tail')
                         send(b'\x1b', 'Needs you')
                         assert target.read_bytes() == original_bytes
                     finally:
@@ -366,7 +369,7 @@ def journey(width, height, no_color, configured=True):
                 at = next(i for i, line in enumerate(rows) if 'TEST-quiet-seeded' in line)
                 assert 'TEST-quiet-unseeded' in rows[at + 1], screen.text()
                 assert not any(word in screen.text() for word in ('TEST café', 'TEST exact goal tail', 'Goal unknown', 'This run has no confirmed Tink.'))
-                send(b'\r', 'TEST exact goal tail')
+                send(b'\x1b[A\r', 'TEST exact goal tail')
                 send(b'\x1b', 'TEST-quiet-unseeded')
                 send(b'\x1b[B', '› TEST-quiet-unseeded')
                 send(b'\r', 'This run has no confirmed Tink.')

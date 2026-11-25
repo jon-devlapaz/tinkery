@@ -1690,6 +1690,7 @@ def view():
   step={'name':name,'state':record['state']}
   if step['state']=='active': step['turn']=data['turn']
   if step['state']=='active' and data.get('cap_reached'): step['response_cap_reached']=True
+  if step['state']=='active' and data.get('worker_gone'): step['worker_gone']=True
   if step['state']=='stopped': step['stopped_by']=record['stopped_by']
   run['steps'].append(step)
  return run
@@ -1870,4 +1871,29 @@ fn worker_screen_names_the_response_cap_and_offers_only_stop_read_and_verify() {
         rows.last().unwrap(),
         "r read  v verify  s stop  t taste  ? help  esc back"
     );
+}
+
+#[test]
+fn worker_screen_reads_a_step_whose_process_is_gone_as_not_running_and_names_s() {
+    // tinkery#1013: build-2 at 21 of 20 had no Pi process but read "running" until s.
+    let fixture = Fixture::new();
+    let run = fixture.start().run;
+    fixture.edit(|value| value["worker_gone"] = true.into());
+    let mut panel = Panel::existing(run.root, run.slug, run.id, Gate::new(false, Ok(None)), None);
+    let rows = screen(&mut panel);
+    assert!(
+        rows.iter()
+            .any(|row| row == "Worker: not running; its turn did not end"),
+        "{rows:#?}"
+    );
+    assert!(
+        !rows.iter().any(|row| row == "Worker: running"),
+        "{rows:#?}"
+    );
+    assert!(
+        rows.iter()
+            .any(|row| row == "Next: s records the stop. Then n can start a new step."),
+        "{rows:#?}"
+    );
+    assert!(rows.last().unwrap().contains("s stop"), "{rows:#?}");
 }

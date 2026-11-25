@@ -25,6 +25,10 @@ shows, with how long ago it was read, to the minute. Watch never runs `verify`, 
 `stage` or any other command, and never polls, refreshes by itself, notifies or badges anything:
 unchanged state makes no new demand on the operator's attention.
 
+The highlight belongs to a run's slug and run ID, not to a row. A reread that reorders runs
+keeps it on that run. If that run is no longer listed, Watch says so, names a branch change as a
+possible cause, highlights nothing, and `b` and Enter name no run until an arrow key picks one.
+
 `b` is Watch's own key: it returns only the selected run's name, its run ID from this read and
 the named checkout, and the worker builds its pinned run from them for the separate
 [worker controls](approve.md#start-a-worker). That screen reads the current source

@@ -240,7 +240,9 @@ On that screen, `r` reads status, `l` launches an inspected prepared step, `u` r
 an ended turn, `f` records a normally
 ended worker, `v` verifies, `s` stops it and records the response cap as the reason only if the worker log shows the cap marker. These are separate
 explicit actions. A step whose launcher reached its response cap reads `Worker: reached its
-response cap`, never `running`. Its actions are `r`, `v` and `s`; `u` and `f` are not offered.
+response cap`, never `running`. A step whose turn did not end and whose worker process SDLC saw
+exit (`worker_gone`, tink-sdlc 1.76.0) reads `Worker: not running; its turn did not end`.
+Both screens say `Next: s records the stop`. Their actions are `r`, `v` and `s`; `u` and `f` are not offered.
 Verify before finishing: `f` refuses without current passing
 verification, so a failed check leaves the ended worker resumable after a successful reread.
 An `awaiting-attestation` reading says `waiting on your judgment`, names the pending
