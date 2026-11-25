@@ -210,6 +210,7 @@ measures only those two tools. The suggested minimum leaves one response after t
 observed first edit or first commit. If the launch itself reached its cap without one,
 allow one response for it and one to follow up. The strongest of these observations sets
 the suggestion. Smaller caps show a warning; the start still uses the exact configured cap.
+A line that cannot be read ends that log's reading; what came before it still counts.
 When `n` is offered with an allowance, the screen reads the same guidance for the run's
 checkout and offers `n` only once it lands (#1016). Missing usable evidence leaves
 the minimum unknown. Resumes and Pi's private session store are outside this read;

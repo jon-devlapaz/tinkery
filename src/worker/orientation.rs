@@ -313,8 +313,10 @@ fn observe(launch: &Launch, run: &Run, value: &sdlc::Run, cancel: &AtomicBool) -
     let stopped_at_cap =
         step.state.is(sdlc::StepState::Stopped) && step.stopped_by.is(sdlc::StopReason::Cap);
     let (cap, lines) = open_log(&launch.files, &launch.log, run)?;
-    // A shell `git … commit` whose tool result succeeded counts as the first commit.
-    let commit_command = regex::Regex::new(r"\bgit\b[^;&|\n]*\bcommit\b").expect("commit pattern");
+    // A shell `git commit` (or `git -C dir commit`) whose tool result succeeded is the first commit.
+    let commit_command =
+        regex::Regex::new(r"(?:^|[\s;&|(])git(?:\s+-C\s+\S+)?\s+commit\b([^;&|\n]*)")
+            .expect("commit pattern");
     let mut commits = HashSet::new();
     let (mut edit, mut commit) = (None, None);
     let mut responses = 0;
@@ -348,9 +350,12 @@ fn observe(launch: &Launch, run: &Run, value: &sdlc::Run, cancel: &AtomicBool) -
                             arguments,
                         } = part
                             && name == "bash"
-                            && arguments["command"]
-                                .as_str()
-                                .is_some_and(|c| commit_command.is_match(c))
+                            && !id.is_empty()
+                            && arguments["command"].as_str().is_some_and(|c| {
+                                commit_command
+                                    .captures_iter(c)
+                                    .any(|m| !m[1].contains("--dry-run"))
+                            })
                         {
                             commits.insert(id);
                         }

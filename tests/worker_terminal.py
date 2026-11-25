@@ -595,14 +595,14 @@ def cap_review(case):
             events = [dict(type='session', version=3, id=session if match else 'another-session',
                            cwd=str(checkout))]
             for n in range(1, responses + 1):
-                # `commits` maps a response to whether its `git commit` shell call failed.
+                # `commits` maps a response to its shell command and whether that call failed.
                 tool = 'bash' if n in commits else 'edit' if n == 1 else ('write' if n == responses and edit else 'read')
                 call = dict(type='toolCall', id=f'call-{n}', name=tool,
-                            arguments=dict(command='git add -A && git commit -qm "TEST work"') if n in commits else {})
+                            arguments=dict(command=commits[n][0]) if n in commits else {})
                 message = dict(role='assistant', content=[call], stopReason='toolUse')
                 events.extend([dict(type='message_start', message=message), dict(type='message_end', message=message)])
                 result = dict(role='toolResult', toolName=tool, toolCallId=f'call-{n}',
-                              isError=commits[n] if n in commits else n == 1)
+                              isError=commits[n][1] if n in commits else n == 1)
                 events.extend([dict(type='message_end', message=result),
                                dict(type='turn_end', message=message, toolResults=[result])])
             content = ''.join(json.dumps(event) + '\n' for event in events)
@@ -617,7 +617,11 @@ def cap_review(case):
             record('finish', 5, cap_stop=True)
         elif case == 'commit':
             # tinkery#1016: a step that edits early but commits late needs room for the commit.
-            record('build', CAP + 5, edit=True, commits={4: True, CAP + 4: False})
+            # A failed commit and shell calls that only mention a commit do not count.
+            done = 'git add -A && git commit -qm "TEST work"'
+            record('build', CAP + 5, edit=True, commits={
+                2: ('git log --grep commit', False), 3: ('git commit --dry-run', False),
+                4: (done, True), CAP + 4: (done, False)})
         elif case == 'at-minimum':
             record('build', CAP - 1, edit=True)
         elif case == 'cap-only':
