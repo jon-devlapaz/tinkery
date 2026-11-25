@@ -315,6 +315,8 @@ fn observe(launch: &Launch, run: &Run, value: &sdlc::Run, cancel: &AtomicBool) -
     let (cap, lines) = open_log(&launch.files, &launch.log, run)?;
     // A shell `git commit` that starts a command and whose tool result succeeded is the first
     // commit. Global options such as `-C dir` or `-c user.name=x` may come before `commit`.
+    // Unclear cases (`sudo git commit`, a message naming --dry-run) count as no commit, which
+    // only leaves the suggestion to the other evidence.
     let commit_command = regex::Regex::new(
         r"(?:^|[;&|(\n])\s*(?:\S*/)?git(?:\s+-[Cc]\s+\S+|\s+--\S+)*\s+commit(?:\s|$)([^;&|\n]*)",
     )
