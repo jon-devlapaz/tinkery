@@ -961,19 +961,21 @@ fn pre_mortem_block(
             ));
         }
         let line = match &risk.covered {
+            // Decode may restore a Done when line's letter case in the check only (#432).
             Cover::Check(check) => {
-                if !checks
+                let Some(saved) = checks
                     .as_array()
                     .into_iter()
                     .flatten()
-                    .any(|c| c["statement"].as_str().map(str::trim) == Some(check))
-                {
+                    .filter_map(|c| c["statement"].as_str().map(str::trim))
+                    .find(|s| s.to_lowercase() == check.to_lowercase())
+                else {
                     return refuse(format!(
                         "risk {} names check \"{check}\", which is not one check's exact statement",
                         n + 1
                     ));
-                }
-                format!("Check: {check}")
+                };
+                format!("Check: {saved}")
             }
             Cover::OutOfScope(line) => format!("Out of scope: {line}"),
         };

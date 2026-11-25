@@ -317,37 +317,28 @@ pub(crate) fn validate_new_draft_checks(goal: &str, records: &Value) -> Result<(
         ));
     }
     // #1012: pilot reversion probes edited source text with a regex, then read
-    // `git show origin/main`, which failed on CI's shallow clone.
-    const FRAGILE: [&str; 13] = [
-        "git show",
-        "git log",
-        "git stash",
-        "git revert",
-        "git reset",
-        "git fetch",
-        "git checkout --",
-        "origin/",
-        "head~",
-        "head^",
-        "sed -i",
-        "perl -pi",
-        "source text",
-    ];
+    // `git show origin/main`, which failed on CI's shallow clone. Commands are matched by their
+    // command forms; prose only by naming a source-text edit or git history.
+    let command = Regex::new(
+        r"(?i)\bgit +(show|log|stash|revert|reset|fetch)\b|\bgit +checkout +--|\borigin/|\bHEAD[~^]|(^|[\s;&|(])(sed|perl) +-p?i\b",
+    )
+    .unwrap();
+    let prose = Regex::new(r"(?i)\bsource[ -]text\b|\bgit +(show|log)\b|\bgit history\b").unwrap();
     for check in draft_checks(records) {
-        for field in ["cmd", "expect", "missing"] {
+        for (field, pattern) in [("cmd", &command), ("expect", &prose), ("missing", &prose)] {
             let text = check
                 .record
                 .get(field)
                 .and_then(Value::string)
                 .unwrap_or("");
-            let lower = text.to_lowercase().replace("source-text", "source text");
-            if let Some(found) = FRAGILE.iter().find(|word| lower.contains(*word)) {
+            if let Some(found) = pattern.find(text) {
                 return Err(format!(
-                    "No Tink was drafted: check {}'s {field} names `{found}`, a reversion that edits \
+                    "No Tink was drafted: check {}'s {field} names `{}`, a reversion that edits \
                      source text or reads git history. Prove reversion through behaviour against a \
                      baseline built in the test or the base commit's files, with no network or git \
                      history, since CI clones are shallow.",
-                    check.index + 1
+                    check.index + 1,
+                    found.as_str().trim()
                 ));
             }
         }

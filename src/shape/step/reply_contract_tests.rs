@@ -1387,7 +1387,7 @@ fn each_pre_mortem_risk_needs_a_check_or_an_out_of_scope_line_before_a_draft() {
         .tempdir()
         .unwrap();
     let reply = with(json!([
-        {"risk": "the order changes on reload", "check": "Existing output is correct."},
+        {"risk": "the order changes on reload", "check": "existing output is correct."},
         {"risk": "None of the above moves out of last place", "out_of_scope": "TEST the ranking is unchanged here"},
     ]));
     let (session, done) = drafted_after(root.path(), words, &reply);
@@ -1444,6 +1444,23 @@ fn a_reversion_that_edits_source_text_or_reads_git_history_refuses_the_draft() {
         );
         assert!(!session.join("seed-contract.md").exists());
     }
+    // Words that only resemble those forms, and git commands that read no history, still draft.
+    for (field, words) in [
+        (
+            "expect",
+            "TEST the CORS origin/host header is used -i style",
+        ),
+        ("cmd", "git diff --exit-code && ./TEST-new-check"),
+    ] {
+        let root = tempfile::Builder::new()
+            .prefix("TEST-1012-")
+            .tempdir()
+            .unwrap();
+        let mut reply = valid_reply();
+        reply["checks"][1][field] = words.into();
+        let (_, done) = drafted_after(root.path(), "skip", &reply);
+        assert_eq!(done, Ok(Done::Drafted), "{words}");
+    }
 }
 
 #[test]
@@ -1485,4 +1502,13 @@ fn a_judged_check_asks_for_a_preview_unless_the_repository_declares_one() {
     let (session, done) = drafted_after(root.path(), "skip", &reply);
     assert_eq!(done, Ok(Done::Drafted));
     assert!(!seed_text(&session).contains(ask));
+    // An objective browser check is looked at too.
+    let root = tempfile::Builder::new()
+        .prefix("TEST-1014-")
+        .tempdir()
+        .unwrap();
+    reply["checks"][0]["expect"] = "TEST open the page in a browser at 375px".into();
+    let (session, done) = drafted_after(root.path(), "skip", &reply);
+    assert_eq!(done, Ok(Done::Drafted));
+    assert!(seed_text(&session).contains(ask));
 }

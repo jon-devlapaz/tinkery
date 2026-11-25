@@ -345,6 +345,10 @@ impl Ledger {
             "no idea",
             "don't know",
             "i don't know",
+            "idk",
+            "no",
+            "nope",
+            "nothing comes to mind",
         ];
         (!empty.contains(&plain.as_str())).then_some(answer)
     }

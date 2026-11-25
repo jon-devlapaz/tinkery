@@ -779,8 +779,9 @@ line, F1 numbers the rest. The session list keeps Enter to open a session.
   preferring forms that change nothing outside the checkout (#657). Behavior-specific regressions name the assertion expected
   to fail before the change or under targeted reversion. Reversion is proved through behaviour,
   against a baseline built in the test or the base commit's files. A new draft whose check `cmd`,
-  `expect` or `missing` edits source text or reads git history (`sed -i`, `git show`, `origin/`) is
-  refused naming the check ([#1012](https://github.com/jon-devlapaz/tinkery/issues/1012): such a probe
+  `expect` or `missing` edits source text or reads git history is refused naming the check.
+  A `cmd` matches by command form (`sed -i`, `git show`, `origin/`); `expect` and `missing` match only
+  by naming a source-text edit or git history ([#1012](https://github.com/jon-devlapaz/tinkery/issues/1012): such a probe
   failed on CI's shallow clone). Inspection is not observed
   red or green. Routine setup or an unperformed reversion probe does not make an
   existing check provisional; missing assertions, tests or invocations do, with
