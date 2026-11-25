@@ -99,6 +99,7 @@ def journey(width, height, no_color):
             send(b'\r', 'TEST next for TEST-other')
             shown('TEST next for TEST-other', ('Codex last reported', 'TEST build the report reader'))
             send(b'\x1b', 'TEST-codex')
+            send(b'\x1b[A', '› TEST-codex')
             refresh({**report, 'next_step': 'TEST review the terminal result'},
                     'TEST review the terminal result', ('TEST build the report reader',))
             for flag, words in [('waitingOnApproval', 'waiting for approval'),
@@ -175,7 +176,10 @@ def journey(width, height, no_color):
             detail['run']['closure'] = None
             state_path.write_text(json.dumps(state))
             report_path.write_text(json.dumps(report))
-            reread('TEST-codex')
+            # tinkery#1015: the same slug with a new run ID is another run, so nothing is highlighted.
+            reread('TEST-codex now has another run ID')
+            send(b'\r', 'TEST-codex now has another run ID')
+            send(b'\x1b[B', '› TEST-codex')
             send(b'\r', 'TEST closed run')
             shown('TEST closed run', ('Codex last reported', 'TEST build the report reader'))
             assert all(line.startswith('status ') for line in log.read_text().splitlines())

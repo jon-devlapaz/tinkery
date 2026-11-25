@@ -125,6 +125,8 @@ pub(crate) enum Turn {
     Unknown,
     /// The launcher reached the response cap; the turn has not ended and only a stop is owed.
     AtCap,
+    /// The turn has not ended and its worker process has exited; only a stop is owed.
+    Gone,
 }
 
 /// One step's state, without converting stopped or uncertain work into completion. Watch and
@@ -151,7 +153,8 @@ impl State {
     /// The one mapping from SDLC's step words. Without a step there is `NotStarted`. The state
     /// and stop reason come from the caller, the turn and cap flag from the step's status. A
     /// word, turn or stop reason this reader does not know is refused with the field that
-    /// failed, and so is a cap flag on a step that is not active, running and unstopped.
+    /// failed, and so is a cap or gone flag on a step that is not active, running and unstopped.
+    /// A reached cap wins over a gone worker.
     pub(crate) fn read(
         state: &sdlc::Word<sdlc::StepState>,
         stopped_by: &sdlc::Word<sdlc::StopReason>,
@@ -164,6 +167,12 @@ impl State {
                 return Err("The worker reports its response cap in an unsupported state.");
             }
             return Ok(Self::Active { turn: Turn::AtCap });
+        }
+        if step.gone? {
+            if !state.is(S::Active) || !turn.is(T::Running) || stopped_by.present() {
+                return Err("The worker reports its process gone in an unsupported state.");
+            }
+            return Ok(Self::Active { turn: Turn::Gone });
         }
         Ok(match state.known() {
             Some(S::Prepared) => Self::Prepared,
@@ -216,6 +225,7 @@ impl State {
                 turn: Turn::Unknown,
             } => "turn state unknown; inspect before resuming",
             Self::Active { turn: Turn::AtCap } => "reached its response cap",
+            Self::Active { turn: Turn::Gone } => "not running; its turn did not end",
             Self::Uncertain => "launch uncertain; inspect before starting another",
             Self::Completed => "turn completed; verification is separate",
             Self::Stopped { cap: true } => "stopped by response cap",

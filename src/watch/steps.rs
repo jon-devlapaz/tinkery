@@ -74,7 +74,7 @@ pub(super) fn render(run: &sdlc::Run) -> Result<Option<(Vec<String>, Worker)>, S
         let seen = match state {
             State::Active { turn } => {
                 let words = step.data["observed_turn"].as_str().ok_or_else(refuse)?;
-                if worker == Worker::Idle || turn == Turn::Ended {
+                if worker == Worker::Idle || matches!(turn, Turn::Ended | Turn::Gone) {
                     worker = Worker::Step(state);
                 }
                 format!(" · {words}")

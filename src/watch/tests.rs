@@ -1031,3 +1031,103 @@ fn b_names_the_selected_run_for_the_worker_controls_and_starts_nothing() {
     );
     assert_eq!(tree(dir.path()), before, "naming a run wrote nothing");
 }
+
+#[test]
+fn a_worker_whose_process_is_gone_needs_you_and_never_reads_running() {
+    // tinkery#1013: a step whose Pi had exited read as running until someone pressed s.
+    let mut report = detail(vec![]);
+    report["run"]["verification_status"] = "not-run".into();
+    report["run"]["steps"] = serde_json::json!([{
+        "name": "build-2", "state": "active", "turn": "not-ended",
+        "observed_turn": "not ended: no worker process is running", "worker_gone": true
+    }]);
+    let parsed = parse_detail(&report.to_string()).unwrap();
+    let gone = Worker::Step(crate::worker::State::Active {
+        turn: crate::worker::Turn::Gone,
+    });
+    assert_eq!(parsed.attention.worker, Some(gone));
+    let shown = parsed.steps.unwrap().join("\n");
+    assert!(
+        shown.contains("not running; its turn did not end"),
+        "{shown}"
+    );
+    assert!(!shown.contains("Worker step build-2: running"), "{shown}");
+    let mut row = parse_list(&envelope(&run("gone", "not-run")))
+        .unwrap()
+        .remove(0);
+    row.state = State::Current;
+    row.attention = Some(parsed.attention);
+    assert!(row.needs_you());
+    assert_eq!(
+        row.worker().unwrap().words(),
+        "worker: not running; its turn did not end"
+    );
+}
+
+#[test]
+fn contract_refuses_a_gone_flag_off_an_unended_turn() {
+    for step in [
+        serde_json::json!({"name":"build","state":"stopped","stopped_by":"operator","worker_gone":true}),
+        serde_json::json!({"name":"build","state":"active","turn":"ended","observed_turn":"TEST","worker_gone":true}),
+        serde_json::json!({"name":"build","state":"active","turn":"not-ended","observed_turn":"TEST","worker_gone":"yes"}),
+    ] {
+        contract_refusal(
+            |run| run["steps"] = serde_json::json!([step]),
+            "A worker step Watch doesn't know; nothing is shown rather than a guess.",
+        );
+    }
+}
+
+#[test]
+fn the_highlight_stays_on_its_run_across_a_reread_and_a_vanished_run_names_nothing() {
+    // tinkery#1015: a branch change hid the highlighted run, the order shifted, and b opened
+    // another run.
+    let dir = checkout("", 0.0);
+    let list = dir.path().join("TEST-list.json");
+    fs::write(
+        dir.path().join(SCRIPT),
+        format!(
+            "import json,sys\nvalue=json.loads(open({list:?}).read())\nif len(sys.argv)==4:\n    row=next(r for r in value['runs'] if r['slug']==sys.argv[2])\n    value={{'protocol':'tink-sdlc','api_version':1,'run':{{**row,'gates':[],'checklist':[],'errors':[]}}}}\nprint(json.dumps(value))\n",
+            list = list.display().to_string()
+        ),
+    )
+    .unwrap();
+    let show = |slugs: &[&str]| {
+        let rows: Vec<_> = slugs
+            .iter()
+            .map(|slug| {
+                run(slug, "current").replace(r#""run_id":"x""#, &format!(r#""run_id":"{slug}-id""#))
+            })
+            .collect();
+        fs::write(&list, envelope(&rows.join(","))).unwrap();
+    };
+    let named = |watch: &mut Watch| match watch.key(KeyEvent::from(KeyCode::Char('b'))) {
+        Some(Exit::Worker { slug, id, .. }) => Some((slug, id)),
+        _ => None,
+    };
+    show(&["first", "mine", "last"]);
+    let mut watch = Watch::open(Some(dir.path().to_path_buf()));
+    settle(&mut watch);
+    watch.key(KeyEvent::from(KeyCode::Down));
+    assert_eq!(named(&mut watch), Some(("mine".into(), "mine-id".into())));
+
+    show(&["other", "first", "last", "mine"]);
+    watch.key(KeyEvent::from(KeyCode::Char('r')));
+    settle(&mut watch);
+    assert!(screen(&mut watch, 100, 30).contains("› mine"));
+    assert_eq!(named(&mut watch), Some(("mine".into(), "mine-id".into())));
+
+    show(&["other", "first", "last"]);
+    watch.key(KeyEvent::from(KeyCode::Char('r')));
+    settle(&mut watch);
+    let text = screen(&mut watch, 100, 30);
+    assert!(text.contains("! mine is no longer listed"), "{text}");
+    assert!(text.contains("another branch or worktree"), "{text}");
+    assert!(!text.contains('›'), "nothing is highlighted:\n{text}");
+    assert_eq!(named(&mut watch), None, "b names no other run");
+    watch.key(KeyEvent::from(KeyCode::Enter));
+    assert!(watch.detail.is_none(), "Enter opens no other run");
+
+    watch.key(KeyEvent::from(KeyCode::Down));
+    assert_eq!(named(&mut watch), Some(("other".into(), "other-id".into())));
+}

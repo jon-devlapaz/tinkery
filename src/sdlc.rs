@@ -424,6 +424,8 @@ pub(crate) struct Step {
     /// Whether the launcher reached the step's response cap; omission is false, and a value
     /// that is not a boolean is refused rather than read as either.
     pub(crate) cap_reached: Result<bool, &'static str>,
+    /// Whether SDLC saw the unended turn's recorded worker process exit; read like `cap_reached`.
+    pub(crate) gone: Result<bool, &'static str>,
 }
 
 /// A worker step contract read once for one exact run and checkout. Another schema, run or
@@ -575,7 +577,13 @@ impl Run {
                     .map(|step| Step {
                         data: metadata(
                             step,
-                            &["state", "turn", "stopped_by", "response_cap_reached"],
+                            &[
+                                "state",
+                                "turn",
+                                "stopped_by",
+                                "response_cap_reached",
+                                "worker_gone",
+                            ],
                         ),
                         state: word(step.get("state"), StepState::read),
                         turn: word(step.get("turn"), TurnStatus::read),
@@ -585,6 +593,12 @@ impl Run {
                             Some(flag) => flag
                                 .as_bool()
                                 .ok_or("The worker cap flag is not reported in a supported form."),
+                        },
+                        gone: match step.get("worker_gone") {
+                            None => Ok(false),
+                            Some(flag) => flag.as_bool().ok_or(
+                                "The worker process flag is not reported in a supported form.",
+                            ),
                         },
                     })
                     .collect()

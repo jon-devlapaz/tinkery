@@ -500,6 +500,16 @@ impl Panel {
                     snapshot.pending_attestations.join(", ")
                 ));
             }
+            if self.fresh
+                && matches!(
+                    snapshot.state,
+                    State::Active {
+                        turn: Turn::AtCap | Turn::Gone
+                    }
+                )
+            {
+                add("\nNext: s records the stop. Then n can start a new step.");
+            }
             if self.fresh && self.can_launch() {
                 add(
                     "\nl sends this prepared task and source context to the displayed provider within its existing cap. It grants no extra responses.",
