@@ -27,14 +27,22 @@ pub(crate) enum Relay {
     Standing(Standing),
 }
 
-/// The operator's words for exactly one seed, model and response cap.
+/// The operator's words for exactly one seed, step, model and response cap. One file pays for
+/// one step; a new step needs new words naming it.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Exact {
     words: String,
     seed_sha256: String,
+    /// The step these words pay for; `build` when absent.
+    #[serde(default = "first_step")]
+    step: String,
     model: String,
     responses: usize,
+}
+
+fn first_step() -> String {
+    "build".into()
 }
 
 /// The operator's standing grant, its date, and the starting agent's own risk class for this Tink.
@@ -124,7 +132,17 @@ impl Gate {
         Self { agent, relay }
     }
 
-    fn bind(&self, target: Option<&SeedTarget>, config: &Config) -> Result<Option<&Relay>, String> {
+    /// Whether an agent declared itself; it cannot reconcile an uncertain launch.
+    pub(super) fn agent(&self) -> bool {
+        self.agent
+    }
+
+    fn bind(
+        &self,
+        target: Option<&SeedTarget>,
+        config: &Config,
+        step: &str,
+    ) -> Result<Option<&Relay>, String> {
         if !self.agent {
             return Ok(None);
         }
@@ -146,6 +164,14 @@ impl Gate {
         {
             return Err("Relayed authorization does not exactly match the reviewed Tink, model and response cap.".into());
         }
+        if let Relay::Exact(exact) = relay
+            && exact.step != step
+        {
+            return Err(format!(
+                "Relayed authorization pays for step {}, not {step}. A new step needs new words naming it (\"step\": \"{step}\").",
+                exact.step
+            ));
+        }
         if let Relay::Standing(_) = relay {
             let saved: serde_json::Value =
                 serde_json::from_str(&ledger::load(&target.session)?.pretty()?)
@@ -166,8 +192,13 @@ impl Gate {
     }
 
     /// Refuse agent work without an exact non-retry seed, model and allowance binding.
-    pub(super) fn check(&self, target: Option<&SeedTarget>, config: &Config) -> Result<(), String> {
-        self.bind(target, config).map(|_| ())
+    pub(super) fn check(
+        &self,
+        target: Option<&SeedTarget>,
+        config: &Config,
+        step: &str,
+    ) -> Result<(), String> {
+        self.bind(target, config, step).map(|_| ())
     }
 
     /// Disclose verbatim relay words and attribution limits, including any known refusal.
@@ -177,7 +208,7 @@ impl Gate {
         }
         let bound = binding.is_some();
         let input = match binding {
-            Some((target, config)) => self.bind(Some(target), config),
+            Some((target, config)) => self.bind(Some(target), config, "build"),
             None => self
                 .relay
                 .as_ref()
@@ -220,7 +251,7 @@ impl Gate {
         action: &str,
         step: &str,
     ) -> Result<(), String> {
-        let Some(relay) = self.bind(target, config)? else {
+        let Some(relay) = self.bind(target, config, step)? else {
             return Ok(());
         };
         let value = serde_json::json!({

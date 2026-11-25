@@ -189,12 +189,17 @@ impl State {
         })
     }
 
-    /// States whose step can take no further action, so only a new step moves the work on.
-    /// A started run with no step, an uncertain launch, a completed or a stopped step.
+    /// States where a new step is a way forward: a started run with no step, a prepared step
+    /// that may never launch (a new step abandons it), an uncertain launch, a completed or a
+    /// stopped step.
     pub(crate) fn needs_new_step(self) -> bool {
         matches!(
             self,
-            Self::NotStarted | Self::Uncertain | Self::Completed | Self::Stopped { .. }
+            Self::NotStarted
+                | Self::Prepared
+                | Self::Uncertain
+                | Self::Completed
+                | Self::Stopped { .. }
         )
     }
 
@@ -521,7 +526,7 @@ fn start(request: Start) -> Result<Snapshot, Failure> {
     let (intake, source_commit) = (|| {
         request
             .authorization
-            .check(Some(&request.target), &request.config)?;
+            .check(Some(&request.target), &request.config, STEP)?;
         request.config.validate()?;
         canonical_root(&request.root)?;
         let (intake, goal) = ready::execution(&request.target, &request.root)?;
@@ -704,16 +709,44 @@ fn next_step(
     config: &Config,
 ) -> Result<Snapshot, String> {
     let observed = snapshot(run)?;
-    if observed.pin != pin || !observed.state.needs_new_step() {
+    if observed.pin != pin {
         return Err(
             "The worker changed since it was read. Nothing was prepared; read it again.".into(),
         );
     }
+    if !observed.state.needs_new_step() {
+        return Err(format!(
+            "The {} step is {}; use its own keys. n is only for a step that can do nothing more.",
+            observed.step,
+            observed.state.words()
+        ));
+    }
+    if observed.state == State::Uncertain && gate.agent() {
+        return Err("The launch is uncertain, so a worker may still be running. Only the operator can reconcile it before a new step.".into());
+    }
     config.validate()?;
     let value = current(run)?;
+    // Any unfinished step, whatever its name, may still write to this checkout.
+    let busy: Vec<&str> = value
+        .steps
+        .as_deref()
+        .unwrap_or_default()
+        .iter()
+        .filter(|step| {
+            !step.state.is(sdlc::StepState::Completed) && !step.state.is(sdlc::StepState::Stopped)
+        })
+        .filter_map(|step| step.data["name"].as_str())
+        .filter(|name| *name != observed.step)
+        .collect();
+    if !busy.is_empty() {
+        return Err(format!(
+            "Step {} is not finished and may still write here. Finish or stop it in SDLC first.",
+            busy.join(", ")
+        ));
+    }
     let seed = require_seed(&value)?;
     let target = seed.target.as_ref();
-    gate.check(target, config)?;
+    gate.check(target, config, &observed.next_step)?;
     let mut run = run.clone();
     let branch =
         git(&run.root, &["symbolic-ref", "--quiet", "--short", "HEAD"]).unwrap_or_default();
@@ -721,6 +754,9 @@ fn next_step(
         if target.is_some_and(|t| t.retry.is_some()) {
             return Err("This retry run has no build checkout. Inspect it in Watch; a retry is restarted from Taste.".into());
         }
+        let target = target.ok_or("The run's confirmed Tink Contract is unavailable.")?;
+        ready::execution(target, &run.root)?;
+        committed_source(&run.root)?;
         committer_identity(&run.root)?;
         command(
             &run.root,

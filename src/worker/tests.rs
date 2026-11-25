@@ -1257,7 +1257,11 @@ fn a_running_step_refuses_a_new_step() {
         },
     ))
     .unwrap_err();
-    assert!(refused.message.contains("changed"), "{}", refused.message);
+    assert!(
+        refused.message.contains("use its own keys"),
+        "{}",
+        refused.message
+    );
     assert_eq!(steps_named(&fixture, "prepare"), ["build"]);
 }
 
@@ -1383,13 +1387,207 @@ fn worker_screen_names_the_new_step_and_its_cap_or_the_missing_allowance() {
     let press = |panel: &mut Panel, code| {
         panel.key(KeyEvent::new(code, KeyModifiers::NONE));
     };
-    press(&mut panel, KeyCode::End);
-    let footer = screen(&mut panel).last().unwrap().clone();
-    assert!(footer.starts_with("n new worker step"), "{footer}");
     let mut without = open(None);
     let rows = screen(&mut without).join("\n");
     assert!(rows.contains("needs this launch's allowance"), "{rows}");
-    assert!(!rows.lines().last().unwrap().contains("n new"), "{rows}");
+    let footer = rows.lines().last().unwrap();
+    assert!(!footer.contains("n new"), "{footer}");
+    press(&mut panel, KeyCode::End);
+    let footer = screen(&mut panel).last().unwrap().clone();
+    assert!(footer.starts_with("n new worker step"), "{footer}");
+    press(&mut panel, KeyCode::Char('n'));
+    let rows = screen(&mut panel).join("\n");
+    assert!(rows.contains("step: build-2"), "{rows}");
+    let prepare = fixture
+        .commands()
+        .into_iter()
+        .find(|c| c[0] == "step" && c[2] == "build-2" && c[3] == "prepare")
+        .unwrap();
+    assert!(prepare.windows(2).any(|w| w == ["--max-responses", "6"]));
+}
+
+fn relay(fixture: &Fixture, step: Option<&str>, responses: usize) -> Gate {
+    let mut words = json!({
+        "words": "TEST operator words", "seed_sha256": fixture.request.target.sha256,
+        "model": "test/exact:low", "responses": responses,
+    });
+    if let Some(step) = step {
+        words["step"] = step.into();
+    }
+    Gate::new(true, Ok(Some(serde_json::from_value(words).unwrap())))
+}
+
+#[test]
+fn one_relay_pays_for_one_step_and_a_new_step_needs_words_naming_it() {
+    let fixture = Fixture::new();
+    let mut request = fixture.request.clone();
+    request.authorization = relay(&fixture, None, 3);
+    let run = wait(Job::start(request)).unwrap().run;
+    fixture.edit(|value| value["step"]["state"] = "completed".into());
+    let read = wait(Job::act(
+        Gate::new(false, Ok(None)),
+        run.clone(),
+        Action::Refresh,
+    ))
+    .unwrap();
+    let next = |gate| {
+        Job::act(
+            gate,
+            run.clone(),
+            Action::Next {
+                pin: read.pin.clone(),
+                config: allowance(3),
+            },
+        )
+    };
+    let refused = wait(next(relay(&fixture, None, 3))).unwrap_err();
+    assert!(
+        refused.message.contains("pays for step build, not build-2"),
+        "{}",
+        refused.message
+    );
+    assert_eq!(steps_named(&fixture, "prepare"), ["build"]);
+    assert_eq!(
+        wait(next(relay(&fixture, Some("build-2"), 3)))
+            .unwrap()
+            .step,
+        "build-2"
+    );
+}
+
+#[test]
+fn an_agent_cannot_start_a_new_step_over_an_uncertain_launch() {
+    let fixture = Fixture::new();
+    fixture.edit(|value| value["refusal"] = "uncertain".into());
+    let Recovery::Run(run) = wait(Job::start(fixture.request.clone()))
+        .unwrap_err()
+        .recovery
+    else {
+        panic!("uncertain launch keeps its run");
+    };
+    let read = wait(Job::act(
+        Gate::new(false, Ok(None)),
+        run.clone(),
+        Action::Refresh,
+    ))
+    .unwrap();
+    let refused = wait(Job::act(
+        relay(&fixture, Some("build-2"), 2),
+        run,
+        Action::Next {
+            pin: read.pin,
+            config: allowance(2),
+        },
+    ))
+    .unwrap_err();
+    assert!(
+        refused.message.contains("may still be running"),
+        "{}",
+        refused.message
+    );
+    assert_eq!(steps_named(&fixture, "prepare"), ["build"]);
+}
+
+#[test]
+fn an_unfinished_step_with_another_name_blocks_a_new_step() {
+    let fixture = Fixture::new();
+    let run = fixture.start().run;
+    fixture.edit(|value| {
+        value["step"]["state"] = "completed".into();
+        value["more"] = json!({"fix": {"state": "active"}});
+    });
+    let read = wait(Job::act(
+        Gate::new(false, Ok(None)),
+        run.clone(),
+        Action::Refresh,
+    ))
+    .unwrap();
+    let refused = wait(Job::act(
+        Gate::new(false, Ok(None)),
+        run,
+        Action::Next {
+            pin: read.pin,
+            config: allowance(2),
+        },
+    ))
+    .unwrap_err();
+    assert!(
+        refused.message.contains("Step fix is not finished"),
+        "{}",
+        refused.message
+    );
+    assert_eq!(steps_named(&fixture, "prepare"), ["build"]);
+}
+
+#[test]
+fn a_prepared_step_that_never_launches_is_replaced_by_a_new_step() {
+    let fixture = Fixture::new();
+    fixture.edit(|value| value["refusal"] = "gate".into());
+    let Recovery::Run(run) = wait(Job::start(fixture.request.clone()))
+        .unwrap_err()
+        .recovery
+    else {
+        panic!("refused launch keeps its run");
+    };
+    let gate = Gate::new(false, Ok(None));
+    let read = wait(Job::act(gate.clone(), run.clone(), Action::Refresh)).unwrap();
+    assert_eq!(read.state, State::Prepared);
+    fixture.edit(|value| {
+        value.as_object_mut().unwrap().remove("refusal");
+    });
+    let next = wait(Job::act(
+        gate,
+        run,
+        Action::Next {
+            pin: read.pin,
+            config: allowance(2),
+        },
+    ))
+    .unwrap();
+    assert_eq!(
+        (next.step.as_str(), next.state),
+        (
+            "build-2",
+            State::Active {
+                turn: Turn::Running
+            }
+        )
+    );
+}
+
+#[test]
+fn uncommitted_source_refuses_the_new_step_before_stage_three() {
+    let fixture = Fixture::new();
+    fixture.edit(|value| value["fail_stage3"] = 1.into());
+    let Recovery::Run(run) = wait(Job::start(fixture.request.clone()))
+        .unwrap_err()
+        .recovery
+    else {
+        panic!("refused stage 3 keeps its run");
+    };
+    fs::write(fixture.root.join("context.txt"), "TEST uncommitted fix").unwrap();
+    let gate = Gate::new(false, Ok(None));
+    let read = wait(Job::act(gate.clone(), run.clone(), Action::Refresh)).unwrap();
+    let refused = wait(Job::act(
+        gate,
+        run,
+        Action::Next {
+            pin: read.pin,
+            config: allowance(2),
+        },
+    ))
+    .unwrap_err();
+    assert!(
+        refused.message.contains("Commit source changes first"),
+        "{}",
+        refused.message
+    );
+    let stages = fixture
+        .commands()
+        .iter()
+        .filter(|c| c[0] == "stage" && c[2] == "3")
+        .count();
+    assert_eq!(stages, 1);
 }
 
 const SCRIPT: &str = r#"import hashlib,json,pathlib,shutil,subprocess,sys,time

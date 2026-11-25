@@ -477,14 +477,28 @@ impl Panel {
                 );
             }
             if self.fresh && self.can_start_new_step() {
+                let state = snapshot.state;
+                let finished =
+                    state == State::Completed && snapshot.verification.is(Verification::Current);
+                // Say first what the current step still needs, so n is never the default.
+                add(match state {
+                    State::Prepared => {
+                        "\nNext: l launches this step. If SDLC refuses it every time, n replaces it with a new step."
+                    }
+                    State::Uncertain => {
+                        "\nNext: a worker may still be running. Check it with python3 _system/scripts/sdlc.py step <run> <step> show; only when none runs does n start a new step. An agent cannot press n here."
+                    }
+                    _ if finished => "\nNext: t opens Taste. Press n only for a Taste finding.",
+                    _ => "",
+                });
                 add(&match &self.allowance {
                     Some(config) => format!(
-                        "\nNext: n prepares step {} and launches it with {} and a new cap of {} responses, separate from earlier steps. \
+                        "\nn prepares step {} and launches it with {} and a new cap of {} responses, separate from earlier steps. \
                          If no build checkout exists yet, it opens one (stage 3) first. \
                          It sends the task and source context to that provider. The new step reads the brief in runs/{}/brief.md; add the finding there first.",
                         snapshot.next_step, config.model, config.responses, snapshot.run.slug
                     ),
-                    None => "\nNext: a new worker step needs this launch's allowance. Relaunch with --worker-model provider/model:thinking and --worker-responses N, then press b.".into(),
+                    None => "\nA new worker step needs this launch's allowance. Relaunch with --worker-model provider/model:thinking and --worker-responses N, then press b.".into(),
                 });
             }
             if self.fresh && self.can_resume() {
