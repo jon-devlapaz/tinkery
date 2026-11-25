@@ -86,7 +86,7 @@ def journey(agent):
         assert run.calls() == [], 'A probe called a model'
 
         # The first model step asks a grounded question; delegation accepts its suggestion.
-        asked = json.loads(run.ok('step', session, 'answer', 'TEST skip'))['now']
+        asked = json.loads(run.ok('step', session, 'answer', 'skip'))['now']
         assert asked['question'] == QUESTION['question'] and asked['suggestion'] == QUESTION['suggestion']
         assert asked['found'], 'The finding behind the question is missing'
         draft = json.loads(run.ok('step', session, 'delegate'))['now']
@@ -137,7 +137,7 @@ def no_gray():
         session = run.ok('new', 'goal.txt', drafting=False).strip()
         run.ok('step', session, 'look')
         run.ok('step', session, 'answer', 'TEST sample: one fixture line')
-        draft = json.loads(run.ok('step', session, 'answer', 'TEST skip'))
+        draft = json.loads(run.ok('step', session, 'answer', 'skip'))
         assert draft['now']['stage'] == 'draft', draft['now']
         assert draft['gray'] == [], draft['gray']
         assert len(draft['decided_without_you']) == 2, 'The two probe answers are not listed'
@@ -147,7 +147,7 @@ def no_gray():
         session = run.ok('new', 'goal.txt', drafting=False).strip()
         run.ok('step', session, 'look')
         run.ok('step', session, 'answer', 'TEST sample: one fixture line')
-        assert json.loads(run.ok('step', session, 'answer', 'TEST skip'))['now']['stage'] == 'question'
+        assert json.loads(run.ok('step', session, 'answer', 'skip'))['now']['stage'] == 'question'
         draft = json.loads(run.ok('step', session, 'answer', 'TEST plain text refusals'))
         assert draft['now']['stage'] == 'draft', draft['now']
         assert draft['gray'] == [], draft['gray']
@@ -165,7 +165,7 @@ def relayed():
         session = run.ok('new', 'goal.txt', drafting=False).strip()
         run.ok('step', session, 'look')
         run.ok('step', session, 'answer', 'TEST sample: one fixture line')
-        assert json.loads(run.ok('step', session, 'answer', 'TEST skip'))['now']['stage'] == 'question'
+        assert json.loads(run.ok('step', session, 'answer', 'skip'))['now']['stage'] == 'question'
         before = run.files()
         run.refused('--relayed must name', 'step', session, 'answer', '--relayed', str(bad))
         # A missing FILE is a usage error, never the answer "--relayed".
@@ -190,7 +190,7 @@ def relayed():
         session = run.ok('new', 'goal.txt', drafting=False).strip()
         run.ok('step', session, 'look')
         run.ok('step', session, 'answer', 'TEST sample: one fixture line')
-        run.ok('step', session, 'answer', 'TEST skip')
+        run.ok('step', session, 'answer', 'skip')
         before = run.files()
         run.refused('launch with --operator agent', 'step', session, 'answer', '--relayed', str(relay))
         assert run.files() == before, 'A human relay wrote to the session'
@@ -209,7 +209,7 @@ def commandless():
         run.ok('step', session, 'look')
         run.ok('step', session, 'answer', 'TEST sample: one fixture line')
         before = run.files()
-        run.refused('check 1: Missing command', 'step', session, 'answer', 'TEST skip')
+        run.refused('check 1: Missing command', 'step', session, 'answer', 'skip')
         assert not (Path(session) / 'seed-contract.md').exists(), 'A commandless check was saved as a draft'
         draft = json.loads(run.ok('step', session, 'look'))['now']
         assert draft['stage'] == 'draft', draft
@@ -223,7 +223,7 @@ def commandless():
         session = run.ok('new', 'goal.txt', drafting=False).strip()
         run.ok('step', session, 'look')
         run.ok('step', session, 'answer', 'TEST sample: one fixture line')
-        run.refused('check 1: Missing manual steps', 'step', session, 'answer', 'TEST skip')
+        run.refused('check 1: Missing manual steps', 'step', session, 'answer', 'skip')
         assert not (Path(session) / 'seed-contract.md').exists(), 'A judge check without steps was saved'
     print('seed command commandless passed: checks confirmation would refuse are refused when drafted; a fixed retry confirms; 3 stub calls')
 
@@ -270,7 +270,7 @@ def readings():
         session = run.ok('new', 'goal.txt', drafting=False).strip()
         run.ok('step', session, 'look')
         run.ok('step', session, 'answer', 'TEST sample: one fixture line')
-        asked = json.loads(run.ok('step', session, 'answer', 'TEST skip'))
+        asked = json.loads(run.ok('step', session, 'answer', 'skip'))
         now = asked['now']
         assert now['stage'] == 'question', now
         assert now['question'] == ('The goal reads two ways that build different things: '
@@ -295,11 +295,11 @@ def capped():
             run.ok('step', session, 'look')
             run.ok('step', session, 'answer', 'TEST sample: one fixture line')
             if kept:
-                now = json.loads(run.ok('step', session, 'answer', 'TEST skip'))['now']
+                now = json.loads(run.ok('step', session, 'answer', 'skip'))['now']
                 assert now['question'] == QUESTION['question'], now
             else:
                 run.refused('Pi was stopped at the drafting response limit after 3 model responses. No reply was kept.',
-                            'step', session, 'answer', 'TEST skip')
+                            'step', session, 'answer', 'skip')
                 assert json.loads(run.ok('show', session, drafting=False))['now']['stage'] == 'waiting'
     print('seed command cap passed: a final reply on the 3rd of 3 responses is kept after a 4 s exit; 3 tool calls are stopped')
 
