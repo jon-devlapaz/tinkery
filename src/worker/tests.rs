@@ -1895,10 +1895,56 @@ fn worker_screen_reads_a_step_whose_process_is_gone_as_not_running_and_names_s()
         !rows.iter().any(|row| row == "Worker: running"),
         "{rows:#?}"
     );
+    let text = rows.join(" ");
     assert!(
-        rows.iter()
-            .any(|row| row == "Next: s records the stop. Then n can start a new step."),
+        text.contains("Next: u resumes the saved session within its remaining cap."),
         "{rows:#?}"
     );
-    assert!(rows.last().unwrap().contains("s stop"), "{rows:#?}");
+    assert!(!text.contains("f records"), "{rows:#?}");
+    let footer = rows.last().unwrap();
+    assert!(
+        footer.starts_with("u resume") && footer.contains("s stop") && !footer.contains("f finish"),
+        "{rows:#?}"
+    );
+}
+
+#[test]
+fn a_gone_worker_resumes_its_same_session_but_a_live_or_capped_one_does_not() {
+    // The Pi Durable crash test: an unended turn whose process exited continues its session.
+    let fixture = Fixture::new();
+    let initial = fixture.start();
+    let pin = initial.pin.clone().unwrap();
+    let resume = |fixture: &Fixture| {
+        let before = fixture.commands().len();
+        let result = wait(Job::act(
+            Gate::new(false, Ok(None)),
+            initial.run.clone(),
+            Action::Resume(pin.clone()),
+        ));
+        let resumed = fixture.commands()[before..]
+            .iter()
+            .filter(|args| args.last().is_some_and(|arg| arg == "resume"))
+            .count();
+        (result, resumed)
+    };
+    let (live, resumed) = resume(&fixture);
+    assert!(live.unwrap_err().message.contains("gone worker"));
+    assert_eq!(resumed, 0, "a live worker was resumed");
+    fixture.edit(|value| {
+        value["worker_gone"] = true.into();
+        value["cap_reached"] = true.into();
+    });
+    let (capped, resumed) = resume(&fixture);
+    assert!(capped.unwrap_err().message.contains("reached cap"));
+    assert_eq!(resumed, 0, "an exhausted budget was resumed");
+    fixture.edit(|value| value["cap_reached"] = false.into());
+    let (gone, resumed) = resume(&fixture);
+    let snapshot = gone.unwrap();
+    assert_eq!(resumed, 1);
+    assert_eq!(
+        snapshot.pin.as_ref(),
+        Some(&pin),
+        "resume changed the session or cap"
+    );
+    assert_eq!(snapshot.responses, initial.responses);
 }
