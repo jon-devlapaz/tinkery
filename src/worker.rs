@@ -726,21 +726,23 @@ fn next_step(
     }
     config.validate()?;
     let value = current(run)?;
-    // Any unfinished step, whatever its name, may still write to this checkout.
+    // An active or unreadable step, whatever its name, may still write to this checkout. A
+    // prepared step has no session, and an uncertain one was accounted for by the `n` that
+    // replaced it; SDLC cannot complete either, so they never block.
     let busy: Vec<&str> = value
         .steps
         .as_deref()
         .unwrap_or_default()
         .iter()
         .filter(|step| {
-            !step.state.is(sdlc::StepState::Completed) && !step.state.is(sdlc::StepState::Stopped)
+            step.state.is(sdlc::StepState::Active) || step.state.is(sdlc::StepState::Unreadable)
         })
         .filter_map(|step| step.data["name"].as_str())
         .filter(|name| *name != observed.step)
         .collect();
     if !busy.is_empty() {
         return Err(format!(
-            "Step {} is not finished and may still write here. Finish or stop it in SDLC first.",
+            "Step {} is active or unreadable and may still write here. Finish or stop it in SDLC first.",
             busy.join(", ")
         ));
     }

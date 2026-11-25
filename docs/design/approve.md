@@ -157,8 +157,9 @@ with only these fields:
 ```
 
 The seed SHA-256, step, model pin and response cap must exactly match the reviewed admission.
-`step` defaults to `build`. One file pays for one step: a [new worker step](#new-worker-step)
-needs new words naming it, such as `"step":"build-2"`.
+`step` defaults to `build`. An exact file pays for one step: a [new worker step](#new-worker-step)
+needs new words naming it, such as `"step":"build-2"`. A standing grant names no step, so it
+covers each new step for its Tink, each within its own cap.
 
 A standing grant ([#932](https://github.com/jon-devlapaz/tinkery/issues/932), Yohaku Art. 2)
 replaces `seed_sha256` with the date the operator gave the words and the starting agent's own
@@ -267,7 +268,7 @@ completed or stopped step (for example after a cap stop, a failed check on a com
 a Taste finding). The screen first says what the current step still needs: `l` for a prepared
 step, a check that no worker still runs for an uncertain launch, and Taste for a completed step
 with current checks. An agent cannot press `n` over an uncertain launch. `n` refuses while any
-other step, whatever its name, is unfinished, since it may still write to the checkout. Tinkery's steps are `build`, then
+other step, whatever its name, is active or unreadable, since it may still write to the checkout. Tinkery's steps are `build`, then
 `build-2`, `build-3`; every action addresses the newest one, and other step names stay
 SDLC's. `n` uses this launch's `--worker-model` and `--worker-responses` as a new cap,
 separate from earlier steps, and the screen states the step, model and cap before the key

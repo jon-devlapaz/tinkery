@@ -395,9 +395,9 @@ impl Panel {
     }
 
     fn can_start_new_step(&self) -> bool {
-        self.snapshot
-            .as_ref()
-            .is_some_and(|s| s.state.needs_new_step())
+        self.snapshot.as_ref().is_some_and(|s| {
+            s.state.needs_new_step() && !(s.state == State::Uncertain && self.gate.agent())
+        })
     }
 
     fn can_launch(&self) -> bool {
@@ -486,7 +486,9 @@ impl Panel {
                         "\nNext: l launches this step. If SDLC refuses it every time, n replaces it with a new step."
                     }
                     State::Uncertain => {
-                        "\nNext: a worker may still be running. Check it with python3 _system/scripts/sdlc.py step <run> <step> show; only when none runs does n start a new step. An agent cannot press n here."
+                        "\nNext: a worker may still be running. Check it with \
+                         python3 _system/scripts/sdlc.py step <run> <step> show. \
+                         Only when none runs does n start a new step. An agent cannot press n here."
                     }
                     _ if finished => "\nNext: t opens Taste. Press n only for a Taste finding.",
                     _ => "",

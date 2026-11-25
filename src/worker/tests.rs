@@ -1512,7 +1512,7 @@ fn an_unfinished_step_with_another_name_blocks_a_new_step() {
     ))
     .unwrap_err();
     assert!(
-        refused.message.contains("Step fix is not finished"),
+        refused.message.contains("Step fix is active"),
         "{}",
         refused.message
     );
@@ -1536,7 +1536,7 @@ fn a_prepared_step_that_never_launches_is_replaced_by_a_new_step() {
         value.as_object_mut().unwrap().remove("refusal");
     });
     let next = wait(Job::act(
-        gate,
+        gate.clone(),
         run,
         Action::Next {
             pin: read.pin,
@@ -1552,6 +1552,40 @@ fn a_prepared_step_that_never_launches_is_replaced_by_a_new_step() {
                 turn: Turn::Running
             }
         )
+    );
+    // The abandoned prepared step can never be completed, so it must not block the next one.
+    let stopped = wait(Job::act(gate.clone(), next.run.clone(), Action::Stop)).unwrap();
+    let third = wait(Job::act(
+        gate,
+        next.run,
+        Action::Next {
+            pin: stopped.pin,
+            config: allowance(2),
+        },
+    ))
+    .unwrap();
+    assert_eq!(third.step, "build-3");
+}
+
+#[test]
+fn a_completed_step_with_current_checks_points_to_taste_first() {
+    let fixture = Fixture::new();
+    let run = fixture.start().run;
+    fixture.edit(|value| {
+        value["step"]["state"] = "completed".into();
+        value["verification"] = "current".into();
+    });
+    let mut panel = Panel::existing(
+        run.root,
+        run.slug,
+        run.id,
+        Gate::new(false, Ok(None)),
+        Some(allowance(2)),
+    );
+    let rows = screen(&mut panel).join("\n");
+    assert!(
+        rows.contains("Next: t opens Taste. Press n only for a Taste finding."),
+        "{rows}"
     );
 }
 
