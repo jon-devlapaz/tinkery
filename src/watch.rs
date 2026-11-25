@@ -460,16 +460,11 @@ impl Watch {
         }
     }
 
-    /// The run `b` names: the open detail, else the highlighted row. A run without a stable ID,
-    /// or a highlighted run that is no longer listed, names nothing.
+    /// The run `b` names: the highlighted row, which an open detail always is. A run without a
+    /// stable ID, or a highlighted run that is no longer listed, names nothing.
     fn selected_run(&self) -> Option<Exit> {
-        let runs = self.runs()?;
-        let run = if let Some((slug, _)) = &self.detail {
-            runs.iter().find(|run| &run.slug == slug)?
-        } else {
-            let rows = ordered(runs);
-            rows[self.highlighted(&rows)?]
-        };
+        let rows = ordered(self.runs()?);
+        let run = rows[self.highlighted(&rows)?];
         Some(Exit::Worker {
             root: self.root.clone()?,
             slug: run.slug.clone(),
@@ -764,16 +759,21 @@ impl Watch {
                 let rows = ordered(runs);
                 let highlighted = self.highlighted(&rows);
                 if let (Some((slug, _)), None) = (&self.selected, highlighted) {
+                    let (words, why) = if rows.iter().any(|run| &run.slug == slug) {
+                        ("now has another run ID, so it is another run", "")
+                    } else {
+                        (
+                            "is no longer listed",
+                            "Watch lists the runs in this checkout's current files. If you switched branches, its records can be on another branch or worktree.",
+                        )
+                    };
                     lines.push(Line::styled(
-                        format!(
-                            "! {slug} is no longer listed. b names nothing until you choose a run."
-                        ),
+                        format!("! {slug} {words}. b names nothing until you choose a run."),
                         palette.rust,
                     ));
-                    lines.push(Line::styled(
-                        "Watch lists the runs in this checkout's current files. If you switched branches, its records can be on another branch or worktree.",
-                        palette.ink,
-                    ));
+                    if !why.is_empty() {
+                        lines.push(Line::styled(why, palette.ink));
+                    }
                     lines.push(Line::default());
                 }
                 let waiting = rows.iter().filter(|run| run.needs_you()).count();

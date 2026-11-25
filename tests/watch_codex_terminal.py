@@ -177,8 +177,8 @@ def journey(width, height, no_color):
             state_path.write_text(json.dumps(state))
             report_path.write_text(json.dumps(report))
             # tinkery#1015: the same slug with a new run ID is another run, so nothing is highlighted.
-            reread('TEST-codex is no longer listed')
-            send(b'\r', 'TEST-codex is no longer listed')
+            reread('TEST-codex now has another run ID')
+            send(b'\r', 'TEST-codex now has another run ID')
             send(b'\x1b[B', '› TEST-codex')
             send(b'\r', 'TEST closed run')
             shown('TEST closed run', ('Codex last reported', 'TEST build the report reader'))
