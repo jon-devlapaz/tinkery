@@ -303,7 +303,8 @@ pub(crate) fn validate_goal_checks(goal: &str, records: &Value) -> Result<()> {
 }
 
 /// A new model draft also has no check that confirmation would refuse as missing its command
-/// or manual steps (#936). An operator repairing a stored draft is not held to this.
+/// or manual steps (#936), and no reversion that edits source text or reads git history (#1012).
+/// An operator repairing a stored draft is not held to this.
 pub(crate) fn validate_new_draft_checks(goal: &str, records: &Value) -> Result<()> {
     validate_goal_checks(goal, records)?;
     if let Some(check) = draft_checks(records).find(|check| check.gap().is_some()) {
@@ -314,6 +315,33 @@ pub(crate) fn validate_new_draft_checks(goal: &str, records: &Value) -> Result<(
             check.index + 1,
             check.gap().unwrap().missing()
         ));
+    }
+    // #1012: pilot reversion probes edited source text with a regex, then read
+    // `git show origin/main`, which failed on CI's shallow clone. Commands are matched by their
+    // command forms; prose only by naming a source-text edit or git history.
+    let command = Regex::new(
+        r"(?i)\bgit +(show|log|stash|revert|reset|fetch)\b|\bgit +checkout +--|\borigin/|\bHEAD[~^]|(^|[\s;&|(])(sed|perl) +-p?i\b",
+    )
+    .unwrap();
+    let prose = Regex::new(r"(?i)\bsource[ -]text\b|\bgit +(show|log)\b|\bgit history\b").unwrap();
+    for check in draft_checks(records) {
+        for (field, pattern) in [("cmd", &command), ("expect", &prose), ("missing", &prose)] {
+            let text = check
+                .record
+                .get(field)
+                .and_then(Value::string)
+                .unwrap_or("");
+            if let Some(found) = pattern.find(text) {
+                return Err(format!(
+                    "No Tink was drafted: check {}'s {field} names `{}`, a reversion that edits \
+                     source text or reads git history. Prove reversion through behaviour against a \
+                     baseline built in the test or the base commit's files, with no network or git \
+                     history, since CI clones are shallow.",
+                    check.index + 1,
+                    found.as_str().trim()
+                ));
+            }
+        }
     }
     Ok(())
 }

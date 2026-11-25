@@ -168,12 +168,12 @@ def make(root, question=True, operator='human', goal=GOAL):
     if question:
         nodes.append(node('storage', status='unresolved', label='Where records live',
                           question='Keep records local or synced?'))
-    # Most cases are about later steps, so both probes are already answered.
+    # Most cases are about later steps, so both probes are already answered; a skipped pre-mortem owes no risks (#1010).
     nodes.append(node('probe-real-sample', status='settled', answer='TEST sample: one pasted line', authority=authority,
                       authority_source='TEST fixture, not real approval', label='Probe: real sample',
                       question='Paste one real example of what this will work on, or say where one lives. '
                                'If there is none, type no sample and say why.'))
-    nodes.append(node('probe-pre-mortem', status='settled', answer='TEST pre-mortem answer', authority=authority,
+    nodes.append(node('probe-pre-mortem', status='settled', answer='skip', authority=authority,
                       authority_source='TEST fixture, not real approval', label='Probe: pre-mortem',
                       question='Imagine this shipped and turned out wrong. What is the most likely reason?'))
     state.update(goal=goal, origin='goal', nodes=nodes, current_question='storage' if question else None)
@@ -320,7 +320,9 @@ class Run:
 def full_journey(width, height):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-shape-answer-') as directory:
         cwd = Path(directory).resolve()
-        run = Run(cwd, width, height, budget=6, replies=[QUESTION, SEED])
+        # #1010: the operator's own pre-mortem names a risk, so the draft must cover it.
+        risk = {'risk': 'It showed private text', 'out_of_scope': 'TEST covered by the refusal check'}
+        run = Run(cwd, width, height, budget=6, replies=[QUESTION, {**SEED, 'risks': [risk]}])
         try:
             run.wait('1  think')
             run.send(b'1', "What's on your mind?")
@@ -427,6 +429,7 @@ def full_journey(width, height):
             assert helper.decisions_block(ledger) in seed, seed
             assert seed.index('## Decisions (from the ledger)') < seed.index('## Knowledge map')
             assert 'MODEL-INVENTED' not in seed, seed
+            assert '- Risk: "It showed private text". Out of scope: TEST covered by the refusal check' in seed, seed
             assert len(run.calls()) == 2
             # The second step built on the saved finding, in the folder the operator picked.
             second = run.calls()[1]

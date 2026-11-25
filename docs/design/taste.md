@@ -160,7 +160,10 @@ never these receipt sources or package scripts.
 ## Local preview
 
 At the result's exact commit, the repository may declare a root `tinkery.preview`
-file: one JSON object on one line, with exactly `command` and `url`:
+file: one JSON object on one line, with exactly `command` and `url`.
+When a drafted Tink has a judge check, or a check whose `expect` names a browser, and the
+folder has no `tinkery.preview`, Shape adds a line to its Downstream handoff asking the worker
+to commit one ([#1014](https://github.com/jon-devlapaz/tinkery/issues/1014)):
 
 ```json
 {"command":"npm ci --ignore-scripts && npm run dev -- --host 127.0.0.1 --port 5173 --strictPort","url":"http://127.0.0.1:5173/"}
