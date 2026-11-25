@@ -37,10 +37,23 @@ enum Request {
     Run(Action),
 }
 
-/// Cap guidance read from recent launch logs off the terminal thread; F2 waits for it.
+/// Cap guidance read from recent launch logs off the terminal thread; F2 and n wait for it.
 struct Advice {
     landed: mpsc::Receiver<String>,
     stop: Arc<AtomicBool>,
+}
+
+impl Advice {
+    fn read(checkout: PathBuf, cap: usize) -> Self {
+        let (send, landed) = mpsc::channel();
+        let stop = Arc::new(AtomicBool::new(false));
+        let (cancel, owner) = (stop.clone(), thread::current());
+        thread::spawn(move || {
+            let _ = send.send(cap_advice(&checkout, cap, &cancel));
+            owner.unpark();
+        });
+        Self { landed, stop }
+    }
 }
 
 impl Drop for Advice {
@@ -54,6 +67,8 @@ pub(crate) struct Panel {
     goal: String,
     disclosure: String,
     advice: Option<Advice>,
+    /// Cap guidance for `n`, read again after each fresh read that offers a new step.
+    step_advice: Option<String>,
     gate: Gate,
     /// This launch's separate worker allowance; a new step uses it, never a saved default.
     allowance: Option<Config>,
@@ -86,18 +101,7 @@ impl Panel {
         let allowance = config.clone();
         let (start, disclosure, advice) = match (seed.target, config) {
             (Some(target), Some(config)) => {
-                let (send, landed) = mpsc::channel();
-                let stop = Arc::new(AtomicBool::new(false));
-                let (cancel, checkout, cap, owner) = (
-                    stop.clone(),
-                    root.clone(),
-                    config.responses,
-                    thread::current(),
-                );
-                thread::spawn(move || {
-                    let _ = send.send(cap_advice(&checkout, cap, &cancel));
-                    owner.unpark();
-                });
+                let advice = Advice::read(root.clone(), config.responses);
                 let start = Start {
                     target,
                     root,
@@ -106,7 +110,7 @@ impl Panel {
                     authorization: gate.clone(),
                 };
                 let disclosure = start.disclosure("Reading recent Pi launch logs…");
-                (Some(start), disclosure, Some(Advice { landed, stop }))
+                (Some(start), disclosure, Some(advice))
             }
             _ => (
                 None,
@@ -120,6 +124,7 @@ impl Panel {
             goal: seed.goal,
             disclosure,
             advice,
+            step_advice: None,
             gate,
             allowance,
             start,
@@ -153,6 +158,7 @@ impl Panel {
             goal: String::new(),
             disclosure: gate.disclosure(None),
             advice: None,
+            step_advice: None,
             gate,
             allowance,
             start: None,
@@ -187,8 +193,9 @@ impl Panel {
             }
         {
             self.advice = None;
-            if let Some(start) = self.start.as_ref().or(self.starting.as_ref()) {
-                self.disclosure = start.disclosure(&words);
+            match self.start.as_ref().or(self.starting.as_ref()) {
+                Some(start) => self.disclosure = start.disclosure(&words),
+                None => self.step_advice = Some(words),
             }
             self.read_to_end = false;
         }
@@ -205,8 +212,15 @@ impl Panel {
                     self.launch_refused = false;
                 }
                 self.run = Some(snapshot.run.clone());
+                let checkout = snapshot.run.root.clone();
                 self.snapshot = Some(snapshot);
                 self.fresh = true;
+                self.step_advice = None;
+                self.advice = self
+                    .allowance
+                    .as_ref()
+                    .filter(|_| self.can_start_new_step())
+                    .map(|config| Advice::read(checkout, config.responses));
                 self.notice =
                     "Read from tink-sdlc. r reads again; nothing resumes automatically.".into();
             }
@@ -336,7 +350,7 @@ impl Panel {
                 Some("End to start a new step"),
                 self.allowance
                     .clone()
-                    .filter(|_| current && self.can_start_new_step())
+                    .filter(|_| current && self.can_start_new_step() && self.advice.is_none())
                     .map(|config| {
                         run(Action::Next {
                             pin: pin.cloned(),
@@ -512,8 +526,9 @@ impl Panel {
                     Some(config) => format!(
                         "\nn prepares step {} and launches it with {} and a new cap of {} responses, separate from earlier steps. \
                          If no build checkout exists yet, it opens one (stage 3) first. \
-                         It sends the task and source context to that provider. The new step reads the brief in runs/{}/brief.md; add the finding there first.",
-                        snapshot.next_step, config.model, config.responses, snapshot.run.slug
+                         It sends the task and source context to that provider. The new step reads the brief in runs/{}/brief.md; add the finding there first.\n{}",
+                        snapshot.next_step, config.model, config.responses, snapshot.run.slug,
+                        self.step_advice.as_deref().unwrap_or("Reading recent Pi launch logs…")
                     ),
                     None => "\nA new worker step needs this launch's allowance. Relaunch with --worker-model provider/model:thinking and --worker-responses N, then press b.".into(),
                 });
