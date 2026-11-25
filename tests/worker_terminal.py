@@ -535,7 +535,7 @@ def crash_resume_journey(exhausted=False):
             terminal.send(b'r', reading)
             assert not resumes(), 'u resumed a live worker'
             os.killpg(group, 9)
-            until = time.monotonic() + 10
+            until = wait_deadline(10)
             while True:
                 try:
                     os.killpg(group, 0)
