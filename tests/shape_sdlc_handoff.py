@@ -95,6 +95,8 @@ def shape(root, env):
     reply = json.loads((REPO / 'tests/fixtures/stacker-r1-reply.json').read_text())
     reply['confirming'] = seed_fields(reply['confirming'])
     reply['review'] = completion_review(reply['checks'])
+    # #1010: the journey's pre-mortem answer names a risk; this replay leaves it out of scope.
+    reply['risks'] = [{'risk': 'The sounds were missing', 'out_of_scope': 'TEST replay, not about sounds'}]
     # Historical receipts remain untyped; never guess claim types from mixed captured prose.
     legacy = [{'checked': f['checked'], 'observed': f['observed'], 'at': '2026-10-18T00:00:00+00:00',
                'check': 'TEST replay of recorded untyped receipts'} for f in reply['found']]

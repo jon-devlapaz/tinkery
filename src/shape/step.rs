@@ -114,6 +114,10 @@ pub(super) const FIELDS: &[&str] = &[
     "why",
     "readings",
     "chosen",
+    "risks",
+    "risk",
+    "check",
+    "out_of_scope",
     "other",
     "options",
     "choice",
@@ -838,11 +842,12 @@ fn look(
             }))
         }
         Next::Seed {
-            confirming,
+            mut confirming,
             checks,
             review,
             found,
             assumed,
+            risks,
             resolves,
         } => {
             let records = crate::seed_me::ledger::Value::from(checks.clone());
@@ -862,6 +867,19 @@ fn look(
                     }))));
                 }
             };
+            let block = pre_mortem_block(ledger.pre_mortem(), &risks, &checks)
+                .map_err(|rule| rejected(fail(Why::Rule(Rule { node: None, rule }))))?;
+            append(&mut confirming, "Risks and verification", block);
+            // #1014: two pilot runs had no preview, and a hand-run preview found a phone-layout bug.
+            let looked_at = checks.as_array().into_iter().flatten().any(|c| {
+                c["kind"] == "judge"
+                    || c["expect"]
+                        .as_str()
+                        .is_some_and(|e| e.to_lowercase().contains("browser"))
+            });
+            if looked_at && !folder.join("tinkery.preview").exists() {
+                append(&mut confirming, "Downstream handoff", Some(PREVIEW.into()));
+            }
             let revision = answering::draft_seed(
                 session,
                 expected,
@@ -907,6 +925,68 @@ fn input(ledger: &answering::Ledger, settled: Vec<Value>) -> Value {
         "found_so_far": ledger.findings(),
         "ledger": ledger.context_without_findings(),
     })
+}
+
+/// What a Tink with a judged or browser check asks for when its folder has no preview declaration.
+const PREVIEW: &str = "This Tink has a judged or browser check, and the repository has no tinkery.preview. \
+Commit tinkery.preview at the project root: one JSON object on one line with exactly command and url \
+(http://127.0.0.1 with an explicit port), so Taste can open the built result.";
+
+/// The Tink's pre-mortem lines: each risk in the operator's words, with the check that must fail if
+/// it happens or the out-of-scope line confirmed with the Tink. Refuses words not in the
+/// operator's own `answer`, a check that is not one exact statement, and a substantive answer
+/// with no risk named. It cannot tell whether every risk in the answer was named (#1010).
+fn pre_mortem_block(
+    answer: Option<&str>,
+    risks: &[Risk],
+    checks: &Value,
+) -> Result<Option<String>, String> {
+    let refuse = |why: String| Err(format!("No Tink was drafted: {why}."));
+    if answer.is_some() && risks.is_empty() {
+        return refuse(
+            "the operator's pre-mortem answer names a risk, but field risks is empty; list each risk \
+             in their words with the check that would fail if it happened, or an out_of_scope line"
+                .into(),
+        );
+    }
+    let mut block = String::from(
+        "Pre-mortem risks, in the operator's words, each with its check or an out-of-scope line confirmed with this Tink:\n",
+    );
+    for (n, risk) in risks.iter().enumerate() {
+        if !answer.is_some_and(|answer| answer.contains(&risk.words)) {
+            return refuse(format!(
+                "risk {} \"{}\" is not copied from the operator's pre-mortem answer",
+                n + 1,
+                risk.words
+            ));
+        }
+        let line = match &risk.covered {
+            Cover::Check(check) => {
+                if !checks
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .any(|c| c["statement"].as_str().map(str::trim) == Some(check))
+                {
+                    return refuse(format!(
+                        "risk {} names check \"{check}\", which is not one check's exact statement",
+                        n + 1
+                    ));
+                }
+                format!("Check: {check}")
+            }
+            Cover::OutOfScope(line) => format!("Out of scope: {line}"),
+        };
+        block.push_str(&format!("- Risk: \"{}\". {line}\n", risk.words));
+    }
+    Ok((!risks.is_empty()).then_some(block))
+}
+
+/// Add Tinkery's `block` after one named prose field; a missing field is left for prose to refuse.
+fn append(confirming: &mut Value, field: &str, block: Option<String>) {
+    if let (Some(block), Some(text)) = (block, confirming[field].as_str()) {
+        confirming[field] = format!("{}\n\n{block}", text.trim_end()).into();
+    }
 }
 
 /// Restore the operator's exact Done when line where one check kept it whole but changed only its
@@ -985,8 +1065,53 @@ pub(super) enum Next {
         found: Vec<Found>,
         /// Defaults the draft chose instead of asking; the operator sees them, never as answers.
         assumed: Vec<Assumption>,
+        /// Each pre-mortem risk the draft names, with its check or out-of-scope line (#1010).
+        risks: Vec<Risk>,
         resolves: Option<Value>,
     },
+}
+
+/// One pre-mortem risk in words the model says it copied from the operator's answer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct Risk {
+    words: String,
+    covered: Cover,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Cover {
+    /// The exact statement of the check that would fail if the risk happened.
+    Check(String),
+    /// Why this Tink leaves the risk out; the operator confirms it with the Tink.
+    OutOfScope(String),
+}
+
+/// Complete one-line risk entries, each with exactly one of check or out_of_scope; anything else
+/// gives none, never a repaired list.
+fn risks(value: &Value) -> Option<Vec<Risk>> {
+    value
+        .as_array()?
+        .iter()
+        .map(|r| {
+            let field = |key: &str| {
+                r.get(key).map(|v| {
+                    v.as_str()
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty() && !s.contains(['\n', '\r']))
+                        .map(str::to_owned)
+                })
+            };
+            let covered = match (field("check"), field("out_of_scope")) {
+                (Some(Some(check)), None) => Cover::Check(check),
+                (None, Some(Some(line))) => Cover::OutOfScope(line),
+                _ => return None,
+            };
+            Some(Risk {
+                words: field("risk")??,
+                covered,
+            })
+        })
+        .collect()
 }
 
 /// The model's reply as one JSON object (surrounding prose or a code fence is tolerated).
@@ -1112,6 +1237,14 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
                 )
                 .to_owned());
             }
+            // #1010: the pilot's pre-mortem named two risks; no check covered either.
+            let Some(risks) = value.get("risks").map_or(Some(Vec::new()), risks) else {
+                return Err(concat!(
+                    "Tink draft reply field risks must list each risk the operator's pre-mortem names, each with ",
+                    "risk (their words, one line), and either check (one check's exact statement) or out_of_scope."
+                )
+                .to_owned());
+            };
             restore_case(goal, &mut checks);
             let review = review_reply::decode(value["review"].clone(), &mut checks);
             let checks = Value::Array(checks);
@@ -1122,6 +1255,7 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
                 checks,
                 found,
                 assumed: assumptions(&value["assumed"]),
+                risks,
                 resolves: value.get("resolves").cloned(),
             })
         }

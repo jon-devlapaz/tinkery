@@ -318,6 +318,36 @@ impl Ledger {
         );
         found
     }
+    /// The operator's own settled pre-mortem answer, exactly as typed, when it can name a risk:
+    /// never a delegated answer, and never "skip", "not sure" or a similar non-answer (#1010).
+    pub fn pre_mortem(&self) -> Option<&str> {
+        let node = self.state["nodes"]
+            .as_array()?
+            .iter()
+            .find(|n| n["id"] == ledger::PRE_MORTEM && n["status"] == "settled")?;
+        let answer = node["answer"]
+            .as_str()
+            .filter(|_| node["authority"] == "user")?;
+        let plain = answer
+            .trim()
+            .trim_end_matches(['.', '!'])
+            .to_lowercase()
+            .replace('\u{2019}', "'");
+        let empty = [
+            "",
+            "skip",
+            "skipped",
+            "not sure",
+            "unsure",
+            "none",
+            "nothing",
+            "n/a",
+            "no idea",
+            "don't know",
+            "i don't know",
+        ];
+        (!empty.contains(&plain.as_str())).then_some(answer)
+    }
     /// Whether the ledger already has a current question; looking must not replace it.
     pub fn has_current_question(&self) -> bool {
         !self.state["current_question"].is_null()
