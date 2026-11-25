@@ -777,7 +777,12 @@ line, F1 numbers the rest. The session list keeps Enter to open a session.
   and lines in `source`. A proposed command must run in the checkout as cloned: setup
   that CI, tox, a Makefile or package scripts do before the runner goes into `cmd`,
   preferring forms that change nothing outside the checkout (#657). Behavior-specific regressions name the assertion expected
-  to fail before the change or under targeted reversion. Inspection is not observed
+  to fail before the change or under targeted reversion. Reversion is proved through behaviour,
+  against a baseline built in the test or the base commit's files. A new draft whose check `cmd`,
+  `expect` or `missing` edits source text or reads git history is refused naming the check.
+  A `cmd` matches by command form (`sed -i`, `git show`, `origin/`); `expect` and `missing` match only
+  by naming a source-text edit or git history ([#1012](https://github.com/jon-devlapaz/tinkery/issues/1012): such a probe
+  failed on CI's shallow clone). Inspection is not observed
   red or green. Routine setup or an unperformed reversion probe does not make an
   existing check provisional; missing assertions, tests or invocations do, with
   `missing` naming the gap. Never invent a runner or substitute a generic suite
@@ -914,6 +919,13 @@ itself, in that order.
   question, without a model call or budget. The operator answers it with Enter like any question,
   in their own words, or types `skip`, as the screen says. Asked after findings were already recorded, it carries
   `NOT independent: asked after findings were shown.`
+- A seed reply's `risks` lists each risk the operator's own pre-mortem answer names: its words, copied
+  on one line, with either one check's exact statement or an `out_of_scope` line. Tinkery refuses the
+  draft when the answer is substantive and the list is empty, when the words are not in the answer,
+  or when the check is not one exact statement. Skipped, "not sure" and delegated answers owe no list.
+  Tinkery adds each risk under Risks and verification, so the operator confirms each out-of-scope line
+  with the Tink ([#1010](https://github.com/jon-devlapaz/tinkery/issues/1010): a pilot pre-mortem named
+  two risks that no check covered). It cannot tell whether the list names every risk in the answer.
 - The step investigates counter-example and outside-view probes as typed inference or unknown
   findings, asks instead of drafting when either raises an operator-only decision, and records
   consequences and a `Where we did not look:` line in Risks and verification. Only asked and

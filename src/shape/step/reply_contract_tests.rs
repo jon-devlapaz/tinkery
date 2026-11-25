@@ -47,6 +47,15 @@ fn valid_reply() -> Value {
                 json!("TEST wrong output must fail")).collect::<Vec<_>>()}})
 }
 
+/// A valid reply after the operator's own TEST pre-mortem answer, which every such reply must
+/// cover (#1010); these tests are not about that coverage.
+fn answered_reply() -> Value {
+    let mut reply = valid_reply();
+    reply["risks"] =
+        json!([{"risk": "TEST", "out_of_scope": "TEST fixture, not about the pre-mortem"}]);
+    reply
+}
+
 /// The checks as Shape saves them: each keeps its own failure case.
 fn with_cases(checks: &Value, cases: &[Value]) -> Value {
     let mut saved = checks.clone();
@@ -120,7 +129,12 @@ fn look_again(session: &Path, root: &Path, agent: &Agent) -> Result<Done, Failur
 fn assert_recovery(session: &Path, root: &Path, agent: &Agent) {
     let before: Value =
         serde_json::from_slice(&fs::read(session.join("ledger.json")).unwrap()).unwrap();
-    fs::write(root.join("TEST-reply.json"), valid_reply().to_string()).unwrap();
+    let reply = if answering::read(session).unwrap().pre_mortem().is_some() {
+        answered_reply()
+    } else {
+        valid_reply()
+    };
+    fs::write(root.join("TEST-reply.json"), reply.to_string()).unwrap();
     assert_eq!(look_again(session, root, agent), Ok(Done::Drafted));
     let after: Value =
         serde_json::from_slice(&fs::read(session.join("ledger.json")).unwrap()).unwrap();
@@ -867,7 +881,7 @@ fn a_claude_code_step_reads_only_the_shown_folder_and_drafts_from_its_json_resul
     let version = answering::probe(&session, version).unwrap().unwrap();
     // Claude Code gets a clean environment, so the fake's paths are baked in.
     let log = root.path().join("TEST-started.json");
-    let reply = json!({"type":"result", "is_error":false, "result":valid_reply().to_string(),
+    let reply = json!({"type":"result", "is_error":false, "result":answered_reply().to_string(),
         "modelUsage":{"claude-TEST":{}}});
     let program = root.path().join("claude");
     fs::write(
@@ -1143,7 +1157,7 @@ fn a_goal_past_32_kib_still_reaches_the_model() {
         })
         .unwrap()
         .session;
-    let agent = provider(root.path(), &valid_reply().to_string(), 1);
+    let agent = provider(root.path(), &answered_reply().to_string(), 1);
     let program = root.path().join("TEST-pi");
     fs::write(&program, "#!/usr/bin/env python3\nimport pathlib, sys\nhere = pathlib.Path(__file__)\nhere.with_name('TEST-sent').write_text(str(len(sys.stdin.buffer.read())))\nprint(here.with_name('TEST-reply.json').read_text())\n").unwrap();
     let version = answering::read(&session).unwrap().version();
@@ -1278,4 +1292,223 @@ fn a_draft_that_picks_one_of_two_readings_asks_it_instead_and_stays_gray() {
     let mut half = valid_reply();
     half["readings"] = json!([{"chosen": "TEST one way"}]);
     assert!(decode(&half.to_string(), "").is_err());
+}
+
+/// A session at its pre-mortem, answered with `words` through the step that then drafts with
+/// `reply`; returns the session and that step's result.
+fn drafted_after(root: &Path, words: &str, reply: &Value) -> (PathBuf, Result<Done, Failure>) {
+    let session = Config::new(Some(root.join("TEST-sessions")))
+        .confirm(Affirmed {
+            goal: "TEST rank the menu".into(),
+            outcome: "TEST the order holds".into(),
+            options: vec![],
+            originals: vec![],
+            context: "{}".into(),
+            source: "TEST fixture".into(),
+        })
+        .unwrap()
+        .session;
+    let version = answering::read(&session).unwrap().version();
+    let version = answering::probe(&session, version).unwrap().unwrap();
+    let version = answering::answer(
+        &session,
+        version,
+        answering::SAMPLE.0,
+        "TEST sample: one pasted line",
+        Actor::OPERATOR,
+    )
+    .unwrap();
+    let version = answering::probe(&session, version).unwrap().unwrap();
+    let agent = provider(root, &reply.to_string(), 1);
+    let done = run(
+        &Work::Answer {
+            relay: None,
+            id: answering::PROBE.0.into(),
+            words: words.into(),
+            expected: version,
+            reads: PathBuf::from(root).into(),
+        },
+        &session,
+        &agent,
+        &AtomicBool::new(false),
+        &AtomicBool::new(false),
+    );
+    (session, done)
+}
+
+fn seed_text(session: &Path) -> String {
+    fs::read_to_string(session.join("seed-contract.md")).unwrap()
+}
+
+#[test]
+fn each_pre_mortem_risk_needs_a_check_or_an_out_of_scope_line_before_a_draft() {
+    // #1010: the pilot's pre-mortem named both risks below; Tink r1 checked neither.
+    let words = "None of the above moves out of last place, or the order changes on reload.";
+    let with = |risks: Value| {
+        let mut reply = valid_reply();
+        reply["risks"] = risks;
+        reply
+    };
+    for (risks, refusal) in [
+        (None, "field risks is empty"),
+        (Some(json!([])), "field risks is empty"),
+        (
+            Some(json!([{"risk": "the order changes on reload"}])),
+            "field risks must list each risk",
+        ),
+        (
+            Some(json!([{"risk": "the order is random", "out_of_scope": "TEST"}])),
+            "is not copied from the operator's pre-mortem answer",
+        ),
+        (
+            Some(json!([{"risk": "the order changes on reload", "check": "Reloading keeps it."}])),
+            "which is not one check's exact statement",
+        ),
+    ] {
+        let root = tempfile::Builder::new()
+            .prefix("TEST-1010-")
+            .tempdir()
+            .unwrap();
+        let reply = risks.map_or_else(valid_reply, with);
+        let (session, done) = drafted_after(root.path(), words, &reply);
+        let error = done.unwrap_err();
+        let reason = refused(&error.why).or(match &error.why {
+            Why::Model(reason) => Some(reason.clone()),
+            _ => None,
+        });
+        assert!(
+            reason.as_deref().is_some_and(|r| r.contains(refusal)),
+            "{refusal}: {error:?}"
+        );
+        assert!(!session.join("seed-contract.md").exists());
+    }
+    let root = tempfile::Builder::new()
+        .prefix("TEST-1010-")
+        .tempdir()
+        .unwrap();
+    let reply = with(json!([
+        {"risk": "the order changes on reload", "check": "existing output is correct."},
+        {"risk": "None of the above moves out of last place", "out_of_scope": "TEST the ranking is unchanged here"},
+    ]));
+    let (session, done) = drafted_after(root.path(), words, &reply);
+    assert_eq!(done, Ok(Done::Drafted));
+    let seed = seed_text(&session);
+    let risks = seed.split_once("## Risks and verification").unwrap().1;
+    for line in [
+        "Pre-mortem risks, in the operator's words, each with its check or an out-of-scope line confirmed with this Tink:",
+        "- Risk: \"the order changes on reload\". Check: Existing output is correct.",
+        "- Risk: \"None of the above moves out of last place\". Out of scope: TEST the ranking is unchanged here",
+    ] {
+        assert!(risks.contains(line), "{line}\n{seed}");
+    }
+    // A skipped pre-mortem names no risk, so no list is owed.
+    let root = tempfile::Builder::new()
+        .prefix("TEST-1010-")
+        .tempdir()
+        .unwrap();
+    let (session, done) = drafted_after(root.path(), "skip", &valid_reply());
+    assert_eq!(done, Ok(Done::Drafted));
+    assert!(!seed_text(&session).contains("Pre-mortem risks"));
+}
+
+#[test]
+fn a_reversion_that_edits_source_text_or_reads_git_history_refuses_the_draft() {
+    // #1012: a pilot probe removed code with a regex, and the next read `git show origin/main`,
+    // which failed on CI's shallow clone.
+    for (field, words) in [
+        (
+            "cmd",
+            "git show origin/main:src/menu.js > TEST-old.js && ./TEST-check",
+        ),
+        (
+            "missing",
+            "TEST the probe deletes the shuffle from the source text with a regex",
+        ),
+        (
+            "cmd",
+            "sed -i 's/shuffle//' src/menu.js && ./TEST-new-check",
+        ),
+    ] {
+        let root = tempfile::Builder::new()
+            .prefix("TEST-1012-")
+            .tempdir()
+            .unwrap();
+        let mut reply = valid_reply();
+        reply["checks"][1][field] = words.into();
+        let (session, done) = drafted_after(root.path(), "skip", &reply);
+        let error = done.unwrap_err();
+        assert!(
+            refused(&error.why).is_some_and(|r| r.contains(&format!("check 2's {field} names"))
+                && r.contains("baseline built in the test or the base commit's files")),
+            "{error:?}"
+        );
+        assert!(!session.join("seed-contract.md").exists());
+    }
+    // Words that only resemble those forms, and git commands that read no history, still draft.
+    for (field, words) in [
+        (
+            "expect",
+            "TEST the CORS origin/host header is used -i style",
+        ),
+        ("cmd", "git diff --exit-code && ./TEST-new-check"),
+    ] {
+        let root = tempfile::Builder::new()
+            .prefix("TEST-1012-")
+            .tempdir()
+            .unwrap();
+        let mut reply = valid_reply();
+        reply["checks"][1][field] = words.into();
+        let (_, done) = drafted_after(root.path(), "skip", &reply);
+        assert_eq!(done, Ok(Done::Drafted), "{words}");
+    }
+}
+
+#[test]
+fn a_judged_check_asks_for_a_preview_unless_the_repository_declares_one() {
+    // #1014: two pilot runs had no preview to open, and a hand-run preview found a layout bug.
+    let ask = "Commit tinkery.preview at the project root";
+    let root = tempfile::Builder::new()
+        .prefix("TEST-1014-")
+        .tempdir()
+        .unwrap();
+    let (session, done) = drafted_after(root.path(), "skip", &valid_reply());
+    assert_eq!(done, Ok(Done::Drafted));
+    let handoff = seed_text(&session);
+    let handoff = handoff.split_once("## Downstream handoff").unwrap().1;
+    assert!(handoff.contains(ask), "{handoff}");
+    let root = tempfile::Builder::new()
+        .prefix("TEST-1014-")
+        .tempdir()
+        .unwrap();
+    fs::write(
+        root.path().join("tinkery.preview"),
+        r#"{"command":"TEST","url":"http://127.0.0.1:5173/"}"#,
+    )
+    .unwrap();
+    let (session, done) = drafted_after(root.path(), "skip", &valid_reply());
+    assert_eq!(done, Ok(Done::Drafted));
+    assert!(!seed_text(&session).contains(ask));
+    // Without a judged or browser check there is nothing to look at.
+    let root = tempfile::Builder::new()
+        .prefix("TEST-1014-")
+        .tempdir()
+        .unwrap();
+    let mut reply = valid_reply();
+    reply["checks"].as_array_mut().unwrap().pop();
+    reply["review"]["failure_cases"]
+        .as_array_mut()
+        .unwrap()
+        .pop();
+    let (session, done) = drafted_after(root.path(), "skip", &reply);
+    assert_eq!(done, Ok(Done::Drafted));
+    assert!(!seed_text(&session).contains(ask));
+    // An objective browser check is looked at too.
+    let root = tempfile::Builder::new()
+        .prefix("TEST-1014-")
+        .tempdir()
+        .unwrap();
+    reply["checks"][0]["expect"] = "TEST open the page in a browser at 375px".into();
+    let (session, done) = drafted_after(root.path(), "skip", &reply);
+    assert_eq!(done, Ok(Done::Drafted));
+    assert!(seed_text(&session).contains(ask));
 }

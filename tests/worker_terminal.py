@@ -582,7 +582,7 @@ def cap_review(case):
         row = dict(slug=slug, run_id=run_id, checkout=str(checkout),
                    seed_contract=None, verification_status='not-run', steps=[])
 
-        def record(step, responses, edit=False, cap_stop=False, op='launch', match=True):
+        def record(step, responses, edit=False, cap_stop=False, op='launch', match=True, commits=()):
             session = f'tsdlc-TEST-{step}'
             capped = cap_stop or case == 'stopped-on-resume'
             fact = dict(name=step, state='stopped' if capped else 'completed')
@@ -595,10 +595,14 @@ def cap_review(case):
             events = [dict(type='session', version=3, id=session if match else 'another-session',
                            cwd=str(checkout))]
             for n in range(1, responses + 1):
-                message = dict(role='assistant', content=[], stopReason='toolUse')
+                # `commits` maps a response to its shell command and whether that call failed.
+                tool = 'bash' if n in commits else 'edit' if n == 1 else ('write' if n == responses and edit else 'read')
+                call = dict(type='toolCall', id=f'call-{n}', name=tool,
+                            arguments=dict(command=commits[n][0]) if n in commits else {})
+                message = dict(role='assistant', content=[call], stopReason='toolUse')
                 events.extend([dict(type='message_start', message=message), dict(type='message_end', message=message)])
-                tool = 'edit' if n == 1 else ('write' if n == responses and edit else 'read')
-                result = dict(role='toolResult', toolName=tool, toolCallId=f'call-{n}', isError=n == 1)
+                result = dict(role='toolResult', toolName=tool, toolCallId=f'call-{n}',
+                              isError=commits[n][1] if n in commits else n == 1)
                 events.extend([dict(type='message_end', message=result),
                                dict(type='turn_end', message=message, toolResults=[result])])
             content = ''.join(json.dumps(event) + '\n' for event in events)
@@ -611,6 +615,14 @@ def cap_review(case):
         if case == 'warn':
             record('build', CAP, edit=True)
             record('finish', 5, cap_stop=True)
+        elif case == 'commit':
+            # tinkery#1016: a step that edits early but commits late needs room for the commit.
+            # A failed commit and shell calls that only mention a commit do not count.
+            done = 'git add -A && git commit -qm "TEST work"'
+            record('build', CAP + 5, edit=True, commits={
+                2: ('git log --grep commit; echo git commit && git commit-tree HEAD^{tree}', False),
+                3: ('git commit --dry-run', False),
+                4: (done, True), CAP + 4: (done, False)})
         elif case == 'at-minimum':
             record('build', CAP - 1, edit=True)
         elif case == 'cap-only':
@@ -653,6 +665,11 @@ def cap_review(case):
                 assert not fixture.mutations()
                 terminal.send(END + F2, 'Read from tink-sdlc.')
                 assert len(fixture.admissions()) == 1 and fixture.read()['step']['max_responses'] == CAP
+            elif case == 'commit':
+                assert 'Suggested minimum: 13 responses' in shown, shown
+                assert 'earlier-build/build: first commit at response 11. Allow one follow-up.' in shown, shown
+                assert 'earlier-build/build: first edit/write at response 12' in shown, shown
+                assert '! Your cap of 7 is below this minimum. Starting keeps your cap.' in shown, shown
             elif case == 'at-minimum':
                 assert 'Suggested minimum: 7 responses' in shown and '! Your cap' not in shown, shown
             elif case == 'cap-only':
@@ -809,6 +826,11 @@ def journey(width, height, case, mono=False):
                         write_logs(Path(fixture.read()['build']), fixture.read()['run']['run_id'], marker=True)
                         terminal.send(b's', 'Worker: stopped by response cap')
                         assert 'Verification: not-run' in terminal.flat()
+                        # tinkery#1016: n waits for the cap guidance and warns that this cap stopped short.
+                        terminal.send(END, 'Suggested minimum: 9 responses')
+                        assert 'test-worker/build: no commit through response 7' in terminal.flat(), terminal.screen.text()
+                        assert '! Your cap of 7 is below this minimum' in terminal.flat(), terminal.screen.text()
+                        assert 'End to start a new step' in terminal.flat(), terminal.screen.text()
                         assert fixture.read()['step']['state'] == 'stopped'
                         assert fixture.read()['step']['stopped_by'] == 'cap'
                         assert not any(call['argv'] == ['step', 'test-worker', 'build', 'complete']
@@ -861,7 +883,7 @@ if __name__ == '__main__':
     check_cli()
     sha_review('human')
     sha_review('agent')
-    for case in ('warn', 'at-minimum', 'cap-only', 'stopped-on-resume', 'unusable'):
+    for case in ('warn', 'commit', 'at-minimum', 'cap-only', 'stopped-on-resume', 'unusable'):
         cap_review(case)
     journey(80, 24, 'success')
     journey(100, 30, 'success', mono=True)
