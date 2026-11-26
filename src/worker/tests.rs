@@ -51,7 +51,11 @@ impl Fixture {
             SCRIPT.replace("@STATE@", &serde_json::to_string(&state).unwrap()),
         )
         .unwrap();
-        fs::write(root.join("_system/scripts/pi-durable-launcher"), "TEST adapter").unwrap();
+        fs::write(
+            root.join("_system/scripts/pi-durable-launcher"),
+            "TEST adapter",
+        )
+        .unwrap();
         fs::write(root.join("context.txt"), "TEST committed context\n").unwrap();
         fs::write(root.join("AGENTS.md"), "TEST committed instructions\n").unwrap();
         fs::write(root.join(".gitignore"), "cache/\n").unwrap();
