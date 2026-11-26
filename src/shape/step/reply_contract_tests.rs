@@ -129,7 +129,11 @@ fn look_again(session: &Path, root: &Path, agent: &Agent) -> Result<Done, Failur
 fn assert_recovery(session: &Path, root: &Path, agent: &Agent) {
     let before: Value =
         serde_json::from_slice(&fs::read(session.join("ledger.json")).unwrap()).unwrap();
-    let reply = if answering::read(session).unwrap().pre_mortem().is_some() {
+    let reply = if answering::read(session)
+        .unwrap()
+        .pre_mortem()
+        .is_some_and(|p| p.operator)
+    {
         answered_reply()
     } else {
         valid_reply()
@@ -1297,15 +1301,28 @@ fn a_draft_that_picks_one_of_two_readings_asks_it_instead_and_stays_gray() {
 /// A session at its pre-mortem, answered with `words` through the step that then drafts with
 /// `reply`; returns the session and that step's result.
 fn drafted_after(root: &Path, words: &str, reply: &Value) -> (PathBuf, Result<Done, Failure>) {
+    drafted_by(&GoalConfirmation::default(), root, words, reply)
+}
+
+/// [`drafted_after`], with every step taken by the one `confirmation` names.
+fn drafted_by(
+    confirmation: &GoalConfirmation,
+    root: &Path,
+    words: &str,
+    reply: &Value,
+) -> (PathBuf, Result<Done, Failure>) {
     let session = Config::new(Some(root.join("TEST-sessions")))
-        .confirm(Affirmed {
-            goal: "TEST rank the menu".into(),
-            outcome: "TEST the order holds".into(),
-            options: vec![],
-            originals: vec![],
-            context: "{}".into(),
-            source: "TEST fixture".into(),
-        })
+        .confirm_as(
+            Affirmed {
+                goal: "TEST rank the menu".into(),
+                outcome: "TEST the order holds".into(),
+                options: vec![],
+                originals: vec![],
+                context: "{}".into(),
+                source: confirmation.source(),
+            },
+            confirmation.actor().unwrap(),
+        )
         .unwrap()
         .session;
     let version = answering::read(&session).unwrap().version();
@@ -1320,7 +1337,7 @@ fn drafted_after(root: &Path, words: &str, reply: &Value) -> (PathBuf, Result<Do
     .unwrap();
     let version = answering::probe(&session, version).unwrap().unwrap();
     let agent = provider(root, &reply.to_string(), 1);
-    let done = run(
+    let done = Steps::new(Some(&agent), confirmation).run(
         &Work::Answer {
             relay: None,
             id: answering::PROBE.0.into(),
@@ -1329,7 +1346,6 @@ fn drafted_after(root: &Path, words: &str, reply: &Value) -> (PathBuf, Result<Do
             reads: PathBuf::from(root).into(),
         },
         &session,
-        &agent,
         &AtomicBool::new(false),
         &AtomicBool::new(false),
     );
@@ -1358,7 +1374,7 @@ fn each_pre_mortem_risk_needs_a_check_or_an_out_of_scope_line_before_a_draft() {
         ),
         (
             Some(json!([{"risk": "the order is random", "out_of_scope": "TEST"}])),
-            "is not copied from the operator's pre-mortem answer",
+            "is not copied from the settled pre-mortem answer",
         ),
         (
             Some(json!([{"risk": "the order changes on reload", "check": "Reloading keeps it."}])),
@@ -1409,6 +1425,67 @@ fn each_pre_mortem_risk_needs_a_check_or_an_out_of_scope_line_before_a_draft() {
     let (session, done) = drafted_after(root.path(), "skip", &valid_reply());
     assert_eq!(done, Ok(Done::Drafted));
     assert!(!seed_text(&session).contains("Pre-mortem risks"));
+}
+
+#[test]
+fn a_delegated_pre_mortem_bounds_the_risks_a_draft_copies_but_owes_none() {
+    // The 2026-11-26 Pi Durable dogfood: Shape refused three agent-operated drafts that copied
+    // their risks from the agent's own pre-mortem answer.
+    let agent: GoalConfirmation = serde_json::from_value(json!({
+        "by":"agent", "agent":"TEST-agent", "authorizing_operator":"TEST-person",
+        "source":"TEST permission to plan this disposable menu",
+        "class":{"door":"two_way", "door_reason":"TEST disposable plan",
+        "blast_radius":"small", "blast_radius_reason":"TEST root only"}
+    }))
+    .unwrap();
+    let words = "None of the above moves out of last place, or the order changes on reload.";
+    let with = |risks: Value| {
+        let mut reply = valid_reply();
+        reply["risks"] = risks;
+        reply
+    };
+    let draft = |reply: &Value| {
+        let root = tempfile::Builder::new()
+            .prefix("TEST-delegated-pre-mortem-")
+            .tempdir()
+            .unwrap();
+        let (session, done) = drafted_by(&agent, root.path(), words, reply);
+        (
+            done,
+            session
+                .join("seed-contract.md")
+                .exists()
+                .then(|| seed_text(&session)),
+        )
+    };
+    let (done, seed) = draft(&with(json!([
+        {"risk": "the order changes on reload", "check": "existing output is correct."},
+    ])));
+    assert_eq!(done, Ok(Done::Drafted));
+    let seed = seed.unwrap();
+    for line in [
+        "Pre-mortem risks, in the delegated agent's words, each with its check or an out-of-scope line confirmed with this Tink:",
+        "- Risk: \"the order changes on reload\". Check: Existing output is correct.",
+    ] {
+        assert!(seed.contains(line), "{line}\n{seed}");
+    }
+    let (done, seed) = draft(&valid_reply());
+    assert_eq!(
+        done,
+        Ok(Done::Drafted),
+        "a delegated answer owes no risk list"
+    );
+    assert!(!seed.unwrap().contains("Pre-mortem risks"));
+    let (done, seed) = draft(&with(
+        json!([{"risk": "the order is random", "out_of_scope": "TEST"}]),
+    ));
+    let error = done.unwrap_err();
+    assert!(
+        refused(&error.why)
+            .is_some_and(|r| r.contains("is not copied from the settled pre-mortem answer")),
+        "{error:?}"
+    );
+    assert!(seed.is_none());
 }
 
 #[test]

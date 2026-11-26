@@ -932,30 +932,35 @@ const PREVIEW: &str = "This Tink has a judged or browser check, and the reposito
 Commit tinkery.preview at the project root: one JSON object on one line with exactly command and url \
 (http://127.0.0.1 with an explicit port), so Taste can open the built result.";
 
-/// The Tink's pre-mortem lines: each risk in the operator's words, with the check that must fail if
-/// it happens or the out-of-scope line confirmed with the Tink. Refuses words not in the
-/// operator's own `answer`, a check that is not one exact statement, and a substantive answer
-/// with no risk named. It cannot tell whether every risk in the answer was named (#1010).
+/// The Tink's pre-mortem lines: each risk in the answer's words, with the check that must fail if
+/// it happens or the out-of-scope line confirmed with the Tink. Refuses words not in the settled
+/// `answer`, a check that is not one exact statement, and an operator's substantive answer with no
+/// risk named. A delegated answer owes no list. It cannot tell whether every risk was named (#1010).
 fn pre_mortem_block(
-    answer: Option<&str>,
+    answer: Option<answering::PreMortem<'_>>,
     risks: &[Risk],
     checks: &Value,
 ) -> Result<Option<String>, String> {
     let refuse = |why: String| Err(format!("No Tink was drafted: {why}."));
-    if answer.is_some() && risks.is_empty() {
+    if answer.is_some_and(|a| a.operator) && risks.is_empty() {
         return refuse(
             "the operator's pre-mortem answer names a risk, but field risks is empty; list each risk \
              in their words with the check that would fail if it happened, or an out_of_scope line"
                 .into(),
         );
     }
-    let mut block = String::from(
-        "Pre-mortem risks, in the operator's words, each with its check or an out-of-scope line confirmed with this Tink:\n",
+    let whose = if answer.is_some_and(|a| a.operator) {
+        "the operator's words"
+    } else {
+        "the delegated agent's words"
+    };
+    let mut block = format!(
+        "Pre-mortem risks, in {whose}, each with its check or an out-of-scope line confirmed with this Tink:\n",
     );
     for (n, risk) in risks.iter().enumerate() {
-        if !answer.is_some_and(|answer| answer.contains(&risk.words)) {
+        if !answer.is_some_and(|answer| answer.words.contains(&risk.words)) {
             return refuse(format!(
-                "risk {} \"{}\" is not copied from the operator's pre-mortem answer",
+                "risk {} \"{}\" is not copied from the settled pre-mortem answer",
                 n + 1,
                 risk.words
             ));
