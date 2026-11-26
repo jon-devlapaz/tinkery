@@ -1,16 +1,18 @@
 """Small UTF-8 screen reader for the cursor/style sequences emitted by this demo."""
 import base64
 import codecs
+import os
 import re
 
 CSI = re.compile(r"\x1b\[([0-?]*)([ -/]*)([@-~])")
 
 
 class Screen:
-    def __init__(self, width, height):
+    def __init__(self, width, height, *, reply_fd=None):
         self.width, self.height = width, height
         self.cells = [[" "] * width for _ in range(height)]
         self.x = self.y = 0
+        self.reply_fd = reply_fd
         self.pending = ""
         self.clipboards = []
         self.synchronized = False
@@ -37,7 +39,7 @@ class Screen:
                     if len(self.pending) == 1 or self.pending.startswith("\x1b["):
                         return
                     raise AssertionError(f"Unsupported terminal escape: {self.pending!r}")
-                arguments, _, command = match.groups()
+                arguments, intermediate, command = match.groups()
                 self.pending = self.pending[match.end():]
                 if arguments in (">0", ">1") and command == "s":
                     continue
@@ -48,7 +50,12 @@ class Screen:
                     if command == "l":
                         self.frames += 1
                     continue
-                if arguments.startswith("?") or command == "m" or command == "c" and not arguments:
+                if command == "c" and not arguments:
+                    # Answer the device query without advertising enhanced keyboard support.
+                    if not intermediate and self.reply_fd is not None:
+                        os.write(self.reply_fd, b"\x1b[?1;2c")
+                    continue
+                if arguments.startswith("?") or command == "m":
                     continue
                 values = [int(value or "0") for value in arguments.split(";")]
                 n = values[0] or 1

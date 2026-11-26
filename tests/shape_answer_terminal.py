@@ -196,7 +196,7 @@ class Run:
         (cwd / 'shape-replies.json').write_text(json.dumps(list(replies)))
         self.master, self.slave = os.openpty()
         fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
-        self.screen = Screen(width, height)
+        self.screen = Screen(width, height, reply_fd=self.master)
         args = [str(BINARY), '--home', '--seed-session-root', str(self.sessions), '--record-root', str(self.records),
                 '--link-root', str(cwd / 'TEST-links')]
         if shape_setup:
@@ -1371,7 +1371,7 @@ def read_end_revision(width, height):
             # Read satisfaction and typed words survive resizing, even with a taller editor.
             resized_width, resized_height = (100, 30) if width == 80 else (80, 24)
             run.width = resized_width
-            run.screen = Screen(resized_width, resized_height)
+            run.screen = Screen(resized_width, resized_height, reply_fd=run.master)
             fcntl.ioctl(run.slave, termios.TIOCSWINSZ, struct.pack('HHHH', resized_height, resized_width, 0, 0))
             run.wait('enter confirm Tink r1')
             assert files(session) == before and len(run.calls()) == 1

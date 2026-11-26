@@ -6,9 +6,11 @@ and supplies controlled worker observations; it does not establish Pi quality or
 the real runtime's approval enforcement.
 """
 from terminal_process import wait_deadline, wait_output
+import atexit
 import base64
 import contextlib
 import fcntl
+from functools import cache
 import hashlib
 import json
 import os
@@ -308,26 +310,43 @@ else:
 '''
 
 
+@cache
+def fixture_template(gray):
+    template = tempfile.TemporaryDirectory(prefix='tinkery-TEST-worker-template-')
+    atexit.register(template.cleanup)
+    project = Path(template.name) / 'project'
+    scripts = project / '_system/scripts'
+    scripts.mkdir(parents=True)
+    (scripts / 'sdlc.py').write_text(FAKE)
+    launcher = scripts / 'pi-launcher'
+    launcher.write_text('#!/bin/sh\necho TEST unexpected direct adapter call >&2\nexit 97\n')
+    launcher.chmod(0o755)
+    env = subprocess.environment({**os.environ, 'PATH': '/usr/bin:/bin'})
+    for args in [('init', '-q'), ('config', 'user.name', 'TEST fixture'),
+                 ('config', 'user.email', 'fixture@example.invalid'),
+                 ('add', '.'), ('commit', '-qm', 'TEST runtime boundary')]:
+        subprocess.run(['git', *args], cwd=project, env=env, check=True)
+    session = make(Path(template.name) / 'sessions', 'TEST worker', goal='TEST keep this exact goal.', question=False)
+    if gray:
+        # An answer the operator did not give in their own words is gray (#931).
+        old = ledger.load(session)
+        state = ledger.editable(old)
+        notes = next(n for n in state['nodes'] if n['id'] == 'notes')
+        notes.update(authority='delegated', evidence=['TEST agent accepted the suggestion'])
+        ledger.publish(session, state, old['version'], 'TEST delegated answer')
+    seed(session, confirm=True, title='TEST worker')
+    return project, session
+
+
 class Fixture:
     def __init__(self, root, scenario='normal', gray=False):
         self.root = root
         self.project = root / "TEST project's checkout"
-        scripts = self.project / '_system/scripts'
-        scripts.mkdir(parents=True)
-        (scripts / 'sdlc.py').write_text(FAKE)
-        launcher = scripts / 'pi-launcher'
-        launcher.write_text('#!/bin/sh\necho TEST unexpected direct adapter call >&2\nexit 97\n')
-        launcher.chmod(0o755)
+        project, session = fixture_template(gray)
+        shutil.copytree(project, self.project)
         self.sessions = root / 'TEST sessions'
-        self.session = make(self.sessions, 'TEST worker', goal='TEST keep this exact goal.', question=False)
-        if gray:
-            # An answer the operator did not give in their own words is gray (#931).
-            old = ledger.load(self.session)
-            state = ledger.editable(old)
-            notes = next(n for n in state['nodes'] if n['id'] == 'notes')
-            notes.update(authority='delegated', evidence=['TEST agent accepted the suggestion'])
-            ledger.publish(self.session, state, old['version'], 'TEST delegated answer')
-        seed(self.session, confirm=True, title='TEST worker')
+        self.session = self.sessions / session.name
+        shutil.copytree(session, self.session)
         self.state = root / 'state.json'
         self.log = root / 'calls.jsonl'
         self.release = root / 'release'
@@ -349,11 +368,6 @@ class Fixture:
             home=root / 'HOME')
         self.env.pop('NO_COLOR', None)
         self.env.pop('TINK_SDLC_STEP_SESSION', None)
-        self.git('init', '-q')
-        self.git('config', 'user.name', 'TEST fixture')
-        self.git('config', 'user.email', 'fixture@example.invalid')
-        self.git('add', '.')
-        self.git('commit', '-qm', 'TEST runtime boundary')
 
     def git(self, *args):
         return subprocess.check_output(['git', *args], cwd=self.project, env=self.env,
@@ -388,7 +402,7 @@ class Terminal:
         self.fixture = fixture
         self.master, self.slave = os.openpty()
         fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
-        self.screen = Screen(width, height)
+        self.screen = Screen(width, height, reply_fd=self.master)
         self.output = bytearray()
         env = dict(fixture.env)
         if mono:
@@ -488,6 +502,11 @@ def command_seed(session):
 
 def real_runtime(fixture, adapter_source):
     """Install the real SDLC runtime with a fake provider adapter in the fixture project."""
+    if sys.platform == 'darwin':
+        # The real runtime starts Git repeatedly. Resolve Apple's Git dispatcher once.
+        git = subprocess.check_output(['/usr/bin/xcrun', '--find', 'git'], env=fixture.env, text=True)
+        (fixture.root / 'bin/git').symlink_to(git.strip())
+    fixture.git('config', 'sdlc.policyBaseRef', fixture.git('symbolic-ref', 'HEAD'))
     for folder in ('_system', '_shared', 'stages'):
         shutil.copytree(REPO / folder, fixture.project / folder, dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
@@ -1031,7 +1050,6 @@ if __name__ == '__main__':
     for scenario in ('no-budget', 'changed-seed', 'dirty-source', 'pending-gate', 'uncertain', 'changed-run',
                      'changed-pin', 'cap', 'quit-busy', 'measure-busy', 'launch-refused'):
         journey(80, 24, scenario, mono=True)
-    real_runtime_journey()
     real_runtime_journey(fail_first=True)
     crash_resume_journey()
     crash_resume_journey(exhausted=True)

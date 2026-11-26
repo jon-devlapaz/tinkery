@@ -22,7 +22,7 @@ class Terminal:
     def __init__(self, root, cwd, width, height, no_color):
         self.master, self.slave = os.openpty()
         fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
-        self.screen = Screen(width, height)
+        self.screen = Screen(width, height, reply_fd=self.master)
         env = {**os.environ, 'TERM': 'xterm-256color', 'TINKERY_NODE': '/tinkery-TEST-no-node'}
         env.pop('NO_COLOR', None)
         if no_color:
