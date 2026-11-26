@@ -7,6 +7,7 @@ from vt_screen import Screen
 
 import reading_scroll_terminal as reading
 import shape_answer_terminal as shape
+import shape_terminal as shape_reading
 import test_shape_confirmation_wait as confirmation
 import tend_thought_terminal as thoughts
 import think_history_terminal as history
@@ -102,6 +103,39 @@ class JourneyWaitTests(unittest.TestCase):
             if delayed is not None:
                 delayed.cancel()
                 delayed.join()
+
+    def test_enter_waits_for_tend_when_home_is_still_visible(self):
+        write = os.write
+        for terminal, journey, args in (
+            (shape, delivery.journey, (80, 24, True)),
+            (shape_reading, shape_reading.journey, (100, 30, 'question')),
+        ):
+            with self.subTest(journey=journey.__module__):
+                pending = None
+                delivered = False
+                wait_output = terminal.wait_output
+
+                def queue_navigation(fd, data):
+                    nonlocal pending
+                    self.assertIsNone(pending, 'A second key arrived before Tend opened.')
+                    if data == b'2':
+                        pending = (fd, data)
+                        return len(data)
+                    return write(fd, data)
+
+                def observe_previous_screen(*args, **kwargs):
+                    nonlocal pending, delivered
+                    for status in wait_output(*args, **kwargs):
+                        yield status
+                        if pending is not None:
+                            write(*pending)
+                            pending = None
+                            delivered = True
+
+                with mock.patch.object(os, 'write', queue_navigation), \
+                     mock.patch.object(terminal, 'wait_output', observe_previous_screen):
+                    journey(*args)
+                self.assertTrue(delivered)
 
     def test_delivery_reads_to_its_known_end_after_a_delayed_down_key(self):
         write = os.write
