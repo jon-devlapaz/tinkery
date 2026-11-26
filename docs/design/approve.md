@@ -219,7 +219,10 @@ the reader keeps no logs and sends none to a provider.
 F2 requests one bounded transaction through the installed SDLC runtime: recheck the
 selected seed and origin, require committed project source, create the run, import
 the seed, open stage 3 in its own
-worktree, prepare a pinned Pi build step and launch it. The existing SDLC commands
+worktree, prepare a pinned Pi build step and launch it. Every step Tinkery prepares uses tink-sdlc's
+`pi-durable-launcher` (scaffold 1.78.0). A crash then leaves its run pending, and `u` continues that run
+without rerunning the interrupted command. The launcher refuses until
+`_system/scripts/pi-durable-launcher install` has run once on the machine. The existing SDLC commands
 own definition gates, worktree creation, model resolution, launcher hashing,
 session identity and cumulative cap. No copied shell text is executed and no
 approval or worker report is invented. A refusal stops the sequence; there is no

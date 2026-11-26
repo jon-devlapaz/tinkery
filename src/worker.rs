@@ -692,7 +692,7 @@ fn prepare(run: &Run, step: &str, config: &Config) -> Result<(), String> {
         config.model.clone(),
         "--launcher".into(),
         run.root
-            .join("_system/scripts/pi-launcher")
+            .join("_system/scripts/pi-durable-launcher")
             .to_string_lossy()
             .into_owned(),
         "--max-responses".into(),

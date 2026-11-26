@@ -152,7 +152,7 @@ elif args[0] == 'step':
         assert root == Path(state['run']['checkout'])
         report, launcher = Path(option('--report')), Path(option('--launcher'))
         assert report.is_absolute() and report.parent.is_dir()
-        assert launcher == root / '_system/scripts/pi-launcher'
+        assert launcher == root / '_system/scripts/pi-durable-launcher'
         assert launcher.is_file()
         assert option('--model') == state['model']
         assert int(option('--max-responses')) == state['cap']
@@ -322,7 +322,7 @@ def fixture_template(gray):
     scripts = project / '_system/scripts'
     scripts.mkdir(parents=True)
     (scripts / 'sdlc.py').write_text(FAKE)
-    launcher = scripts / 'pi-launcher'
+    launcher = scripts / 'pi-durable-launcher'
     launcher.write_text('#!/bin/sh\necho TEST unexpected direct adapter call >&2\nexit 97\n')
     launcher.chmod(0o755)
     env = subprocess.environment({**os.environ, 'PATH': '/usr/bin:/bin'})
@@ -514,7 +514,7 @@ def real_runtime(fixture, adapter_source):
     for folder in ('_system', '_shared', 'stages'):
         shutil.copytree(REPO / folder, fixture.project / folder, dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
-    adapter = fixture.project / '_system/scripts/pi-launcher'
+    adapter = fixture.project / '_system/scripts/pi-durable-launcher'
     adapter.write_text(f'#!{sys.executable}\n' + adapter_source)
     adapter.chmod(0o755)
 

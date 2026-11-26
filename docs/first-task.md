@@ -153,9 +153,10 @@ Check the pin first, then prepare and launch one pinned build step:
 ```sh
 python3 "$tinkery_src/scripts/first-task-check.py" --sdlc-root "$project" --worker-model "$worker_model"
 mkdir -p "$notes"
+"$build/_system/scripts/pi-durable-launcher" install  # once per machine; downloads the pinned packages
 cd "$build" && python3 _system/scripts/sdlc.py step "$run" build prepare \
   --report "$notes/$run-build.md" --model "$worker_model" \
-  --launcher "$build/_system/scripts/pi-launcher"
+  --launcher "$build/_system/scripts/pi-durable-launcher"
 python3 _system/scripts/sdlc.py step "$run" build launch
 ```
 
