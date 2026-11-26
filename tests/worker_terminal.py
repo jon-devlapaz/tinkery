@@ -443,6 +443,10 @@ def real_runtime_journey(fail_first=False):
     """Real intake, worktree, immutable step and verify; only the provider adapter is fake."""
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-worker-real-runtime-') as directory:
         fixture = Fixture(Path(directory).resolve())
+        if sys.platform == 'darwin':
+            # The real runtime starts Git repeatedly. Resolve Apple's Git dispatcher once.
+            git = subprocess.check_output(['/usr/bin/xcrun', '--find', 'git'], env=fixture.env, text=True)
+            (fixture.root / 'bin/git').symlink_to(git.strip())
         for folder in ('_system', '_shared', 'stages'):
             shutil.copytree(REPO / folder, fixture.project / folder, dirs_exist_ok=True,
                             ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
