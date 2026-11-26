@@ -29,7 +29,9 @@ designs and briefs. Only the operator amends it; report discrepancies, never edi
 - Never record real audio; voice tests use fake engines and recorders, never native addons.
 - Use temporary TEST roots. Never write to `~/.local/share/seed-me` or
   `~/.local/share/tinkery`, or change operator sessions, installs, launcher, Pi,
-  Pi Voice or the operator's Seed Me checkout.
+  Pi Voice or the operator's Seed Me checkout. The one exception: if the operator asks you
+  to install or update Tinkery, run `python3 scripts/install.py` from an up-to-date `main`
+  checkout. Never copy the binary or write the launcher yourself.
 - Fix a bug from its observed cause. After two failed fixes, add logging and collect
   observations; after three, stop and hand over a fresh brief: problem, goal, failed attempts.
 - Read relevant tests and design before implementation; update changed decisions.

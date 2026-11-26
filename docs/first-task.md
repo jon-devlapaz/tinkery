@@ -21,11 +21,15 @@ On Debian or Ubuntu (on macOS, provision Rust, Python 3 and Node first; see
 ```sh
 git clone https://github.com/jon-devlapaz/tinkery "$tinkery_src"
 cd "$tinkery_src" && ./scripts/cloud-setup.sh
-export PATH="$HOME/.cargo/bin:$tinkery_src/.cloud-tools/node/bin:$tinkery_src/target/release:$PATH"
-cargo +stable build --locked --release
+export PATH="$HOME/.cargo/bin:$tinkery_src/.cloud-tools/node/bin:$HOME/.local/bin:$PATH"
+python3 scripts/install.py
 ```
 
 The `export` line lasts for this shell; add it to `~/.profile` to keep it.
+[`scripts/install.py`](../scripts/install.py) builds the checkout, installs the binary in
+`~/.local/share/tinkery/bin` and writes the `~/.local/bin/tinkery` launcher. It is the only
+supported way to install Tinkery. To update, run `git pull` and then the script again.
+Never write or edit the launcher by hand. If the check below reports a launcher problem, run the script again.
 
 Check readiness instead of running the contributor test suite:
 
@@ -34,7 +38,7 @@ python3 "$tinkery_src/scripts/first-task-check.py"
 ```
 
 It runs no model and installs nothing. `ready: Tinkery runs` is this step's result.
-Saved: nothing. Allowed: nothing. Running: nothing.
+Saved: the Tinkery binary and its launcher in your HOME. Allowed: nothing. Running: nothing.
 
 ## 2. Connect your project to tink-sdlc
 
