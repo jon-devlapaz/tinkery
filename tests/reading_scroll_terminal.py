@@ -104,18 +104,20 @@ def journey(width, height, no_color):
             seen = list(initial)
             previous = initial
             for _ in range(24):
-                send(b'\x1b[6~')
+                before = screen.frames
+                os.write(master, b'\x1b[6~')
+                wait_for(lambda: HINT in right() and reading() != previous,
+                         'Reading page did not advance', before)
                 current = reading()
-                if current == previous:
-                    break
                 overlap = next((n for n in range(len(current), 0, -1) if seen[-n:] == current[:n]), 0)
                 seen.extend(current[overlap:])
+                if 'reader 6.' in joined(current):
+                    break
                 previous = current
             else:
                 raise AssertionError('Reading did not reach its end')
             for exclusion in EXCLUSIONS:
                 assert 'Must not: ' + exclusion + '.' in joined(seen), (exclusion, seen)
-            assert 'reader 6.' in joined(current)
             assert 'type confirm' not in screen.text(), 'Scrolling opened review'
 
             # Help names this route and leaves both the reading position and draft intact.
@@ -149,8 +151,10 @@ def journey(width, height, no_color):
             assert copy(b'\x03') == draft
             send(b'\x1bOP')
             assert copy(screen.pick('Copy the reading')) == copied
-            send(b'\x1b[5~' * 24)
-            assert reading() == initial, 'PgUp did not return to the start'
+            before = screen.frames
+            os.write(master, b'\x1b[5~' * 24)
+            wait_for(lambda: HINT in right() and reading() == initial,
+                     'PgUp did not return to the start', before)
 
             # Review still needs its own explicit action; exiting starts and saves nothing.
             send(b'\x7f'); send(b'\x1bOP'); send(screen.pick('Review the goal'))
@@ -172,6 +176,7 @@ def journey(width, height, no_color):
             os.close(master); os.close(slave)
 
 
-for size in [(80, 24), (100, 30)]:
-    for no_color in [False, True]:
-        journey(*size, no_color)
+if __name__ == '__main__':
+    for size in [(80, 24), (100, 30)]:
+        for no_color in [False, True]:
+            journey(*size, no_color)
