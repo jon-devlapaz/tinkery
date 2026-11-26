@@ -447,6 +447,7 @@ def real_runtime_journey(fail_first=False):
             # The real runtime starts Git repeatedly. Resolve Apple's Git dispatcher once.
             git = subprocess.check_output(['/usr/bin/xcrun', '--find', 'git'], env=fixture.env, text=True)
             (fixture.root / 'bin/git').symlink_to(git.strip())
+        fixture.git('config', 'sdlc.policyBaseRef', fixture.git('symbolic-ref', 'HEAD'))
         for folder in ('_system', '_shared', 'stages'):
             shutil.copytree(REPO / folder, fixture.project / folder, dirs_exist_ok=True,
                             ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
