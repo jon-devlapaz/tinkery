@@ -87,7 +87,7 @@ class TerminalProcess:
 
     def resize(self, width, height):
         fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
-        self.screen = Screen(width, height)
+        self.screen = Screen(width, height, reply_fd=self.master)
         if hasattr(self, 'process'):
             os.kill(self.process.pid, signal.SIGWINCH)
 
