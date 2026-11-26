@@ -51,7 +51,11 @@ impl Fixture {
             SCRIPT.replace("@STATE@", &serde_json::to_string(&state).unwrap()),
         )
         .unwrap();
-        fs::write(root.join("_system/scripts/pi-launcher"), "TEST adapter").unwrap();
+        fs::write(
+            root.join("_system/scripts/pi-durable-launcher"),
+            "TEST adapter",
+        )
+        .unwrap();
         fs::write(root.join("context.txt"), "TEST committed context\n").unwrap();
         fs::write(root.join("AGENTS.md"), "TEST committed instructions\n").unwrap();
         fs::write(root.join(".gitignore"), "cache/\n").unwrap();
@@ -599,7 +603,7 @@ fn starts_once_through_exact_argv_and_source_owned_isolated_checkout() {
         snapshot
             .run
             .root
-            .join("_system/scripts/pi-launcher")
+            .join("_system/scripts/pi-durable-launcher")
             .to_str()
             .unwrap()
     );
@@ -1733,7 +1737,7 @@ elif args[0]=='stage' and args[2]=='3':
   # Like SDLC, the build checkout is a Git worktree on the run's own branch.
   subprocess.run(['git','worktree','add','-q','-b',args[1],str(build),'HEAD'],check=True)
   (build/'runs/test').mkdir(parents=True,exist_ok=True)
- (build/'_system/scripts/pi-launcher').write_text('TEST adapter')
+ (build/'_system/scripts/pi-durable-launcher').write_text('TEST adapter')
  data['built']=True
 elif args[0]=='step':
  op=args[3]
