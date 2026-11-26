@@ -125,7 +125,7 @@ pub(crate) enum Turn {
     Unknown,
     /// The launcher reached the response cap; the turn has not ended and only a stop is owed.
     AtCap,
-    /// The turn has not ended and its worker process has exited; only a stop is owed.
+    /// The turn has not ended and its worker process has exited; resume or a stop is owed.
     Gone,
 }
 
@@ -889,8 +889,15 @@ fn admit(
                 .into(),
         );
     }
-    if !launch && observed.state != (State::Active { turn: Turn::Ended }) {
-        return Err("Resume needs an observed ended turn. A running or unknown turn may still own this session.".into());
+    if !launch
+        && !matches!(
+            observed.state,
+            State::Active {
+                turn: Turn::Ended | Turn::Gone
+            }
+        )
+    {
+        return Err("Resume needs an ended turn or a gone worker. A running or unknown turn may still own this session, and a reached cap allows no more responses.".into());
     }
     if launch {
         check_retry_source(run, target)?;

@@ -240,12 +240,17 @@ worker screen; Watch's `b` opens the selected existing run, resolving a build
 checkout only from SDLC's explicit report and matching run ID.
 
 On that screen, `r` reads status, `l` launches an inspected prepared step, `u` resumes
-an ended turn, `f` records a normally
+an ended turn or a gone worker, `f` records a normally
 ended worker, `v` verifies, `s` stops it and records the response cap as the reason only if the worker log shows the cap marker. These are separate
 explicit actions. A step whose launcher reached its response cap reads `Worker: reached its
 response cap`, never `running`. A step whose turn did not end and whose worker process SDLC saw
 exit (`worker_gone`, tink-sdlc 1.76.0) reads `Worker: not running; its turn did not end`.
-Both screens say `Next: s records the stop`. Their actions are `r`, `v` and `s`; `u` and `f` are not offered.
+The capped screen says `Next: s records the stop`; its actions are `r`, `v` and `s`.
+The gone screen says `Next: u resumes the saved session within its remaining cap`, and offers
+`u`, `r`, `v` and `s`. No worker owns that session, so `u` continues it on its pinned model,
+session and cumulative cap. A reached cap wins over a gone worker, so an exhausted budget
+offers no `u`. Neither screen offers `f`, because no turn ended. Resume still refuses a running
+or unknown turn, which may still own its session.
 Verify before finishing: `f` refuses without current passing
 verification, so a failed check leaves the ended worker resumable after a successful reread.
 An `awaiting-attestation` reading says `waiting on your judgment`, names the pending
@@ -310,6 +315,9 @@ These prove mechanics, not operator acceptance or real-work benefit.
 [Worker terminal journeys](../../tests/worker_terminal.py) cover explicit admission,
 separate allowance, source changes, retained requests and truthful completion states
 with temporary TEST storage and fake providers.
+The crash-resume journeys run the real tink-sdlc runtime with a fake adapter. They SIGKILL the
+worker during a shell command and press `u`. They check the same session, submission, checkout
+and cap of two, with one shell invocation. A live worker and a used-up cap both leave `u` inert.
 The failed-Verify journeys retain ended
 state and human-check instructions, press stale action keys after Verify and reread failures,
 and count launch/resume calls at 100×30 and 80×24 with NO_COLOR. Run

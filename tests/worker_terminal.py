@@ -8,6 +8,7 @@ the real runtime's approval enforcement.
 from terminal_process import wait_deadline, wait_output
 import atexit
 import base64
+import contextlib
 import fcntl
 from functools import cache
 import hashlib
@@ -249,6 +250,66 @@ print(json.dumps(reply))
 '''
 
 
+CRASH_ADAPTER = r'''import argparse, json, os, subprocess, sys, time, uuid
+from pathlib import Path
+p = argparse.ArgumentParser()
+p.add_argument('operation')
+for name in ('model', 'report', 'contract', 'session', 'for-operation', 'max-responses'):
+    p.add_argument('--' + name)
+args = p.parse_args()
+trial = Path(os.environ['TEST_CRASH'])
+events, identity, done = trial / 'events.jsonl', trial / 'session.json', trial / 'done'
+def log(event, **details):
+    with open(events, 'a') as out:
+        out.write(json.dumps(dict(event=event, **details)) + '\n')
+def used():
+    rows = [json.loads(line) for line in events.read_text().splitlines()] if events.exists() else []
+    return sum(row['event'] == 'stub-request' for row in rows)
+def reply(**extra):
+    print(json.dumps(dict(protocol='tink-sdlc-launcher', api_version=1, model=args.model, **extra)))
+contract = json.loads(Path(args.contract).read_text())
+cap = contract['max_responses']
+log('adapter', operation=args.operation, for_operation=args.for_operation, session=args.session)
+saved = json.loads(identity.read_text()) if identity.exists() else None
+if args.operation == 'resolve':
+    if args.for_operation == 'resume' and used() >= cap:
+        sys.exit('TEST original stub budget exhausted.')
+    reply(operation=args.for_operation, session=saved and saved['session'])
+elif args.operation == 'launch':
+    assert saved is None, 'TEST admits one session'
+    session = str(uuid.uuid4())
+    identity.write_text(json.dumps(dict(session=session, submission=1, checkout=str(Path.cwd()), cap=cap)))
+    worker = subprocess.Popen([sys.executable, __file__, 'run', '--contract', args.contract], start_new_session=True,
+                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    until = time.monotonic() + 10
+    while not (trial / 'command.pid').exists():
+        assert worker.poll() is None and time.monotonic() < until, 'TEST worker never ran its command'
+        time.sleep(.02)
+    reply(operation='launch', session=session, process_group=worker.pid)
+elif args.operation == 'run':
+    # The stub answers with one tool call per response; the last starts the shell command.
+    for _ in range(int(os.environ['TEST_CRASH_RESPONSES'])):
+        log('stub-request', session=saved['session'], submission=saved['submission'], interrupted=False)
+    command = 'printf "%s\\n" "shell command started" >> "$1" && printf "%s\\n" "$$" > "$2" && exec /bin/sleep 90'
+    subprocess.run(['/bin/sh', '-c', command, 'TEST', str(trial / 'invocations'), str(trial / 'command.pid')])
+    raise AssertionError('TEST worker must be killed while its command runs')
+elif args.operation == 'resume':
+    assert args.session == saved['session'] and str(Path.cwd()) == saved['checkout']
+    assert int(args.max_responses) == saved['cap'] and used() < cap
+    # The resumed submission gets the interrupted tool result and does not repeat the command.
+    log('stub-request', session=args.session, submission=saved['submission'], interrupted=True)
+    Path(args.report).write_text('TEST interrupted command was not repeated.\n')
+    done.touch()
+    reply(operation='resume', session=args.session)
+elif args.operation == 'finished':
+    assert args.session == saved['session']
+    reply(operation='finished', session=args.session, finished=done.exists(),
+          response_cap_reached=not done.exists() and used() >= cap)
+else:
+    raise AssertionError('Unexpected TEST crash adapter operation: ' + args.operation)
+'''
+
+
 @cache
 def fixture_template(gray):
     template = tempfile.TemporaryDirectory(prefix='tinkery-TEST-worker-template-')
@@ -337,7 +398,7 @@ class Fixture:
 
 class Terminal:
     def __init__(self, fixture, width, height, budget=True, mono=False,
-                 operator='agent', authorization='fixture'):
+                 operator='agent', authorization='fixture', cap=CAP):
         self.fixture = fixture
         self.master, self.slave = os.openpty()
         fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack('HHHH', height, width, 0, 0))
@@ -357,11 +418,11 @@ class Terminal:
             authorization.write_text(json.dumps(dict(
                 words='TEST operator authorizes this bounded worker start.',
                 seed_sha256=hashlib.sha256((fixture.session / 'seed-contract.md').read_bytes()).hexdigest(),
-                model=MODEL, responses=CAP)))
+                model=MODEL, responses=cap)))
         if authorization is not None:
             args.extend(['--worker-authorization', str(authorization)])
         if budget:
-            args.extend(['--worker-model', MODEL, '--worker-responses', str(CAP)])
+            args.extend(['--worker-model', MODEL, '--worker-responses', str(cap)])
         self.process = subprocess.Popen(args, cwd=fixture.project, env=env,
                                         stdin=self.slave, stdout=self.slave, stderr=self.slave)
 
@@ -439,21 +500,101 @@ def command_seed(session):
     ledger.confirm_seed(session, 'r1', 'TEST fixture only: confirm r1')
 
 
+def real_runtime(fixture, adapter_source):
+    """Install the real SDLC runtime with a fake provider adapter in the fixture project."""
+    if sys.platform == 'darwin':
+        # The real runtime starts Git repeatedly. Resolve Apple's Git dispatcher once.
+        git = subprocess.check_output(['/usr/bin/xcrun', '--find', 'git'], env=fixture.env, text=True)
+        (fixture.root / 'bin/git').symlink_to(git.strip())
+    fixture.git('config', 'sdlc.policyBaseRef', fixture.git('symbolic-ref', 'HEAD'))
+    for folder in ('_system', '_shared', 'stages'):
+        shutil.copytree(REPO / folder, fixture.project / folder, dirs_exist_ok=True,
+                        ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+    adapter = fixture.project / '_system/scripts/pi-launcher'
+    adapter.write_text(f'#!{sys.executable}\n' + adapter_source)
+    adapter.chmod(0o755)
+
+
+def crash_resume_journey(exhausted=False):
+    """The Pi Durable crash test through the screen: SIGKILL during a shell command, then u.
+    A live worker and a used-up cap both keep u unoffered and inert. Only the adapter is fake."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-worker-crash-') as directory:
+        fixture = Fixture(Path(directory).resolve())
+        real_runtime(fixture, CRASH_ADAPTER)
+        (fixture.project / '_system/verification.json').write_text(json.dumps(dict(
+            require_tink=False, checks=[dict(argv=['python3', '-c', 'pass'], timeout_seconds=10)])))
+        command_seed(fixture.session)
+        fixture.git('add', '.')
+        fixture.git('commit', '-qm', 'TEST real SDLC and crash adapter')
+        trial = fixture.root / 'TEST-crash'
+        trial.mkdir()
+        fixture.env['TEST_CRASH'] = str(trial)
+        fixture.env['TEST_CRASH_RESPONSES'] = '2' if exhausted else '1'
+        events = trial / 'events.jsonl'
+        def rows(event):
+            return [row for row in map(json.loads, events.read_text().splitlines()) if row['event'] == event]
+        def resumes():
+            return [row for row in rows('adapter') if 'resume' in (row['operation'], row['for_operation'])]
+        terminal = Terminal(fixture, 100, 30, mono=True, cap=2)
+        try:
+            open_review(terminal)
+            # Two responses before the command leave none: the cap reads even while the worker lives.
+            reading = 'Worker: reached its response cap' if exhausted else 'Worker: running'
+            terminal.send(F2, reading)
+            build = Path(json.loads(subprocess.run(
+                ['python3', '_system/scripts/sdlc.py', 'status', 'test-worker', '--json'], cwd=fixture.project,
+                env=fixture.env, capture_output=True, text=True, check=True).stdout)['run']['checkout'])
+            contract_path = build / 'runs/test-worker/steps/build.json'
+            contract = json.loads(contract_path.read_text())
+            group = contract['process_group']
+            # A live worker owns its session: u is neither shown nor admitted.
+            terminal.send(END, 'esc back')
+            assert 'u resume' not in terminal.flat() and 'End to resume' not in terminal.flat(), terminal.flat()
+            terminal.send(b'u', 'esc back')
+            terminal.send(b'r', reading)
+            assert not resumes(), 'u resumed a live worker'
+            os.killpg(group, 9)
+            until = wait_deadline(10)
+            while True:
+                try:
+                    os.killpg(group, 0)
+                except ProcessLookupError:
+                    break
+                assert time.monotonic() < until, 'TEST killed worker group did not exit'
+                time.sleep(.02)
+            if exhausted:
+                terminal.send(b'r', 'Worker: reached its response cap')
+                terminal.send(END, 'esc back')
+                assert 'u resume' not in terminal.flat() and 'End to resume' not in terminal.flat(), terminal.flat()
+                terminal.send(b'ur', 'Worker: reached its response cap')
+                assert not resumes(), 'u resumed past the original cap'
+            else:
+                terminal.send(b'r', 'Worker: not running; its turn did not end')
+                assert 'f finish' not in terminal.flat()
+                terminal.send(END + b'u', 'Worker: turn ended; completion still unrecorded')
+                resumed = json.loads(contract_path.read_text())
+                for field in ('session', 'checkout', 'model', 'max_responses', 'run_id'):
+                    assert resumed[field] == contract[field], field
+                requests = rows('stub-request')
+                assert [row['interrupted'] for row in requests] == [False, True], requests
+                assert {(row['session'], row['submission']) for row in requests} == {(contract['session'], 1)}
+                assert [row['operation'] for row in resumes()] == ['resolve', 'resume'], resumes()
+            assert (trial / 'invocations').read_text() == 'shell command started\n', 'the command ran again'
+            assert len(rows('stub-request')) == 2
+            assert not (fixture.root / 'unexpected-provider').exists()
+            print(f'PASS worker crash resume: 100x30; exhausted={exhausted}, live worker not resumed, '
+                  f'{0 if exhausted else 1} same-session resume, one shell invocation, cap 2, no providers')
+        finally:
+            terminal.close()
+            with contextlib.suppress(FileNotFoundError, ProcessLookupError, ValueError):
+                os.killpg(int((trial / 'command.pid').read_text()), 9)
+
+
 def real_runtime_journey(fail_first=False):
     """Real intake, worktree, immutable step and verify; only the provider adapter is fake."""
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-worker-real-runtime-') as directory:
         fixture = Fixture(Path(directory).resolve())
-        if sys.platform == 'darwin':
-            # The real runtime starts Git repeatedly. Resolve Apple's Git dispatcher once.
-            git = subprocess.check_output(['/usr/bin/xcrun', '--find', 'git'], env=fixture.env, text=True)
-            (fixture.root / 'bin/git').symlink_to(git.strip())
-        fixture.git('config', 'sdlc.policyBaseRef', fixture.git('symbolic-ref', 'HEAD'))
-        for folder in ('_system', '_shared', 'stages'):
-            shutil.copytree(REPO / folder, fixture.project / folder, dirs_exist_ok=True,
-                            ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
-        adapter = fixture.project / '_system/scripts/pi-launcher'
-        adapter.write_text(f'#!{sys.executable}\n' + ADAPTER)
-        adapter.chmod(0o755)
+        real_runtime(fixture, ADAPTER)
         (fixture.project / '_system/verification.json').write_text(json.dumps(dict(
             require_tink=False, checks=[dict(argv=['python3', 'TEST-check.py'], timeout_seconds=10)])))
         (fixture.project / 'marker').write_text('TEST baseline\n')
@@ -910,3 +1051,5 @@ if __name__ == '__main__':
                      'changed-pin', 'cap', 'quit-busy', 'measure-busy', 'launch-refused'):
         journey(80, 24, scenario, mono=True)
     real_runtime_journey(fail_first=True)
+    crash_resume_journey()
+    crash_resume_journey(exhausted=True)

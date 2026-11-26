@@ -407,18 +407,24 @@ impl Panel {
         keys.join("  ")
     }
 
+    /// An ended turn, or an unended one whose worker process is gone. A reached cap wins
+    /// over a gone worker, so an exhausted budget never offers Resume.
     fn can_resume(&self) -> bool {
-        self.snapshot
-            .as_ref()
-            .is_some_and(|s| matches!(s.state, State::Active { turn: Turn::Ended }))
+        self.snapshot.as_ref().is_some_and(|s| {
+            matches!(
+                s.state,
+                State::Active {
+                    turn: Turn::Ended | Turn::Gone
+                }
+            )
+        })
     }
 
     fn can_finish(&self) -> bool {
-        self.can_resume()
-            && self
-                .snapshot
-                .as_ref()
-                .is_some_and(|s| s.verification.is(Verification::Current))
+        self.snapshot.as_ref().is_some_and(|s| {
+            s.state == (State::Active { turn: Turn::Ended })
+                && s.verification.is(Verification::Current)
+        })
     }
 
     fn can_start_new_step(&self) -> bool {
@@ -459,7 +465,7 @@ impl Panel {
         if self.help {
             add(
                 "Worker actions\n\nF2 starts only the reviewed Tink with its separate worker allowance.\n\
-                 r reads status. l launches a prepared step; u resumes an ended turn on its existing model/session and cumulative cap.\n\
+                 r reads status. l launches a prepared step; u resumes an ended turn, or one whose worker process is gone, on its existing model/session and cumulative cap.\n\
                  n starts a new step (build-2, build-3…) when the current one can do nothing more:\n\
                  no step yet, launch uncertain, completed or stopped. Its cap is this launch's worker allowance.\n\
                  v verifies first. Only current passing checks allow f to record the normally ended worker.\n\
@@ -500,15 +506,17 @@ impl Panel {
                     snapshot.pending_attestations.join(", ")
                 ));
             }
-            if self.fresh
-                && matches!(
-                    snapshot.state,
-                    State::Active {
-                        turn: Turn::AtCap | Turn::Gone
+            if self.fresh {
+                match snapshot.state {
+                    State::Active { turn: Turn::AtCap } => {
+                        add("\nNext: s records the stop. Then n can start a new step.")
                     }
-                )
-            {
-                add("\nNext: s records the stop. Then n can start a new step.");
+                    State::Active { turn: Turn::Gone } => add(
+                        "\nNext: u resumes the saved session within its remaining cap. \
+                         Or s records the stop, and then n can start a new step.",
+                    ),
+                    _ => {}
+                }
             }
             if self.fresh && self.can_launch() {
                 add(
@@ -545,9 +553,13 @@ impl Panel {
             }
             if self.fresh && self.can_resume() {
                 add(
-                    "\nu sends the existing task and source context to the same provider again within the remaining cap.\n\
-                     v verifies before f records the ended turn; failed checks leave u available. Neither action accepts the result.",
+                    "\nu sends the existing task and source context to the same provider again within the remaining cap.",
                 );
+                if snapshot.state == (State::Active { turn: Turn::Ended }) {
+                    add(
+                        "v verifies before f records the ended turn; failed checks leave u available. Neither action accepts the result.",
+                    );
+                }
             }
         } else {
             add(if self.run.is_some() && self.busy() {
