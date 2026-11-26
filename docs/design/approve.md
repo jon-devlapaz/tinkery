@@ -220,9 +220,10 @@ F2 requests one bounded transaction through the installed SDLC runtime: recheck 
 selected seed and origin, require committed project source, create the run, import
 the seed, open stage 3 in its own
 worktree, prepare a pinned Pi build step and launch it. Every step Tinkery prepares uses tink-sdlc's
-`pi-durable-launcher` (scaffold 1.78.0). A crash then leaves its run pending, and `u` continues that run
-without rerunning the interrupted command. The launcher refuses until
-`_system/scripts/pi-durable-launcher install` has run once on the machine. The existing SDLC commands
+`pi-durable-launcher` (scaffold 1.78.0), which needs Node 22.19+ and npm. A crash then leaves its run pending,
+and `u` continues that run. The harness does not rerun the interrupted command; the model gets an interrupted
+result. Until `_system/scripts/pi-durable-launcher install` has run once on the machine, the launch is refused
+and the step stays prepared, so `l` launches it after the install. The existing SDLC commands
 own definition gates, worktree creation, model resolution, launcher hashing,
 session identity and cumulative cap. No copied shell text is executed and no
 approval or worker report is invented. A refusal stops the sequence; there is no
