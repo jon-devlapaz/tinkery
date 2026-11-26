@@ -30,6 +30,7 @@ GUIDE = 'docs/first-task.md'
 SETUP_BIN = Path(__file__).resolve().parents[1] / '.cloud-tools/node/bin'
 AGENT_DRAFTING = 'agents name the model at launch: --shape-pi --model MODEL --shape-budget RESPONSES'
 UNCHECKED = "Pi's model and login are checked once the workflow is connected."
+INSTALL = Path(__file__).resolve().parent / 'install.py'
 
 
 def install_pi(pi, step=''):
@@ -45,7 +46,7 @@ def install_pi(pi, step=''):
 
 def tinkery_runs(tinkery):
     if not tinkery:
-        return False, f'Install Tinkery and put it on PATH ({GUIDE}, step 1).'
+        return False, f'Install Tinkery with python3 {shlex.quote(str(INSTALL))} and put ~/.local/bin on PATH ({GUIDE}, step 1).'
     with tempfile.TemporaryDirectory(prefix='tinkery-first-task-check-') as home:
         env = {**os.environ, 'HOME': home}
         try:
@@ -54,8 +55,19 @@ def tinkery_runs(tinkery):
         except (OSError, subprocess.TimeoutExpired) as error:
             return False, f'{tinkery} did not start: {error}'
     if result.returncode:
-        return False, f'{tinkery} --snapshot failed: {(result.stderr or result.stdout).strip()[:200]}'
+        return False, reinstall(tinkery) or f'{tinkery} --snapshot failed: {(result.stderr or result.stdout).strip()[:200]}'
     return True, tinkery
+
+
+def reinstall(tinkery):
+    """A launcher script that does not run: scripts/install.py writes one that does."""
+    try:
+        with open(tinkery, 'rb') as program:
+            if program.read(2) != b'#!':
+                return None
+    except OSError:
+        return None
+    return f'{tinkery} does not run; run python3 {shlex.quote(str(INSTALL))} to rewrite it ({GUIDE}, step 1).'
 
 
 def launcher(root):

@@ -78,14 +78,13 @@ def pinned_sdlc(source, env):
 
 
 def isolated_tools(directory, env):
-    """Expose only guide dependencies; Pi comes from this journey's later stand-in install."""
+    """Expose only guide dependencies; Tinkery and Pi come from this journey's later installs."""
     for name in ('bash', 'git', 'mkdir', 'chmod'):
         program = shutil.which(name, path=env['PATH'])
         if program is None:
             raise RuntimeError(f'First-task journey requires {name} on PATH.')
         (directory / name).symlink_to(Path(program).resolve())
     (directory / 'python3').symlink_to(sys.executable)
-    (directory / 'tinkery').symlink_to(REPO / 'target/debug/tinkery')
     return {**env, 'PATH': str(directory), 'TINK_SDLC_PI': str(directory / 'pi')}
 
 
@@ -124,7 +123,14 @@ def main():
 
         # 1. The readiness check, not the contributor suite.
         install, check = blocks('1. Install Tinkery')
-        assert 'cargo +stable build --locked --release' in install
+        assert install.splitlines()[-1] == 'python3 scripts/install.py', install
+        assert '$HOME/.local/bin' in install, install
+        # The guide's install, with the debug build the runner made instead of a release build.
+        shell(f'cd {shlex.quote(str(REPO))} && python3 scripts/install.py --binary target/debug/tinkery',
+              env, root)
+        launcher = home / '.local/bin/tinkery'
+        assert str(home / '.local/share/tinkery/bin/tinkery') in launcher.read_text()
+        env['PATH'] = f"{launcher.parent}:{env['PATH']}"
         # A fresh user with no Git identity learns it here, not from step 2's failing commit.
         anonymous = {k: v for k, v in env.items() if not k.startswith(('GIT_AUTHOR', 'GIT_COMMITTER'))}
         for host_config in ('XDG_CONFIG_HOME', 'GIT_CONFIG_GLOBAL'):
