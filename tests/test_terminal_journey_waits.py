@@ -5,6 +5,7 @@ import unittest
 from unittest import mock
 from vt_screen import Screen
 
+import reading_scroll_terminal as reading
 import shape_answer_terminal as shape
 import test_shape_confirmation_wait as confirmation
 import tend_thought_terminal as thoughts
@@ -80,6 +81,27 @@ class JourneyWaitTests(unittest.TestCase):
 
         with mock.patch.object(thoughts.flow, 'send', side_effect=delayed_reader):
             thoughts.unreadable((80, 24))
+
+    def test_a_late_page_down_still_shows_the_last_exclusion(self):
+        write = os.write
+        delayed = None
+
+        def delay_one_page(fd, data):
+            nonlocal delayed
+            if delayed is None and data == b'\x1b[6~':
+                delayed = threading.Timer(.5, write, args=(fd, data))
+                delayed.start()
+                return len(data)
+            return write(fd, data)
+
+        try:
+            with mock.patch('os.write', side_effect=delay_one_page):
+                reading.journey(100, 30, False)
+            self.assertIsNotNone(delayed)
+        finally:
+            if delayed is not None:
+                delayed.cancel()
+                delayed.join()
 
     def test_delivery_reads_to_its_known_end_after_a_delayed_down_key(self):
         write = os.write
