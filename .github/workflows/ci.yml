@@ -112,7 +112,11 @@ jobs:
     needs: scope
     if: github.event_name == 'pull_request' && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.setup != 'false'
     runs-on: ubuntu-latest
-    container: ubuntu:24.04
+    # --init gives the container a PID 1 that reaps orphans, as a real host does; without it a
+    # killed worker stays a zombie and the worker crash journey waits for it forever.
+    container:
+      image: ubuntu:24.04
+      options: --init
     timeout-minutes: 25
     permissions:
       contents: read
