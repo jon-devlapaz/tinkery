@@ -11,6 +11,7 @@ import fcntl, hashlib, importlib.util, json, os, select, signal, struct, tempfil
 import test_launch as subprocess
 from pathlib import Path
 from vt_screen import Screen
+from shape_terminal import TEND_OPEN
 
 REPO = Path(__file__).resolve().parents[1]
 BINARY = REPO / 'target/debug/tinkery'
@@ -303,10 +304,13 @@ class Run:
         path = self.cwd / 'shape-calls.jsonl'
         return [json.loads(l) for l in path.read_text().splitlines()] if path.exists() else []
 
+    def open_saved_goal(self):
+        self.send(b'2', TEND_OPEN)
+        self.send(b'\r', 's shape')
+
     def open_shape(self):
         self.wait('3  shape')
-        self.send(b'2', 'enter open')
-        self.send(b'\r', 's shape')
+        self.open_saved_goal()
         self.send(b's', 'esc back')
 
     def close(self):

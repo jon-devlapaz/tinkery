@@ -14,6 +14,7 @@ GOAL = ('I can see where my seed stands without switching tools.\n'
         'Why: I lose the thread between tools.\nDone when: Shape shows the next question.\n'
         'Must: Keep my words.\nMust not: Run agents.')
 DECIDED = 'In one file I can search.'
+TEND_OPEN = '↑↓←→ move   enter open'
 DETAIL_KEYS = 's shape   r history   esc back   F10 menu'
 # P-051-inspired TEST reconstruction, not a transcript or repository evidence.
 P051_QUESTION = 'Should Stacker be skill-based or simulate payout interference?'
@@ -180,7 +181,7 @@ def journey(width, height, case, no_color=False, operator='human'):
                 send(b'\x1b', '3  shape')
             else:
                 before_tend = files(sessions)
-                send(b'2', 'enter open')
+                send(b'2', TEND_OPEN)
                 if case in ('ready', 'stale'):
                     assert 'Tink needs checking' in flat(), screen.text()
                     assert 'tink ready' not in flat().lower(), screen.text()

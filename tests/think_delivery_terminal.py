@@ -155,8 +155,7 @@ def journey(width, height, no_color):
             run.send(ESC, '1  think')
             before_history = {str(p): (p.read_bytes(), p.stat().st_mtime_ns)
                               for p in root.rglob('*') if p.is_file()}
-            run.send(b'2', 'enter open')
-            run.send(b'\r', 's shape')
+            run.open_saved_goal()
             run.send(b'r', 'Recorded sequence')
             first_history = run.screen.text()
             sequence = ['Original words 1', 'Reading 1 shown',
