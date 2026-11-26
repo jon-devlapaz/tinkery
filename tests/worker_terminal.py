@@ -17,6 +17,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import signal
 import struct
 import sys
 import tempfile
@@ -282,16 +283,19 @@ elif args.operation == 'launch':
     worker = subprocess.Popen([sys.executable, __file__, 'run', '--contract', args.contract], start_new_session=True,
                               stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     until = time.monotonic() + 10
-    while not (trial / 'command.pid').exists():
+    while not (trial / 'command.pgid').exists():
         assert worker.poll() is None and time.monotonic() < until, 'TEST worker never ran its command'
         time.sleep(.02)
     reply(operation='launch', session=session, process_group=worker.pid)
 elif args.operation == 'run':
+    assert os.getpgrp() == os.getpid(), 'TEST worker must own its process group'
     # The stub answers with one tool call per response; the last starts the shell command.
     for _ in range(int(os.environ['TEST_CRASH_RESPONSES'])):
         log('stub-request', session=saved['session'], submission=saved['submission'], interrupted=False)
-    command = 'printf "%s\\n" "shell command started" >> "$1" && printf "%s\\n" "$$" > "$2" && exec /bin/sleep 90'
-    subprocess.run(['/bin/sh', '-c', command, 'TEST', str(trial / 'invocations'), str(trial / 'command.pid')])
+    command = ('printf "%s\\n" "shell command started" >> "$1" && '
+               'printf "%s\\n" "$3" > "$2.tmp" && mv "$2.tmp" "$2" && exec /bin/sleep 90')
+    subprocess.run(['/bin/sh', '-c', command, 'TEST', str(trial / 'invocations'),
+                    str(trial / 'command.pgid'), str(os.getpgrp())])
     raise AssertionError('TEST worker must be killed while its command runs')
 elif args.operation == 'resume':
     assert args.session == saved['session'] and str(Path.cwd()) == saved['checkout']
@@ -515,6 +519,19 @@ def real_runtime(fixture, adapter_source):
     adapter.chmod(0o755)
 
 
+def wait_for_worker_exit(group):
+    deadline = wait_deadline(10)
+    while True:
+        try:
+            os.killpg(group, 0)
+        except ProcessLookupError:
+            return
+        except PermissionError:
+            pass
+        assert time.monotonic() < deadline, 'TEST killed worker group did not exit'
+        time.sleep(.02)
+
+
 def crash_resume_journey(exhausted=False):
     """The Pi Durable crash test through the screen: SIGKILL during a shell command, then u.
     A live worker and a used-up cap both keep u unoffered and inert. Only the adapter is fake."""
@@ -531,6 +548,7 @@ def crash_resume_journey(exhausted=False):
         fixture.env['TEST_CRASH'] = str(trial)
         fixture.env['TEST_CRASH_RESPONSES'] = '2' if exhausted else '1'
         events = trial / 'events.jsonl'
+        group_file = trial / 'command.pgid'
         def rows(event):
             return [row for row in map(json.loads, events.read_text().splitlines()) if row['event'] == event]
         def resumes():
@@ -546,22 +564,17 @@ def crash_resume_journey(exhausted=False):
                 env=fixture.env, capture_output=True, text=True, check=True).stdout)['run']['checkout'])
             contract_path = build / 'runs/test-worker/steps/build.json'
             contract = json.loads(contract_path.read_text())
-            group = contract['process_group']
+            group = int(group_file.read_text())
+            assert group > 1 and group == contract['process_group']
             # A live worker owns its session: u is neither shown nor admitted.
             terminal.send(END, 'esc back')
             assert 'u resume' not in terminal.flat() and 'End to resume' not in terminal.flat(), terminal.flat()
             terminal.send(b'u', 'esc back')
             terminal.send(b'r', reading)
             assert not resumes(), 'u resumed a live worker'
-            os.killpg(group, 9)
-            until = wait_deadline(10)
-            while True:
-                try:
-                    os.killpg(group, 0)
-                except ProcessLookupError:
-                    break
-                assert time.monotonic() < until, 'TEST killed worker group did not exit'
-                time.sleep(.02)
+            os.killpg(group, signal.SIGKILL)
+            group_file.unlink()
+            wait_for_worker_exit(group)
             if exhausted:
                 terminal.send(b'r', 'Worker: reached its response cap')
                 terminal.send(END, 'esc back')
@@ -587,7 +600,7 @@ def crash_resume_journey(exhausted=False):
         finally:
             terminal.close()
             with contextlib.suppress(FileNotFoundError, ProcessLookupError, ValueError):
-                os.killpg(int((trial / 'command.pid').read_text()), 9)
+                os.killpg(int(group_file.read_text()), signal.SIGKILL)
 
 
 def real_runtime_journey(fail_first=False):
