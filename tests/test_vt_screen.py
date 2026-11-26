@@ -1,6 +1,23 @@
 """Terminal waits distinguish complete expected views from stale or partial transport."""
+import tempfile
 import unittest
 from vt_screen import Screen
+
+
+class DeviceQueryTests(unittest.TestCase):
+    def test_split_device_query_replies_once_after_its_final_byte(self):
+        with tempfile.TemporaryFile() as output:
+            screen = Screen(80, 24, reply_fd=output.fileno())
+            screen.feed(b'\x1b[?u\x1b[')
+            self.assertEqual(output.tell(), 0)
+            screen.feed(b'c')
+            output.seek(0)
+            self.assertEqual(output.read(), b'\x1b[?1;2c')
+
+    def test_a_device_reply_does_not_trigger_another_reply(self):
+        with tempfile.TemporaryFile() as output:
+            Screen(80, 24, reply_fd=output.fileno()).feed(b'\x1b[?1;2c')
+            self.assertEqual(output.tell(), 0)
 
 
 class FrameTests(unittest.TestCase):

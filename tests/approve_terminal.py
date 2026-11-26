@@ -145,7 +145,7 @@ def journey(width, height, case, no_color):
             '--seed-session-root', str(sessions),
             '--record-root', str(root / 'TEST-records'), '--link-root', str(root / 'TEST-links'),
             *(['--sdlc-root', str(named_checkout)] if configured else [])], stdin=slave, stdout=slave, stderr=slave, cwd=root, env=subprocess.environment(env, home=(env)['HOME']))
-        screen = Screen(width, height)
+        screen = Screen(width, height, reply_fd=master)
         output = bytearray()
 
         def flat():
