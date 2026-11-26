@@ -922,7 +922,8 @@ itself, in that order.
 - A seed reply's `risks` lists each risk the operator's own pre-mortem answer names: its words, copied
   on one line, with either one check's exact statement or an `out_of_scope` line. Tinkery refuses the
   draft when the answer is substantive and the list is empty, when the words are not in the answer,
-  or when the check is not one exact statement. Skipped, "not sure" and delegated answers owe no list.
+  or when the check is not one exact statement. Skipped, "not sure" and delegated answers owe no list,
+  but a draft may copy risks from a delegated agent's answer; Tinkery labels them as that agent's words.
   Tinkery adds each risk under Risks and verification, so the operator confirms each out-of-scope line
   with the Tink ([#1010](https://github.com/jon-devlapaz/tinkery/issues/1010): a pilot pre-mortem named
   two risks that no check covered). It cannot tell whether the list names every risk in the answer.

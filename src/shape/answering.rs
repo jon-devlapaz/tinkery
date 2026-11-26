@@ -266,6 +266,16 @@ fn present<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<V
     serde::Deserialize::deserialize(deserializer).map(Some)
 }
 
+/// A settled pre-mortem answer that can name a risk.
+#[derive(Debug, Clone, Copy)]
+pub struct PreMortem<'a> {
+    /// The answer exactly as typed.
+    pub words: &'a str,
+    /// Whether the operator typed it. Only the operator's own answer owes a risk list; a delegated
+    /// agent's answer still bounds which words a draft may copy.
+    pub operator: bool,
+}
+
 /// One session's editable state, at one version.
 #[derive(Debug, Clone)]
 pub struct Ledger {
@@ -318,16 +328,17 @@ impl Ledger {
         );
         found
     }
-    /// The operator's own settled pre-mortem answer, exactly as typed, when it can name a risk:
-    /// never a delegated answer, and never "skip", "not sure" or a similar non-answer (#1010).
-    pub fn pre_mortem(&self) -> Option<&str> {
+    /// The settled pre-mortem answer, exactly as typed, when it can name a risk: the operator's
+    /// own or a delegated agent's, never "skip", "not sure" or a similar non-answer (#1010).
+    pub fn pre_mortem(&self) -> Option<PreMortem<'_>> {
         let node = self.state["nodes"]
             .as_array()?
             .iter()
             .find(|n| n["id"] == ledger::PRE_MORTEM && n["status"] == "settled")?;
+        let operator = node["authority"] == "user";
         let answer = node["answer"]
             .as_str()
-            .filter(|_| node["authority"] == "user")?;
+            .filter(|_| operator || node["authority"] == "delegated")?;
         let plain = answer
             .trim()
             .trim_end_matches(['.', '!'])
@@ -350,7 +361,10 @@ impl Ledger {
             "nope",
             "nothing comes to mind",
         ];
-        (!empty.contains(&plain.as_str())).then_some(answer)
+        (!empty.contains(&plain.as_str())).then_some(PreMortem {
+            words: answer,
+            operator,
+        })
     }
     /// Whether the ledger already has a current question; looking must not replace it.
     pub fn has_current_question(&self) -> bool {
