@@ -1,13 +1,26 @@
-"""Worker test cases each own a verified seed they can change."""
+"""Worker test fixtures keep their data and processes isolated."""
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import call, patch
 
 import session_fixture as ledger
-from worker_terminal import Fixture
+from worker_terminal import Fixture, wait_for_worker_exit
 
 
 class WorkerFixtureTests(unittest.TestCase):
+    def test_only_a_missing_group_confirms_exit(self):
+        with patch('worker_terminal.os.killpg',
+                   side_effect=[PermissionError(), None, ProcessLookupError()]) as probe:
+            wait_for_worker_exit(1234)
+        self.assertEqual(probe.call_args_list, [call(1234, 0)] * 3)
+
+    def test_permission_denied_at_the_deadline_fails(self):
+        with patch('worker_terminal.os.killpg', side_effect=PermissionError()), \
+             patch('worker_terminal.wait_deadline', return_value=0):
+            with self.assertRaisesRegex(AssertionError, 'worker group did not exit'):
+                wait_for_worker_exit(1234)
+
     def test_commits_and_file_changes_stay_in_their_project(self):
         with tempfile.TemporaryDirectory(prefix='tinkery-TEST-worker-projects-') as directory:
             root = Path(directory).resolve()
