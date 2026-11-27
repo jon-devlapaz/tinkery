@@ -579,6 +579,7 @@ creating an SDLC run stays outside Shape.
   Ctrl+W or Alt+Backspace deletes a word; Enter inserts a newline except at seed confirmation; Ctrl+U undoes
   and Ctrl+R redoes. PgUp and PgDn scroll only the reading, a view less one row. Pasted CR and CRLF
   display as breaks; edits preserve untouched raw endings. Under seed words, say seed confirmation is not approval to build.
+- Current questions preserve stored line breaks, including the pre-mortem independence note, in both idle and running views.
 - Running steps keep label, question and typed words muted, with one status
   (`Saving your answer.`, then `Answer saved. Looking in NAME for the next question.`),
   elapsed seconds and `esc stop`. F1 says a step is running.
