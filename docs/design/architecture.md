@@ -61,7 +61,7 @@ detail. [The architecture check](../../tests/architecture.rs) fails if this tabl
 | `sdlc` | shared | tink-sdlc's API 1 in one named checkout. No Tinkery session or seed rules. |
 | `seed_me` | shared | Session formats, the ledger and goal saving. It alone owns seed layout and validation, and it is Think's only route to Tend. |
 | `shape` | shape | A saved goal's seed and the questions that lead to it, from the screen or the `seed` command through one controller. |
-| `taste` | taste | One result beside its unchanged goal. Its one write is the operator's verdict label, never an approval, merge or agent launch. |
+| `taste` | taste | One result beside its unchanged goal. It writes only the operator's verdict label and, on retry, a fresh session. Never an approval, merge or agent launch. |
 | `tend` | tend | The garden of saved goals and thoughts, needs links and Think history. Never edits a session. |
 | `think` | think | Turning a brain dump into a goal the operator confirms, then saving it. Reads no files or repository. |
 | `think_record` | shared | The one record of each confirmed Think session, written by the same `confirm` that saves the goal. |
