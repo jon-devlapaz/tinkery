@@ -149,7 +149,9 @@ One response may already be in flight at the cap. Configuration is not permissio
 
 `tinkery [options] seed start DIR` is F2 without the screen. It reads the Tink in DIR as
 Approve does, refuses what Approve refuses, prints F2's disclosure on stderr, and starts through
-the same checks and authorization record. It prints the started worker as JSON.
+the same checks and authorization record. It prints the started worker as JSON. The typed
+command is the start action itself: no screen shows the disclosure first, so the person or the
+relayed words must already cover this Tink.
 
 With `--operator agent`, F2, `seed start`, `l`, `u` and `n` share one relayed-authorization door requiring
 `--worker-authorization FILE`. The operator
