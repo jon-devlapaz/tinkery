@@ -57,8 +57,7 @@ fn journey(checked: &str, warning: Option<&str>, paths: &[&str]) {
             prerequisites: None,
             suggestion: None,
             assumed: vec![],
-            options: vec![],
-            against: None,
+            choices: None,
         },
         &folder,
     )

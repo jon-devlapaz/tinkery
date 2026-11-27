@@ -1094,9 +1094,9 @@ impl Opened {
             && matches!(
                 &self.reading,
                 Reading::Done(Ok(Shaping {
-                    stage: Shaped::Question { hard: true, .. },
+                    stage: Shaped::Question { question, .. },
                     ..
-                }))
+                })) if question.hard()
             )
     }
 
@@ -2163,16 +2163,14 @@ fn standing(
         Shaped::Question {
             id,
             title,
-            ask,
+            question,
             gate,
             found,
             suggestion,
-            options,
-            against,
             ..
         } => {
             lines.push(Line::styled(title.clone(), palette.muted));
-            lines.extend(ask.split('\n').map(|line| {
+            lines.extend(question.ask.split('\n').map(|line| {
                 Line::styled(
                     line.to_owned(),
                     if calm { palette.muted } else { palette.jade },
@@ -2182,7 +2180,7 @@ fn standing(
                 // Tinkery's own probe and objection questions ask for the operator's words, not evidence.
                 let own =
                     [PROBE.0, SAMPLE.0, UNOBSERVED.0].contains(&id.as_str()) || title == OBJECTION;
-                if !own && !gate.is_empty() && gate != ask {
+                if !own && !gate.is_empty() && gate != &question.ask {
                     lines.push(Line::styled(
                         format!("What your answer changes: {gate}"),
                         palette.ink,
@@ -2222,14 +2220,19 @@ fn standing(
                         palette.ink,
                     ));
                 } else {
-                    for option in options {
-                        lines.push(Line::styled(option.clone(), palette.ink));
+                    for (option, _) in &question.options {
+                        lines.extend(
+                            option
+                                .split('\n')
+                                .map(|line| Line::styled(line.to_owned(), palette.ink)),
+                        );
                     }
-                    if let Some(against) = against {
-                        lines.push(Line::styled(
-                            format!("Against my suggestion: {against}"),
-                            palette.muted,
-                        ));
+                    if let Some(against) = &question.against {
+                        let text = format!("Against my suggestion: {against}");
+                        lines.extend(
+                            text.split('\n')
+                                .map(|line| Line::styled(line.to_owned(), palette.muted)),
+                        );
                     }
                     if let Some(suggestion) = suggestion {
                         lines.push(Line::styled(

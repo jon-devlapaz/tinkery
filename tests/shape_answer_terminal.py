@@ -563,11 +563,14 @@ def case(name, width=100, height=30):
             prerequisites = {'settled prerequisites': ['storage'],
                              'unknown prerequisite': ['missing'], 'cyclic prerequisite': ['format']}[name]
             replies = [{**QUESTION, 'id': 'format', 'prerequisites': prerequisites}, SEED]
-        if name == 'hard to undo':
+        if name in ('hard to undo', 'malformed options'):
             question = False
-            replies = [{**QUESTION, 'confidence': 'high', 'against': 'TEST sync helps later', 'options': [
+            replies = [{**QUESTION, 'question': 'What does the printed label say?\nOption A: is printed on the label.',
+                        'confidence': 'high', 'against': 'TEST sync helps later', 'options': [
                 {'choice': 'Local', 'tradeoff': 'TEST simple', 'undo': 'cheap'},
                 {'choice': 'Synced', 'tradeoff': 'TEST shared', 'undo': 'hard'}]}]
+            if name == 'malformed options':
+                del replies[0]['options'][0]['undo']
         if name == 'assumptions':
             question = False
             replies = [{**QUESTION, 'assumed': [{'text': 'TEST notes are Markdown', 'why': 'TEST either format works'}]}]
@@ -628,17 +631,32 @@ def case(name, width=100, height=30):
                 assert ledger['nodes'][1]['status'] == 'unresolved', ledger['nodes'][1]
                 assert 'answer' not in ledger['nodes'][1], ledger['nodes'][1]
                 assert run.calls() == [], 'Stopping called a model'
+            elif name == 'malformed options':
+                run.wait("Shape hasn't asked its next question yet.")
+                before = files(sessions)
+                run.send(F2, 'Looking into the next question failed:')
+                run.wait('options')
+                assert QUESTION['suggestion'] not in run.flat(), run.screen.text()
+                assert files(sessions) == before and len(run.calls()) == 1
             elif name == 'hard to undo':
                 run.wait("Shape hasn't asked its next question yet.")
                 run.send(F2, "This is hard to undo, so what's your instinct?")
-                for hidden in ('Option A', 'Suggestion:', 'Against my suggestion'):
+                run.wait('Option A: is printed on the label.')
+                shown = subprocess.check_output([BINARY, '--operator', 'agent', '--seed-session-root', sessions,
+                                                 'seed', 'show', session], cwd=cwd, env=subprocess.environment(),
+                                                stdin=subprocess.DEVNULL, timeout=20)
+                now = json.loads(shown)['now']
+                assert now['question'] == replies[0]['question'] and now['hard_to_undo'] is True, now
+                assert now['suggestion'] is None and now['against'] == replies[0]['against'], now
+                assert now['options'] == ['Option A: Local; TEST simple. Undo cost: cheap.',
+                                          'Option B: Synced; TEST shared. Undo cost: hard.'], now
+                for hidden in ('Option A: Local', 'Option B: Synced', 'Suggestion:', 'Against my suggestion: TEST sync'):
                     assert hidden not in run.flat(), run.screen.text()
-                node = next(n for n in helper.load(session)['nodes'] if n['id'] == 'storage')
-                assert 'recommendation' not in node, node
-                assert 'Option B: Synced; TEST shared. Undo cost: hard.' in node['question'], node
                 run.choose('Show the options', 'Here are the options and my suggestion.')
-                run.wait('Option B: Synced; TEST shared. Undo cost: hard.')
-                run.wait('Suggestion: Local, matching the README.')
+                for option in now['options']:
+                    run.read_until(option)
+                run.read_until('Against my suggestion: ' + now['against'])
+                run.read_until('Suggestion: Local, matching the README.')
                 assert 'Confidence:' not in run.screen.text(), run.screen.text()
                 node = next(n for n in helper.load(session)['nodes'] if n['id'] == 'storage')
                 assert node['recommendation'] == 'Local, matching the README.', node
@@ -1791,8 +1809,11 @@ if __name__ == '__main__':
         full_journey(*size)
     for name in ['zero budget', 'stale', 'model failure', 'stop', 'helper refusal', 'model tries to confirm',
                  'model writes decisions', 'seed secret', 'practice confirmation', 'unfound citation', 'nothing found',
-                 'end the interview', 'assumptions', 'hard to undo']:
+                 'end the interview', 'assumptions']:
         case(name)
+    for size in both:
+        case('hard to undo', *size)
+        case('malformed options', *size)
     for size in small:
         case('multiline confirmation', *size)
         os.environ['NO_COLOR'] = '1'

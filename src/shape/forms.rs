@@ -106,11 +106,18 @@ impl Form {
                 let reason = if *condition { format!("\nReason: {}", reason.text()) } else { String::new() };
                 format!("Defer this question. You decide it can wait.\nGate: {gate}{reason}\nTab changes fields; Enter advances or saves. Esc cancels.")
             }
-            Fields::Revisit { target, .. } => format!(
-                concat!("Answer deferred prerequisite: {}\n{}\nDeferred because: {}\nRevisit when: {}\n",
-                    "You decide whether to answer now. Enter saves only this answer; ",
-                    "dependent questions still need answers. No model runs. Esc cancels."),
-                target.title, target.question, target.reason, target.revisit),
+            Fields::Revisit { target, .. } => {
+                let question = &target.question;
+                let mut lines = vec![format!("Answer deferred prerequisite: {}", target.title), question.ask.clone()];
+                lines.extend(question.options.iter().map(|(line, _)| line.clone()));
+                if let Some(against) = &question.against {
+                    lines.push(format!("Against my suggestion: {against}"));
+                }
+                lines.push(format!("Deferred because: {}\nRevisit when: {}", target.reason, target.revisit));
+                lines.push(concat!("You decide whether to answer now. Enter saves only this answer; ",
+                    "dependent questions still need answers. No model runs. Esc cancels.").into());
+                lines.join("\n")
+            }
             Fields::Revise(_) => concat!(
                 "Replace this answer. Enter saves the revision and looks into the next. ",
                 "Recorded dependents come first, without a model call; otherwise one step runs. Esc cancels."

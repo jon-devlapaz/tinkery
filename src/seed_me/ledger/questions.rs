@@ -3,6 +3,13 @@
 
 use super::*;
 
+mod choices;
+#[cfg(test)]
+mod tests;
+pub(crate) use choices::read_question;
+pub(super) use choices::validate_choices;
+pub use choices::{Alternative, Choices, QuestionView, Undo};
+
 /// Add an open question without settling or replacing any earlier decision. Invalid prerequisites
 /// or findings refuse before publication; held questions remain recorded and the first ready
 /// decision becomes current only when no question is already current.

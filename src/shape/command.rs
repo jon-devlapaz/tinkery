@@ -93,16 +93,14 @@ pub fn show(session: &Path) -> Result<serde_json::Value, String> {
         Shaped::Question {
             id,
             title,
-            ask,
+            question,
             found,
             suggestion,
-            options,
-            against,
-            hard,
             ..
         } => serde_json::json!({
-            "stage": "question", "id": id, "label": title, "question": ask, "found": found,
-            "suggestion": suggestion, "options": options, "against": against, "hard_to_undo": hard,
+            "stage": "question", "id": id, "label": title, "question": question.ask, "found": found,
+            "suggestion": suggestion, "options": question.options.iter().map(|(line, _)| line).collect::<Vec<_>>(),
+            "against": question.against, "hard_to_undo": question.hard(),
         }),
         Shaped::Review {
             id,
@@ -147,12 +145,9 @@ pub fn show(session: &Path) -> Result<serde_json::Value, String> {
     }))
 }
 
-/// Take `action` on `session` from a fresh read, through the same step the screen runs. Returns
-/// what the caller must read that the ledger does not hold: the folder a model step reads, why
-/// Think's answers are not sent if so,
-/// assumed defaults and a withheld suggestion. Confirming calls no model and needs no `agent`;
-/// every other action refuses without one. An action that does not fit where the seed stands
-/// changes nothing.
+/// Take one action through the same step as the screen. Report the model's read scope and
+/// assumed defaults. A withheld suggestion expires with the command. Confirmation needs no
+/// agent. An action that does not fit the current state changes nothing.
 pub fn step(
     session: &Path,
     agent: Option<&Agent>,
@@ -247,11 +242,6 @@ pub fn step(
                     .assumed
                     .into_iter()
                     .map(|a| format!("Assumed: {} ({})", a.text, a.why)),
-            )
-            .chain(
-                asked
-                    .withheld
-                    .map(|s| format!("Suggestion, not recorded: {s}")),
             )
             .collect()),
         Ok(_) => Ok(notes),

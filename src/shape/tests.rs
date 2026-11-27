@@ -1,6 +1,6 @@
 use super::*;
 use crate::confirmation::{Actor, GoalConfirmation};
-use crate::seed_me::ledger::fixtures::prose_reply;
+use crate::seed_me::ledger::{Alternative, Choices, QuestionView, Undo, fixtures::prose_reply};
 use crossterm::event::KeyModifiers;
 use shaping::Shaped;
 use std::sync::Arc;
@@ -80,26 +80,16 @@ fn write_session(session: &Path, stage: &Shaped) {
             id,
             title,
             gate,
-            ask,
+            question,
             found,
             suggestion,
-            options,
-            against,
-            hard,
         } => {
-            let mut asked = vec![ask.clone()];
-            asked.extend(options.iter().cloned());
-            if *hard && options.is_empty() {
-                asked.extend([
-                    "Option A: TEST keep. Undo cost: hard.".to_owned(),
-                    "Option B: TEST change. Undo cost: cheap.".to_owned(),
-                ]);
+            // Screen fixtures reopen the old ledger spelling; writer tests use answering::ask.
+            let mut asked = vec![question.ask.clone()];
+            asked.extend(question.options.iter().map(|(line, _)| line.clone()));
+            if let Some(case) = &question.against {
+                asked.push(format!("Against my suggestion: {case}"));
             }
-            asked.extend(
-                against
-                    .iter()
-                    .map(|case| format!("{}{case}", answering::AGAINST)),
-            );
             nodes.push(serde_json::json!({"id":id,"label":title,"kind":"decision",
                 "status":"unresolved","prerequisites":[],"evidence":found,"owner":"TEST",
                 "gate":gate,"question":asked.join("\n"),"recommendation":suggestion,
@@ -356,13 +346,15 @@ fn crowded_question_bars_keep_more_and_back_visible_and_f1_lists_every_action() 
         for hard in [true, false] {
             let mut stage = question();
             let Shaped::Question {
-                found, hard: undo, ..
+                found, question, ..
             } = &mut stage
             else {
                 panic!()
             };
             *found = vec!["TEST long evidence ".repeat(300)];
-            *undo = hard;
+            if hard {
+                *question = hard_storage_view();
+            }
             let mut shape = done(stage, Some(agent(0)));
             shape.open.as_mut().unwrap().assumed.push(Assumption {
                 text: "TEST default".into(),
@@ -606,15 +598,12 @@ fn each_stage_shows_the_goal_as_confirmed_then_one_next_step() {
         gate: "TEST gate".into(),
         id: "storage".into(),
         title: "Where records live".into(),
-        ask: "Keep records local or synced?".into(),
+        question: plain_view("Keep records local or synced?"),
         found: vec![
             "README.md:3 says local only".into(),
             "no sync client".into(),
         ],
         suggestion: Some("Local.".into()),
-        options: vec![],
-        against: None,
-        hard: false,
     };
     let cases = [
         (question, "Where records live Keep records local or synced?"),
@@ -744,12 +733,9 @@ fn the_question_is_jade_and_the_suggestion_reads_as_a_guess_without_colour_too()
                 gate: "TEST gate".into(),
                 id: "t".into(),
                 title: "Label T".into(),
-                ask: "Q?".into(),
+                question: plain_view("Q?"),
                 found: vec![],
                 suggestion: Some("S".into()),
-                options: vec![],
-                against: None,
-                hard: false,
             },
             None,
         );
@@ -940,17 +926,39 @@ fn agent_at(budget: usize, folder: Option<PathBuf>) -> Arc<Agent> {
     ))
 }
 
+fn plain_view(ask: &str) -> QuestionView {
+    QuestionView {
+        ask: ask.into(),
+        options: vec![],
+        against: None,
+    }
+}
+
+fn hard_storage_view() -> QuestionView {
+    QuestionView {
+        ask: "Keep records local or synced?".into(),
+        options: vec![
+            (
+                "Option A: Local; TEST simple. Undo cost: cheap.".into(),
+                Undo::Cheap,
+            ),
+            (
+                "Option B: Synced; TEST shared. Undo cost: hard.".into(),
+                Undo::Hard,
+            ),
+        ],
+        against: Some("TEST sync helps later".into()),
+    }
+}
+
 fn question() -> Shaped {
     Shaped::Question {
         gate: "TEST gate".into(),
         id: "storage".into(),
         title: "Where records live".into(),
-        ask: "Keep records local or synced?".into(),
+        question: plain_view("Keep records local or synced?"),
         found: vec![],
         suggestion: None,
-        options: vec![],
-        against: None,
-        hard: false,
     }
 }
 
@@ -1168,12 +1176,9 @@ fn a_tall_question_scrolls_while_the_answer_and_every_key_stay_in_view() {
         gate: "TEST gate".into(),
         id: "storage".into(),
         title: "Where records live".into(),
-        ask: "Keep records local or synced?".into(),
+        question: plain_view("Keep records local or synced?"),
         found,
         suggestion: Some("Local, matching the README.".into()),
-        options: vec![],
-        against: None,
-        hard: false,
     };
     let mut shape = done(tall, Some(agent_in(1, dir.path())));
     shape.paste("TEST first line\nTEST last line");
@@ -2472,8 +2477,7 @@ fn assert_settled_intake_drafts(words: Option<&str>) {
                 resolves: None,
                 suggestion: None,
                 assumed: vec![],
-                options: vec![],
-                against: None,
+                choices: None,
             },
             temp.path(),
         )
@@ -2844,12 +2848,9 @@ fn a_question_or_seed_with_nothing_found_is_flagged() {
             gate: "TEST gate".into(),
             id: "storage".into(),
             title: "Where records live".into(),
-            ask: "Keep records local or synced?".into(),
+            question: plain_view("Keep records local or synced?"),
             found: vec!["README.md:3 says local only".into()],
             suggestion: None,
-            options: vec![],
-            against: None,
-            hard: false,
         },
         None,
     );
@@ -3252,8 +3253,8 @@ fn ledger_refusals_of_endings_objections_and_suggestions_are_shown_unchanged() {
     // exactly as the ledger refuses one at a missing path.
     let path = Path::new("/tmp/TEST-shape/session");
     let mut hard = question();
-    if let Shaped::Question { hard, .. } = &mut hard {
-        *hard = true;
+    if let Shaped::Question { question, .. } = &mut hard {
+        *question = hard_storage_view();
     }
     for (stage, row, digit, expected) in [
         (
@@ -3336,10 +3337,9 @@ fn a_saved_deferred_answer_without_a_usable_version_asks_to_reopen() {
         label: format!("TEST {id}"),
         question: format!("TEST What about {id}?"),
         gate: "TEST choice".into(),
-        against: None,
+        choices: None,
         found: vec![],
         assumed: vec![],
-        options: vec![],
         suggestion: None,
         resolves: None,
         supported_by: None,
@@ -3629,8 +3629,7 @@ fn an_objection_becomes_an_open_decision_asked_before_any_new_one() {
         resolves: None,
         suggestion: None,
         assumed: vec![assumption("TEST Markdown"), assumption("TEST one machine")],
-        options: vec![],
-        against: None,
+        choices: None,
     };
     let version = answering::read(&session).unwrap().version();
     let version = answering::ask(&session, version, &ask, temp.path()).unwrap();
@@ -3701,31 +3700,32 @@ fn asking_to_end_or_object_takes_no_words_so_a_paste_changes_nothing() {
 
 #[test]
 fn a_step_gives_exactly_two_options_with_a_known_undo_cost_or_none() {
-    let decode = |options: &str, confidence: &str| {
+    let decode = |options: &str| {
         let reply = format!(
-            "{{\"next\":\"question\",\"question\":\"Local?\",\"found\":[],\"suggestion\":\"Local.\",\"options\":{options},\"against\":\" TEST sync helps later \",\"confidence\":\"{confidence}\"}}"
+            r#"{{"next":"question","question":"Local?","found":[],"suggestion":"Local.","options":{options},"against":" TEST sync helps later "}}"#
         );
-        let step::Next::Question(ask) = step::decode(&reply, "").unwrap() else {
-            panic!("not a question")
-        };
-        ask
+        step::decode(&reply, "")
     };
     let two = r#"[{"choice":"Local","tradeoff":"TEST simple","undo":"Cheap"},{"choice":"Synced","tradeoff":"TEST shared","undo":"hard"}]"#;
-    let ask = decode(two, "medium");
-    assert_eq!(ask.options.len(), 2);
-    assert_eq!(ask.options[0].undo, answering::Undo::Cheap);
-    assert!(ask.hard());
-    assert_eq!(ask.against.as_deref(), Some("TEST sync helps later"));
+    let step::Next::Question(ask) = decode(two).unwrap() else {
+        panic!("not a question")
+    };
+    let choices = ask.choices.as_ref().unwrap();
+    assert_eq!(choices.options[0].undo, Undo::Cheap);
+    assert!(choices.hard());
+    assert_eq!(choices.against.as_deref(), Some("TEST sync helps later"));
     assert_eq!(ask.recommendation().as_deref(), Some("Local."));
+    let step::Next::Question(ask) = decode("[]").unwrap() else {
+        panic!("not a question")
+    };
+    assert!(ask.choices.is_none());
     for options in [
-        "[]".to_owned(),
         r#"[{"choice":"Local","tradeoff":"TEST","undo":"cheap"}]"#.to_owned(),
-        two.replace("\"hard\"", "\"never\""),
-        two.replace("\"Synced\"", "\"\""),
+        two.replace(r#""hard""#, r#""never""#),
+        two.replace(r#""Synced""#, r#""""#),
+        two.replace(']', ",{}]"),
     ] {
-        let ask = decode(&options, "sure");
-        assert!(ask.options.is_empty(), "{options}");
-        assert!(!ask.hard());
+        assert!(decode(&options).is_err(), "{options}");
     }
 }
 
@@ -3735,15 +3735,9 @@ fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
         gate: "TEST gate".into(),
         id: "storage".into(),
         title: "Where records live".into(),
-        ask: "Keep records local or synced?".into(),
+        question: hard_storage_view(),
         found: vec!["README.md:3: says local only".into()],
         suggestion: None,
-        options: vec![
-            "Option A: Local; TEST simple. Undo cost: cheap.".into(),
-            "Option B: Synced; TEST shared. Undo cost: hard.".into(),
-        ],
-        against: Some("TEST sync helps later".into()),
-        hard: true,
     };
     for withheld in [None, Some("Local.".to_owned())] {
         let mut shape = done(hard.clone(), None);
@@ -3799,37 +3793,21 @@ fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
     assert!(!flat.contains("so what's your instinct?"), "{text}");
     assert!(!offers(&shape, "Show the options"));
     // Cheap and moderate questions show everything at once and offer no reveal.
+    let mut direct = hard;
     let Shaped::Question {
-        id,
-        title,
-        ask,
-        found,
-        options,
-        against,
+        question,
+        suggestion,
         ..
-    } = hard
+    } = &mut direct
     else {
         unreachable!()
     };
-    // Nothing hard to undo: the options and suggestion show with the question.
-    let options = options
-        .iter()
-        .map(|o| o.replace("Undo cost: hard.", "Undo cost: moderate."))
-        .collect();
-    let mut shape = done(
-        Shaped::Question {
-            gate: "TEST gate".into(),
-            id,
-            title,
-            ask,
-            found,
-            suggestion: Some("Local.".into()),
-            options,
-            against,
-            hard: false,
-        },
-        None,
+    question.options[1] = (
+        "Option B: Synced; TEST shared. Undo cost: moderate.".into(),
+        Undo::Moderate,
     );
+    *suggestion = Some("Local.".into());
+    let mut shape = done(direct, None);
     let text = screen(&mut shape, 100, 30, true);
     assert!(
         text.contains("Option A: Local") && text.contains("Suggestion: Local."),
@@ -3843,7 +3821,7 @@ fn a_hard_to_undo_question_asks_for_instinct_before_options_or_suggestion() {
 
 #[cfg(unix)]
 #[test]
-fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
+fn options_are_saved_beside_the_question_and_hard_suggestions_wait_until_reveal() {
     use crate::{
         seed_me::{Affirmed, Config},
         shape::{answering, shaping},
@@ -3853,7 +3831,7 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
         .prefix("tinkery-TEST-232-")
         .tempdir()
         .unwrap();
-    for undo in ["moderate", "hard"] {
+    for (undo, cost) in [(Undo::Moderate, "moderate"), (Undo::Hard, "hard")] {
         let receipt = Config::new( Some(temp.path().join("TEST-sessions")))
             .confirm(Affirmed {
                 goal: "TEST I can weigh options.\nWhy: Choices have costs.\nDone when: I see them.\nMust: Keep my words.\nMust not: Build without approval.".into(),
@@ -3865,10 +3843,10 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
             })
             .unwrap();
         let session = receipt.session.clone();
-        let option = |choice: &str, undo: &str| answering::Alternative {
-            choice: choice.into(),
-            tradeoff: format!("TEST {choice} trade-off"),
-            undo: answering::Undo::of(undo).unwrap(),
+        let option = |choice: &str, undo| Alternative {
+            choice: format!("{choice};"),
+            tradeoff: format!("TEST {choice} trade-off. "),
+            undo,
         };
         let ask = answering::Ask {
             prerequisites: None,
@@ -3881,33 +3859,62 @@ fn options_live_in_the_question_and_a_hard_suggestion_waits_until_asked_for() {
             resolves: None,
             suggestion: Some("Local.".into()),
             assumed: vec![],
-            options: vec![option("Local", "cheap"), option("Synced", undo)],
-            against: Some("TEST sync helps later".into()),
+            choices: Some(Choices {
+                options: [option("Local", Undo::Cheap), option("Synced", undo)],
+                against: Some("TEST sync helps later".into()),
+            }),
         };
         let version = answering::read(&session).unwrap().version();
         let version = answering::ask(&session, version, &ask, temp.path()).unwrap();
+        let saved: serde_json::Value = serde_json::from_str(
+            &crate::seed_me::ledger::load(&session)
+                .unwrap()
+                .pretty()
+                .unwrap(),
+        )
+        .unwrap();
+        let node = saved["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|node| node["id"] == "storage")
+            .unwrap();
+        assert_eq!(node["question"], ask.question);
+        assert_eq!(
+            node["choices"],
+            serde_json::json!({
+                "options": [
+                    {"choice": "Local;", "tradeoff": "TEST Local trade-off. ", "undo": "cheap"},
+                    {"choice": "Synced;", "tradeoff": "TEST Synced trade-off. ", "undo": cost},
+                ],
+                "against": "TEST sync helps later"
+            })
+        );
         let Shaped::Question {
-            ask: shown,
-            options,
-            against,
-            hard,
+            question,
             suggestion,
             ..
         } = shaping::read(&session).unwrap().stage
         else {
             panic!("not a question")
         };
-        assert_eq!(shown, "TEST Local or synced?");
+        assert_eq!(question.ask, ask.question);
         assert_eq!(
-            options,
+            question.options,
             vec![
-                "Option A: Local; TEST Local trade-off. Undo cost: cheap.".to_owned(),
-                format!("Option B: Synced; TEST Synced trade-off. Undo cost: {undo}."),
+                (
+                    "Option A: Local; TEST Local trade-off. Undo cost: cheap.".into(),
+                    Undo::Cheap
+                ),
+                (
+                    format!("Option B: Synced; TEST Synced trade-off. Undo cost: {cost}."),
+                    undo
+                ),
             ]
         );
-        assert_eq!(against.as_deref(), Some("TEST sync helps later"));
-        assert_eq!(hard, undo == "hard");
-        if undo == "hard" {
+        assert_eq!(question.against.as_deref(), Some("TEST sync helps later"));
+        assert_eq!(question.hard(), undo == Undo::Hard);
+        if undo == Undo::Hard {
             // Seed Me: not recorded until the operator answers or asks to see it.
             assert_eq!(suggestion, None);
             answering::recommend(&session, version, "storage", "Local.", Actor::OPERATOR).unwrap();
@@ -4007,10 +4014,16 @@ fn the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model
     assert_eq!(agent.remaining(), 1, "a probe used a model call");
     assert!(!temp.path().join("TEST-MODEL-WAS-CALLED").exists());
     // #740: a real sample comes first, so checks are drafted against real input.
-    let Shaped::Question { id, ask, found, .. } = shaping::read(&session).unwrap().stage else {
+    let Shaped::Question {
+        id,
+        question,
+        found,
+        ..
+    } = shaping::read(&session).unwrap().stage
+    else {
         panic!("the real-sample probe isn't the current question")
     };
-    assert_eq!((id.as_str(), ask.as_str()), answering::SAMPLE);
+    assert_eq!((id.as_str(), question.ask.as_str()), answering::SAMPLE);
     assert!(found.is_empty());
     let version = answering::read(&session).unwrap().version();
     assert_eq!(answering::probe(&session, version).unwrap(), None);
@@ -4024,10 +4037,16 @@ fn the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model
     .unwrap();
     // Then the pre-mortem, still without a model.
     let version = answering::probe(&session, version).unwrap().unwrap();
-    let Shaped::Question { id, ask, found, .. } = shaping::read(&session).unwrap().stage else {
+    let Shaped::Question {
+        id,
+        question,
+        found,
+        ..
+    } = shaping::read(&session).unwrap().stage
+    else {
         panic!("the pre-mortem isn't the current question")
     };
-    assert_eq!((id.as_str(), ask.as_str()), answering::PROBE);
+    assert_eq!((id.as_str(), question.ask.as_str()), answering::PROBE);
     assert!(found.is_empty());
     // Asked once: answered, neither comes back.
     let version = answering::answer(
@@ -4061,8 +4080,7 @@ fn the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model
         resolves: None,
         suggestion: None,
         assumed: vec![],
-        options: vec![],
-        against: None,
+        choices: None,
     };
     fs::write(temp.path().join("TEST-read.md"), "TEST local only\n").unwrap();
     let version = answering::ask(&session, version, &ask, temp.path()).unwrap();
@@ -4080,12 +4098,15 @@ fn the_first_steps_put_the_sample_and_pre_mortem_to_the_operator_without_a_model
     )
     .unwrap();
     answering::probe(&session, version).unwrap().unwrap();
-    let Shaped::Question { ask, .. } = shaping::read(&session).unwrap().stage else {
+    let Shaped::Question { question, .. } = shaping::read(&session).unwrap().stage else {
         panic!("the pre-mortem isn't the current question")
     };
     assert!(
-        ask.ends_with("NOT independent: asked after findings were shown."),
-        "{ask}"
+        question
+            .ask
+            .ends_with("NOT independent: asked after findings were shown."),
+        "{}",
+        question.ask
     );
 }
 
@@ -4179,7 +4200,7 @@ print(json.dumps({{'next': 'seed', 'readings': [], 'risks': [{{'risk': 'TEST', '
         })
     };
     let current = || match shaping::read(&session).unwrap().stage {
-        Shaped::Question { id, ask, .. } => (id, ask),
+        Shaped::Question { id, question, .. } => (id, question.ask),
         stage => panic!("no current question: {stage:?}"),
     };
     let gray = || {

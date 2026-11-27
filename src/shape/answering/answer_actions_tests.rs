@@ -220,8 +220,7 @@ fn delegation_copies_the_suggestion_unchanged() {
             prerequisites: None,
             suggestion: Some(suggestion.into()),
             assumed: vec![],
-            options: vec![],
-            against: None,
+            choices: None,
         };
         let version = ask(&session, saved.version(), &question, root.path()).unwrap();
         respond(

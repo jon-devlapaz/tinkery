@@ -26,8 +26,7 @@ fn question(found: Vec<Found>, supported_by: Option<Value>) -> Ask {
         prerequisites: None,
         suggestion: None,
         assumed: vec![],
-        options: vec![],
-        against: None,
+        choices: None,
     }
 }
 

@@ -165,11 +165,10 @@ fn pre_mortem_note_stays_separate_in_every_question_view() {
             }
             drop(shape);
             assert_eq!(fs::read(session.join("ledger.json")).unwrap(), before);
-            let Shaped::Question { ask: stored, .. } = shaping::read(&session).unwrap().stage
-            else {
+            let Shaped::Question { question, .. } = shaping::read(&session).unwrap().stage else {
                 panic!("question lost")
             };
-            assert_eq!(stored.as_bytes(), ask.as_bytes());
+            assert_eq!(question.ask.as_bytes(), ask.as_bytes());
         }
     }
 }
@@ -213,10 +212,10 @@ fn questions_without_findings_do_not_gain_an_independence_note() {
             }
             assert!(!shown.contains("NOT independent"), "{shown}");
         }
-        let Shaped::Question { ask, .. } = shaping::read(&session).unwrap().stage else {
+        let Shaped::Question { question, .. } = shaping::read(&session).unwrap().stage else {
             panic!("question lost")
         };
-        assert_eq!(ask, answering::PROBE.1);
+        assert_eq!(question.ask, answering::PROBE.1);
     }
 }
 

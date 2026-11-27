@@ -24,7 +24,10 @@ mod checks;
 mod unknowns;
 pub use unknowns::{resolve_unknowns, resolved_unknown};
 mod questions;
-pub use questions::{next_question, queue_question, waiting_on};
+pub(crate) use questions::read_question;
+pub use questions::{
+    Alternative, Choices, QuestionView, Undo, next_question, queue_question, waiting_on,
+};
 #[cfg(test)]
 pub(crate) mod fixtures;
 mod seed;
@@ -79,6 +82,7 @@ const NODE: &[&str] = &[
     "authority_source",
     "label",
     "question",
+    "choices",
     "owner",
     "gate",
     "recommendation",
@@ -407,6 +411,7 @@ pub fn validate(state: &Value) -> Result<Vec<String>> {
                 )?;
             }
         }
+        questions::validate_choices(node)?;
         if node["kind"].is("decision") {
             require(
                 text(&node["owner"]) && text(&node["gate"]),
@@ -691,6 +696,7 @@ fn validate_stored(ledger: &Value) -> Result<()> {
                     && entry["state"]["kind"] == node["kind"],
                 "invalid historical node",
             )?;
+            questions::validate_choices(&entry["state"])?;
         }
     }
     require(
@@ -949,6 +955,7 @@ pub fn transition(
         "prerequisites",
         "predicate",
         "question",
+        "choices",
         "owner",
         "gate",
         "claim",
@@ -958,15 +965,13 @@ pub fn transition(
         .items()
         .iter()
         .filter(|n| {
+            let next = find(new, n["id"].string().unwrap());
             n["status"].is("settled")
-                && premise.iter().any(|f| {
-                    !(**f == *"claim" && n[f] == Value::Null)
-                        && if *f == "evidence" {
-                            teach_back::evidence(n)
-                                != teach_back::evidence(find(new, n["id"].string().unwrap()))
-                        } else {
-                            n[f] != find(new, n["id"].string().unwrap())[f]
-                        }
+                && premise.iter().any(|f| match *f {
+                    "claim" if n[f] == Value::Null => false,
+                    "evidence" => teach_back::evidence(n) != teach_back::evidence(next),
+                    "choices" => n.get(f) != next.get(f),
+                    _ => n[f] != next[f],
                 })
         })
         .map(|n| n["id"].string().unwrap().to_owned())
