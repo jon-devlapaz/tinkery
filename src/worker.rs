@@ -532,6 +532,72 @@ fn committer_identity(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// `seed start DIR`: F2's start without a screen, through the same gate, checks and record. It
+/// prints the disclosure F2 shows, then the run as JSON. It reads no cap guidance and never
+/// retries; a refusal before creation leaves nothing started.
+pub(crate) fn start_headless(
+    session: &Path,
+    root: &Path,
+    record_root: Result<PathBuf, String>,
+    config: Config,
+    authorization: Gate,
+) -> Result<serde_json::Value, String> {
+    let target = ready::read(session, Some(root))?
+        .and_then(|seed| seed.target)
+        .ok_or("This session has no verified Tink to start. Nothing was started.")?;
+    let request = Start {
+        target,
+        root: root.to_path_buf(),
+        record_root,
+        config,
+        authorization,
+    };
+    eprintln!(
+        "{}",
+        request.disclosure("Cap guidance is not read by seed start.")
+    );
+    let snapshot = start(request).map_err(|failure| match failure.recovery {
+        Recovery::Run(run) => format!(
+            "{} Run {} ({}) exists in {}; inspect it in Watch.",
+            failure.message,
+            run.slug,
+            run.id,
+            run.root.display()
+        ),
+        Recovery::Inspect => format!("{} Read Watch before any further start.", failure.message),
+        Recovery::Retry => failure.message,
+    })?;
+    let state = match snapshot.state {
+        State::NotStarted => "not_started",
+        State::Prepared => "prepared",
+        State::Active {
+            turn: Turn::Running,
+        } => "running",
+        State::Active { turn: Turn::Ended } => "turn_ended",
+        State::Active {
+            turn: Turn::Unknown,
+        } => "turn_unknown",
+        State::Active { turn: Turn::AtCap } => "at_cap",
+        State::Active { turn: Turn::Gone } => "gone",
+        State::Uncertain => "uncertain",
+        State::Completed => "completed",
+        State::Stopped { cap: true } => "stopped_at_cap",
+        State::Stopped { cap: false } => "stopped",
+        State::Unreadable => "unreadable",
+    };
+    Ok(serde_json::json!({
+        "run": snapshot.run.slug,
+        "run_id": snapshot.run.id,
+        "checkout": snapshot.run.root,
+        "step": snapshot.step,
+        "model": snapshot.model,
+        "responses": snapshot.responses,
+        "state": state,
+        "verification": snapshot.verification.as_str().unwrap_or("unknown"),
+        "next": snapshot.next,
+    }))
+}
+
 fn start(request: Start) -> Result<Snapshot, Failure> {
     let (intake, source_commit) = (|| {
         request

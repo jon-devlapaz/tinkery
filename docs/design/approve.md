@@ -196,6 +196,9 @@ The relay requires the seed's checkout; it adds no alternate worktree support.
 Human and undeclared F2, `l` and `u` keep their existing direct consent and require no relay file.
 Goal confirmation, Tink confirmation and worker start remain separate yeses.
 Navigation and copying never start a worker.
+`tinkery [options] seed start DIR` is F2 without a screen ([#956](https://github.com/jon-devlapaz/tinkery/issues/956)):
+it builds the same start request, passes the same gate and checks, appends the same authorization
+record and refuses identically. It prints F2's disclosure on stderr and the run as JSON on stdout.
 
 With a configured worker allowance, the worker review reads the cap guidance off the
 terminal thread and shows `Reading recent Pi launch logs…` until it lands; F2 is offered

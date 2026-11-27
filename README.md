@@ -87,7 +87,7 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   imports the run, prepares its isolated build checkout and launches the worker.
   Supply `--worker-model provider/model:thinking --worker-responses N`; the default
   worker allowance is zero, separate from drafting.
-  With `--operator agent`, F2, `l`, `u` and `n` share one relayed-authorization door:
+  With `--operator agent`, F2, `l`, `u`, `n` and the headless `seed start` share one relayed-authorization door:
   supply `--worker-authorization FILE` containing the operator's verbatim words bound exactly
   to the Tink Contract hash, step, model pin and response cap. Missing or mismatched authorization refuses
   before work. The review shows the words and authority `operator, relayed`; provenance

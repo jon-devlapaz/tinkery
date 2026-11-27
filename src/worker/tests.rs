@@ -1992,3 +1992,58 @@ fn a_gated_key_before_its_disclosure_end_shows_that_end_and_only_a_second_press_
     screen_rows(&mut panel, 12);
     assert_eq!(resumes(&fixture), 1);
 }
+
+/// `seed start` is F2 without a screen: the same refusals before any SDLC command, and the
+/// same authorization record when it starts.
+#[test]
+fn a_headless_start_refuses_and_records_exactly_as_the_screen_start_does() {
+    let headless = |fixture: &Fixture, gate: Gate| {
+        start_headless(
+            &fixture.request.target.session,
+            &fixture.root,
+            fixture.request.record_root.clone(),
+            fixture.request.config.clone(),
+            gate,
+        )
+    };
+    let record = |fixture: &Fixture, run: &str| -> Value {
+        let build = fixture.root.parent().unwrap().join("TEST-build");
+        let path = build
+            .join("runs")
+            .join(run)
+            .join("worker-authorization.jsonl");
+        let mut value: Value =
+            serde_json::from_str(fs::read_to_string(path).unwrap().trim()).unwrap();
+        value.as_object_mut().unwrap().remove("checkout");
+        value
+    };
+
+    let (screen, command) = (Fixture::new(), Fixture::new());
+    let mut request = screen.request.clone();
+    request.authorization = Gate::new(true, Ok(None));
+    let screen_refusal = wait(Job::start(request)).unwrap_err().message;
+    let command_refusal = headless(&command, Gate::new(true, Ok(None))).unwrap_err();
+    assert_eq!(command_refusal, screen_refusal);
+    assert!(
+        command_refusal.contains("--worker-authorization"),
+        "{command_refusal}"
+    );
+    assert!(command.commands().is_empty(), "{:?}", command.commands());
+
+    let (screen, command) = (Fixture::new(), Fixture::new());
+    let mut request = screen.request.clone();
+    request.authorization = relay(&screen, None, 3);
+    let started = wait(Job::start(request)).unwrap();
+    let run = headless(&command, relay(&command, None, 3)).unwrap();
+    assert_eq!(run["run"], started.run.slug.as_str());
+    assert_eq!(run["step"], "build");
+    assert_eq!(run["responses"], 3);
+    assert_eq!(
+        record(&command, run["run"].as_str().unwrap()),
+        record(&screen, &started.run.slug)
+    );
+    assert_eq!(
+        steps_named(&command, "launch"),
+        steps_named(&screen, "launch")
+    );
+}

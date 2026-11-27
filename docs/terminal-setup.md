@@ -202,12 +202,13 @@ A read-only command writes nothing. A command that acts makes one explicit chang
 | `tinkery [options] seed new GOAL_FILE [ORIGIN]` | Acts: saves the file's words as a confirmed goal and prints the session folder. | None |
 | `tinkery [options] seed step DIR confirm DRAFT_SHA256` | Acts: confirms only the draft with that SHA-256. | None |
 | `tinkery [options] seed step DIR look\|delegate\|answer WORDS\|answer --relayed FILE` | Acts: takes one Shape step. | Needs `--shape-pi`, `--model` and an approved `--shape-budget` |
+| `tinkery [options] seed start DIR` | Acts: starts the worker for the session's confirmed Tink, exactly as F2 in Approve does, and prints the run as JSON. | The worker's, within `--worker-responses`; needs `--home`, `--sdlc-root`, `--worker-model` and, for an agent, `--worker-authorization` |
 
 [Shape without a screen](design/shape-and-handoff.md#without-a-screen) states what each `seed`
-command promises and refuses. No command starts a worker. A worker starts only from Approve's
-screen with F2, `l` or `u` ([start a worker](design/approve.md#start-a-worker)).
-A headless worker start is proposed in [#956](https://github.com/jon-devlapaz/tinkery/issues/956)
-and is not available.
+command promises and refuses. `seed start` runs F2's start: the same relay gate, checks and
+authorization record, and the same refusals before anything is created
+([start a worker](design/approve.md#start-a-worker)). It prints F2's disclosure on stderr first.
+It reads no cap guidance and never retries. Resume, verify and later steps still need the screen.
 
 This example makes no model calls. From the repository root, it builds once, then runs every
 command with a temporary TEST HOME and TEST roots, away from operator data and saved setup:
@@ -234,6 +235,8 @@ HOME="$test_root/home" "$tinkery" --operator agent seed step "$session" look
 # There is no draft to confirm.
 HOME="$test_root/home" "$tinkery" --operator agent seed step "$session" \
   confirm 0000000000000000000000000000000000000000000000000000000000000000
+# A start needs a worker allowance, so it refuses before reading anything.
+HOME="$test_root/home" "$tinkery" --operator agent seed start "$session"
 ```
 
 A real `look`, `answer` or `delegate` sends the goal to a model and can cost money. Run it
