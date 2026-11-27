@@ -102,6 +102,36 @@ fn every_top_level_module_has_an_area() {
     );
 }
 
+#[test]
+fn the_module_table_matches_modules() {
+    let doc = fs::read_to_string(root().join("docs/design/architecture.md")).unwrap();
+    let section = doc
+        .split("## Modules today")
+        .nth(1)
+        .unwrap()
+        .split("\n## ")
+        .next()
+        .unwrap();
+    let mut table: Vec<(String, String)> = section
+        .lines()
+        .filter_map(|line| {
+            let mut cells = line.strip_prefix("| `")?.split(" | ");
+            let module = cells.next()?.strip_suffix('`')?.to_string();
+            Some((module, cells.next()?.to_string()))
+        })
+        .collect();
+    let mut expected: Vec<(String, String)> = MODULES
+        .iter()
+        .map(|(m, a)| (m.to_string(), a.to_string()))
+        .collect();
+    table.sort();
+    expected.sort();
+    assert_eq!(
+        table, expected,
+        "docs/design/architecture.md#modules-today must list each MODULES entry once, with its area"
+    );
+}
+
 /// The area a module path (without `crate`) belongs to. Items at the crate root are shared.
 fn area(path: &[String]) -> &'static str {
     path.first()
