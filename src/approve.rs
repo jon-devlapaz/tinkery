@@ -100,7 +100,7 @@ impl Reader {
         sessions: Vec<Session>,
         root: Option<PathBuf>,
         record_root: Result<PathBuf, String>,
-        mut found: Found,
+        found: Found,
         target: Option<ready::SeedTarget>,
     ) -> bool {
         if self.running.is_some() {
@@ -110,119 +110,183 @@ impl Reader {
         let cancelled = stop.clone();
         let (tx, rx) = mpsc::channel();
         std::thread::spawn(move || {
-            let resolved_root = root.as_deref().and_then(|root| root.canonicalize().ok());
-            found.checkout = resolved_root.clone();
-            let checkout = resolved_root.as_deref();
-            let repo = checkout.and_then(Repo::enclosing);
-            let origins = checkout.and_then(|_| {
-                let selected: Vec<_> = sessions
-                    .iter()
-                    .map(|session| (session.path.as_path(), session.goal.as_str()))
-                    .collect();
-                record_root
-                    .ok()
-                    .and_then(|root| crate::seed_me::connection::origins(&root, &selected).ok())
-            });
-            let origins = origins.unwrap_or_else(|| {
-                sessions
-                    .iter()
-                    .map(|session| {
-                        match crate::seed_me::connection::read(&session.path, &session.goal) {
-                            Ok(None) => MadeIn::Unknown,
-                            Ok(Some(_)) => MadeIn::Invalid(
-                                "The Tend origin could not be checked against Think records."
-                                    .into(),
-                            ),
-                            Err(reason) => MadeIn::Invalid(reason),
-                        }
-                    })
-                    .collect()
-            });
-            let runs = match checkout {
-                Some(path) => runs::seeds(path, &cancelled),
-                None if root.is_some() => Err("The named checkout could not be resolved.".into()),
-                None => Err("Open Tinkery from a project with tink-sdlc installed.".into()),
-            };
-            if let Err(reason) = &runs {
-                found.start_unknown = Some(reason.clone());
-            }
-            // Discovery owns chronological sorting. Reverse its newest-first order, not timestamps.
-            let mut target_failure =
-                "This Tink is missing or unavailable in the current sessions root.".to_owned();
-            for (session, origin) in sessions.into_iter().zip(origins).rev() {
-                if cancelled.load(Ordering::SeqCst) {
-                    return;
-                }
-                if target
-                    .as_ref()
-                    .is_some_and(|target| target.session != session.path)
-                {
-                    continue;
-                }
-                if session.stage != Stage::SeedUnchecked && !session.stage.ended() {
-                    target_failure =
-                        "This Tink is no longer verified ready. Return to Shape to read it again."
-                            .into();
-                    continue;
-                }
-                if let Ok(runs) = &runs {
-                    match runs::started(runs, &ready::path(&session.path)) {
-                        Ok(true) => {
-                            target_failure =
-                                "This Tink has already started. Open Watch to inspect its run."
-                                    .into();
-                            continue;
-                        }
-                        Ok(false) => {}
-                        Err(reason) => {
-                            found.changed += 1;
-                            if found.reasons.len() < crate::seed_me::MAX_READ_FAILURES {
-                                found
-                                    .reasons
-                                    .push(format!("{}: {reason}", session.path.display()));
-                            }
-                        }
-                    }
-                }
-                match ready::read(&session.path, checkout) {
-                    Ok(Some(mut seed)) => {
-                        if target.as_ref().is_some_and(|target| seed.target.as_ref() != Some(target)) {
-                            target_failure = "This Tink changed since Shape read it. Return to Shape to read it again.".into();
-                            continue;
-                        }
-                        if seed.retry_started == Ok(true) {
-                            target_failure = "This Tink has already started. Open Watch with --sdlc-root set to its retry checkout.".into();
-                            continue;
-                        }
-                        let origin_note = root.as_deref().and_then(|root| {
-                            if !matches!(origin, MadeIn::Invalid(_)) && seed.target.as_ref().is_some_and(|target| target.retry.is_some()) {
-                                None // The confirmed retry itself binds its checkout; it did not go through Think.
-                            } else {
-                                origin_note(&mut seed, origin, repo.as_ref(), root)
-                            }
-                        });
-                        found.seeds.push(Reading { seed, origin_note });
-                    }
-                    Ok(None) => target_failure = "This Tink is missing or no longer verified ready. Return to Shape to read it again.".into(),
-                    Err(reason) => {
-                        target_failure = format!("This Tink is unavailable: {reason}");
-                        found.unavailable += 1;
-                        if found.reasons.len() < crate::seed_me::MAX_READ_FAILURES {
-                            found
-                                .reasons
-                                .push(format!("{}: {reason}", session.path.display()));
-                        }
-                    }
-                }
-            }
-            if target.is_some() && found.seeds.is_empty() {
-                found.target_failure = Some(target_failure);
-            }
-            let _ = tx.send(found);
+            let _ = tx.send(find(sessions, root, record_root, found, target, &cancelled));
         });
         self.running = Some((rx, stop));
         true
     }
+}
+
+/// Verify `sessions` against the checkout at `root`, as Approve shows them. Reads only; stops
+/// between sessions once `cancelled` is set.
+fn find(
+    sessions: Vec<Session>,
+    root: Option<PathBuf>,
+    record_root: Result<PathBuf, String>,
+    mut found: Found,
+    target: Option<ready::SeedTarget>,
+    cancelled: &AtomicBool,
+) -> Found {
+    let resolved_root = root.as_deref().and_then(|root| root.canonicalize().ok());
+    found.checkout = resolved_root.clone();
+    let checkout = resolved_root.as_deref();
+    let repo = checkout.and_then(Repo::enclosing);
+    let origins = checkout.and_then(|_| {
+        let selected: Vec<_> = sessions
+            .iter()
+            .map(|session| (session.path.as_path(), session.goal.as_str()))
+            .collect();
+        record_root
+            .ok()
+            .and_then(|root| crate::seed_me::connection::origins(&root, &selected).ok())
+    });
+    let origins = origins.unwrap_or_else(|| {
+        sessions
+            .iter()
+            .map(
+                |session| match crate::seed_me::connection::read(&session.path, &session.goal) {
+                    Ok(None) => MadeIn::Unknown,
+                    Ok(Some(_)) => MadeIn::Invalid(
+                        "The Tend origin could not be checked against Think records.".into(),
+                    ),
+                    Err(reason) => MadeIn::Invalid(reason),
+                },
+            )
+            .collect()
+    });
+    let runs = match checkout {
+        Some(path) => runs::seeds(path, cancelled),
+        None if root.is_some() => Err("The named checkout could not be resolved.".into()),
+        None => Err("Open Tinkery from a project with tink-sdlc installed.".into()),
+    };
+    if let Err(reason) = &runs {
+        found.start_unknown = Some(reason.clone());
+    }
+    // Discovery owns chronological sorting. Reverse its newest-first order, not timestamps.
+    let mut target_failure =
+        "This Tink is missing or unavailable in the current sessions root.".to_owned();
+    for (session, origin) in sessions.into_iter().zip(origins).rev() {
+        if cancelled.load(Ordering::SeqCst) {
+            return found;
+        }
+        if target
+            .as_ref()
+            .is_some_and(|target| target.session != session.path)
+        {
+            continue;
+        }
+        if session.stage != Stage::SeedUnchecked && !session.stage.ended() {
+            target_failure =
+                "This Tink is no longer verified ready. Return to Shape to read it again.".into();
+            continue;
+        }
+        if let Ok(runs) = &runs {
+            match runs::started(runs, &ready::path(&session.path)) {
+                Ok(true) => {
+                    target_failure =
+                        "This Tink has already started. Open Watch to inspect its run.".into();
+                    continue;
+                }
+                Ok(false) => {}
+                Err(reason) => {
+                    found.changed += 1;
+                    if found.reasons.len() < crate::seed_me::MAX_READ_FAILURES {
+                        found
+                            .reasons
+                            .push(format!("{}: {reason}", session.path.display()));
+                    }
+                }
+            }
+        }
+        match ready::read(&session.path, checkout) {
+                Ok(Some(mut seed)) => {
+                    if target.as_ref().is_some_and(|target| seed.target.as_ref() != Some(target)) {
+                        target_failure = "This Tink changed since Shape read it. Return to Shape to read it again.".into();
+                        continue;
+                    }
+                    if seed.retry_started == Ok(true) {
+                        target_failure = "This Tink has already started. Open Watch with --sdlc-root set to its retry checkout.".into();
+                        continue;
+                    }
+                    let origin_note = root.as_deref().and_then(|root| {
+                        if !matches!(origin, MadeIn::Invalid(_)) && seed.target.as_ref().is_some_and(|target| target.retry.is_some()) {
+                            None // The confirmed retry itself binds its checkout; it did not go through Think.
+                        } else {
+                            origin_note(&mut seed, origin, repo.as_ref(), root)
+                        }
+                    });
+                    found.seeds.push(Reading { seed, origin_note });
+                }
+                Ok(None) => target_failure = "This Tink is missing or no longer verified ready. Return to Shape to read it again.".into(),
+                Err(reason) => {
+                    target_failure = format!("This Tink is unavailable: {reason}");
+                    found.unavailable += 1;
+                    if found.reasons.len() < crate::seed_me::MAX_READ_FAILURES {
+                        found
+                            .reasons
+                            .push(format!("{}: {reason}", session.path.display()));
+                    }
+                }
+            }
+    }
+    if target.is_some() && found.seeds.is_empty() {
+        found.target_failure = Some(target_failure);
+    }
+    found
+}
+
+/// The start review that `b` opens for the one Tink in `session`, read and checked as Approve
+/// reads and checks it. Reads only and blocks; refuses with the reason Approve shows.
+pub(crate) fn review(
+    session: &std::path::Path,
+    root: PathBuf,
+    record_root: Result<PathBuf, String>,
+) -> Result<Review, String> {
+    let session = match crate::seed_me::read(session) {
+        crate::seed_me::Record::Session(session) => session,
+        crate::seed_me::Record::NotASession => {
+            return Err("The folder is not a Tinkery session.".into());
+        }
+        crate::seed_me::Record::Unreadable(failure) => return Err(failure.reason),
+    };
+    let checkout = root.canonicalize().ok();
+    let target = ready::read(&session.path, checkout.as_deref())?
+        .and_then(|seed| seed.target)
+        .ok_or(
+            "This Tink is missing or no longer verified ready. Return to Shape to read it again.",
+        )?;
+    let found = find(
+        vec![session],
+        Some(root),
+        record_root,
+        Found::default(),
+        Some(target),
+        &AtomicBool::new(false),
+    );
+    if let Some(reason) = found.target_failure {
+        return Err(reason);
+    }
+    if let Some(reason) = found.start_unknown {
+        return Err(reason);
+    }
+    let checkout = found
+        .checkout
+        .ok_or("The named checkout could not be resolved.")?;
+    let Reading { seed, origin_note } = found
+        .seeds
+        .into_iter()
+        .next()
+        .ok_or("This Tink is unavailable.")?;
+    if seed.commands.is_none() {
+        return Err(match origin_note {
+            Some(OriginNote::Different(reason)) => reason,
+            _ => "This checkout cannot be named safely, so the Tink cannot start here.".into(),
+        });
+    }
+    Ok(Review {
+        seed,
+        root: checkout,
+    })
 }
 
 impl Drop for Reader {

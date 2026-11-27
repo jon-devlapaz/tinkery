@@ -103,6 +103,54 @@ impl Start {
     }
 }
 
+/// `seed start`: what F2 does for `review`, through the same authorization and checks, once and
+/// in the foreground. The disclosure F2 shows goes to stderr first. Prints nothing else; returns
+/// the started worker as JSON, or the refusal with its safe follow-up.
+pub(crate) fn start_command(
+    review: Review,
+    record_root: Result<PathBuf, String>,
+    config: Option<Config>,
+    authorization: Gate,
+) -> Result<serde_json::Value, String> {
+    let config = config.ok_or(
+        "No worker allowance. Pass --worker-model provider/model:thinking and --worker-responses N. Nothing was started.",
+    )?;
+    let target = review
+        .seed
+        .target
+        .ok_or("This Tink has no verified start target. Nothing was started.")?;
+    let advice = cap_advice(&review.root, config.responses, &AtomicBool::new(false));
+    let request = Start {
+        target,
+        root: review.root,
+        record_root,
+        config,
+        authorization,
+    };
+    eprintln!("{}", request.disclosure(&advice));
+    let snapshot =
+        start(request, "run seed start again").map_err(|failure| match failure.recovery {
+            Recovery::Retry | Recovery::Inspect => failure.message,
+            Recovery::Run(run) => format!(
+                "{} Run {} exists; read it with the worker screen (--sdlc-root {}).",
+                failure.message,
+                run.slug,
+                run.root.display()
+            ),
+        })?;
+    Ok(serde_json::json!({
+        "run": snapshot.run.slug,
+        "run_id": snapshot.run.id,
+        "checkout": snapshot.run.root,
+        "step": snapshot.step,
+        "state": snapshot.state.words(),
+        "model": snapshot.model,
+        "response_cap": snapshot.responses,
+        "verification": snapshot.verification.as_str(),
+        "next": snapshot.next,
+    }))
+}
+
 /// Source-owned run identity pinned across later actions, not a new workflow store.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Run {
@@ -348,7 +396,7 @@ struct Job {
 impl Job {
     /// Start only after the interface explicitly grants the displayed worker action.
     fn start(request: Start) -> Self {
-        Self::spawn(move || start(request))
+        Self::spawn(move || start(request, "F2 tries again"))
     }
 
     /// Perform exactly one requested action, rechecking the pinned run before any write.
@@ -532,7 +580,7 @@ fn committer_identity(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn start(request: Start) -> Result<Snapshot, Failure> {
+fn start(request: Start, again: &str) -> Result<Snapshot, Failure> {
     let (intake, source_commit) = (|| {
         request
             .authorization
@@ -577,7 +625,7 @@ fn start(request: Start) -> Result<Snapshot, Failure> {
         Ok((intake, source_commit))
     })()
     .map_err(|message: String| Failure {
-        message: format!("{message} Nothing was started; fix that, then F2 tries again."),
+        message: format!("{message} Nothing was started; fix that, then {again}."),
         recovery: Recovery::Retry,
     })?;
     let mut known = None;
