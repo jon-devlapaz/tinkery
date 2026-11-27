@@ -1972,12 +1972,22 @@ fn a_gated_key_before_its_disclosure_end_shows_that_end_and_only_a_second_press_
             .count()
     };
     let rows = screen_rows(&mut panel, 12);
-    assert!(rows.last().unwrap().starts_with("End to resume"), "{rows:#?}");
+    assert!(
+        rows.last().unwrap().starts_with("End to resume"),
+        "{rows:#?}"
+    );
     panel.key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::NONE));
     let rows = screen_rows(&mut panel, 12);
-    assert!(rows.join(" ").contains("Press u again to resume."), "{rows:#?}");
+    assert!(
+        rows.join(" ").contains("Press u again to resume."),
+        "{rows:#?}"
+    );
     assert!(rows.last().unwrap().starts_with("u resume"), "{rows:#?}");
-    assert_eq!(resumes(&fixture), 0, "the first press resumed before the end was shown");
+    assert_eq!(
+        resumes(&fixture),
+        0,
+        "the first press resumed before the end was shown"
+    );
     panel.key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::NONE));
     screen_rows(&mut panel, 12);
     assert_eq!(resumes(&fixture), 1);
