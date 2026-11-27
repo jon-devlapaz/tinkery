@@ -139,8 +139,9 @@ find the new run.
 seed, a usable checkout and a successful start-status read; uncertainty offers no
 start shortcut. The review reads nothing and runs nothing. It shows the exact goal,
 Tink Contract SHA-256, provider/model/thinking pin, response cap, checkout, provider data and effects before
-F2. The key bar offers Start, Launch or Resume once the end of its disclosure is on
-screen. It hides worker actions while a request is pending.
+F2. The key bar offers Start, Launch, Resume or a new step once the end of its disclosure is on
+screen. Before then, that key shows the end, and only a second press acts. The key bar
+hides worker actions while a request is pending.
 
 `--worker-model provider/model:thinking` and `--worker-responses N` supply a separate
 allowance for this launch. The default is zero. Drafting calls never supply it.

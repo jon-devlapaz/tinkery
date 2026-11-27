@@ -279,11 +279,15 @@ impl Panel {
             }
             _ => {}
         }
-        let request = self
-            .requests()
-            .find(|(code, _, _)| *code == key.code)
-            .and_then(|(_, _, request)| request);
-        match request {
+        let row = self.requests().find(|(code, _, _)| *code == key.code);
+        if let Some((_, hint, None)) = row {
+            // A gated key before the end of its disclosure shows that end; only a second press acts.
+            self.scroll = u16::MAX;
+            let action = hint.trim_start_matches("End ");
+            self.notice = format!("Press {} again {action}.", key.code);
+            return None;
+        }
+        match row.and_then(|(_, _, request)| request) {
             Some(Request::Start) => {
                 let start = self.start.take().expect("offered start");
                 self.starting = Some(start.clone());
@@ -304,7 +308,7 @@ impl Panel {
     }
 
     /// Each row owns its key and label. A disclosure hint stands in for a request
-    /// until the end of that disclosure is on screen.
+    /// until the end of that disclosure is on screen; its key then shows that end.
     fn requests(&self) -> impl Iterator<Item = (KeyCode, &'static str, Option<Request>)> {
         let idle = !self.busy() && !self.help;
         let has_run = idle && self.run.is_some();
