@@ -133,7 +133,8 @@ For Shape's typed context, read [Think history](shape-and-handoff.md#think-histo
 
 ## Design score
 
-John Ousterhout's *A Philosophy of Software Design* supplies these eight questions.
+John Ousterhout's *A Philosophy of Software Design* supplies these questions. Row 6 uses David Parnas's
+1972 [decomposition criterion](https://doi.org/10.1145/361598.361623).
 Structural PRs name the rows they move.
 
 | # | Question |
@@ -143,7 +144,7 @@ Structural PRs name the rows they move.
 | 3 | Can an implementation change without touching callers? |
 | 4 | Do interface comments describe the abstraction? |
 | 5 | Is design discussion part of review? |
-| 6 | Does each module hide an important decision? |
+| 6 | Does each module hide a decision likely to change? |
 | 7 | Can a newcomer see the boundaries without reading code? |
 | 8 | Is design improvement part of ordinary work? |
 
