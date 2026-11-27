@@ -1,4 +1,4 @@
-"""An explicit deferred-prerequisite answer: saved legacy fixtures, real PTYs, zero calls."""
+"""An explicit deferred-prerequisite answer: saved legacy and structured questions, real PTYs, zero calls."""
 from pathlib import Path
 import tempfile
 from shape_answer_terminal import Run, F1, F2, ESC, helper
@@ -20,12 +20,17 @@ def journey(width, height, long=False, unavailable=None):
         question = 'TEST original question café?' + ('\n' + '\n'.join(f'TEST question detail {i}: keep all words.' for i in range(12)) + '\nTEST question tail' if long else '')
         reason = '  TEST reason café  ' + ('\n' + '\n'.join(f'TEST reason detail {i}' for i in range(8)) + '\nTEST reason tail' if long else '')
         condition = 'TEST condition 中' + ('\n' + '\n'.join(f'TEST revisit detail {i}' for i in range(8)) + '\nTEST revisit tail' if long else '')
+        deferred = node('a', status='deferred', label=title, question=question,
+                        defer_reason=reason, revisit_condition=condition)
+        if long:
+            deferred['choices'] = {'options': [
+                {'choice': 'Keep local', 'tradeoff': 'less access', 'undo': 'cheap'},
+                {'choice': 'Publish', 'tradeoff': 'others keep copies', 'undo': 'hard'}]}
         state['nodes'].extend([
-            node('a', status='deferred', label=title, question=question,
-                 defer_reason=reason, revisit_condition=condition),
+            deferred,
             node('b', status='unresolved', label='TEST B', question='TEST dependent question?', prerequisites=['a']),
         ])
-        helper.publish(session, state, old['version'], 'TEST legacy saved state')
+        helper.publish(session, state, old['version'], 'TEST deferred question')
         before = files(session)
         run = Run(root, width, height, budget=0, agent=unavailable != 'no model', shape_setup=unavailable is None)
         try:
@@ -41,6 +46,7 @@ def journey(width, height, long=False, unavailable=None):
             run.choose('Answer deferred prerequisite', 'TEST original question café?')
             if long:
                 run.read_until('TEST question tail')
+                run.read_until('Option B: Publish; others keep copies. Undo cost: hard.')
                 run.read_until('TEST reason tail')
                 run.read_until('TEST revisit tail')
             else:

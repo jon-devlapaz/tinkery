@@ -112,45 +112,6 @@ impl Authority {
     }
 }
 
-/// How hard an option is to undo, as the question format names it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Undo {
-    /// Cheap to undo.
-    Cheap,
-    /// Moderately hard to undo.
-    Moderate,
-    /// Hard to undo, so the operator's instinct comes before any suggestion.
-    Hard,
-}
-
-impl Undo {
-    /// Decode a cost word as the question format writes it; any other word is none.
-    pub fn of(word: &str) -> Option<Self> {
-        match word {
-            "cheap" => Some(Self::Cheap),
-            "moderate" => Some(Self::Moderate),
-            "hard" => Some(Self::Hard),
-            _ => None,
-        }
-    }
-
-    /// The cost an option line records, read back from the end of a recorded question line.
-    pub fn of_line(line: &str) -> Option<Self> {
-        Self::of(line.strip_suffix('.')?.rsplit_once(UNDO_COST)?.1)
-    }
-
-    fn word(self) -> &'static str {
-        match self {
-            Self::Cheap => "cheap",
-            Self::Moderate => "moderate",
-            Self::Hard => "hard",
-        }
-    }
-}
-
-/// What an option line says before its undo cost.
-const UNDO_COST: &str = " Undo cost: ";
-
 /// A question an agent drafted, as the ledger records it. Its id is made unique when it's added.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ask {
@@ -174,53 +135,14 @@ pub struct Ask {
     pub suggestion: Option<String>,
     /// Defaults the step chose instead of asking, added to the ledger's `assumed` list.
     pub assumed: Vec<Assumption>,
-    /// The two ways to settle it, each with its trade-off and undo cost; empty when none were given.
-    pub options: Vec<Alternative>,
-    /// The strongest case against the suggestion.
-    pub against: Option<String>,
+    /// The offered pair, with the cost of undoing each choice and any case against the suggestion.
+    pub choices: Option<ledger::Choices>,
 }
-
-/// One way to settle a decision, as the question format names it.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Alternative {
-    /// The choice.
-    pub choice: String,
-    /// Its benefit and cost compared with the other.
-    pub tradeoff: String,
-    /// How hard it is to undo.
-    pub undo: Undo,
-}
-
-/// The question's lines that name its options, then the case against the suggestion. Shape
-/// reads them back from the question text; the ledger has no options field.
-pub const OPTION_LABELS: [&str; 2] = ["Option A: ", "Option B: "];
-/// The line that carries the strongest case against the suggestion.
-pub const AGAINST: &str = "Against my suggestion: ";
 
 impl Ask {
-    /// Whether either option is hard to undo, so the operator's instinct comes before any
-    /// suggestion and the suggestion isn't recorded yet.
-    pub fn hard(&self) -> bool {
-        self.options.iter().any(|o| o.undo == Undo::Hard)
-    }
-
-    /// The question as the ledger records it: the ask, then each option and the case against.
-    fn text(&self) -> String {
-        // The model may end its own words with punctuation; the line supplies its own.
-        let bare = |s: &str| s.trim_end_matches(['.', ';', ',', ' ']).to_owned();
-        let mut text = self.question.clone();
-        for (label, o) in OPTION_LABELS.iter().zip(&self.options) {
-            text.push_str(&format!(
-                "\n{label}{}; {}.{UNDO_COST}{}.",
-                bare(&o.choice),
-                bare(&o.tradeoff),
-                o.undo.word()
-            ));
-        }
-        if let Some(against) = self.against.as_deref().filter(|_| !self.options.is_empty()) {
-            text.push_str(&format!("\n{AGAINST}{against}"));
-        }
-        text
+    /// Whether the operator must see the question before its suggestion.
+    pub(super) fn hard(&self) -> bool {
+        self.choices.as_ref().is_some_and(ledger::Choices::hard)
     }
 
     /// The suggestion unchanged; blank suggestions are absent.
@@ -910,7 +832,7 @@ pub fn ask(session: &Path, expected: u64, ask: &Ask, folder: &Path) -> Result<u6
         "id": id, "kind": "decision", "status": "unresolved",
         "prerequisites": ask.prerequisites.clone().unwrap_or_else(|| json!([])),
         "evidence": [], "owner": "User", "gate": ask.gate, "label": ask.label,
-        "question": ask.text(),
+        "question": ask.question, "choices": ask.choices,
     });
     if let Some(support) = &ask.supported_by {
         node["supported_by"] = support.clone();
@@ -1055,7 +977,7 @@ pub fn object(session: &Path, expected: u64, text: &str, actor: Actor<'_>) -> Re
     let node = json!({
         "id": id, "kind": "decision", "status": "unresolved", "prerequisites": [],
         "evidence": [], "owner": "User", "gate": format!("{OBJECTED}{text}"),
-        "label": OBJECTION, "question": format!("You objected to assuming: {text}. What should it be instead?"),
+        "label": OBJECTION, "choices": null, "question": format!("You objected to assuming: {text}. What should it be instead?"),
     });
     ledger.state["nodes"]
         .as_array_mut()
@@ -1096,7 +1018,7 @@ pub fn change_draft(
         "id": id, "kind": "decision", "status": "settled", "prerequisites": [],
         "evidence": [], "owner": "User", "gate": format!("Your change to Tink Contract draft {revision}"),
         "label": format!("{CHANGE} {revision}"),
-        "question": format!("What do you want to change in Tink Contract draft {revision}?"),
+        "choices": null, "question": format!("What do you want to change in Tink Contract draft {revision}?"),
         "answer": words, "authority": actor.authority(),
         "authority_source": actor.reason("asked for this change to the draft in Tinkery Shape."),
     });
@@ -1385,38 +1307,6 @@ fn unique_id(wanted: &str, taken: &[String]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn option_lines_keep_single_punctuation_whatever_the_model_ends_with() {
-        let option = |choice: &str, tradeoff: &str| Alternative {
-            choice: choice.into(),
-            tradeoff: tradeoff.into(),
-            undo: Undo::Cheap,
-        };
-        let ask = Ask {
-            prerequisites: None,
-            supported_by: None,
-            id: "view".into(),
-            label: "TEST view".into(),
-            question: "TEST Where do ended goals go?".into(),
-            gate: "TEST view".into(),
-            found: vec![],
-            resolves: None,
-            suggestion: None,
-            assumed: vec![],
-            options: vec![
-                option("A separate view.", "TEST keeps the garden calm."),
-                option("Mixed in;", "TEST one list, "),
-            ],
-            against: None,
-        };
-        assert_eq!(
-            ask.text(),
-            "TEST Where do ended goals go?\n\
-             Option A: A separate view; TEST keeps the garden calm. Undo cost: cheap.\n\
-             Option B: Mixed in; TEST one list. Undo cost: cheap."
-        );
-    }
 
     #[test]
     fn ids_are_ledger_safe_and_never_reuse_an_existing_one() {

@@ -12,7 +12,7 @@ use crate::{
     confirmation::{Actor, GoalConfirmation},
     pi::{self, Call, Drafting},
     seed_me::ledger,
-    shape::answering::{self, Alternative, Ask, Assumption, Found, Refusal, Rule, Undo},
+    shape::answering::{self, Ask, Assumption, Found, Refusal, Rule},
     think_record::{self, MadeIn, ShapeContext},
 };
 use serde_json::{Value, json};
@@ -1030,29 +1030,6 @@ fn assumptions(value: &Value) -> Vec<Assumption> {
         .collect()
 }
 
-/// Exactly two complete options, each with a known undo cost; anything else gives none.
-fn alternatives(value: &Value) -> Vec<Alternative> {
-    let options: Vec<Alternative> = value
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|o| {
-            let field =
-                |key: &str| Some(o[key].as_str()?.trim().to_owned()).filter(|s| !s.is_empty());
-            Some(Alternative {
-                choice: field("choice")?,
-                tradeoff: field("tradeoff")?,
-                undo: Undo::of(&field("undo")?.to_lowercase())?,
-            })
-        })
-        .collect();
-    if options.len() == 2 {
-        options
-    } else {
-        Vec::new()
-    }
-}
-
 /// The system prompt for one step.
 pub(super) fn prompt() -> String {
     pi::assemble(PROMPT)
@@ -1166,9 +1143,11 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
     })?;
     match value["next"].as_str() {
         Some("question") => {
-            let question = text("question").ok_or_else(|| {
-                "Question reply field question must contain non-empty words.".to_owned()
-            })?;
+            let question = value["question"]
+                .as_str()
+                .filter(|words| !words.trim().is_empty())
+                .ok_or("Question reply field question must contain non-empty words.")?
+                .to_owned();
             Ok(Next::Question(Box::new(Ask {
                 id: text("id").unwrap_or_else(|| "question".into()),
                 label: text("label").unwrap_or_else(|| question.clone()),
@@ -1180,8 +1159,7 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
                 prerequisites: value.get("prerequisites").cloned(),
                 suggestion: text("suggestion"),
                 assumed: assumptions(&value["assumed"]),
-                options: alternatives(&value["options"]),
-                against: text("against"),
+                choices: ledger::Choices::from_reply(&value)?,
             })))
         }
         Some("seed") => {
@@ -1220,8 +1198,7 @@ pub(super) fn decode(reply: &str, goal: &str) -> Result<Next, String> {
                     prerequisites: None,
                     suggestion: None,
                     assumed: assumptions(&value["assumed"]),
-                    options: Vec::new(),
-                    against: None,
+                    choices: None,
                 })));
             }
             let mut checks = value["checks"]
