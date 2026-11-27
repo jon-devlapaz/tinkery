@@ -2172,10 +2172,12 @@ fn standing(
             ..
         } => {
             lines.push(Line::styled(title.clone(), palette.muted));
-            lines.push(Line::styled(
-                ask.clone(),
-                if calm { palette.muted } else { palette.jade },
-            ));
+            lines.extend(ask.split('\n').map(|line| {
+                Line::styled(
+                    line.to_owned(),
+                    if calm { palette.muted } else { palette.jade },
+                )
+            }));
             if !calm {
                 // Tinkery's own probe and objection questions ask for the operator's words, not evidence.
                 let own =
