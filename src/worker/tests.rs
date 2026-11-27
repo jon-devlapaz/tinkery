@@ -1345,11 +1345,15 @@ fn agent_new_step_needs_relayed_words_for_its_own_cap() {
 
 /// The screen once the read and any cap guidance have landed.
 fn screen(panel: &mut Panel) -> Vec<String> {
+    screen_rows(panel, 60)
+}
+
+fn screen_rows(panel: &mut Panel, height: u16) -> Vec<String> {
     let until = Instant::now() + Duration::from_secs(15);
     loop {
         panel.poll();
         let mut terminal =
-            ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 60)).unwrap();
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, height)).unwrap();
         terminal
             .draw(|f| panel.render(f, f.area(), crate::Palette::new(true)))
             .unwrap();
@@ -1951,4 +1955,40 @@ fn a_gone_worker_resumes_its_same_session_but_a_live_or_capped_one_does_not() {
         "resume changed the session or cap"
     );
     assert_eq!(snapshot.responses, initial.responses);
+}
+
+#[test]
+fn a_gated_key_before_its_disclosure_end_shows_that_end_and_only_a_second_press_acts() {
+    // Dogfood batch 1: drivers pressed u, saw nothing, then needed End and u again.
+    let fixture = Fixture::new();
+    let run = fixture.start().run;
+    fixture.edit(|value| value["worker_gone"] = true.into());
+    let mut panel = Panel::existing(run.root, run.slug, run.id, Gate::new(false, Ok(None)), None);
+    let resumes = |fixture: &Fixture| {
+        fixture
+            .commands()
+            .iter()
+            .filter(|args| args.last().is_some_and(|arg| arg == "resume"))
+            .count()
+    };
+    let rows = screen_rows(&mut panel, 12);
+    assert!(
+        rows.last().unwrap().starts_with("End to resume"),
+        "{rows:#?}"
+    );
+    panel.key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::NONE));
+    let rows = screen_rows(&mut panel, 12);
+    assert!(
+        rows.join(" ").contains("Press u again to resume."),
+        "{rows:#?}"
+    );
+    assert!(rows.last().unwrap().starts_with("u resume"), "{rows:#?}");
+    assert_eq!(
+        resumes(&fixture),
+        0,
+        "the first press resumed before the end was shown"
+    );
+    panel.key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::NONE));
+    screen_rows(&mut panel, 12);
+    assert_eq!(resumes(&fixture), 1);
 }
