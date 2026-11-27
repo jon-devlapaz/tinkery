@@ -133,8 +133,8 @@ For Shape's typed context, read [Think history](shape-and-handoff.md#think-histo
 
 ## Design score
 
-John Ousterhout's *A Philosophy of Software Design* supplies these eight questions. Row 6 uses Parnas's
-[decomposition criterion](https://doi.org/10.1145/361598.361623).
+John Ousterhout's *A Philosophy of Software Design* supplies these questions. Row 6 uses David Parnas's
+1972 [decomposition criterion](https://doi.org/10.1145/361598.361623).
 Structural PRs name the rows they move.
 
 | # | Question |
