@@ -48,6 +48,7 @@ pub mod think_record;
 pub(crate) mod thought;
 pub mod trace;
 pub mod voice;
+pub mod wait;
 pub mod watch;
 pub(crate) mod words;
 mod worker;

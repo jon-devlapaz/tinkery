@@ -80,6 +80,7 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   see [Shape without a screen](docs/design/shape-and-handoff.md#without-a-screen).
   `tinkery seed trace DIR` prints that goal's records from Think to Taste as JSON lines, for error analysis: your words verbatim, transcripts only by path and SHA-256, and each missing record as `unknown`. Pi's Think and Shape session files stay local for 90 days so the trace can link them.
   See [Tracing](docs/design/tracing.md).
+  `tinkery --sdlc-root ROOT seed wait DIR` blocks, read-only, until the driving agent is needed, then prints the event and the next allowed action as JSON.
   Its draft guidance and artifact reference are bundled; no external skill is needed.
   The agent's step reads the repository where the goal was made, else the one named by
   `--sdlc-root`, else where Tinkery started. A ready Tink points to Approve.

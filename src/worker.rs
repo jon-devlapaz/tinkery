@@ -155,6 +155,50 @@ pub(crate) fn start_command(
     }))
 }
 
+/// One read of the run whose recorded Tink is `seed`'s current bytes, for `seed wait`; `None`
+/// before any run records it. Reads only. A run whose seed record is unreadable refuses, as
+/// Approve refuses, because it could be this Tink's.
+pub(crate) fn observe(root: &Path, seed: &Path) -> Result<Option<Observed>, String> {
+    canonical_root(root)?;
+    let runs = sdlc::list(root, &AtomicBool::new(false), sdlc::DEADLINE)?
+        .ok_or("The checkout reported no runs list.")?;
+    let mut found = None;
+    for summary in &runs {
+        if let Some(recorded) = summary.seed.clone()?
+            && runs::matches(&recorded, seed)?
+        {
+            found = Some(summary);
+        }
+    }
+    let Some(summary) = found else {
+        return Ok(None);
+    };
+    let slug = summary.data["slug"]
+        .as_str()
+        .ok_or("The run has no name.")?;
+    let report = status(root, slug)?;
+    let observed = snapshot_from(&identity(root, slug, &report)?, &report)?;
+    Ok(Some(Observed {
+        run: observed.run.slug,
+        state: observed.state,
+        verification: observed.verification,
+        next: observed.next,
+    }))
+}
+
+/// A run as `seed wait` reads it: its name, worker state, verification and SDLC's next action.
+#[derive(Clone, Debug)]
+pub(crate) struct Observed {
+    /// The SDLC run name.
+    pub(crate) run: String,
+    /// The newest Tinkery step's state.
+    pub(crate) state: State,
+    /// SDLC's verification word, which `snapshot_from` has already refused when unknown.
+    pub(crate) verification: sdlc::Word<sdlc::Verification>,
+    /// SDLC's next action in its own words.
+    pub(crate) next: String,
+}
+
 /// Source-owned run identity pinned across later actions, not a new workflow store.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Run {
