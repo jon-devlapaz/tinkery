@@ -193,11 +193,11 @@ pub fn session(
             continue;
         }
         found = true;
-        trace.run(
-            folder,
-            run,
-            seed_me::runs::matches(&bound, &seed).unwrap_or(false),
-        );
+        let matches = seed_me::runs::matches(&bound, &seed);
+        trace.run(folder, run, matches.as_ref().ok().copied());
+        if let Err(why) = matches {
+            trace.unknown("run", "seed match", &why);
+        }
     }
     if !found {
         trace.unknown(
@@ -263,8 +263,9 @@ impl Trace {
         );
     }
 
-    /// One run folder, in the order its records were made.
-    fn run(&mut self, folder: &Path, run: &Value, seed_matches: bool) {
+    /// One run folder, grouped by stage in the order tink-sdlc makes them. `seed_matches` is
+    /// `None` when the seed could not be read; the caller then adds an unknown line.
+    fn run(&mut self, folder: &Path, run: &Value, seed_matches: Option<bool>) {
         let slug = folder
             .file_name()
             .and_then(|n| n.to_str())
@@ -442,14 +443,23 @@ fn jsonl(path: &Path) -> Vec<Result<Value, String>> {
     if !path.exists() {
         return vec![];
     }
-    match regular_file::read_text(path, "not a regular file") {
-        Ok(text) => text
-            .lines()
-            .filter(|line| !line.trim().is_empty())
-            .map(|line| serde_json::from_str(line).map_err(|e| format!("{}: {e}", path.display())))
-            .collect(),
-        Err(error) => vec![Err(format!("{}: {error}", path.display()))],
-    }
+    let bytes = match regular_file::read_bounded(path, LIMIT, "not a regular file") {
+        Ok(regular_file::Bounded {
+            bytes: Some(bytes), ..
+        }) => bytes,
+        Ok(_) => {
+            return vec![Err(format!(
+                "{}: larger than the trace reads",
+                path.display()
+            ))];
+        }
+        Err(error) => return vec![Err(format!("{}: {error}", path.display()))],
+    };
+    String::from_utf8_lossy(&bytes)
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| serde_json::from_str(line).map_err(|e| format!("{}: {e}", path.display())))
+        .collect()
 }
 
 /// The files in `folder` with this extension, by name.
@@ -491,15 +501,25 @@ fn transcript(contract: &Path, session: Option<&str>) -> Result<PathBuf, String>
     files(&folder, "jsonl")
         .into_iter()
         .map(|(_, path)| path)
-        .find(|path| {
-            let first = regular_file::read_text(path, "not a regular file").ok();
-            let header = first
-                .as_deref()
-                .and_then(|text| text.lines().next())
-                .and_then(|line| serde_json::from_str::<Value>(line).ok());
-            header.is_some_and(|h| h["type"] == "session" && h["id"] == session)
-        })
+        .find(|path| header(path).is_some_and(|h| h["type"] == "session" && h["id"] == session))
         .ok_or_else(|| format!("No Pi session {session} in {}.", folder.display()))
+}
+
+/// The first line of a Pi session file, read alone: a session file can be very large.
+fn header(path: &Path) -> Option<Value> {
+    use std::io::{BufRead, Read};
+    let file = regular_file::open(
+        std::fs::OpenOptions::new().read(true),
+        libc::O_NOFOLLOW,
+        path,
+        "not a regular file",
+    )
+    .ok()?;
+    let mut line = String::new();
+    std::io::BufReader::new(file.take(64 * 1024))
+        .read_line(&mut line)
+        .ok()?;
+    serde_json::from_str(&line).ok()
 }
 
 /// Nanoseconds since 1970 as an RFC 3339 UTC time.

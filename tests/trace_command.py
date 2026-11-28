@@ -68,6 +68,9 @@ def run_folder(checkout, session, transcripts, slug='TEST-run', run_id=RUN_ID, f
         (pi / '2026-11-28_TEST-pi-session.jsonl').write_text(
             json.dumps({'type': 'session', 'id': 'TEST-pi-session'}) + '\n'
             + json.dumps({'type': 'message', 'message': {'role': 'tool', 'content': f'export KEY={SECRET}'}}) + '\n')
+        # Bytes that are not UTF-8 after the header: the reader reads only the first line.
+        with (pi / '2026-11-28_TEST-pi-session.jsonl').open('ab') as transcript:
+            transcript.write(b'\xff\xfe TEST binary tool output\n')
         (steps / 'step-01.session-dir').write_text(str(pi))
     output = run / '04-test/output'
     output.mkdir(parents=True)
@@ -133,7 +136,7 @@ def full_run():
         transcript = next(line for line in lines if line['name'] == 'transcript')
         path = Path(transcript['source']['path'])
         assert transcript['source']['sha256'] == hashlib.sha256(path.read_bytes()).hexdigest()
-        assert SECRET in path.read_text() and SECRET not in text, 'a transcript reached the trace'
+        assert SECRET.encode() in path.read_bytes() and SECRET not in text, 'a transcript reached the trace'
         assert next(line for line in lines if line['name'] == 'run')['seed_matches'] is True
         # The Think record's repository is the default checkout.
         assert trace(session, root, '--record-root', records, '--sdlc-root', checkout)[1] == lines
@@ -141,6 +144,13 @@ def full_run():
         (session / 'seed-contract.md').write_text((session / 'seed-contract.md').read_text() + 'TEST edit\n')
         assert next(line for line in trace(session, root, '--record-root', records)[1]
                     if line['name'] == 'run')['seed_matches'] is False
+        # An unreadable seed is an unknown match, never a silent false.
+        seed_file = session / 'seed-contract.md'
+        seed_file.unlink()
+        seed_file.mkdir()
+        unreadable = trace(session, root, '--record-root', records)[1]
+        assert next(line for line in unreadable if line['name'] == 'run')['seed_matches'] is None
+        assert [line['kind'] for line in unreadable if line['name'] == 'seed match'] == ['unknown'], unreadable
     print(f'seed trace full run: {len(lines)} lines in order, verbatim words, transcript by hash only')
     return lines
 

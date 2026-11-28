@@ -205,7 +205,7 @@ This keeps unchanged:
 
 **Shipped:** `tinkery [--record-root DIR] [--sdlc-root ROOT] seed trace DIR`
 ([Headless commands](../terminal-setup.md#headless-commands)). It reads one session and prints one JSON line per
-record, in reading order: goal, Think, Shape, confirmation, then each run built from the session (gates, worker
+record, grouped by stage in the order the work happens (within a stage, in record order; `at` gives each time): goal, Think, Shape, confirmation, then each run built from the session (gates, worker
 authorization, steps and transcripts, verify items as scores, review, PR, Taste verdicts as scores bound to
 `taste@<head>`). `src/trace.rs` owns the join. It changes no write path in Think, Shape, the worker or tink-sdlc.
 
@@ -219,6 +219,8 @@ record's own fields. Its format is `tinkery.trace/1`, named on the first line.
   `run_id` (`src/seed_me/retry.rs`). The trace prints both, then the prior session, or `unknown` when the run is
   not in the checkout.
 - **Content.** Operator words are verbatim. A transcript, ledger, log or review file is only a path and SHA-256.
+  A Pi session file is opened only to read its first line, the header that names its session.
+  A verify `error` is tink-sdlc's own message (the failed check's argv and a pointer to its log), never check output.
 - **Unknown lines today:** Think model transcript, Shape model transcript, driver session, and any worker
   transcript whose step records no session folder. These are the scope of slice 2.
 
