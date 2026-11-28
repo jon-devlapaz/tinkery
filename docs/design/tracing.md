@@ -1,8 +1,9 @@
 # Tracing: one continuum per goal
 
-**Proposal, not accepted.** Nothing here is shipped, and nothing here gives permission to build.
+**Proposal, except the first slice.** The operator confirmed the tracing Tink and its defaults on 2026-11-28
+("confirm", then "proceed"). The [first slice](#first-slice) ships as `tinkery seed trace`. The rest is unbuilt.
 Design acceptance, each slice, data use and budget are separate operator decisions.
-Read at tinkery `cfb0128` on 2026-11-27. The draft issue is in [tracing-issue-draft.md](tracing-issue-draft.md).
+Read at tinkery `cfb0128` on 2026-11-27.
 
 ## Why
 
@@ -202,21 +203,27 @@ This keeps unchanged:
 
 ### First slice
 
-**A read-only export of one or more sessions, from records that exist today.** It writes only into the folder that the
-caller names. It changes no write path in Think, Shape, the worker or tink-sdlc.
+**Shipped:** `tinkery [--record-root DIR] [--sdlc-root ROOT] seed trace DIR`
+([Headless commands](../terminal-setup.md#headless-commands)). It reads one session and prints one JSON line per
+record, in reading order: goal, Think, Shape, confirmation, then each run built from the session (gates, worker
+authorization, steps and transcripts, verify items as scores, review, PR, Taste verdicts as scores bound to
+`taste@<head>`). `src/trace.rs` owns the join. It changes no write path in Think, Shape, the worker or tink-sdlc.
 
-It proves the model end to end: goal, Shape revisions, worker step and transcript, verify items, review link, PR and
-Taste verdict, all keyed by one `session_id`. The pieces that are deleted today, Shape and Think transcripts and the
-driver chat, show as unknown. That gap is the evidence for slice 2.
+Each line has `session`, `kind` (`event`, `score` or `unknown`), `stage`, `name`, `at` and `actor`, plus the
+record's own fields. Its format is `tinkery.trace/1`, named on the first line.
 
-Files the first slice touches:
+- **Runs.** A run belongs to the session when its `seed_contract.source` is the session's `seed-contract.md`.
+  `seed_matches` says whether the bytes still match the intake hash. Runs come from `--sdlc-root`, else from the
+  repository that the Think record names.
+- **Retries.** A retry is a new session. Its goal evidence holds the Taste rejection words and the rejected
+  `run_id` (`src/seed_me/retry.rs`). The trace prints both, then the prior session, or `unknown` when the run is
+  not in the checkout.
+- **Content.** Operator words are verbatim. A transcript, ledger, log or review file is only a path and SHA-256.
+- **Unknown lines today:** Think model transcript, Shape model transcript, driver session, and any worker
+  transcript whose step records no session folder. These are the scope of slice 2.
 
-- A new trace module (src/trace.rs, with its tests). It owns the join, the span records and the export.
-- `src/launch.rs`: one headless command that names its sessions and its output folder.
-- Readers it reuses, unchanged: `src/think_record.rs`, `src/seed_me/session.rs`, `src/seed_me/runs.rs`,
-  `src/sdlc.rs`, `src/sdlc/files.rs`.
-- One Python journey under `tests/` with a stub run, a stub Pi Durable mirror and a TEST HOME.
-- [Headless commands](../terminal-setup.md#headless-commands) and the README, for the new command.
+Narrower than first proposed: one session per call on stdout instead of an export folder, no `coding.csv`, and no
+OpenTelemetry names yet. `gen_ai.evaluation.result` is still unchecked, so no line uses it.
 
 ### Later slices, each a separate decision
 

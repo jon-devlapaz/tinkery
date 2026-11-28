@@ -28,7 +28,13 @@ use tinkery::{
     model_setup::Controls,
 };
 
-fn seed_read(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
+fn seed_read(
+    args: Vec<String>,
+    records: Option<std::path::PathBuf>,
+    checkout: Option<std::path::PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use std::path::Path;
+    use tinkery::data_roots::DataRoots;
     use tinkery::seed_me::ledger;
     let refused = |reason: String| format!("Tinkery refused: {reason}");
     let value = match args
@@ -44,6 +50,15 @@ fn seed_read(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
         }
         ["status", "--json", directory] => {
             ledger::status(std::path::Path::new(directory)).map_err(refused)?
+        }
+        ["trace", directory] => {
+            let records = records.map_or_else(|| DataRoots::from_env().records, Ok);
+            let lines = tinkery::trace::session(Path::new(directory), checkout.as_deref(), records)
+                .map_err(refused)?;
+            for line in lines {
+                println!("{}", serde_json::to_string(&line)?);
+            }
+            return Ok(());
         }
         ["checks", directory] => {
             let directory = std::path::Path::new(directory);
@@ -62,7 +77,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("{}", launch::help());
             return Ok(());
         }
-        launch::Args::SeedRead(args) => return seed_read(args),
+        launch::Args::SeedRead {
+            args,
+            records,
+            checkout,
+        } => return seed_read(args, records, checkout),
         launch::Args::Run(options) => options,
     };
     let (launch, controls) = Launch::resolve(&options)?;

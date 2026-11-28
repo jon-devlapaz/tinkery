@@ -51,6 +51,8 @@ pub struct History {
     pub sequence: String,
     /// One saved text projection per presentation, in the same order as the compact sequence.
     pub readings: Vec<super::RecordedReading>,
+    /// The Think record file this history came from; `None` when no record holds it.
+    pub record: Option<PathBuf>,
 }
 
 /// The repository a confirmed goal was made in, as its record says. Where it was made, never
@@ -151,6 +153,7 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
         details,
         sequence: context.sequence,
         readings: context.readings,
+        record: Some(path),
     })
 }
 

@@ -16,6 +16,7 @@ fn outcome(label: &str) -> Outcome {
         details: label.into(),
         sequence: "Reading sequence was not recorded.".into(),
         readings: vec![],
+        record: None,
     })
 }
 
@@ -134,6 +135,7 @@ fn history_keeps_words_and_only_details_disclose_technical_records() {
         details: "/TEST/private-record.json\nMODEL-ONLY-HERE".into(),
         sequence: "Reading sequence was not recorded.".into(),
         readings: vec![],
+        record: None,
     }));
     let body = screen(&mut view, (100, 30), Overlay::Closed);
     assert!(body.contains("  Café 👩‍💻"));
@@ -162,6 +164,7 @@ fn no_known_repository_adds_nothing_to_history() {
             details: String::new(),
             sequence: "Reading sequence was not recorded.".into(),
             readings: vec![],
+            record: None,
         }));
         let body = screen(&mut view, (100, 30), Overlay::Closed);
         assert!(!body.contains("Made in"), "{body}");
@@ -413,6 +416,7 @@ fn reading_guesses_are_italic_and_preserve_partial_groups_without_changing_origi
         made_in: MadeIn::Unknown,
         details: "TEST DETAILS".into(),
         sequence: "TEST sequence".into(),
+        record: None,
         readings: vec![
             RecordedReading {
                 at: "2026-10-27T01:00:00Z".into(),

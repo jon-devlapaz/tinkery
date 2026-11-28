@@ -78,6 +78,8 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   With `--operator agent`, `answer --relayed FILE` records the operator's relayed words as their own answer, origin unverified.
   `tinkery seed show DIR` lists what was decided without you (answers not recorded as yours, and assumed defaults) and `gray`, the questions it asked that you have not answered;
   see [Shape without a screen](docs/design/shape-and-handoff.md#without-a-screen).
+  `tinkery seed trace DIR` prints that goal's records from Think to Taste as JSON lines, for error analysis: your words verbatim, transcripts only by path and SHA-256, and each missing record as `unknown`.
+  See [Tracing](docs/design/tracing.md).
   Its draft guidance and artifact reference are bundled; no external skill is needed.
   The agent's step reads the repository where the goal was made, else the one named by
   `--sdlc-root`, else where Tinkery started. A ready Tink points to Approve.

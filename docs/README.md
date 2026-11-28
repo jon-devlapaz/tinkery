@@ -18,7 +18,7 @@ to the smallest relevant reference.
 | Saving, history, Tend, Shape or continuation | The relevant section of [Tend and handoff](design/shape-and-handoff.md); [Shape ledger](design/shape-ledger.md) records its accepted design decisions |
 | Approvals, external work, result review or measurement | [Approve](design/approve.md), [Watch](design/watch.md), [Taste](design/taste.md), [Menu and Measure](design/menu.md) |
 | Local dictation | [Voice](design/voice.md) |
-| Tracing one goal's work for error analysis (proposal) | [Tracing](design/tracing.md) |
+| Tracing one goal's work for error analysis (`seed trace`, and later slices proposed) | [Tracing](design/tracing.md) |
 
 Read only the relevant sections. For a change, the applicable contract and
 current shipped behavior outrank proposals, snapshots and old issue status.

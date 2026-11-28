@@ -283,5 +283,6 @@ pub(crate) fn history(root: &Path, session: &Path, goal: &str) -> Result<History
             |c| format!("Created from a Tend connection\n\nOperator guidance supplied during discovery:\n{}", c.text),
         ),
         readings: vec![],
+        record: None,
     })
 }

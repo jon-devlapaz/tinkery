@@ -199,6 +199,7 @@ A read-only command writes nothing. A command that acts makes one explicit chang
 | `tinkery seed status --json DIR` | Read-only: prints the intake status. | None |
 | `tinkery seed checks DIR` | Read-only: prints the strict check records. Before a draft, it refuses. | None |
 | `tinkery seed show DIR` | Read-only: prints what Shape shows now, as JSON. | None |
+| `tinkery [--record-root DIR] [--sdlc-root ROOT] seed trace DIR` | Read-only: prints the goal's records from Think to Taste, one JSON line each, in order. | None |
 | `tinkery [options] seed new GOAL_FILE [ORIGIN]` | Acts: saves the file's words as a confirmed goal and prints the session folder. | None |
 | `tinkery [options] seed step DIR confirm DRAFT_SHA256` | Acts: confirms only the draft with that SHA-256. | None |
 | `tinkery [options] seed step DIR look\|delegate\|answer WORDS\|answer --relayed FILE` | Acts: takes one Shape step. | Needs `--shape-pi`, `--model` and an approved `--shape-budget` |
