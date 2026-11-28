@@ -122,7 +122,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    assert any(e.get('observed')==dump and e.get('checked')=='Tinkery original 1' for e in origin['evidence']);assert 'unresolved' in origin['evidence'][-1]['observed']
    assert not (session/'seed-contract.md').exists()
    # The same typed confirm wrote exactly one think record: the words, the turns in order, the goal as saved.
-   written=list(records.iterdir());assert len(written)==1,written
+   written=list(records.glob('*.json'));assert len(written)==1,written
    record=json.loads(written[0].read_text());record_bytes=written[0].read_bytes()
    assert written[0].name.endswith('_'+session.name+'.json'),written[0].name
    assert record['schema']==3 and record['origin']=='live' and record['model']=='test/model' and record['seed_me_session']==session.name
@@ -155,7 +155,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
    assert descendants()==owned and (run/'provider-calls').read_bytes()==calls
    assert ((cwd/'python-launches').read_bytes() if (cwd/'python-launches').exists() else b'')==launches
    assert (session/'ledger.json').read_bytes()==saved and len(list(root.iterdir()))==1
-   assert list(records.iterdir())==written and written[0].read_bytes()==record_bytes
+   assert list(records.glob('*.json'))==written and written[0].read_bytes()==record_bytes
    os.write(master,b'\x1b[6~'*30);await_text('Must not: build a dashboard.')
    assert 'Next: shape it into a Tink in Shape.' in right(),screen.text()
    for line in ledger['goal'].splitlines(): assert ' '.join(line.split()) in first_goal or ' '.join(line.split()) in right(),(line,first_goal,screen.text())
@@ -199,7 +199,7 @@ def journey(width,height,home=False,menu_only=False,home_case='absolute',session
     assert 'Must not: build a dashboard.' in screen.text()
     send(b'\x1b[21~','think')
    assert (session/'ledger.json').read_bytes()==saved
-   assert list(records.iterdir())==written and written[0].read_bytes()==record_bytes
+   assert list(records.glob('*.json'))==written and written[0].read_bytes()==record_bytes
    assert not (session/'viewer.json').exists()
    assert not descendants() and (run/'provider-calls').read_bytes()==calls
    assert ((cwd/'python-launches').read_bytes() if (cwd/'python-launches').exists() else b'')==launches

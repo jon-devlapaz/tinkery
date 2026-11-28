@@ -146,6 +146,9 @@ pub struct Origin {
     pub thinking: Option<String>,
     /// [`hash`] of the system prompts the readings used, when known.
     pub prompt_hash: Option<String>,
+    /// The folder that keeps this visit's Pi sessions, from [`keep_transcripts`]; `None` when no
+    /// request kept one. Set only as the record is written.
+    pub transcripts: Option<PathBuf>,
 }
 impl Origin {
     /// No model: practice or a stand-in host.
@@ -156,8 +159,69 @@ impl Origin {
             model: None,
             thinking: None,
             prompt_hash: None,
+            transcripts: None,
         }
     }
+}
+
+/// Where kept Think model sessions live under a record root. Local only, never in a handoff.
+const TRANSCRIPTS: &str = "transcripts";
+/// The start of each Think visit's folder there. A retention prune touches nothing else.
+const VISIT: &str = "think-";
+
+/// Move the kept Pi request folders in `from` into a new folder of `<root>/transcripts`, after
+/// [`crate::pi::prune_kept`] has run over every visit folder there and an emptied one is removed.
+/// Copies regular files when a move cannot cross file systems. Never follows a link. The new
+/// folder, or `None` when nothing was kept or it cannot be made.
+pub(crate) fn keep_transcripts(root: &Path, from: &Path) -> Option<PathBuf> {
+    let requests: Vec<_> = std::fs::read_dir(from)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
+        .collect();
+    if requests.is_empty() {
+        return None;
+    }
+    let transcripts = root.join(TRANSCRIPTS);
+    if std::fs::symlink_metadata(&transcripts).is_ok_and(|meta| meta.is_dir()) {
+        for visit in std::fs::read_dir(&transcripts)
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
+            let named = visit
+                .file_name()
+                .to_str()
+                .is_some_and(|n| n.starts_with(VISIT));
+            if named && visit.file_type().is_ok_and(|kind| kind.is_dir()) {
+                crate::pi::prune_kept(&visit.path());
+                // Only an empty folder goes; a visit with any file left stays.
+                let _ = std::fs::remove_dir(visit.path());
+            }
+        }
+    }
+    std::fs::create_dir_all(&transcripts).ok()?;
+    let visit = tempfile::Builder::new()
+        .prefix(&format!("{VISIT}{}-", utc(SystemTime::now(), '-')))
+        .tempdir_in(&transcripts)
+        .ok()?
+        .keep();
+    for request in requests {
+        let to = visit.join(request.file_name());
+        if std::fs::rename(request.path(), &to).is_err() && std::fs::create_dir(&to).is_ok() {
+            for file in std::fs::read_dir(request.path())
+                .into_iter()
+                .flatten()
+                .flatten()
+            {
+                if file.file_type().is_ok_and(|kind| kind.is_file()) {
+                    let _ = std::fs::copy(file.path(), to.join(file.file_name()));
+                }
+            }
+        }
+    }
+    Some(visit)
 }
 
 /// One stored record. Writing and reading share this shape, so a field cannot change on one side
@@ -178,6 +242,8 @@ struct Record {
     model: Option<String>,
     thinking: Option<String>,
     prompt_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    transcripts: Option<PathBuf>,
     started: String,
     confirmed: String,
     seed_me_session: String,
@@ -336,6 +402,7 @@ pub fn write_with_context(
         model: session.origin.model.clone(),
         thinking: session.origin.thinking.clone(),
         prompt_hash: session.origin.prompt_hash.clone(),
+        transcripts: session.origin.transcripts.clone(),
         started: utc(started, ':'),
         confirmed: utc(session.confirmed, ':'),
         seed_me_session: id.clone(),
@@ -540,5 +607,66 @@ mod tests {
             &session(Some(Path::new("TEST-repo"))),
         );
         assert!(relative.unwrap_err().contains("absolute"));
+    }
+
+    #[test]
+    fn a_confirmed_visit_moves_its_sessions_and_prunes_only_old_kept_folders() {
+        let dir = tempfile::tempdir().unwrap();
+        let (root, outside) = (
+            dir.path().join("TEST-records"),
+            dir.path().join("TEST-outside"),
+        );
+        let transcripts = root.join(TRANSCRIPTS);
+        let made = [
+            transcripts.join("think-TEST-a/pi-TEST-old"),
+            transcripts.join("think-TEST-a/pi-TEST-recent"),
+            transcripts.join("think-TEST-b/pi-TEST-old"),
+            transcripts.join("think-TEST-c/TEST-old-unnamed"),
+            transcripts.join("TEST-other/pi-TEST-old"),
+            outside.join("pi-TEST-old-behind-link"),
+        ];
+        for folder in &made {
+            std::fs::create_dir_all(folder).unwrap();
+        }
+        std::os::unix::fs::symlink(&outside, transcripts.join("think-TEST-link")).unwrap();
+        let old = SystemTime::now() - Duration::from_secs((crate::pi::KEEP_DAYS + 1) * 86_400);
+        for folder in made.iter().filter(|p| !p.ends_with("pi-TEST-recent")) {
+            std::fs::File::open(folder)
+                .unwrap()
+                .set_modified(old)
+                .unwrap();
+        }
+        let from = dir.path().join("TEST-visit");
+        std::fs::create_dir(&from).unwrap();
+        assert_eq!(
+            keep_transcripts(&root, &from),
+            None,
+            "a visit with no request keeps nothing"
+        );
+        assert!(made[0].exists(), "keeping nothing prunes nothing");
+        std::fs::create_dir(from.join("pi-TEST-new")).unwrap();
+        std::fs::write(from.join("pi-TEST-new/TEST.jsonl"), "TEST\n").unwrap();
+        let visit = keep_transcripts(&root, &from).unwrap();
+        assert_eq!(visit.parent(), Some(transcripts.as_path()));
+        assert_eq!(
+            std::fs::read_to_string(visit.join("pi-TEST-new/TEST.jsonl")).unwrap(),
+            "TEST\n"
+        );
+        assert!(
+            !from.join("pi-TEST-new").exists(),
+            "the session moves, leaving no copy behind"
+        );
+        assert!(
+            !made[0].exists() && !made[2].exists(),
+            "old kept folders must go"
+        );
+        assert!(
+            !transcripts.join("think-TEST-b").exists(),
+            "an emptied visit must go"
+        );
+        for stays in [&made[1], &made[3], &made[4], &made[5]] {
+            assert!(stays.is_dir(), "{} must stay", stays.display());
+        }
+        assert!(std::fs::symlink_metadata(transcripts.join("think-TEST-link")).is_ok());
     }
 }

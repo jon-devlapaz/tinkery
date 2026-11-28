@@ -18,9 +18,14 @@ fn settle(a: &mut BrainDump) {
     }
     assert!(!a.running());
 }
+/// The record files in `root`; a live visit also keeps a `transcripts` folder there.
 fn records(root: &Path) -> Vec<std::path::PathBuf> {
     std::fs::read_dir(root)
-        .map(|d| d.map(|e| e.unwrap().path()).collect())
+        .map(|d| {
+            d.map(|e| e.unwrap().path())
+                .filter(|p| p.extension().is_some_and(|e| e == "json"))
+                .collect()
+        })
         .unwrap_or_default()
 }
 /// A practice-host session with a dump, a skip, its undo and an answer, writing records to `root`.

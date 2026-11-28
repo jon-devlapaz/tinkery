@@ -54,6 +54,7 @@ fn record(root: &Path, path: &Path, confirmation: &GoalConfirmation) -> Result<P
                 model: Some("TEST/reading-model".into()),
                 thinking: None,
                 prompt_hash: None,
+                transcripts: None,
             },
             turns: &[Turn {
                 at: UNIX_EPOCH,

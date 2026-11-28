@@ -66,7 +66,7 @@ def confirmation_after_reading(width, height, correct_typo=False):
                 type_confirmation()
             assert not run.records.exists() and not run.sessions.exists()
             run.send(b'\r', 'Saved.')
-            written = list(run.records.iterdir())
+            written = list(run.records.glob('*.json'))
             assert len(written) == 1
             record = json.loads(written[0].read_text())
             ledger = helper.load(run.sessions / record['seed_me_session'])
@@ -112,7 +112,7 @@ def journey(width, height):
             run.send(F2, "Ready for your review")
             run.choose('Review the goal', 'You are confirming')
             run.send(b'confirm\r', 'Saved.')
-            record = json.loads(next(run.records.iterdir()).read_text())
+            record = json.loads(next(run.records.glob('*.json')).read_text())
             assert record['goal_confirmation'] == ACTOR
             session = run.sessions / record['seed_me_session']
             ledger = helper.load(session)
@@ -229,7 +229,7 @@ def redirected_session_root(width, height):
             alias.unlink()
             alias.symlink_to(safe, target_is_directory=True)
             run.send(b'\r', 'Saved.')
-            record = json.loads(next(run.records.iterdir()).read_text())
+            record = json.loads(next(run.records.glob('*.json')).read_text())
             ledger = helper.load(safe / record['seed_me_session'])
             assert record['goal'] == ledger['goal'] and ledger['operator'] == 'agent'
             assert list(retired.iterdir()) == [retired / 'TEST-original']

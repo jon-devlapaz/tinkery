@@ -284,5 +284,6 @@ pub(crate) fn history(root: &Path, session: &Path, goal: &str) -> Result<History
         ),
         readings: vec![],
         record: None,
+        transcripts: None,
     })
 }
