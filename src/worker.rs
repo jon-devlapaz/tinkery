@@ -76,6 +76,8 @@ struct Start {
     config: Config,
     /// The reviewed start authority; an absent or mismatched agent relay refuses before creation.
     authorization: Gate,
+    /// Authority disclosed for this review, including any refusal at the selected revision.
+    authority_note: String,
 }
 
 impl Start {
@@ -99,7 +101,7 @@ impl Start {
             self.config.model,
             self.config.responses,
             checkout.display(),
-        ) + &self.authorization.disclosure(Some((target, &self.config)))
+        ) + &self.authority_note
     }
 }
 
@@ -279,8 +281,10 @@ struct Snapshot {
     model: String,
     /// Effective cumulative response cap, zero when there is no step.
     responses: usize,
-    /// The observed immutable step identity; resume must present this same observation.
-    pin: Option<Pin>,
+    /// The reviewed step's immutable fingerprint, absent before preparation.
+    fingerprint: Option<String>,
+    /// The verified Tink at this observation; an unreadable original still allows Stop.
+    seed: Result<ready::ReadySeed, String>,
     /// Current source-owned worker state.
     state: State,
     /// SDLC verification state; a completed worker does not imply current verification.
@@ -291,10 +295,21 @@ struct Snapshot {
     next: String,
 }
 
-/// Opaque fingerprint of the source contract's fixed run, session, model, allowance and paths.
-/// It permits comparison with what was displayed, never supplies authority on its own.
+impl Snapshot {
+    fn pin(&self) -> Pin {
+        Pin {
+            step: self.fingerprint.clone(),
+            target: self.seed.as_ref().ok().and_then(|seed| seed.target.clone()),
+        }
+    }
+}
+
+/// The reviewed Tink and the fingerprint of the step's fixed session, model, allowance and paths.
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct Pin(String);
+struct Pin {
+    step: Option<String>,
+    target: Option<ready::SeedTarget>,
+}
 
 /// Each variant needs its own explicit interface action; none runs after a refresh.
 #[derive(Clone, Debug)]
@@ -312,7 +327,7 @@ enum Action {
     /// Prepare and launch a new uniquely named step under this launch's separate allowance,
     /// first opening the build checkout if a refused start left none. Only for a state where
     /// no other action moves the work on, and only while the observed step is unchanged.
-    Next { pin: Option<Pin>, config: Config },
+    Next { pin: Pin, config: Config },
     /// Stop the known step, never as normal completion. The reason is cap only if the step's
     /// Pi logs show the launcher's cap marker after at least cap responses; otherwise operator.
     Stop,
@@ -481,6 +496,23 @@ fn require_seed(value: &sdlc::Run) -> Result<ready::ReadySeed, String> {
     runs::confirmed(value).map_err(|_| "The run's original confirmed Tink Contract is unavailable or changed. Recheck it before running work.".into())
 }
 
+// A worker action still belongs to the confirmed Tink reviewed with this run.
+fn recheck_run_seed(
+    seed: Result<ready::ReadySeed, String>,
+    target: Option<&ready::SeedTarget>,
+) -> Result<ready::ReadySeed, String> {
+    let seed = seed?;
+    let target = target.ok_or(
+        "The reviewed Tink has no verified identity. Read the worker again before running work.",
+    )?;
+    if seed.target.as_ref() != Some(target) {
+        return Err(
+            "The run's confirmed Tink changed. Read the worker again before running work.".into(),
+        );
+    }
+    Ok(seed)
+}
+
 // Check both the recorded ancestry and the files a newly launched worker will actually read.
 fn check_retry_source(run: &Run, target: Option<&ready::SeedTarget>) -> Result<(), String> {
     if let Some(base) = target.and_then(|t| t.retry.as_ref()) {
@@ -534,19 +566,20 @@ fn committer_identity(root: &Path) -> Result<(), String> {
 
 fn start(request: Start) -> Result<Snapshot, Failure> {
     let (intake, source_commit) = (|| {
-        request
-            .authorization
-            .check(Some(&request.target), &request.config, STEP)?;
         request.config.validate()?;
         canonical_root(&request.root)?;
-        let (intake, goal) = ready::execution(&request.target, &request.root)?;
+        let (intake, seed) = ready::execution(&request.target, &request.root)?;
+        request.authorization.check(&seed, &request.config, STEP)?;
         if let Some(base) = &request.target.retry {
             base.check_checkout(&request.root)?;
             canonical_root(&intake.root)?;
         }
         let origins = request.record_root.as_ref().ok().and_then(|root| {
-            crate::seed_me::connection::origins(root, &[(&request.target.session, goal.as_str())])
-                .ok()
+            crate::seed_me::connection::origins(
+                root,
+                &[(&request.target.session, seed.goal.as_str())],
+            )
+            .ok()
         });
         if let Some(think_record::MadeIn::Repo(origin)) = origins.as_ref().and_then(|o| o.first())
             && origin != &intake.root
@@ -573,7 +606,8 @@ fn start(request: Start) -> Result<Snapshot, Failure> {
                     .into(),
             );
         }
-        ready::execution(&request.target, &intake.root)?;
+        let (_, seed) = ready::execution(&request.target, &intake.root)?;
+        request.authorization.check(&seed, &request.config, STEP)?;
         Ok((intake, source_commit))
     })()
     .map_err(|message: String| Failure {
@@ -604,14 +638,7 @@ fn start(request: Start) -> Result<Snapshot, Failure> {
             ],
             STAGE,
         )?;
-        let value = current(&run)?;
-        let seed = value
-            .seed?
-            .ok_or("Intake did not record the selected Tink.")?;
-        if !runs::matches(&seed, &intake.seed)? {
-            return Err("Intake recorded a different Tink. No worker started.".into());
-        }
-        ready::execution(&request.target, &intake.root)?;
+        recheck_run_seed(require_seed(&current(&run)?), Some(&request.target))?;
         if let Some(base) = &request.target.retry {
             base.check_checkout(&request.root)?;
         }
@@ -633,20 +660,13 @@ fn start(request: Start) -> Result<Snapshot, Failure> {
         }
         known = Some(build.clone());
         check_retry_source(&build, Some(&request.target))?;
-        let value = current(&build)?;
-        require_seed(&value)?;
-        ready::execution(&request.target, &intake.root)?;
-        request.authorization.record(
-            &build,
-            Some(&request.target),
-            &request.config,
-            "start",
-            STEP,
-        )?;
-        prepare(&build, STEP, &request.config)?;
-        let value = current(&build)?;
-        require_seed(&value)?;
-        ready::execution(&request.target, &intake.root)?;
+        let seed = recheck_run_seed(require_seed(&current(&build)?), Some(&request.target))?;
+        request
+            .authorization
+            .record(&build, &seed, &request.config, "start", STEP)?;
+        let prepared = prepare(&build, STEP, &request.config)?;
+        let seed = recheck_run_seed(prepared.seed, Some(&request.target))?;
+        request.authorization.check(&seed, &request.config, STEP)?;
         check_retry_source(&build, Some(&request.target))?;
         command(&build.root, &step_args(&build, STEP, "launch"), ADMISSION)?;
         snapshot(&build)
@@ -673,7 +693,7 @@ fn step_args(run: &Run, step: &str, action: &str) -> Vec<String> {
 
 /// Prepare one pinned step with a fresh report path, and confirm SDLC recorded the displayed
 /// model and cap before anything can launch it.
-fn prepare(run: &Run, step: &str, config: &Config) -> Result<(), String> {
+fn prepare(run: &Run, step: &str, config: &Config) -> Result<Snapshot, String> {
     let report = if step == STEP {
         "worker-report.md".to_string()
     } else {
@@ -707,7 +727,7 @@ fn prepare(run: &Run, step: &str, config: &Config) -> Result<(), String> {
     {
         return Err("The prepared worker differs from the displayed model or allowance. No worker was launched.".into());
     }
-    Ok(())
+    Ok(prepared)
 }
 
 /// A new step for a run whose current step can do nothing more. The build checkout is the one
@@ -715,11 +735,12 @@ fn prepare(run: &Run, step: &str, config: &Config) -> Result<(), String> {
 fn next_step(
     gate: &Gate,
     run: &Run,
-    pin: Option<Pin>,
+    value: &sdlc::Run,
+    pin: Pin,
     config: &Config,
 ) -> Result<Snapshot, String> {
-    let observed = snapshot(run)?;
-    if observed.pin != pin {
+    let observed = snapshot_from(run, value)?;
+    if observed.fingerprint != pin.step {
         return Err(
             "The worker changed since it was read. Nothing was prepared; read it again.".into(),
         );
@@ -735,7 +756,6 @@ fn next_step(
         return Err("The launch is uncertain, so a worker may still be running. Only the operator can reconcile it before a new step.".into());
     }
     config.validate()?;
-    let value = current(run)?;
     // An active or unreadable step, whatever its name, may still write to this checkout. A
     // prepared step has no session, and an uncertain one was accounted for by the `n` that
     // replaced it; SDLC cannot complete either, so they never block.
@@ -756,18 +776,19 @@ fn next_step(
             busy.join(", ")
         ));
     }
-    let seed = require_seed(&value)?;
-    let target = seed.target.as_ref();
-    gate.check(target, config, &observed.next_step)?;
+    let target = pin.target.as_ref();
+    let seed = recheck_run_seed(observed.seed, target)?;
+    gate.check(&seed, config, &observed.next_step)?;
     let mut run = run.clone();
     let branch =
         git(&run.root, &["symbolic-ref", "--quiet", "--short", "HEAD"]).unwrap_or_default();
-    if observed.state == State::NotStarted && branch.trim() != run.slug {
+    let seed = if observed.state == State::NotStarted && branch.trim() != run.slug {
         if target.is_some_and(|t| t.retry.is_some()) {
             return Err("This retry run has no build checkout. Inspect it in Watch; a retry is restarted from Taste.".into());
         }
-        let target = target.ok_or("The run's confirmed Tink Contract is unavailable.")?;
-        ready::execution(target, &run.root)?;
+        if seed.run_name.is_none() {
+            return Err("The selected Tink has no usable run name.".into());
+        }
         committed_source(&run.root)?;
         committer_identity(&run.root)?;
         command(
@@ -783,10 +804,14 @@ fn next_step(
             );
         }
         run = build;
-        require_seed(&current(&run)?)?;
-    }
-    gate.record(&run, target, config, "new step", &observed.next_step)?;
-    prepare(&run, &observed.next_step, config)?;
+        recheck_run_seed(require_seed(&current(&run)?), target)?
+    } else {
+        seed
+    };
+    gate.record(&run, &seed, config, "new step", &observed.next_step)?;
+    let prepared = prepare(&run, &observed.next_step, config)?;
+    let seed = recheck_run_seed(prepared.seed, target)?;
+    gate.check(&seed, config, &observed.next_step)?;
     command(
         &run.root,
         &step_args(&run, &observed.next_step, "launch"),
@@ -805,11 +830,11 @@ fn act(gate: &Gate, run: &Run, action: Action) -> Result<Snapshot, String> {
         return snapshot(&observed);
     }
     let value = current(run)?;
-    if matches!(action, Action::Resume(_) | Action::Verify) {
+    if matches!(action, Action::Verify) {
         require_seed(&value)?;
     }
     if let Action::Next { pin, config } = action {
-        return next_step(gate, run, pin, &config);
+        return next_step(gate, run, &value, pin, &config);
     }
     let name = value
         .steps
@@ -822,12 +847,10 @@ fn act(gate: &Gate, run: &Run, action: Action) -> Result<Snapshot, String> {
     match action {
         Action::Refresh | Action::Next { .. } => {}
         Action::Launch(pin) => {
-            let seed = require_seed(&value)?;
-            admit(gate, run, &name, pin, true, seed.target.as_ref())?;
+            admit(gate, run, snapshot_from(run, &value)?, pin, true)?;
         }
         Action::Resume(pin) => {
-            let seed = require_seed(&value)?;
-            admit(gate, run, &name, pin, false, seed.target.as_ref())?;
+            admit(gate, run, snapshot_from(run, &value)?, pin, false)?;
         }
         Action::Finish => {
             // Only a machine-checked pass finishes; pending judgments are not passing checks.
@@ -871,16 +894,9 @@ fn act(gate: &Gate, run: &Run, action: Action) -> Result<Snapshot, String> {
     snapshot(run)
 }
 
-fn admit(
-    gate: &Gate,
-    run: &Run,
-    step: &str,
-    pin: Pin,
-    launch: bool,
-    target: Option<&ready::SeedTarget>,
-) -> Result<(), String> {
-    let observed = snapshot(run)?;
-    if observed.pin.as_ref() != Some(&pin) {
+fn admit(gate: &Gate, run: &Run, observed: Snapshot, pin: Pin, launch: bool) -> Result<(), String> {
+    let step = &observed.step;
+    if observed.fingerprint != pin.step {
         return Err("The worker's model, allowance, session or contract changed. Admission refused; inspect it again.".into());
     }
     if launch && observed.state != State::Prepared {
@@ -899,12 +915,14 @@ fn admit(
     {
         return Err("Resume needs an ended turn or a gone worker. A running or unknown turn may still own this session, and a reached cap allows no more responses.".into());
     }
+    let target = pin.target.as_ref();
     if launch {
         check_retry_source(run, target)?;
     }
+    let seed = recheck_run_seed(observed.seed, target)?;
     gate.record(
         run,
-        target,
+        &seed,
         &Config {
             model: observed.model,
             responses: observed.responses,
@@ -921,7 +939,10 @@ fn admit(
 }
 
 fn snapshot(run: &Run) -> Result<Snapshot, String> {
-    let value = current(run)?;
+    snapshot_from(run, &current(run)?)
+}
+
+fn snapshot_from(run: &Run, value: &sdlc::Run) -> Result<Snapshot, String> {
     let steps = value
         .steps
         .as_ref()
@@ -932,7 +953,7 @@ fn snapshot(run: &Run) -> Result<Snapshot, String> {
         .unwrap_or(STEP)
         .to_owned();
     let next_step = step_name(latest.map_or(1, |(n, _)| n + 1));
-    let (state, model, responses, pin) = if let Some((_, step)) = latest {
+    let (state, model, responses, fingerprint) = if let Some((_, step)) = latest {
         let output = command(&run.root, &step_args(run, &name, "show"), sdlc::DEADLINE)?;
         let contract = sdlc::StepContract::read(
             serde_json::from_str(&output).map_err(|error| error.to_string())?,
@@ -987,10 +1008,7 @@ fn snapshot(run: &Run) -> Result<Snapshot, String> {
             "report": record["report"], "launcher": record["launcher"], "launcher_sha256": record["launcher_sha256"],
             "prepared_ns": record["prepared_ns"],
         });
-        let pin = Pin(format!(
-            "{:x}",
-            Sha256::digest(fixed.to_string().as_bytes())
-        ));
+        let pin = format!("{:x}", Sha256::digest(fixed.to_string().as_bytes()));
         let state = match State::read(&contract.state, &contract.stopped_by, step)? {
             State::Unreadable => return Err(UNSUPPORTED.into()),
             state => state,
@@ -1005,15 +1023,16 @@ fn snapshot(run: &Run) -> Result<Snapshot, String> {
         next_step,
         model,
         responses,
-        pin,
+        fingerprint,
+        seed: require_seed(value),
         state,
-        pending_attestations: value.pending_attestations?,
+        pending_attestations: value.pending_attestations.clone()?,
         verification: {
             value
                 .verification
                 .known()
                 .ok_or("Verification state is unknown or missing.")?;
-            value.verification
+            value.verification.clone()
         },
         next: value.data["next_action"]
             .as_str()

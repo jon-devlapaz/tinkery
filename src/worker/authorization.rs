@@ -4,7 +4,7 @@
 
 use super::{Config, Run};
 use crate::confirmation::{BlastRadius, ConfirmationClass, Door};
-use crate::seed_me::{ledger, ready::SeedTarget};
+use crate::seed_me::ready::ReadySeed;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::OpenOptions,
@@ -136,7 +136,7 @@ impl Gate {
 
     fn bind(
         &self,
-        target: Option<&SeedTarget>,
+        seed: &ReadySeed,
         config: &Config,
         step: &str,
     ) -> Result<Option<&Relay>, String> {
@@ -149,13 +149,15 @@ impl Gate {
             .map_err(Clone::clone)?
             .as_ref()
             .ok_or(REQUIRED)?;
-        let target =
-            target.ok_or("Agent worker admission requires a readable confirmed Tink Contract.")?;
-        let (seed, model, responses) = match relay {
+        let target = seed
+            .target
+            .as_ref()
+            .ok_or("Agent worker admission requires a readable confirmed Tink Contract.")?;
+        let (digest, model, responses) = match relay {
             Relay::Exact(exact) => (Some(&exact.seed_sha256), &exact.model, exact.responses),
             Relay::Standing(grant) => (None, &grant.model, grant.responses),
         };
-        if seed.is_some_and(|seed| *seed != target.sha256)
+        if digest.is_some_and(|digest| *digest != target.sha256)
             || *model != config.model
             || responses != config.responses
         {
@@ -169,18 +171,11 @@ impl Gate {
                 ));
             }
         }
-        if let Relay::Standing(_) = relay {
-            let saved: serde_json::Value =
-                serde_json::from_str(&ledger::load(&target.session)?.pretty()?)
-                    .map_err(|e| e.to_string())?;
-            let gray = ledger::gray(&saved);
-            if !gray.is_empty() {
-                let labels: Vec<_> = gray.iter().filter_map(|g| g["label"].as_str()).collect();
-                return Err(format!(
-                    "A standing grant starts only a Tink with no gray item; ask the operator about: {}.",
-                    labels.join("; ")
-                ));
-            }
+        if matches!(relay, Relay::Standing(_)) && !seed.gray.is_empty() {
+            return Err(format!(
+                "A standing grant starts only a Tink with no gray item; ask the operator about: {}.",
+                seed.gray.join("; ")
+            ));
         }
         if target.retry.is_some() {
             return Err("Relayed authorization requires the Tink's checkout; alternate worktrees are outside this flow.".into());
@@ -191,21 +186,21 @@ impl Gate {
     /// Refuse agent work without an exact non-retry seed, model and allowance binding.
     pub(super) fn check(
         &self,
-        target: Option<&SeedTarget>,
+        seed: &ReadySeed,
         config: &Config,
         step: &str,
     ) -> Result<(), String> {
-        self.bind(target, config, step).map(|_| ())
+        self.bind(seed, config, step).map(|_| ())
     }
 
     /// Disclose verbatim relay words and attribution limits, including any known refusal.
-    pub(crate) fn disclosure(&self, binding: Option<(&SeedTarget, &Config)>) -> String {
+    pub(crate) fn disclosure(&self, binding: Option<(&ReadySeed, &Config)>) -> String {
         if !self.agent {
             return String::new();
         }
         let bound = binding.is_some();
         let input = match binding {
-            Some((target, config)) => self.bind(Some(target), config, "build"),
+            Some((seed, config)) => self.bind(seed, config, "build"),
             None => self
                 .relay
                 .as_ref()
@@ -243,12 +238,12 @@ impl Gate {
     pub(super) fn record(
         &self,
         run: &Run,
-        target: Option<&SeedTarget>,
+        seed: &ReadySeed,
         config: &Config,
         action: &str,
         step: &str,
     ) -> Result<(), String> {
-        let Some(relay) = self.bind(target, config, step)? else {
+        let Some(relay) = self.bind(seed, config, step)? else {
             return Ok(());
         };
         let value = serde_json::json!({

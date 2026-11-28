@@ -229,37 +229,39 @@ pub fn read(session: &Path) -> Result<Shaping, String> {
 
 /// Include the retry checkout in the same reading, so Shape uses the source it displays.
 pub(crate) fn read_with_base(session: &Path) -> Result<(Shaping, Option<Base>), String> {
-    let standing = ready::standing(session)?;
-    let mut shaping = classify(&standing.json, &standing.status);
+    let mut standing = ready::standing(session)?;
+    let retry = standing.retry.take();
+    Ok((from_standing(standing), retry))
+}
+
+/// Project the contract and its matching checks from a single verified read. Opens no files.
+pub(super) fn from_standing(standing: ready::Standing) -> Shaping {
+    let mut shaping = classify(&standing.json, &standing.status, standing.stand);
     shaping.ready_target = standing.target;
     shaping.confirmation = ledger::confirmation_summary(&standing.ledger);
     shaping.deferred = standing.deferred;
     shaping.confirmation_note = standing.note.map(Into::into);
-    if matches!(shaping.stage, Shaped::Ready { .. })
-        && let Ok(records) = ledger::read_checks(session)
-    {
-        shaping.signoff = ledger::human_signoff(&records);
+    if let Some(checks) = &standing.checks {
+        shaping.signoff = ledger::human_signoff(&checks.records);
     }
     if let Shaped::Drafted { text, revision } = &mut shaping.stage {
-        *text =
-            crate::seed_me::files::read_seed_text(&session.join(crate::seed_me::files::SEED)).ok();
+        *text = standing
+            .seed_bytes
+            .and_then(|bytes| String::from_utf8(bytes).ok());
         if let (Some(seed), Some(revision)) = (text.as_ref(), revision.as_ref()) {
-            if let Ok(records) = ledger::read_checks(session)
-                && ledger::checks_block(&records).is_ok_and(|block| seed.contains(&block))
-            {
-                shaping.signoff = ledger::human_signoff(&records);
-                shaping.checks = ledger::draft_checks(&records).collect();
+            if let Some(checks) = &standing.checks {
+                shaping.checks = ledger::draft_checks(&checks.records).collect();
             }
             shaping.teach_back = ledger::teach_back_report(&standing.ledger, revision, seed);
             shaping.review = ledger::completion_review(&standing.ledger, revision, seed);
         }
     }
-    Ok((shaping, standing.retry))
+    shaping
 }
 
 /// Where the seed stands, from the ledger and its verified `status`. An open question comes
 /// before a seed, so a reopened decision is never hidden behind an older draft.
-fn classify(ledger: &Value, status: &Value) -> Shaping {
+fn classify(ledger: &Value, status: &Value, stand: Stand) -> Shaping {
     let text = |value: &Value, key: &str| {
         value
             .get(key)
@@ -320,7 +322,7 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         review: None,
         signoff: None,
     };
-    let stage = match ready::stand(ledger, status) {
+    let stage = match stand {
         Stand::Unknown(what) => Shaped::Unknown { what: what.into() },
         Stand::Ended(status) => Shaped::Ended { status },
         Stand::Ready { revision, ended } => Shaped::Ready { revision, ended },
@@ -466,6 +468,10 @@ fn format_receipt(entry: &Value) -> Option<String> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    fn classify(ledger: &Value, status: &Value) -> Shaping {
+        super::classify(ledger, status, ready::stand(ledger, status))
+    }
 
     fn ledger() -> Value {
         json!({"goal": "TEST goal\nWhy: it matters.", "nodes": [

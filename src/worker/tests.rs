@@ -69,6 +69,7 @@ impl Fixture {
             root: root.clone(),
             record_root: Ok(records),
             authorization: Gate::new(false, Ok(None)),
+            authority_note: String::new(),
             config: Config {
                 model: "test/exact:low".into(),
                 responses: 3,
@@ -522,7 +523,7 @@ fn retry_worker_refuses_project_edits_after_checkout_and_at_prepared_launch() {
                 Job::act(
                     Gate::new(false, Ok(None)),
                     run.clone(),
-                    Action::Launch(prepared.pin.clone().unwrap()),
+                    Action::Launch(prepared.pin()),
                 )
             };
             // The separate "launch prepared worker" key must recheck the same source boundary.
@@ -690,7 +691,7 @@ fn explicit_launch_recovers_prepared_step_but_never_uncertain_or_changed_contrac
             wait(Job::act(
                 Gate::new(false, Ok(None)),
                 run.clone(),
-                Action::Launch(observed.pin.clone().unwrap())
+                Action::Launch(observed.pin())
             ))
             .unwrap_err()
             .message
@@ -700,7 +701,7 @@ fn explicit_launch_recovers_prepared_step_but_never_uncertain_or_changed_contrac
         let result = wait(Job::act(
             Gate::new(false, Ok(None)),
             run,
-            Action::Launch(observed.pin.unwrap()),
+            Action::Launch(observed.pin()),
         ));
         if refusal == "gate" {
             assert_eq!(
@@ -789,14 +790,10 @@ fn run_ids_preserve_canonical_uuid_v4_contract() {
 fn current_run_identity_is_required_before_resume_or_verify() {
     let fixture = Fixture::new();
     let initial = fixture.start();
-    let run = initial.run;
+    let run = initial.run.clone();
     fixture.edit(|value| value["id"] = "22222222-2222-4222-8222-222222222222".into());
     let before = fixture.commands().len();
-    for action in [
-        Action::Resume(initial.pin.clone().unwrap()),
-        Action::Verify,
-        Action::Stop,
-    ] {
+    for action in [Action::Resume(initial.pin()), Action::Verify, Action::Stop] {
         assert!(
             wait(Job::act(Gate::new(false, Ok(None)), run.clone(), action))
                 .unwrap_err()
@@ -815,13 +812,13 @@ fn current_run_identity_is_required_before_resume_or_verify() {
 fn resume_uses_recorded_contract_and_preserves_cumulative_cap() {
     let fixture = Fixture::new();
     let initial = fixture.start();
-    let run = initial.run;
+    let run = initial.run.clone();
     fixture.edit(|value| value["turn"] = "ended".into());
     for _ in 0..2 {
         let snapshot = wait(Job::act(
             Gate::new(false, Ok(None)),
             run.clone(),
-            Action::Resume(initial.pin.clone().unwrap()),
+            Action::Resume(initial.pin()),
         ))
         .unwrap();
         assert_eq!(snapshot.model, "test/exact:low");
@@ -831,7 +828,7 @@ fn resume_uses_recorded_contract_and_preserves_cumulative_cap() {
         wait(Job::act(
             Gate::new(false, Ok(None)),
             run,
-            Action::Resume(initial.pin.clone().unwrap())
+            Action::Resume(initial.pin())
         ))
         .unwrap_err()
         .message
@@ -862,7 +859,7 @@ fn running_turn_and_changed_disclosed_contract_cannot_resume() {
         wait(Job::act(
             Gate::new(false, Ok(None)),
             initial.run.clone(),
-            Action::Resume(initial.pin.clone().unwrap())
+            Action::Resume(initial.pin())
         ))
         .unwrap_err()
         .message
@@ -885,7 +882,7 @@ fn running_turn_and_changed_disclosed_contract_cannot_resume() {
             wait(Job::act(
                 Gate::new(false, Ok(None)),
                 initial.run.clone(),
-                Action::Resume(initial.pin.clone().unwrap())
+                Action::Resume(initial.pin())
             ))
             .unwrap_err()
             .message
@@ -928,7 +925,7 @@ fn explicit_refresh_follows_only_the_same_run_to_its_reported_build_checkout() {
 fn finish_requires_current_passing_checks_and_a_finished_report() {
     let fixture = Fixture::new();
     let initial = fixture.start();
-    let run = initial.run;
+    let run = initial.run.clone();
     fixture.edit(|value| value["turn"] = "ended".into());
     assert!(
         wait(Job::act(
@@ -996,7 +993,7 @@ fn finish_requires_current_passing_checks_and_a_finished_report() {
 fn failed_verification_keeps_ended_worker_available_for_same_session_repair() {
     let fixture = Fixture::new();
     let initial = fixture.start();
-    let run = initial.run;
+    let run = initial.run.clone();
     fs::write(
         run.root.join("runs/test/worker-report.md"),
         "TEST finished report",
@@ -1034,11 +1031,11 @@ fn failed_verification_keeps_ended_worker_available_for_same_session_repair() {
     .unwrap();
     assert_eq!(observed.state, State::Active { turn: Turn::Ended });
     assert!(observed.verification.is(sdlc::Verification::Failed));
-    assert_eq!(observed.pin, initial.pin);
+    assert_eq!(observed.pin(), initial.pin());
     let resumed = wait(Job::act(
         Gate::new(false, Ok(None)),
         run.clone(),
-        Action::Resume(observed.pin.unwrap()),
+        Action::Resume(observed.pin()),
     ))
     .unwrap();
     assert_eq!(resumed.model, initial.model);
@@ -1067,10 +1064,43 @@ fn failed_verification_keeps_ended_worker_available_for_same_session_repair() {
 }
 
 #[test]
+fn a_readable_legacy_tink_without_an_identity_can_be_stopped_but_cannot_resume() {
+    let fixture = Fixture::new();
+    let run = fixture.start().run;
+    fixture.edit(|state| state["turn"] = "ended".into());
+    // The old ledger accepts this session ID. Its matching receipt still verifies the bytes.
+    for name in ["ledger.json", "seed-confirmation.json"] {
+        let file = fixture.request.target.session.join(name);
+        let mut document: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+        document["session_id"] = "TEST legacy\nid".into();
+        fs::write(file, document.to_string()).unwrap();
+    }
+    let value = current(&run).unwrap();
+    assert_eq!(
+        runs::goal(&value),
+        runs::Goal::Matched("TEST exact goal  \nline two".into())
+    );
+    let gate = Gate::new(false, Ok(None));
+    let reviewed = wait(Job::act(gate.clone(), run.clone(), Action::Refresh)).unwrap();
+    let error = wait(Job::act(
+        gate.clone(),
+        run.clone(),
+        Action::Resume(reviewed.pin()),
+    ))
+    .unwrap_err();
+    assert!(error.message.contains("no verified identity"), "{error:?}");
+    assert!(steps_named(&fixture, "resume").is_empty());
+    assert_eq!(
+        wait(Job::act(gate, run, Action::Stop)).unwrap().state,
+        State::Stopped { cap: false }
+    );
+}
+
+#[test]
 fn stopped_turn_is_never_completed_and_changed_seed_does_not_block_stop() {
     let fixture = Fixture::new();
     let initial = fixture.start();
-    let run = initial.run;
+    let run = initial.run.clone();
     fs::write(
         ready::path(&fixture.request.target.session),
         "TEST replaced seed",
@@ -1080,7 +1110,7 @@ fn stopped_turn_is_never_completed_and_changed_seed_does_not_block_stop() {
         wait(Job::act(
             Gate::new(false, Ok(None)),
             run.clone(),
-            Action::Resume(initial.pin.clone().unwrap())
+            Action::Resume(initial.pin())
         ))
         .is_err()
     );
@@ -1186,7 +1216,7 @@ fn start_refused_after_run_creation_continues_with_a_new_step() {
         gate,
         run.clone(),
         Action::Next {
-            pin: read.pin,
+            pin: read.pin(),
             config: allowance(4),
         },
     ))
@@ -1212,6 +1242,54 @@ fn start_refused_after_run_creation_continues_with_a_new_step() {
     assert_eq!(steps_named(&fixture, "launch"), ["build"]);
 }
 
+#[test]
+fn a_standing_grant_refuses_a_stale_tink_before_creating_the_build_checkout() {
+    let fixture = Fixture::new();
+    fixture.edit(|value| value["fail_stage3"] = 1.into());
+    let Recovery::Run(run) = wait(Job::start(fixture.request.clone()))
+        .unwrap_err()
+        .recovery
+    else {
+        panic!("the intake run was not created")
+    };
+    let gate = Gate::new(
+        true,
+        Ok(Some(
+            serde_json::from_value(json!({
+                "words": "TEST start small two-way work", "granted": "2026-11-19",
+                "class": {"door":"two_way", "door_reason":"TEST reversible", "blast_radius":"small",
+                          "blast_radius_reason":"TEST fixture"},
+                "model": "test/exact:low", "responses": 3
+            }))
+            .unwrap(),
+        )),
+    );
+    let review = wait(Job::act(gate.clone(), run.clone(), Action::Refresh)).unwrap();
+    crate::seed_me::ledger::end(
+        &fixture.request.target.session,
+        "completed",
+        "TEST completed after review",
+        "2026-11-27T00:00:00+00:00",
+    )
+    .unwrap();
+    let before = fixture.commands().len();
+    let reason = wait(Job::act(
+        gate,
+        run,
+        Action::Next {
+            pin: review.pin(),
+            config: allowance(3),
+        },
+    ))
+    .unwrap_err();
+    assert!(reason.message.contains("changed"), "{reason:?}");
+    assert!(
+        fixture.commands()[before..]
+            .iter()
+            .all(|args| args[0] == "status")
+    );
+}
+
 /// A new step after `done`: it gets its own name, report and cap, and later actions address it.
 fn assert_new_step(fixture: &Fixture, done: Snapshot) {
     let gate = Gate::new(false, Ok(None));
@@ -1221,7 +1299,7 @@ fn assert_new_step(fixture: &Fixture, done: Snapshot) {
         gate.clone(),
         done.run.clone(),
         Action::Next {
-            pin: done.pin,
+            pin: done.pin(),
             config: allowance(5),
         },
     ))
@@ -1254,9 +1332,9 @@ fn a_running_step_refuses_a_new_step() {
     let running = fixture.start();
     let refused = wait(Job::act(
         Gate::new(false, Ok(None)),
-        running.run,
+        running.run.clone(),
         Action::Next {
-            pin: running.pin,
+            pin: running.pin(),
             config: allowance(5),
         },
     ))
@@ -1306,7 +1384,7 @@ fn uncertain_launch_continues_only_as_a_new_step() {
         gate,
         run,
         Action::Next {
-            pin: read.pin,
+            pin: read.pin(),
             config: allowance(2),
         },
     ))
@@ -1330,7 +1408,7 @@ fn agent_new_step_needs_relayed_words_for_its_own_cap() {
         Gate::new(true, Ok(None)),
         run,
         Action::Next {
-            pin: read.pin,
+            pin: read.pin(),
             config: allowance(5),
         },
     ))
@@ -1448,7 +1526,7 @@ fn one_relay_pays_for_one_step_and_a_new_step_needs_words_naming_it() {
             gate,
             run.clone(),
             Action::Next {
-                pin: read.pin.clone(),
+                pin: read.pin(),
                 config: allowance(3),
             },
         )
@@ -1488,7 +1566,7 @@ fn an_agent_cannot_start_a_new_step_over_an_uncertain_launch() {
         relay(&fixture, Some("build-2"), 2),
         run,
         Action::Next {
-            pin: read.pin,
+            pin: read.pin(),
             config: allowance(2),
         },
     ))
@@ -1519,7 +1597,7 @@ fn an_unfinished_step_with_another_name_blocks_a_new_step() {
         Gate::new(false, Ok(None)),
         run,
         Action::Next {
-            pin: read.pin,
+            pin: read.pin(),
             config: allowance(2),
         },
     ))
@@ -1552,7 +1630,7 @@ fn a_prepared_step_that_never_launches_is_replaced_by_a_new_step() {
         gate.clone(),
         run,
         Action::Next {
-            pin: read.pin,
+            pin: read.pin(),
             config: allowance(2),
         },
     ))
@@ -1572,7 +1650,7 @@ fn a_prepared_step_that_never_launches_is_replaced_by_a_new_step() {
         gate,
         next.run,
         Action::Next {
-            pin: stopped.pin,
+            pin: stopped.pin(),
             config: allowance(2),
         },
     ))
@@ -1619,7 +1697,7 @@ fn uncommitted_source_refuses_the_new_step_before_stage_three() {
         gate,
         run,
         Action::Next {
-            pin: read.pin,
+            pin: read.pin(),
             config: allowance(2),
         },
     ))
@@ -1781,6 +1859,8 @@ fn f2_waits_until_the_cap_guidance_it_discloses_is_shown() {
     // Untangle 18c: the guidance is read here, off the terminal thread, not in Approve's reader.
     let dir = tempfile::tempdir().unwrap();
     let seed = ready::ReadySeed {
+        gray: vec![],
+        run_name: None,
         target: Some(ready::SeedTarget {
             session: PathBuf::from("/TEST/session"),
             session_id: "TEST".into(),
@@ -1921,7 +2001,7 @@ fn a_gone_worker_resumes_its_same_session_but_a_live_or_capped_one_does_not() {
     // The Pi Durable crash test: an unended turn whose process exited continues its session.
     let fixture = Fixture::new();
     let initial = fixture.start();
-    let pin = initial.pin.clone().unwrap();
+    let pin = initial.pin();
     let resume = |fixture: &Fixture| {
         let before = fixture.commands().len();
         let result = wait(Job::act(
@@ -1949,11 +2029,7 @@ fn a_gone_worker_resumes_its_same_session_but_a_live_or_capped_one_does_not() {
     let (gone, resumed) = resume(&fixture);
     let snapshot = gone.unwrap();
     assert_eq!(resumed, 1);
-    assert_eq!(
-        snapshot.pin.as_ref(),
-        Some(&pin),
-        "resume changed the session or cap"
-    );
+    assert_eq!(snapshot.pin(), pin, "resume changed the session or cap");
     assert_eq!(snapshot.responses, initial.responses);
 }
 

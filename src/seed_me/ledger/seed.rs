@@ -5,7 +5,7 @@ use super::{
     text::{text, whitespace},
     value::{int, object},
 };
-use crate::confirmation::Actor;
+use crate::confirmation::{Actor, GoalConfirmation};
 use crate::seed_me::files::{
     CONFIRMATION, CONFIRMED, DRAFT, SEED as FILE, SIMULATED, Section, revision_line as revision,
 };
@@ -281,23 +281,58 @@ pub(super) fn require_seed_decisions(
     ))
 }
 
+/// Read a saved regular contract verbatim. A missing contract has no bytes.
+pub(crate) fn read_seed_bytes(directory: &Path) -> Result<Option<Vec<u8>>> {
+    let path = directory.join(FILE);
+    if path.is_file() {
+        crate::seed_me::files::read_seed(&path)
+            .map(Some)
+            .map_err(|e| e.to_string())
+    } else {
+        Ok(None)
+    }
+}
+
+fn summary(bytes: Option<&[u8]>) -> Value {
+    let Some(bytes) = bytes else {
+        return Value::Null;
+    };
+    let text = String::from_utf8_lossy(bytes);
+    let mut lines = text.split('\n');
+    let first = lines.next().unwrap_or_default().trim_end_matches('\r');
+    let label = lines.find_map(revision);
+    object(&[
+        ("line_1", first.into()),
+        ("revision", label.map_or(Value::Null, Value::from)),
+        ("sha256", sha256(bytes).as_str().into()),
+    ])
+}
+
 /// Summarize the saved bytes without claiming confirmation or repairing invalid text.
 pub fn seed_summary(directory: &Path) -> Result<Value> {
-    let path = directory.join(FILE);
-    if !path.is_file() {
-        return Ok(Value::Null);
-    }
-    let data = crate::seed_me::files::read_seed(&path).map_err(|e| e.to_string())?;
-    let text = String::from_utf8_lossy(&data);
-    let lines: Vec<_> = text.split('\n').collect();
-    let label = lines.iter().skip(1).find_map(|s| revision(s));
-    Ok(object(&[
-        ("line_1", lines[0].trim_end_matches('\r').into()),
-        ("revision", label.map_or(Value::Null, Value::from)),
-        ("sha256", sha256(&data).as_str().into()),
-    ]))
+    Ok(summary(read_seed_bytes(directory)?.as_deref()))
 }
-fn confirmation_record(directory: &Path) -> Option<Value> {
+
+/// Acceptance records and their exact section in the captured contract, including its heading.
+pub(crate) struct Acceptance {
+    /// The saved check records that produced this section.
+    pub(crate) records: Value,
+    /// UTF-8 byte range in the contract that verified these records.
+    pub(crate) section: std::ops::Range<usize>,
+}
+
+fn matching_checks(
+    directory: &Path,
+    ledger: &Value,
+    body: &str,
+    allow_legacy: bool,
+) -> Result<Acceptance> {
+    let records = checks::read_checks(directory)?;
+    let section = checks::require_match(body, ledger, &records, allow_legacy)?;
+    Ok(Acceptance { records, section })
+}
+
+fn confirmation_record(directory: &Path) -> Option<(Value, Option<GoalConfirmation>)> {
     let bytes =
         super::super::read_regular(&directory.join(CONFIRMATION), "confirmation record").ok()?;
     let record = Value::parse(std::str::from_utf8(&bytes).ok()?).ok()?;
@@ -312,28 +347,23 @@ fn confirmation_record(directory: &Path) -> Option<Value> {
         "seed_sha256",
         "decisions_sha256",
     ];
-    let agent = record["schema_version"] == int(3)
-        && record["operator"].is("agent")
-        && record.get("actor").is_some_and(|actor| {
-            actor
-                .to_json()
-                .ok()
-                .and_then(|json| {
-                    serde_json::from_value::<crate::confirmation::GoalConfirmation>(json).ok()
-                })
-                .is_some_and(|actor| actor.actor().is_ok_and(|actor| actor.context().is_some()))
-        });
     let mut allowed = fields.to_vec();
-    if agent {
+    let actor = if record["schema_version"] == int(3) && record["operator"].is("agent") {
+        let actor: GoalConfirmation =
+            serde_json::from_value(record["actor"].to_json().ok()?).ok()?;
+        actor.actor().ok()?.context()?;
         allowed.push("actor");
-    }
+        Some(actor)
+    } else {
+        None
+    };
     (super::exact(&record, &allowed)
-        && (agent || record["schema_version"] == int(2))
+        && (actor.is_some() || record["schema_version"] == int(2))
         && fields
             .iter()
             .filter(|k| **k != "schema_version")
             .all(|k| text(&record[k])))
-    .then_some(record)
+    .then_some((record, actor))
 }
 
 /// Whether a session's confirmed Tink still matches its receipt, and why.
@@ -361,27 +391,53 @@ impl Handoff {
 /// Verify matching operator or named-agent receipts, seed bytes, decisions and acceptance records.
 /// Legacy or interrupted confirmation stays unverified; this proves content, not identity or truth.
 pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Handoff> {
+    if let Some(practice) = practice_handoff(ledger) {
+        return Ok(practice);
+    }
+    let bytes = read_seed_bytes(directory)?;
+    verify_saved(
+        directory,
+        ledger,
+        &summary(bytes.as_deref()),
+        bytes.as_deref(),
+    )
+    .map(|(handoff, _)| handoff)
+}
+
+fn practice_handoff(ledger: &Value) -> Option<Handoff> {
+    (!super::one_of(&super::operator(ledger), &["human", "agent"])).then(|| Handoff {
+        verified: false,
+        operator: None,
+        reason: "a simulated session is a practice run that no person confirmed".into(),
+    })
+}
+
+fn verify_saved(
+    directory: &Path,
+    ledger: &Value,
+    seed: &Value,
+    bytes: Option<&[u8]>,
+) -> Result<(Handoff, Option<Acceptance>)> {
     let refused = |reason: String| {
-        Ok(Handoff {
-            verified: false,
-            operator: None,
-            reason,
-        })
+        Ok((
+            Handoff {
+                verified: false,
+                operator: None,
+                reason,
+            },
+            None,
+        ))
     };
-    if !super::one_of(&super::operator(ledger), &["human", "agent"]) {
-        return refused("a simulated session is a practice run that no person confirmed".into());
-    }
-    let seed = seed_summary(directory)?;
-    if seed == Value::Null {
+    let Some(bytes) = bytes else {
         return refused("no Tink Contract is saved".into());
-    }
+    };
     if !seed["line_1"].is(CONFIRMED) {
         return refused(format!(
             "the Tink is not confirmed (line 1 is {})",
             repr(seed["line_1"].string().ok_or("Invalid seed status line.")?)
         ));
     }
-    let Some(record) = confirmation_record(directory) else {
+    let Some((record, actor)) = confirmation_record(directory) else {
         return refused(
             "the Tink has no confirmation record from `seed confirm` in this session".into(),
         );
@@ -395,20 +451,17 @@ pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Handoff> {
     let Some(label) = record["revision"].string() else {
         return refused("the confirmation revision is missing".into());
     };
-    if record["schema_version"] == int(3) {
-        let Ok(actor) = serde_json::from_value::<crate::confirmation::GoalConfirmation>(
-            record["actor"].to_json()?,
-        ) else {
-            return refused("the Tink confirmation actor is invalid".into());
-        };
+    let body = std::str::from_utf8(bytes);
+    if let Some(actor) = actor {
         let (Some(source), Some(timestamp)) =
             (record["source"].string(), record["confirmed_at"].string())
         else {
             return refused("the confirmation source or date is missing".into());
         };
         let expected = confirmation_note(source, label, timestamp, actor.actor()?)?;
-        if !seed_lines(directory)?
-            .iter()
+        if !body
+            .map_err(|_| "stream did not contain valid UTF-8")?
+            .split_inclusive('\n')
             .any(|line| split_terminator(line).0 == expected)
         {
             return refused("the agent attribution does not match the confirmed Tink".into());
@@ -424,27 +477,35 @@ pub fn verify_handoff(directory: &Path, ledger: &Value) -> Result<Handoff> {
             "the decisions changed after revision {label} was confirmed"
         ));
     }
-    let Ok(records) = checks::require_seed_checks(directory, ledger, true) else {
+    let acceptance = body
+        .ok()
+        .and_then(|body| matching_checks(directory, ledger, body, true).ok());
+    let Some(acceptance) = acceptance else {
         return refused(
             "checks are missing, invalid or differ from the rendered Tink Contract".into(),
         );
     };
-    if record["checks_sha256"].string() != Some(&checks::digest(&records)?) {
+    if record["checks_sha256"].string() != Some(&checks::digest(&acceptance.records)?) {
         return refused(format!(
             "the checks changed after revision {label} was confirmed"
         ));
     }
-    Ok(Handoff {
-        verified: true,
-        operator: record["operator"].string().map(str::to_owned),
-        reason: format!("revision {label} as confirmed"),
-    })
+    Ok((
+        Handoff {
+            verified: true,
+            operator: record["operator"].string().map(str::to_owned),
+            reason: format!("revision {label} as confirmed"),
+        },
+        Some(acceptance),
+    ))
 }
 
 /// Read today's intake JSON, deliberately omitting viewer state and never opening a network connection.
 pub fn status(directory: &Path) -> Result<Value> {
-    let ledger = load(directory)?;
-    Ok(status_from_ledger(directory, &ledger)?.value())
+    super::read_consistent(directory, || {
+        let ledger = load(directory)?;
+        Ok(status_from_ledger(directory, &ledger)?.value())
+    })
 }
 
 /// A session's intake status: counts, the saved seed and the handoff check.
@@ -454,11 +515,21 @@ pub(crate) struct Status<'a> {
     settled: u64,
     /// The saved seed's summary, or null when none is saved.
     pub(crate) seed: Value,
+    /// The exact bytes used to derive the summary and verify any confirmation.
+    pub(crate) seed_bytes: Option<Vec<u8>>,
+    /// The confirmed Acceptance section and records bound to its verified receipt.
+    pub(crate) checks: Option<Acceptance>,
     /// Whether the confirmed Tink still matches its receipt.
     pub(crate) handoff: Handoff,
 }
 
 impl Status<'_> {
+    /// Read the displayed draft's editable checks. Only the current acceptance format permits editing.
+    pub(crate) fn read_draft_checks(&self, directory: &Path) -> Option<Acceptance> {
+        let body = std::str::from_utf8(self.seed_bytes.as_deref()?).ok()?;
+        matching_checks(directory, self.ledger, body, false).ok()
+    }
+
     /// The intake JSON, in its published key order.
     pub(crate) fn value(&self) -> Value {
         object(&[
@@ -475,7 +546,16 @@ impl Status<'_> {
 }
 
 /// Derive status from one validated ledger while rechecking seed and handoff artifacts.
-pub(crate) fn status_from_ledger<'a>(directory: &Path, ledger: &'a Value) -> Result<Status<'a>> {
+fn status_from_ledger<'a>(directory: &Path, ledger: &'a Value) -> Result<Status<'a>> {
+    status_from_bytes(directory, ledger, read_seed_bytes(directory)?)
+}
+
+/// Verify the given contract bytes without reopening the seed path.
+pub(crate) fn status_from_bytes<'a>(
+    directory: &Path,
+    ledger: &'a Value,
+    seed_bytes: Option<Vec<u8>>,
+) -> Result<Status<'a>> {
     let count = |status| {
         ledger["nodes"]
             .items()
@@ -483,12 +563,19 @@ pub(crate) fn status_from_ledger<'a>(directory: &Path, ledger: &'a Value) -> Res
             .filter(|n| n["status"].is(status))
             .count() as u64
     };
+    let seed = summary(seed_bytes.as_deref());
+    let (handoff, checks) = match practice_handoff(ledger) {
+        Some(practice) => (practice, None),
+        None => verify_saved(directory, ledger, &seed, seed_bytes.as_deref())?,
+    };
     Ok(Status {
         ledger,
         open: count("unresolved"),
         settled: count("settled"),
-        seed: seed_summary(directory)?,
-        handoff: verify_handoff(directory, ledger)?,
+        seed,
+        seed_bytes,
+        checks,
+        handoff,
     })
 }
 
