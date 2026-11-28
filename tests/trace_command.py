@@ -22,6 +22,7 @@ GOAL = 'TEST one trace per goal.\nDone when: TEST a reader sees it in order.'
 WORDS = '  TEST café\tkeep THIS exactly  \n'
 VERDICT = 'Reject: TEST the sounds are still missing  '
 SECRET = 'sk-TEST-0000-never-print-this-secret'
+DRIVER = 'TEST-driver-session-0001'
 RUN_ID = '00000000-0000-4000-8000-000000000701'
 HEAD = 'c' * 40
 
@@ -46,7 +47,7 @@ def think_record(records, session, checkout):
     (records / f'2026-11-28T01-05-00Z_{session.name}.json').write_text(json.dumps(record))
 
 
-def run_folder(checkout, session, transcripts, slug='TEST-run', run_id=RUN_ID, failed=True):
+def run_folder(checkout, session, transcripts, slug='TEST-run', run_id=RUN_ID, failed=True, driver=None):
     """A run built from `session`: a gate, a relayed start, one worker step, verify, review, PR, Taste."""
     run = checkout / 'runs' / slug
     (run / 'decisions').mkdir(parents=True)
@@ -57,9 +58,11 @@ def run_folder(checkout, session, transcripts, slug='TEST-run', run_id=RUN_ID, f
         'confirmation': json.loads((session / 'seed-confirmation.json').read_text())}}))
     (run / 'decisions/3-1764291600000000000-aa.json').write_text(json.dumps({
         'decision': 'approved', 'reviewer': 'TEST reviewer', 'source': 'TEST gate', 'reason': 'TEST reason'}))
-    (run / 'worker-authorization.jsonl').write_text(json.dumps({
-        'schema': 1, 'operator': 'agent', 'authority': 'operator, relayed', 'authorization': {'words': 'TEST go'},
-        'action': 'start', 'run_id': run_id, 'step': 'step-01', 'checkout': str(checkout)}) + '\n')
+    admission = {'schema': 1, 'operator': 'agent', 'authority': 'operator, relayed', 'authorization': {'words': 'TEST go'},
+                 'action': 'start', 'run_id': run_id, 'step': 'step-01', 'checkout': str(checkout)}
+    if driver:
+        admission['driver_session'] = driver
+    (run / 'worker-authorization.jsonl').write_text(json.dumps(admission) + '\n')
     steps = run / 'steps'
     steps.mkdir()
     (steps / 'step-01.json').write_text(json.dumps({
@@ -110,7 +113,7 @@ def full_run():
         session = make(root / 'TEST-sessions', 'ready', goal=GOAL, question=False)
         seed(session, confirm=True)
         think_record(records, session, checkout)
-        run_folder(checkout, session, transcripts=True)
+        run_folder(checkout, session, transcripts=True, driver=DRIVER)
         before = tree(root)
         text, lines = trace(session, root, '--record-root', records)
         assert tree(root) == before, 'seed trace changed a file'
@@ -123,7 +126,7 @@ def full_run():
             ('unknown', 'shape', 'model transcript'),
             ('event', 'confirm', 'seed confirmed'),
             ('event', 'run', 'run'), ('event', 'gate', 'decision'), ('event', 'worker', 'authorization'),
-            ('event', 'worker', 'step'), ('event', 'worker', 'transcript'), ('unknown', 'worker', 'driver session'),
+            ('event', 'worker', 'driver session'), ('event', 'worker', 'step'), ('event', 'worker', 'transcript'),
             ('event', 'verify', 'verification'), ('score', 'verify', 'check'),
             ('event', 'review', 'findings'), ('event', 'pr', 'pull request'), ('score', 'taste', 'verdict'),
         ], steps(lines)
@@ -141,6 +144,8 @@ def full_run():
         assert transcript['source']['sha256'] == hashlib.sha256(path.read_bytes()).hexdigest()
         assert SECRET.encode() in path.read_bytes() and SECRET not in text, 'a transcript reached the trace'
         assert next(line for line in lines if line['name'] == 'run')['seed_matches'] is True
+        driver = next(line for line in lines if line['name'] == 'driver session')
+        assert (driver['driver_session'], driver['step'], driver['actor']) == (DRIVER, 'step-01', 'agent'), driver
         # The Think record's repository is the default checkout.
         assert trace(session, root, '--record-root', records, '--sdlc-root', checkout)[1] == lines
         # A changed seed after intake still joins by its path, and says the bytes changed.

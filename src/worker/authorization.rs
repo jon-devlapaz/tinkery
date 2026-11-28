@@ -121,12 +121,24 @@ impl Relay {
 pub(crate) struct Gate {
     agent: bool,
     relay: Result<Option<Relay>, String>,
+    driver: Option<String>,
 }
 
 impl Gate {
     /// Retain the launch-time declaration and relay snapshot without granting admission.
     pub(crate) fn new(agent: bool, relay: Result<Option<Relay>, String>) -> Self {
-        Self { agent, relay }
+        Self {
+            agent,
+            relay,
+            driver: None,
+        }
+    }
+
+    /// Name the driving agent's own session, recorded with each agent admission as a link.
+    /// Tinkery never reads or copies that session.
+    pub(crate) fn driven_by(mut self, driver: Option<String>) -> Self {
+        self.driver = driver;
+        self
     }
 
     /// Whether an agent declared itself; it cannot reconcile an uncertain launch.
@@ -246,7 +258,7 @@ impl Gate {
         let Some(relay) = self.bind(seed, config, step)? else {
             return Ok(());
         };
-        let value = serde_json::json!({
+        let mut value = serde_json::json!({
             "schema": 1, "operator": "agent", "authority": match relay {
                 Relay::Exact(_) => "operator, relayed",
                 Relay::Standing(_) => "operator, standing grant, relayed",
@@ -254,6 +266,9 @@ impl Gate {
             "provenance": PROVENANCE, "authorization": relay, "action": action,
             "run_id": run.id, "step": step, "checkout": run.root,
         });
+        if let Some(driver) = &self.driver {
+            value["driver_session"] = driver.as_str().into();
+        }
         let path = run
             .root
             .join("runs")

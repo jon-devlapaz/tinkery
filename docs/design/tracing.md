@@ -223,8 +223,8 @@ record's own fields. Its format is `tinkery.trace/1`, named on the first line.
 - **Content.** Operator words are verbatim. A transcript, ledger, log or review file is only a path and SHA-256.
   A Pi session file is opened only to read its first line, the header that names its session.
   A verify `error` is tink-sdlc's own message (the failed check's argv and a pointer to its log), never check output.
-- **Unknown lines today:** Think model transcript, driver session, and any worker transcript whose step records no
-  session folder. A Shape model transcript is `unknown` only for older sessions or a Claude Code harness.
+- **Unknown lines today:** Think model transcript, a driver session that no admission recorded, and any worker
+  transcript whose step records no session folder. A Shape model transcript is `unknown` only for older sessions or a Claude Code harness.
 
 ### Second slice
 
@@ -237,10 +237,14 @@ follows a link. Claude Code requests still keep nothing.
 
 A run's timed lines now read in time order. An untimed line keeps its stage's place.
 
+An agent can name its own session with `--driver-session ID`. The flag requires `--operator agent`, and it refuses an
+empty ID, a control character, or more than 256 bytes. Each agent admission then writes the ID as `driver_session` in
+`worker-authorization.jsonl`, from `seed start` or the worker screen. The trace prints one `driver session` line per
+admission that recorded it, or one `unknown` line. The ID is a link only: Tinkery never reads the driver's transcript.
+
 Not yet built:
 
 - Think transcripts. Think drafts before any session folder exists, so it has no place to keep them yet.
-- The driver session link. No command records the driver's session ID today.
 - One worker transcript copy. Pi Durable's mirror and `.pi.log` belong to tink-sdlc.
 
 Narrower than first proposed: one session per call on stdout instead of an export folder, no `coding.csv`, and no

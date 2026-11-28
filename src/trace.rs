@@ -329,12 +329,22 @@ impl Trace {
                 Err(why) => self.unknown("gate", "decision", &why),
             }
         }
+        let mut driven = false;
         for value in jsonl(&folder.join("worker-authorization.jsonl")) {
             match value {
-                Ok(value) => self.event("worker", "authorization", None, Some("agent"), at_run(json!({
-                    "step": value["step"], "action": value["action"], "authority": value["authority"],
-                    "authorization": value["authorization"],
-                }))),
+                Ok(value) => {
+                    self.event("worker", "authorization", None, Some("agent"), at_run(json!({
+                        "step": value["step"], "action": value["action"], "authority": value["authority"],
+                        "authorization": value["authorization"],
+                    })));
+                    // A link only: the driver's own transcript stays wherever its harness keeps it.
+                    if let Some(id) = value["driver_session"].as_str() {
+                        driven = true;
+                        self.event("worker", "driver session", None, Some("agent"), at_run(json!({
+                            "step": value["step"], "action": value["action"], "driver_session": id,
+                        })));
+                    }
+                }
                 Err(why) => self.unknown("worker", "authorization", &why),
             }
         }
@@ -372,11 +382,13 @@ impl Trace {
                 Err(why) => self.unknown("worker", "transcript", &why),
             }
         }
-        self.unknown(
-            "worker",
-            "driver session",
-            "The driver's session is not recorded with the run.",
-        );
+        if !driven {
+            self.unknown(
+                "worker",
+                "driver session",
+                "No worker admission recorded a --driver-session ID.",
+            );
+        }
         let output = folder.join("04-test/output");
         match read_json(&output.join("verification.json")) {
             Ok(value) => {

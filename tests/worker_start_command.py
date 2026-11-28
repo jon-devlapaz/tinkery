@@ -23,7 +23,7 @@ ALLOWED = ('matching', 'standing')
 REFUSED = ('absent', 'seed', 'model', 'cap', 'malformed', 'standing-gray')
 
 
-def command(fixture, path, operator='agent', budget=True):
+def command(fixture, path, operator='agent', budget=True, driver=None):
     args = [str(REPO / 'target/debug/tinkery'), '--operator', operator,
             '--sdlc-root', str(fixture.project), '--seed-session-root', str(fixture.sessions),
             '--record-root', str(fixture.root / 'TEST-records'),
@@ -32,6 +32,8 @@ def command(fixture, path, operator='agent', budget=True):
         args.extend(['--worker-authorization', str(path)])
     if budget:
         args.extend(['--worker-model', MODEL, '--worker-responses', str(CAP)])
+    if driver is not None:
+        args.extend(['--driver-session', driver])
     args.extend(['seed', 'start', str(fixture.session)])
     return subprocess.run(args, cwd=fixture.project, env=fixture.env, capture_output=True,
                           text=True, timeout=120)
@@ -152,7 +154,27 @@ def a_human_types_the_start():
     print('PASS seed start by a human needs only the typed command; an agent needs relayed words')
 
 
+def the_driver_session_is_a_recorded_link():
+    """An agent names its own session; the admission records the ID, and the trace shows it."""
+    driver = 'TEST-codex-session-0001'
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-start-driver-') as directory:
+        fixture = Fixture(Path(directory).resolve())
+        path = authorization(fixture, 'matching')
+        for operator, bad, refusal in [('human', driver, 'requires --operator agent'),
+                                       ('agent', 'TEST\nforged', 'printable session ID'),
+                                       ('agent', ' ', 'printable session ID')]:
+            refused = command(fixture, path, operator=operator, driver=bad)
+            assert refused.returncode != 0 and refusal in refused.stderr, refused
+        assert not fixture.mutations() and not fixture.admissions(), 'a refused driver session started work'
+        started = command(fixture, path, driver=driver)
+        assert started.returncode == 0, started
+        admission = json.loads(record(fixture).splitlines()[0])
+        assert admission['driver_session'] == driver, admission
+    print('PASS seed start records the driver session ID only for an agent, and refuses a malformed ID')
+
+
 if __name__ == '__main__':
+    the_driver_session_is_a_recorded_link()
     needs_allowance_and_checkout()
     a_human_types_the_start()
     for case in (*ALLOWED, *REFUSED):
