@@ -245,11 +245,13 @@ admission that recorded it, or one `unknown` line. The ID is a link only: Tinker
 Think keeps Pi's session files too, but only for a confirmed goal, because a visit that ends without confirming must
 leave nothing. A visit's first Pi request makes one temporary folder, and each request of that visit writes its own
 `pi-` folder inside it. Confirming moves those folders into a new `<record root>/transcripts/think-<UTC time>-<random>/`
-just before the record is written, and the record names that folder as `transcripts`. When a move cannot cross file
+just before the record is written. The record names that folder as `transcripts`, relative to the record root, so a moved
+record root still links it. The trace refuses an absolute path or one with `..`, and prints `unknown` instead. When a move cannot cross file
 systems, Tinkery copies the regular files instead. Leaving the visit deletes the temporary folder. The trace links each Pi
 session file through the record it already reads, by path and SHA-256. Before it makes a visit folder, Tinkery runs the
 same 90-day prune over each `think-` folder there, then removes any that is left empty. Record readers read only `*.json`
 files at the root, so the folder never reads as a record. A record without `transcripts` keeps its old bytes.
+Known limit: if Tinkery crashes before confirm, the visit's temporary folder can stay in the system temporary folder.
 
 Not yet built:
 

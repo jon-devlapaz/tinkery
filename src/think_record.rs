@@ -146,8 +146,8 @@ pub struct Origin {
     pub thinking: Option<String>,
     /// [`hash`] of the system prompts the readings used, when known.
     pub prompt_hash: Option<String>,
-    /// The folder that keeps this visit's Pi sessions, from [`keep_transcripts`]; `None` when no
-    /// request kept one. Set only as the record is written.
+    /// The folder that keeps this visit's Pi sessions, relative to the record root, from
+    /// [`keep_transcripts`]; `None` when no request kept one. Set only as the record is written.
     pub transcripts: Option<PathBuf>,
 }
 impl Origin {
@@ -172,7 +172,8 @@ const VISIT: &str = "think-";
 /// Move the kept Pi request folders in `from` into a new folder of `<root>/transcripts`, after
 /// [`crate::pi::prune_kept`] has run over every visit folder there and an emptied one is removed.
 /// Copies regular files when a move cannot cross file systems. Never follows a link. The new
-/// folder, or `None` when nothing was kept or it cannot be made.
+/// folder relative to `root`, so a moved record root still finds it, or `None` when nothing was
+/// kept or it cannot be made.
 pub(crate) fn keep_transcripts(root: &Path, from: &Path) -> Option<PathBuf> {
     let requests: Vec<_> = std::fs::read_dir(from)
         .into_iter()
@@ -221,7 +222,7 @@ pub(crate) fn keep_transcripts(root: &Path, from: &Path) -> Option<PathBuf> {
             }
         }
     }
-    Some(visit)
+    visit.strip_prefix(root).ok().map(Path::to_path_buf)
 }
 
 /// One stored record. Writing and reading share this shape, so a field cannot change on one side
@@ -646,8 +647,13 @@ mod tests {
         assert!(made[0].exists(), "keeping nothing prunes nothing");
         std::fs::create_dir(from.join("pi-TEST-new")).unwrap();
         std::fs::write(from.join("pi-TEST-new/TEST.jsonl"), "TEST\n").unwrap();
-        let visit = keep_transcripts(&root, &from).unwrap();
-        assert_eq!(visit.parent(), Some(transcripts.as_path()));
+        let named = keep_transcripts(&root, &from).unwrap();
+        assert!(
+            named.is_relative() && named.starts_with(TRANSCRIPTS),
+            "{}",
+            named.display()
+        );
+        let visit = root.join(named);
         assert_eq!(
             std::fs::read_to_string(visit.join("pi-TEST-new/TEST.jsonl")).unwrap(),
             "TEST\n"

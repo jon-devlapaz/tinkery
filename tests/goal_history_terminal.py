@@ -84,19 +84,29 @@ def journey(w,h,home):
    assert len(calls)==6,'Navigation or confirmation launched extra provider calls'
    # Each visit keeps its own Pi sessions under the record root; its record and trace name only those.
    visits={alpha['transcripts'],bravo['transcripts']}
-   assert len(visits)==2 and {Path(v).parent for v in visits}=={records/'transcripts'},visits
+   assert len(visits)==2 and {Path(v).parent for v in visits}=={Path('transcripts')},visits
    assert sorted(p.name for p in (records/'transcripts').iterdir())==sorted(Path(v).name for v in visits)
-   kept={v:sorted(Path(v).glob('pi-*/TEST.jsonl')) for v in visits}
+   kept={v:sorted((records/v).glob('pi-*/TEST.jsonl')) for v in visits}
    assert sum(len(k) for k in kept.values())==6 and all(kept.values()),kept
-   for rec in (alpha,bravo):
-    out=subprocess.run([str(BINARY),'--record-root',str(records),'seed','trace',str(root/rec['seed_me_session'])],cwd=cwd,env=subprocess.environment(),capture_output=True,text=True)
+   def think_lines(rec,at):
+    out=subprocess.run([str(BINARY),'--record-root',str(at),'seed','trace',str(root/rec['seed_me_session'])],cwd=cwd,env=subprocess.environment(),capture_output=True,text=True)
     assert out.returncode==0,out.stderr
-    lines=[json.loads(l) for l in out.stdout.splitlines()]
-    think=[l for l in lines if (l['stage'],l['name'])==('think','model transcript')]
+    return out,[l for l in map(json.loads,out.stdout.splitlines()) if (l['stage'],l['name'])==('think','model transcript')]
+   for rec in (alpha,bravo):
+    out,think=think_lines(rec,records)
     assert [l['source']['path'] for l in think]==[str(k) for k in kept[rec['transcripts']]],think
     assert all(l['kind']=='event' and l['actor']=='model' for l in think),think
     assert 'TEST-think-transcript-body' not in out.stdout,'a transcript body reached the trace'
     assert ('ALPHA' in out.stdout)==(rec is alpha),'a trace showed another visit'
+   # A moved record root still links its transcripts; a record naming a path outside its root links none.
+   moved=cwd/'TEST-moved-records';records.rename(moved)
+   _,think=think_lines(alpha,moved)
+   assert [l['source']['path'] for l in think]==[str(moved/k.relative_to(records)) for k in kept[alpha['transcripts']]],think
+   for outside in [str(moved/alpha['transcripts']),'../'+alpha['transcripts']]:
+    edited=dict(alpha,transcripts=outside);(moved/alpha_file.name).write_text(json.dumps(edited))
+    _,think=think_lines(alpha,moved)
+    assert [l['kind'] for l in think]==['unknown'],(outside,think)
+   (moved/alpha_file.name).write_bytes(alpha_bytes);moved.rename(records)
    print(json.dumps(dict(width=w,height=h,entry='home' if home else 'standalone',provider='stub',journey='two goals/first refined/record isolation/linked decision once/distinct same-part decision retained/record folder/viewer stop',confirmed_goals=2)))
   finally:
    if p.poll() is None:p.kill();p.wait()
