@@ -120,10 +120,12 @@ pub(crate) fn start_command(
     let target = review
         .seed
         .target
+        .clone()
         .ok_or("This Tink has no verified start target. Nothing was started.")?;
     let advice = cap_advice(&review.root, config.responses, &AtomicBool::new(false));
     let request = Start {
         target,
+        authority_note: authorization.disclosure(Some((&review.seed, &config))),
         root: review.root,
         record_root,
         config,
