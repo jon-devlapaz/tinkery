@@ -309,6 +309,7 @@ impl Drafting {
                 read_only_tools: true,
                 folder: None,
                 timeout: Duration::from_secs(300),
+                keep: None,
             },
             budget,
         })
@@ -335,7 +336,17 @@ pub struct Call {
     pub folder: Option<PathBuf>,
     /// The request stops after this long.
     pub timeout: Duration,
+    /// Where Pi's session files stay after the request, one folder per request, so a trace can
+    /// link them. `None`, and every Claude Code request, keeps nothing. Each kept request first
+    /// prunes folders older than [`KEEP_DAYS`] here, and nothing outside this folder.
+    pub keep: Option<PathBuf>,
 }
+
+/// How many days a kept Pi session folder stays before the next kept request deletes it.
+pub const KEEP_DAYS: u64 = 90;
+
+// Every folder a kept request makes starts with this, and the prune deletes nothing else.
+const KEPT: &str = "pi-";
 
 /// A prompt file as the model reads it. Notes (lines starting with `#`) are dropped, lines in a
 /// paragraph are joined with one space, and each blank line becomes one newline.
@@ -456,13 +467,30 @@ impl Call {
             return Err("Request cancelled.".into());
         }
         let (slot, cap) = budget.reserve(label)?;
-        let sessions = tempfile::Builder::new()
-            .prefix("tinkery-pi-sessions-")
-            .tempdir()
-            .map_err(|error| format!("Cannot prepare Pi's session folder: {error}"));
+        let keep = self.keep.as_ref().filter(|_| self.harness == Harness::Pi);
+        let sessions = match keep {
+            Some(folder) => std::fs::create_dir_all(folder).and_then(|()| {
+                prune(folder);
+                tempfile::Builder::new()
+                    .prefix(&format!(
+                        "{KEPT}{}-",
+                        crate::calendar::utc(std::time::SystemTime::now(), '-').0
+                    ))
+                    .tempdir_in(folder)
+            }),
+            None => tempfile::Builder::new()
+                .prefix("tinkery-pi-sessions-")
+                .tempdir(),
+        }
+        .map_err(|error| format!("Cannot prepare Pi's session folder: {error}"));
         let mut responses = 0;
-        let result = sessions
-            .and_then(|dir| self.run(input, prompt, cancelled, cap, dir.path(), &mut responses));
+        let result = sessions.and_then(|dir| {
+            let result = self.run(input, prompt, cancelled, cap, dir.path(), &mut responses);
+            if keep.is_some() {
+                let _ = dir.keep();
+            }
+            result
+        });
         budget.finish(slot, &result, responses);
         result
     }
@@ -566,7 +594,8 @@ impl Call {
     }
 
     /// Pi's command line, and the folder guard it must keep until Pi exits. Pi records its
-    /// session in `sessions`, a fresh folder Tinkery deletes, so its responses can be counted.
+    /// session in `sessions`, a fresh folder, so its responses can be counted. Tinkery deletes
+    /// the folder unless the call keeps it.
     fn pi(&self, sessions: &Path) -> Result<(Command, Held), String> {
         let mut command = Command::new(&self.program);
         command.args(["--print", "--session-dir"]).arg(sessions);
@@ -674,6 +703,31 @@ fn cap_reached(host: &str, responses: usize) -> String {
 
 /// Completed assistant responses in the Pi sessions under `sessions`, and whether the last one
 /// ended Pi's turn (`stopReason` `stop`) rather than calling tools or failing.
+/// Delete the kept request folders in `folder` whose last change is more than [`KEEP_DAYS`] old.
+/// Only direct children named by [`KEPT`] that are real folders; a link, a file or anything else
+/// stays. A folder that cannot be read or removed stays too.
+fn prune(folder: &Path) {
+    let Some(cutoff) =
+        std::time::SystemTime::now().checked_sub(Duration::from_secs(KEEP_DAYS * 24 * 60 * 60))
+    else {
+        return;
+    };
+    for entry in std::fs::read_dir(folder).into_iter().flatten().flatten() {
+        let old = entry
+            .file_name()
+            .to_str()
+            .is_some_and(|name| name.starts_with(KEPT))
+            && entry.file_type().is_ok_and(|kind| kind.is_dir())
+            && entry
+                .metadata()
+                .and_then(|meta| meta.modified())
+                .is_ok_and(|changed| changed < cutoff);
+        if old {
+            let _ = std::fs::remove_dir_all(entry.path());
+        }
+    }
+}
+
 fn pi_responses(sessions: &Path) -> (usize, bool) {
     let Ok(files) = std::fs::read_dir(sessions) else {
         return (0, false);
@@ -845,6 +899,7 @@ mod tests {
             read_only_tools: false,
             folder: Some(fixture.root().into()),
             timeout: Duration::from_secs(10),
+            keep: None,
         };
         let budget = CallBudget::new(1);
         let result = call.complete(
@@ -898,7 +953,122 @@ mod tests {
             read_only_tools: false,
             folder: None,
             timeout: Duration::from_secs(20),
+            keep: None,
         }
+    }
+
+    #[test]
+    fn a_kept_request_leaves_its_session_and_prunes_only_old_kept_folders_there() {
+        let dir = tempfile::tempdir().unwrap();
+        let (keep, outside) = (
+            dir.path().join("TEST-session/transcripts"),
+            dir.path().join("TEST-outside"),
+        );
+        std::fs::create_dir_all(&keep).unwrap();
+        std::fs::create_dir_all(outside.join("pi-TEST-old-outside")).unwrap();
+        let old =
+            std::time::SystemTime::now() - Duration::from_secs((KEEP_DAYS + 1) * 24 * 60 * 60);
+        let age = |path: &Path| {
+            std::fs::File::open(path)
+                .unwrap()
+                .set_modified(old)
+                .unwrap();
+        };
+        let recent = keep.join("pi-TEST-recent");
+        for folder in ["pi-TEST-old", "TEST-old-unnamed"] {
+            std::fs::create_dir(keep.join(folder)).unwrap();
+        }
+        std::fs::create_dir(&recent).unwrap();
+        std::fs::write(keep.join("pi-TEST-old-file"), "TEST").unwrap();
+        std::os::unix::fs::symlink(&outside, keep.join("pi-TEST-old-link")).unwrap();
+        for path in ["pi-TEST-old", "TEST-old-unnamed", "pi-TEST-old-file"] {
+            age(&keep.join(path));
+        }
+        // The link itself is old too, so only its kind keeps it.
+        let link = std::ffi::CString::new(
+            keep.join("pi-TEST-old-link")
+                .into_os_string()
+                .into_encoded_bytes(),
+        )
+        .unwrap();
+        let secs = old.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as libc::time_t;
+        let times = [libc::timespec {
+            tv_sec: secs,
+            tv_nsec: 0,
+        }; 2];
+        // SAFETY: a valid C path and two valid times; the call only sets the link's own times.
+        assert_eq!(
+            unsafe {
+                libc::utimensat(
+                    libc::AT_FDCWD,
+                    link.as_ptr(),
+                    times.as_ptr(),
+                    libc::AT_SYMLINK_NOFOLLOW,
+                )
+            },
+            0
+        );
+        age(&outside);
+        age(&outside.join("pi-TEST-old-outside"));
+        let budget = CallBudget::new(1);
+        let call = Call {
+            keep: Some(keep.clone()),
+            ..counting_pi(dir.path(), 1, true, 0)
+        };
+        let reply = call.complete(
+            &budget,
+            "TEST",
+            b"TEST".to_vec(),
+            "TEST".into(),
+            &AtomicBool::new(false),
+        );
+        assert_eq!(reply.unwrap(), "TEST reply\n");
+        assert_eq!(
+            budget.used(),
+            1,
+            "a kept session still counts its responses"
+        );
+        let mut left: Vec<_> = std::fs::read_dir(&keep)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        left.sort();
+        let made = left
+            .iter()
+            .find(|n| !n.starts_with("pi-TEST") && n.starts_with("pi-"))
+            .unwrap()
+            .clone();
+        assert_eq!(
+            left,
+            [
+                "TEST-old-unnamed",
+                made.as_str(),
+                "pi-TEST-old-file",
+                "pi-TEST-old-link",
+                "pi-TEST-recent"
+            ],
+            "only the old kept folder may go"
+        );
+        assert!(
+            keep.join(&made).join("TEST.jsonl").is_file(),
+            "the request's session must stay"
+        );
+        assert!(
+            outside.join("pi-TEST-old-outside").is_dir(),
+            "the prune must never leave its folder"
+        );
+        // Without a keep folder, nothing stays.
+        let budget = CallBudget::new(1);
+        counting_pi(dir.path(), 1, true, 0)
+            .complete(
+                &budget,
+                "TEST",
+                b"TEST".to_vec(),
+                "TEST".into(),
+                &AtomicBool::new(false),
+            )
+            .unwrap();
+        assert_eq!(std::fs::read_dir(&keep).unwrap().count(), 5);
     }
 
     #[test]
@@ -989,6 +1159,7 @@ mod tests {
             read_only_tools: false,
             folder: None,
             timeout: Duration::from_secs(10),
+            keep: None,
         };
         let budget = CallBudget::new(4);
         let request = || {
@@ -1042,6 +1213,7 @@ mod tests {
             read_only_tools: true,
             folder: None,
             timeout: Duration::from_secs(1),
+            keep: None,
         };
         let budget = CallBudget::new(1);
         let words = vec![b'x'; REQUEST_LIMIT + 1];
@@ -1120,6 +1292,7 @@ time.sleep(10)
                 read_only_tools: true,
                 folder: Some(directory.path().into()),
                 timeout: Duration::from_secs(3),
+                keep: None,
             };
             let cancelled = Arc::new(AtomicBool::new(false));
             let ready = {
@@ -1250,6 +1423,7 @@ sys.exit({exit})
                 read_only_tools,
                 folder: Some(self.directory.path().into()),
                 timeout: Duration::from_secs(10),
+                keep: None,
             }
         }
 

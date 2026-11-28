@@ -132,11 +132,28 @@ pub fn session(
             }
         }
     }
-    trace.unknown(
-        "shape",
-        "model transcript",
-        "Tinkery does not keep Shape model transcripts; it counts responses, then deletes them.",
-    );
+    let kept: Vec<_> = files_in(&session.join(seed_me::files::TRANSCRIPTS))
+        .into_iter()
+        .filter(|(_, folder)| folder.is_dir())
+        .flat_map(|(_, folder)| files(&folder, "jsonl"))
+        .collect();
+    if kept.is_empty() {
+        trace.unknown(
+            "shape",
+            "model transcript",
+            "No Shape model transcript is kept: the session predates kept transcripts, or Shape used Claude Code.",
+        );
+    }
+    for (_, path) in kept {
+        let at = header(&path).and_then(|h| h["timestamp"].as_str().map(str::to_owned));
+        trace.event(
+            "shape",
+            "model transcript",
+            at,
+            Some("model"),
+            json!({ "source": link(&path) }),
+        );
+    }
 
     let confirmation = session.join(seed_me::files::CONFIRMATION);
     match read_json(&confirmation) {
@@ -263,9 +280,24 @@ impl Trace {
         );
     }
 
-    /// One run folder, grouped by stage in the order tink-sdlc makes them. `seed_matches` is
-    /// `None` when the seed could not be read; the caller then adds an unknown line.
+    /// One run folder: its timed lines in time order, each untimed line in its stage's place.
+    /// `seed_matches` is `None` when the seed could not be read; the caller then adds an
+    /// unknown line.
     fn run(&mut self, folder: &Path, run: &Value, seed_matches: Option<bool>) {
+        let start = self.lines.len();
+        self.run_lines(folder, run, seed_matches);
+        // Timed lines take the timed slots in time order; an untimed line keeps its place.
+        let slots: Vec<usize> = (start..self.lines.len())
+            .filter(|&i| when(&self.lines[i]).is_some())
+            .collect();
+        let mut timed: Vec<Value> = slots.iter().map(|&i| self.lines[i].take()).collect();
+        timed.sort_by_key(when);
+        for (slot, line) in slots.into_iter().zip(timed) {
+            self.lines[slot] = line;
+        }
+    }
+
+    fn run_lines(&mut self, folder: &Path, run: &Value, seed_matches: Option<bool>) {
         let slug = folder
             .file_name()
             .and_then(|n| n.to_str())
@@ -464,12 +496,19 @@ fn jsonl(path: &Path) -> Vec<Result<Value, String>> {
 
 /// The files in `folder` with this extension, by name.
 fn files(folder: &Path, extension: &str) -> Vec<(String, PathBuf)> {
+    files_in(folder)
+        .into_iter()
+        .filter(|(_, path)| path.extension().is_some_and(|e| e == extension) && path.is_file())
+        .collect()
+}
+
+/// Everything in `folder`, by name.
+fn files_in(folder: &Path) -> Vec<(String, PathBuf)> {
     let mut found: Vec<_> = std::fs::read_dir(folder)
         .into_iter()
         .flatten()
         .flatten()
         .map(|entry| entry.path())
-        .filter(|path| path.extension().is_some_and(|e| e == extension) && path.is_file())
         .filter_map(|path| Some((path.file_name()?.to_str()?.to_owned(), path)))
         .collect();
     found.sort();
@@ -520,6 +559,11 @@ fn header(path: &Path) -> Option<Value> {
         .read_line(&mut line)
         .ok()?;
     serde_json::from_str(&line).ok()
+}
+
+/// A line's `at`, when it has one that reads as RFC 3339.
+fn when(line: &Value) -> Option<time::OffsetDateTime> {
+    line["at"].as_str().and_then(crate::calendar::parse)
 }
 
 /// Nanoseconds since 1970 as an RFC 3339 UTC time.

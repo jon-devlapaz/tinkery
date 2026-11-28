@@ -31,6 +31,7 @@ pub(super) fn run(
     let call = Call {
         folder: None,
         read_only_tools: false,
+        keep: Some(session.join(crate::seed_me::files::TRANSCRIPTS)),
         ..agent.drafting.call.clone()
     };
     let reply = call.complete(&agent.drafting.budget, "teach-back",

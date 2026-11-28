@@ -11,6 +11,8 @@ pub(crate) const SEED: &str = "seed-contract.md";
 pub(crate) const CHECKS: &str = "seed-checks.json";
 /// The receipt that binds a confirmed Tink Contract.
 pub(crate) const CONFIRMATION: &str = "seed-confirmation.json";
+/// Shape's kept model sessions, one folder per request. Local only, never part of the handoff.
+pub(crate) const TRANSCRIPTS: &str = "transcripts";
 
 /// The first line of an unconfirmed Tink Contract.
 pub(crate) const DRAFT: &str = "status: draft";
