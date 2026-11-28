@@ -196,7 +196,10 @@ impl BrainDump {
             .review()
             .ok_or("No confirmed goal to record.")?
             .affirmation;
-        let origin = self.host.origin();
+        let origin = record::Origin {
+            transcripts: self.host.keep_transcripts(root),
+            ..self.host.origin()
+        };
         record::write_with_context(
             root,
             &record::Session {

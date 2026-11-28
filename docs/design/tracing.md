@@ -223,15 +223,15 @@ record's own fields. Its format is `tinkery.trace/1`, named on the first line.
 - **Content.** Operator words are verbatim. A transcript, ledger, log or review file is only a path and SHA-256.
   A Pi session file is opened only to read its first line, the header that names its session.
   A verify `error` is tink-sdlc's own message (the failed check's argv and a pointer to its log), never check output.
-- **Unknown lines today:** Think model transcript, a driver session that no admission recorded, and any worker
-  transcript whose step records no session folder. A Shape model transcript is `unknown` only for older sessions or a Claude Code harness.
+- **Unknown lines today:** a Think model transcript that no record names, a driver session that no admission
+  recorded, and any worker transcript whose step records no session folder. A Shape model transcript is `unknown` only for older sessions or a Claude Code harness.
 
 ### Second slice
 
 **Shipped:** Shape keeps Pi's session files. Each Shape or teach-back request on Pi writes into its own
 `<session>/transcripts/pi-<UTC time>-<random>/` folder, and the folder stays. The trace links each file there by path and
 SHA-256. Before each kept request, Tinkery deletes every `pi-` folder in any session's `transcripts` folder whose last
-change is more than 90 days old (`KEEP_DAYS` in `src/seed_me/files.rs`), so a goal that is never shaped again is
+change is more than 90 days old (`KEEP_DAYS` in `src/pi.rs`), so a goal that is never shaped again is
 pruned too. It deletes nothing else: no file, no link, no other name, and nothing outside those folders. It never
 follows a link. Claude Code requests still keep nothing.
 
@@ -242,9 +242,19 @@ empty ID, a control character, or more than 256 bytes. Each agent admission then
 `worker-authorization.jsonl`, from `seed start` or the worker screen. The trace prints one `driver session` line per
 admission that recorded it, or one `unknown` line. The ID is a link only: Tinkery never reads the driver's transcript.
 
+Think keeps Pi's session files too, but only for a confirmed goal, because a visit that ends without confirming must
+leave nothing. A visit's first Pi request makes one temporary folder, and each request of that visit writes its own
+`pi-` folder inside it. Confirming moves those folders into a new `<record root>/transcripts/think-<UTC time>-<random>/`
+just before the record is written. The record names that folder as `transcripts`, relative to the record root, so a moved
+record root still links it. The trace refuses an absolute path or one with `..`, and prints `unknown` instead. When a move cannot cross file
+systems, Tinkery copies the regular files instead. Leaving the visit deletes the temporary folder. The trace links each Pi
+session file through the record it already reads, by path and SHA-256. Before it makes a visit folder, Tinkery runs the
+same 90-day prune over each `think-` folder there, then removes any that is left empty. Record readers read only `*.json`
+files at the root, so the folder never reads as a record. A record without `transcripts` keeps its old bytes.
+Known limit: if Tinkery crashes before confirm, the visit's temporary folder can stay in the system temporary folder.
+
 Not yet built:
 
-- Think transcripts. Think drafts before any session folder exists, so it has no place to keep them yet.
 - One worker transcript copy. Pi Durable's mirror and `.pi.log` belong to tink-sdlc.
 
 Narrower than first proposed: one session per call on stdout instead of an export folder, no `coding.csv`, and no
@@ -252,7 +262,7 @@ OpenTelemetry names yet. `gen_ai.evaluation.result` is still unchecked, so no li
 
 ### Later slices, each a separate decision
 
-2. Keep Think model transcripts, link the driver session, and keep one worker transcript copy.
+2. Keep one worker transcript copy.
 3. Move Measure and cap advice onto the trace reader, then delete the `.pi.log` emit and both parsers.
 4. A structured review-findings format in tink-sdlc, so findings become scores.
 5. The coding sheet's count command.

@@ -51,6 +51,7 @@ pub fn session(
     );
 
     let mut repo = None;
+    let mut think_transcripts = None;
     match records.map_err(|why| (why.clone(), why)).and_then(|root| {
         think_record::read(&root, &session, goal).map_err(|e| (e.message, e.details))
     }) {
@@ -58,6 +59,7 @@ pub fn session(
             if let think_record::MadeIn::Repo(root) = &history.made_in {
                 repo = Some(root.clone());
             }
+            think_transcripts = history.transcripts.clone();
             let source = history.record.as_deref().map(link);
             trace.event("think", "record", None, None, json!({"source": source}));
             for turn in history.turns {
@@ -78,11 +80,17 @@ pub fn session(
             trace.unknown("think", "record", &format!("{message} {details}"))
         }
     }
-    trace.unknown(
-        "think",
-        "model transcript",
-        "Tinkery does not keep Think model transcripts; it counts responses, then deletes them.",
-    );
+    let thought = think_transcripts.as_deref().map(kept).unwrap_or_default();
+    if thought.is_empty() {
+        trace.unknown(
+            "think",
+            "model transcript",
+            "No Think model transcript is kept: the record predates kept transcripts, names none, or its folder is gone.",
+        );
+    }
+    for path in thought {
+        trace.model_transcript("think", &path);
+    }
 
     trace.event(
         "shape",
@@ -132,27 +140,16 @@ pub fn session(
             }
         }
     }
-    let kept: Vec<_> = files_in(&session.join(seed_me::files::TRANSCRIPTS))
-        .into_iter()
-        .filter(|(_, folder)| folder.is_dir())
-        .flat_map(|(_, folder)| files(&folder, "jsonl"))
-        .collect();
-    if kept.is_empty() {
+    let shaped = kept(&session.join(seed_me::files::TRANSCRIPTS));
+    if shaped.is_empty() {
         trace.unknown(
             "shape",
             "model transcript",
             "No Shape model transcript is kept: the session predates kept transcripts, or Shape used Claude Code.",
         );
     }
-    for (_, path) in kept {
-        let at = header(&path).and_then(|h| h["timestamp"].as_str().map(str::to_owned));
-        trace.event(
-            "shape",
-            "model transcript",
-            at,
-            Some("model"),
-            json!({ "source": link(&path) }),
-        );
+    for path in shaped {
+        trace.model_transcript("shape", &path);
     }
 
     let confirmation = session.join(seed_me::files::CONFIRMATION);
@@ -272,6 +269,13 @@ impl Trace {
         fields: Value,
     ) {
         self.line("event", stage, name, at, actor, fields);
+    }
+
+    /// One kept Pi session file, by path and hash, timed by its header.
+    fn model_transcript(&mut self, stage: &str, path: &Path) {
+        let at = header(path).and_then(|h| h["timestamp"].as_str().map(str::to_owned));
+        let fields = json!({ "source": link(path) });
+        self.event(stage, "model transcript", at, Some("model"), fields);
     }
 
     fn unknown(&mut self, stage: &str, name: &str, reason: &str) {
@@ -517,6 +521,16 @@ fn files(folder: &Path, extension: &str) -> Vec<(String, PathBuf)> {
     files_in(folder)
         .into_iter()
         .filter(|(_, path)| path.extension().is_some_and(|e| e == extension) && path.is_file())
+        .collect()
+}
+
+/// Each Pi session file in the kept request folders directly in `folder`, by name.
+fn kept(folder: &Path) -> Vec<PathBuf> {
+    files_in(folder)
+        .into_iter()
+        .filter(|(_, request)| request.is_dir())
+        .flat_map(|(_, request)| files(&request, "jsonl"))
+        .map(|(_, path)| path)
         .collect()
 }
 

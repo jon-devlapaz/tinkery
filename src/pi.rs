@@ -344,6 +344,36 @@ pub struct Call {
 
 /// The start of every folder a kept request makes. A retention prune deletes nothing else.
 pub(crate) const KEPT: &str = "pi-";
+/// How many days a kept model session stays before [`prune_kept`] deletes it.
+pub(crate) const KEEP_DAYS: u64 = 90;
+
+/// Delete each [`KEPT`] real folder directly in `folder` whose last change is older than
+/// [`KEEP_DAYS`]. Never a file, a link, another name or anything deeper; never follows a link.
+/// A folder that cannot be read or removed stays.
+pub(crate) fn prune_kept(folder: &Path) {
+    let Some(cutoff) =
+        std::time::SystemTime::now().checked_sub(Duration::from_secs(KEEP_DAYS * 24 * 60 * 60))
+    else {
+        return;
+    };
+    if !std::fs::symlink_metadata(folder).is_ok_and(|meta| meta.is_dir()) {
+        return;
+    }
+    for kept in std::fs::read_dir(folder).into_iter().flatten().flatten() {
+        let old = kept.file_type().is_ok_and(|kind| kind.is_dir())
+            && kept
+                .file_name()
+                .to_str()
+                .is_some_and(|name| name.starts_with(KEPT))
+            && kept
+                .metadata()
+                .and_then(|meta| meta.modified())
+                .is_ok_and(|changed| changed < cutoff);
+        if old {
+            let _ = std::fs::remove_dir_all(kept.path());
+        }
+    }
+}
 
 /// A prompt file as the model reads it. Notes (lines starting with `#`) are dropped, lines in a
 /// paragraph are joined with one space, and each blank line becomes one newline.

@@ -562,6 +562,7 @@ impl Launch {
                     call_budget.clone(),
                 )?
                 .with_thinking(launch.thinking())
+                .map(|host| host.keeping_transcripts(roots.records.is_ok()))
                 .map(Arc::new)
             })
             .transpose()?;

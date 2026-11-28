@@ -95,7 +95,7 @@ def journey(width, height, read=False, supported=False):
                 run.send(b'\r', 'Saved.')
             else:
                 run.wait('Saved.')
-            written = list(run.records.iterdir())
+            written = list(run.records.glob('*.json'))
             assert len(written) == len(list(run.sessions.iterdir())) == 1
             record = json.loads(written[0].read_text())
             ledger = helper.load(run.sessions / record['seed_me_session'])
@@ -197,7 +197,7 @@ def guidance(width, height, long):
                 run.send(F1, 'Type confirm, then Enter')
                 run.send(b'\x1b', 'type confirm')
                 run.send(b'confirm\r', 'Saved.')
-            written = list(run.records.iterdir())
+            written = list(run.records.glob('*.json'))
             assert len(written) == len(list(run.sessions.iterdir())) == 1
             record = json.loads(written[0].read_text())
             ledger = helper.load(run.sessions / record['seed_me_session'])

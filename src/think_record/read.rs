@@ -53,6 +53,9 @@ pub struct History {
     pub readings: Vec<super::RecordedReading>,
     /// The Think record file this history came from; `None` when no record holds it.
     pub record: Option<PathBuf>,
+    /// The folder of this visit's kept Pi sessions under the root that was read; `None` when none
+    /// was kept, or when the record names an absolute path or one that leaves the root.
+    pub transcripts: Option<PathBuf>,
 }
 
 /// The repository a confirmed goal was made in, as its record says. Where it was made, never
@@ -154,6 +157,15 @@ pub fn read(root: &Path, session: &Path, goal: &str) -> Result<History, Unavaila
         sequence: context.sequence,
         readings: context.readings,
         record: Some(path),
+        transcripts: record
+            .transcripts
+            .filter(|folder| {
+                folder.components().next().is_some()
+                    && folder
+                        .components()
+                        .all(|part| matches!(part, Component::Normal(_)))
+            })
+            .map(|folder| root.join(folder)),
     })
 }
 

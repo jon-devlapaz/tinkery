@@ -9,6 +9,9 @@ BINARY=REPO/'target/debug/tinkery'
 HOST='''#!/usr/bin/env python3
 import json,sys,pathlib
 r=json.load(sys.stdin)
+if '--session-dir' in sys.argv:
+ d=pathlib.Path(sys.argv[sys.argv.index('--session-dir')+1])
+ (d/'TEST.jsonl').write_text(json.dumps(dict(type='session',id='TEST'))+'\\n'+json.dumps(dict(type='message',message=dict(role='assistant',stopReason='stop',content='TEST-think-transcript-body')))+'\\n')
 with pathlib.Path('calls.jsonl').open('a') as f:f.write(json.dumps(r)+'\\n')
 if r.get('kind')=='decision-review':
  decisions=r.get('decisions',[])
@@ -53,7 +56,7 @@ def journey(w,h,home):
    send(b'ALPHA','ALPHA');send(b'\x1bOQ','1  Clarify into a goal');send(b'1','May refusals show private text?')
    send(b'omit','omit');send(b'\x1bOQ',"Ready for your review")
    confirm()
-   alpha_file=next(records.iterdir());alpha_bytes=alpha_file.read_bytes();alpha=json.loads(alpha_bytes)
+   alpha_file=next(records.glob('*.json'));alpha_bytes=alpha_file.read_bytes();alpha=json.loads(alpha_bytes)
    assert sum(c['check']=='structure-spans-history' for c in alpha['checks'])==2,alpha['checks']
    send(b'\x1b','1  think');send(b'1',"What's on your mind?")
    send(b'BRAVO','BRAVO');send(b'\x1bOQ','1  Clarify into a goal');send(b'1','May refusals show private text?')
@@ -62,7 +65,7 @@ def journey(w,h,home):
    assert right().count('Open decision: Private text')==0,right()
    assert 'Open decision: Uploads' in right(),right()
    send(b'confirm\r','Saved.')
-   found=list(records.iterdir());assert len(found)==2,'Second visit lost record setting'
+   found=list(records.glob('*.json'));assert len(found)==2,'Second visit lost record setting'
    bravo_file=next(f for f in found if f!=alpha_file);bravo_text=bravo_file.read_text();bravo=json.loads(bravo_text)
    assert 'ALPHA' not in bravo_text,'Prior goal leaked into the second think record'
    assert sum(c['check']=='structure-spans-history' for c in bravo['checks'])==1,bravo['checks']
@@ -79,6 +82,31 @@ def journey(w,h,home):
    for session in root.iterdir():assert not (session/'viewer.json').exists()
    calls=[json.loads(l) for l in (cwd/'calls.jsonl').read_text().splitlines()]
    assert len(calls)==6,'Navigation or confirmation launched extra provider calls'
+   # Each visit keeps its own Pi sessions under the record root; its record and trace name only those.
+   visits={alpha['transcripts'],bravo['transcripts']}
+   assert len(visits)==2 and {Path(v).parent for v in visits}=={Path('transcripts')},visits
+   assert sorted(p.name for p in (records/'transcripts').iterdir())==sorted(Path(v).name for v in visits)
+   kept={v:sorted((records/v).glob('pi-*/TEST.jsonl')) for v in visits}
+   assert sum(len(k) for k in kept.values())==6 and all(kept.values()),kept
+   def think_lines(rec,at):
+    out=subprocess.run([str(BINARY),'--record-root',str(at),'seed','trace',str(root/rec['seed_me_session'])],cwd=cwd,env=subprocess.environment(),capture_output=True,text=True)
+    assert out.returncode==0,out.stderr
+    return out,[l for l in map(json.loads,out.stdout.splitlines()) if (l['stage'],l['name'])==('think','model transcript')]
+   for rec in (alpha,bravo):
+    out,think=think_lines(rec,records)
+    assert [l['source']['path'] for l in think]==[str(k) for k in kept[rec['transcripts']]],think
+    assert all(l['kind']=='event' and l['actor']=='model' for l in think),think
+    assert 'TEST-think-transcript-body' not in out.stdout,'a transcript body reached the trace'
+    assert ('ALPHA' in out.stdout)==(rec is alpha),'a trace showed another visit'
+   # A moved record root still links its transcripts; a record naming a path outside its root links none.
+   moved=cwd/'TEST-moved-records';records.rename(moved)
+   _,think=think_lines(alpha,moved)
+   assert [l['source']['path'] for l in think]==[str(moved/k.relative_to(records)) for k in kept[alpha['transcripts']]],think
+   for outside in [str(moved/alpha['transcripts']),'../'+alpha['transcripts']]:
+    edited=dict(alpha,transcripts=outside);(moved/alpha_file.name).write_text(json.dumps(edited))
+    _,think=think_lines(alpha,moved)
+    assert [l['kind'] for l in think]==['unknown'],(outside,think)
+   (moved/alpha_file.name).write_bytes(alpha_bytes);moved.rename(records)
    print(json.dumps(dict(width=w,height=h,entry='home' if home else 'standalone',provider='stub',journey='two goals/first refined/record isolation/linked decision once/distinct same-part decision retained/record folder/viewer stop',confirmed_goals=2)))
   finally:
    if p.poll() is None:p.kill();p.wait()

@@ -1,8 +1,10 @@
 //! Who answers a reading request: [`BoardHost`] is the boundary, met by [`ModelHost`] (Pi or
 //! Claude Code: a shaping call, then the decision review) or by the practice simulation.
 //!
-//! A model request runs the host with no tools, session, extensions or context files, so the
-//! model sees only the prompt and the words sent. The process boundary (caps, timeout,
+//! A model request runs the host with no tools, prior session, extensions or context files, so
+//! the model sees only the prompt and the words sent. When kept, Pi's session files of a visit
+//! wait in a temporary folder and reach the record root only with the confirmed goal's record;
+//! a visit that ends without confirming keeps nothing. The process boundary (caps, timeout,
 //! cancellation) and the call budget are shared in [`crate::pi`]; this module adds Think's
 //! instructions and settings. Construction requires a [`CallBudget`]; no request starts once
 //! its limit is reached. Bundled guidance is verbatim from Seed Me
@@ -43,6 +45,18 @@ pub trait BoardHost: Send + Sync {
     fn origin(&self) -> record::Origin {
         record::Origin::simulated()
     }
+    /// Move this visit's kept model sessions under the Think record root `root`, once, just
+    /// before its record is written; the folder they are in, or `None` when none was kept.
+    fn keep_transcripts(&self, _root: &std::path::Path) -> Option<PathBuf> {
+        None
+    }
+}
+
+/// A visit's kept Pi sessions: none yet, waiting in a temporary folder, or moved with the record.
+enum Kept {
+    Nothing,
+    Waiting(tempfile::TempDir),
+    Moved(Option<PathBuf>),
 }
 /// Pi or Claude Code, configured for think's shaping calls: an explicit model, a thinking level,
 /// and the bundled working-draft guidance as standing instructions.
@@ -55,6 +69,8 @@ pub struct ModelHost {
     budget: Arc<CallBudget>,
     brain_history: std::sync::Mutex<Vec<checks::Decision>>,
     active_call: std::sync::Mutex<Option<Request>>,
+    keep: bool,
+    kept: std::sync::Mutex<Kept>,
 }
 
 impl ModelHost {
@@ -82,7 +98,16 @@ impl ModelHost {
             budget,
             brain_history: std::sync::Mutex::new(Vec::new()),
             active_call: std::sync::Mutex::new(None),
+            keep: false,
+            kept: std::sync::Mutex::new(Kept::Nothing),
         })
+    }
+
+    /// `true` keeps each Pi session of a visit for its record; Claude Code keeps nothing.
+    /// Without this, no session is kept.
+    pub fn keeping_transcripts(mut self, keep: bool) -> Self {
+        self.keep = keep;
+        self
     }
 
     /// Reuses the configuration for a separate goal, with an empty check history and the same
@@ -98,6 +123,8 @@ impl ModelHost {
             budget: self.budget.clone(),
             brain_history: std::sync::Mutex::new(Vec::new()),
             active_call: std::sync::Mutex::new(None),
+            keep: self.keep,
+            kept: std::sync::Mutex::new(Kept::Nothing),
         }
     }
 
@@ -127,6 +154,22 @@ impl ModelHost {
         cancelled: &AtomicBool,
     ) -> Result<String, String> {
         *self.active_call.lock().unwrap() = Some(kind);
+        // One temporary folder per visit, made by its first kept request; it goes when the
+        // visit does, unless its record moves the sessions first.
+        let keep = (self.keep && self.harness == Harness::Pi)
+            .then(|| {
+                let mut kept = self.kept.lock().unwrap();
+                if let Kept::Nothing = *kept
+                    && let Ok(dir) = tempfile::Builder::new().prefix("tinkery-think-").tempdir()
+                {
+                    *kept = Kept::Waiting(dir);
+                }
+                match &*kept {
+                    Kept::Waiting(dir) => Some(dir.path().to_path_buf()),
+                    _ => None,
+                }
+            })
+            .flatten();
         let result = crate::pi::Call {
             harness: self.harness,
             program: self.program.clone(),
@@ -135,7 +178,7 @@ impl ModelHost {
             read_only_tools: false,
             folder: None,
             timeout: self.timeout,
-            keep: None,
+            keep,
         }
         .complete(&self.budget, kind.label(), input, prompt, cancelled);
         *self.active_call.lock().unwrap() = None;
@@ -164,6 +207,17 @@ impl BoardHost for ModelHost {
                 reading::prompt(Self::working_instructions()),
                 reading::assemble(review::PROMPT)
             ))),
+            transcripts: None,
+        }
+    }
+    fn keep_transcripts(&self, root: &std::path::Path) -> Option<PathBuf> {
+        let mut kept = self.kept.lock().unwrap();
+        if let Kept::Waiting(dir) = &*kept {
+            *kept = Kept::Moved(record::keep_transcripts(root, dir.path()));
+        }
+        match &*kept {
+            Kept::Moved(folder) => folder.clone(),
+            _ => None,
         }
     }
     fn diagnostics(&self) -> Vec<checks::Decision> {
