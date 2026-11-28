@@ -53,7 +53,8 @@ def run_folder(checkout, session, transcripts, slug='TEST-run', run_id=RUN_ID, f
     source = session / 'seed-contract.md'
     (run / 'run.json').write_text(json.dumps({'schema': 1, 'run_id': run_id, 'seed_contract': {
         'path': f'runs/{slug}/seed-contract.md', 'source': str(source),
-        'sha256': hashlib.sha256(source.read_bytes()).hexdigest()}}))
+        'sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+        'confirmation': json.loads((session / 'seed-confirmation.json').read_text())}}))
     (run / 'decisions/3-1764291600000000000-aa.json').write_text(json.dumps({
         'decision': 'approved', 'reviewer': 'TEST reviewer', 'source': 'TEST gate', 'reason': 'TEST reason'}))
     (run / 'worker-authorization.jsonl').write_text(json.dumps({
@@ -244,7 +245,32 @@ def run_order():
     print('seed trace order: timed run lines in time order, untimed lines in place')
 
 
+def moved_session():
+    """An archived session still joins its run by the session identity intake recorded."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-trace-moved-') as directory:
+        root = Path(directory).resolve()
+        checkout = root / 'TEST-checkout'
+        session = make(root / 'TEST-sessions', 'ready', goal=GOAL, question=False)
+        seed(session, confirm=True)
+        run_folder(checkout, session, transcripts=True)
+        archived = root / 'TEST-archive' / session.name
+        archived.parent.mkdir()
+        session.rename(archived)
+        _, lines = trace(archived, root, '--record-root', root / 'TEST-records', '--sdlc-root', checkout)
+        runs = [line for line in lines if line['name'] == 'run']
+        assert [(r['run'], r['seed_matches'], r['seed_source']) for r in runs] == [
+            ('TEST-run', True, str(session / 'seed-contract.md'))], runs
+        assert ('unknown', 'run', 'runs') not in steps(lines)
+        # Another session never takes this run, even with the same goal.
+        other = make(root / 'TEST-sessions', 'ready', goal=GOAL, question=False)
+        seed(other, confirm=True)
+        _, lines = trace(other, root, '--record-root', root / 'TEST-records', '--sdlc-root', checkout)
+        assert ('unknown', 'run', 'runs') in steps(lines), steps(lines)
+    print('seed trace moved session: an archived session still joins its run by session_id; another session does not')
+
+
 if __name__ == '__main__':
+    moved_session()
     kept_shape_transcript()
     run_order()
     full_run()

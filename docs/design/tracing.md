@@ -212,8 +212,10 @@ authorization, steps and transcripts, verify items as scores, review, PR, Taste 
 Each line has `session`, `kind` (`event`, `score` or `unknown`), `stage`, `name`, `at` and `actor`, plus the
 record's own fields. Its format is `tinkery.trace/1`, named on the first line.
 
-- **Runs.** A run belongs to the session when its `seed_contract.source` is the session's `seed-contract.md`.
-  `seed_matches` says whether the bytes still match the intake hash. Runs come from `--sdlc-root`, else from the
+- **Runs.** A run belongs to the session when its intake recorded this `session_id`
+  (`seed_contract.confirmation.session_id`), so a moved or archived session still finds its runs. A run with no recorded
+  identity joins by its `seed_contract.source` path. `seed_matches` says whether the session's seed bytes still match the
+  intake hash, and `seed_source` reports the recorded path. Runs come from `--sdlc-root`, else from the
   repository that the Think record names.
 - **Retries.** A retry is a new session. Its goal evidence holds the Taste rejection words and the rejected
   `run_id` (`src/seed_me/retry.rs`). The trace prints both, then the prior session, or `unknown` when the run is
@@ -228,9 +230,10 @@ record's own fields. Its format is `tinkery.trace/1`, named on the first line.
 
 **Shipped:** Shape keeps Pi's session files. Each Shape or teach-back request on Pi writes into its own
 `<session>/transcripts/pi-<UTC time>-<random>/` folder, and the folder stays. The trace links each file there by path and
-SHA-256. Before each kept request, Tinkery deletes the `pi-` folders in that `transcripts` folder whose last change is more than
-90 days old (`KEEP_DAYS` in `src/pi.rs`). It deletes nothing else: no file, no link, no other name and nothing
-outside that folder. Claude Code requests still keep nothing.
+SHA-256. Before each kept request, Tinkery deletes every `pi-` folder in any session's `transcripts` folder whose last
+change is more than 90 days old (`KEEP_DAYS` in `src/seed_me/files.rs`), so a goal that is never shaped again is
+pruned too. It deletes nothing else: no file, no link, no other name, and nothing outside those folders. It never
+follows a link. Claude Code requests still keep nothing.
 
 A run's timed lines now read in time order. An untimed line keeps its stage's place.
 

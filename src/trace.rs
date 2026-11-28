@@ -191,6 +191,7 @@ pub fn session(
                 None,
                 json!({
                     "run_id": run_id, "prior_session": seed.source().parent(),
+                    "prior_session_id": prior.map(|(_, run)| &run["seed_contract"]["confirmation"]["session_id"]),
                 }),
             ),
             None => trace.unknown(
@@ -200,20 +201,24 @@ pub fn session(
             ),
         }
     }
+    // A run joins by the session identity its intake recorded, so a moved or archived session
+    // still finds it; a run recorded before that identity joins by its seed path.
     let seed = session.join(seed_me::files::SEED);
     let mut found = false;
     for (folder, run) in &runs {
         let Ok(Some(bound)) = sdlc::Seed::parse(run) else {
             continue;
         };
-        if bound.source() != seed {
+        let recorded = &run["seed_contract"]["confirmation"]["session_id"];
+        if recorded != id && !(recorded.is_null() && bound.source() == seed) {
             continue;
         }
         found = true;
-        let matches = seed_me::runs::matches(&bound, &seed);
-        trace.run(folder, run, matches.as_ref().ok().copied());
-        if let Err(why) = matches {
-            trace.unknown("run", "seed match", &why);
+        let current = seed_me::files::read_seed(&seed)
+            .map(|bytes| format!("{:x}", Sha256::digest(bytes)) == bound.sha256());
+        trace.run(folder, run, current.as_ref().ok().copied());
+        if let Err(why) = current {
+            trace.unknown("run", "seed match", &format!("{}: {why}", seed.display()));
         }
     }
     if !found {
@@ -308,6 +313,7 @@ impl Trace {
         };
         self.event("run", "run", None, None, at_run(json!({
             "run_id": run["run_id"], "seed_matches": seed_matches, "source": link(&folder.join("run.json")),
+            "seed_source": run["seed_contract"]["source"],
         })));
         for (name, gate) in files(&folder.join("decisions"), "json") {
             let at = name
