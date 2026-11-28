@@ -301,7 +301,9 @@ fn observe(launch: &Launch, run: &Run, value: &sdlc::Run, cancel: &AtomicBool) -
     let stopped_at_cap =
         step.state.is(sdlc::StepState::Stopped) && step.stopped_by.is(sdlc::StopReason::Cap);
     let (cap, transcript) = open_transcript(&launch.files, &launch.log.step, run)?;
-    // This launch's messages: from its start to the step's next resume, if any.
+    // This launch's messages: from its start to the step's next resume, if any. Both are whole
+    // seconds, so a message in the same second a resume starts reads as the resume's; that can
+    // only shorten this sample, which is advice.
     let next = launch
         .files
         .logs(true, true)?
