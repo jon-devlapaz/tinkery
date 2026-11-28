@@ -203,13 +203,14 @@ A read-only command writes nothing. A command that acts makes one explicit chang
 | `tinkery [options] seed new GOAL_FILE [ORIGIN]` | Acts: saves the file's words as a confirmed goal and prints the session folder. | None |
 | `tinkery [options] seed step DIR confirm DRAFT_SHA256` | Acts: confirms only the draft with that SHA-256. | None |
 | `tinkery [options] seed step DIR look\|delegate\|answer WORDS\|answer --relayed FILE` | Acts: takes one Shape step. | Needs `--shape-pi`, `--model` and an approved `--shape-budget` |
-| `tinkery --operator human\|agent --sdlc-root ROOT --worker-model PIN --worker-responses N [--worker-authorization FILE] seed start DIR` | Acts: does what F2 does for the Tink in DIR, then prints the worker as JSON. | Starts a worker that sends the Tink to its model within the response cap |
+| `tinkery --operator human\|agent --sdlc-root ROOT --worker-model PIN --worker-responses N [--worker-authorization FILE] [--driver-session ID] seed start DIR` | Acts: does what F2 does for the Tink in DIR, then prints the worker as JSON. | Starts a worker that sends the Tink to its model within the response cap |
 
 [Shape without a screen](design/shape-and-handoff.md#without-a-screen) states what each Shape
 `seed` command promises and refuses. [Start a worker](design/approve.md#start-a-worker) states
 it for `seed start`, which uses the same authorization and checks as F2. It prints F2's disclosure on stderr. It
 refuses what Approve refuses, and it starts a Tink only once. With `--operator agent`, it needs
-the operator's relayed words in `--worker-authorization FILE`, as F2 does. Launch, resume,
+the operator's relayed words in `--worker-authorization FILE`, as F2 does. An agent can add
+`--driver-session ID`, its own session ID, which each admission records for [the trace](design/tracing.md#second-slice). Launch, resume,
 verify, finish and stop still use the worker screen.
 
 This example makes no model calls. From the repository root, it builds once, then runs every

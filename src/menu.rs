@@ -199,6 +199,7 @@ impl Kept {
     /// Share the declaration and relay snapshot without granting permission on navigation.
     fn worker_gate(&self) -> worker::Gate {
         worker::Gate::new(self.launch.agent, self.launch.worker_authorization.clone())
+            .driven_by(self.launch.driver_session.clone())
     }
 }
 

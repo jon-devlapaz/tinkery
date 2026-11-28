@@ -94,6 +94,7 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   to the Tink Contract hash, step, model pin and response cap. Missing or mismatched authorization refuses
   before work. The review shows the words and authority `operator, relayed`; provenance
   cannot be verified. Each admission appends to `runs/<slug>/worker-authorization.jsonl`.
+  An agent can add `--driver-session ID`, its own session ID; each admission records it there.
   Human and undeclared F2, `l` and `u` keep their existing direct consent without a relay file.
   Goal confirmation, Tink confirmation and worker start remain separate yeses, unless the
   operator gave a standing grant for two-way, small work (Yohaku Art. 2). A standing grant file

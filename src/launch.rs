@@ -52,7 +52,7 @@ const fn opt(flag: &'static str, help: &'static str, takes: Takes) -> Opt {
 }
 
 /// Every option, in `--help` order.
-const OPTIONS: [Opt; 19] = [
+const OPTIONS: [Opt; 20] = [
     opt(
         "--home",
         "--home       Open the home menu (the tinkery launcher passes it)",
@@ -135,6 +135,14 @@ const OPTIONS: [Opt; 19] = [
         )
     },
     Opt {
+        once: Some("--driver-session may be supplied only once"),
+        ..opt(
+            "--driver-session",
+            "--driver-session ID  The driving agent's own session ID, recorded with each agent worker admission as a link; requires --operator agent",
+            Takes::Value("--driver-session needs the driver's session ID"),
+        )
+    },
+    Opt {
         once: Some("--codex-report may be declared only once"),
         ..opt(
             "--codex-report",
@@ -174,7 +182,7 @@ pub fn help() -> String {
         .collect::<Vec<_>>()
         .join("\n");
     format!(
-        "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi [--harness pi|claude-code] --model MODEL\n       tinkery seed status --json DIR\n       tinkery seed checks DIR\n       tinkery [options] seed new GOAL_FILE [ORIGIN]\n       tinkery seed show DIR\n       tinkery [options] seed step DIR look|delegate|answer WORDS|answer --relayed FILE|confirm DRAFT_SHA256\n       tinkery --operator human|agent --sdlc-root ROOT --worker-model PIN --worker-responses N [--worker-authorization FILE] seed start DIR\n\nWithout a model, think is practice: replies are simulated and nothing leaves your machine.\nWith one, your words go to the model you chose and may cost money. Choose it with m on the menu\n(saved in ~/.config/tinkery/model.json for later launches) or with --shape-pi for one launch.\nNothing runs on its own. Only typing confirm or `seed new` saves a goal, and saving starts no work.\nInside, F2 runs the action the key bar names, F1 lists the rest by number, and Esc goes back.\n\n{options}\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
+        "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi [--harness pi|claude-code] --model MODEL\n       tinkery seed status --json DIR\n       tinkery seed checks DIR\n       tinkery [options] seed new GOAL_FILE [ORIGIN]\n       tinkery seed show DIR\n       tinkery [options] seed step DIR look|delegate|answer WORDS|answer --relayed FILE|confirm DRAFT_SHA256\n       tinkery --operator human|agent --sdlc-root ROOT --worker-model PIN --worker-responses N [--worker-authorization FILE] [--driver-session ID] seed start DIR\n\nWithout a model, think is practice: replies are simulated and nothing leaves your machine.\nWith one, your words go to the model you chose and may cost money. Choose it with m on the menu\n(saved in ~/.config/tinkery/model.json for later launches) or with --shape-pi for one launch.\nNothing runs on its own. Only typing confirm or `seed new` saves a goal, and saving starts no work.\nInside, F2 runs the action the key bar names, F1 lists the rest by number, and Esc goes back.\n\n{options}\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
     )
 }
 
@@ -388,6 +396,8 @@ pub struct Launch {
     pub(crate) codex_report: Option<CodexReport>,
     pub(crate) worker: Option<worker::Config>,
     pub(crate) worker_authorization: Result<Option<worker::Relay>, String>,
+    /// The driving agent's session ID, checked once here; only agent admissions record it.
+    pub(crate) driver_session: Option<String>,
 }
 
 impl Launch {
@@ -417,6 +427,7 @@ impl Launch {
             codex_report: None,
             worker: None,
             worker_authorization: Ok(None),
+            driver_session: None,
         }
     }
 
@@ -468,7 +479,18 @@ impl Launch {
         if codex_report.is_some() && (!options.home || sdlc_root.is_none()) {
             return Err("--codex-report requires --home and --sdlc-root".into());
         }
-        if (worker_model.is_some() || worker_responses > 0 || worker_authorization.is_some())
+        let driver_session = options.value("--driver-session").map(str::to_owned);
+        if driver_session.as_ref().is_some_and(|id| {
+            id.trim().is_empty() || id.len() > 256 || id.chars().any(char::is_control)
+        }) {
+            return Err(
+                "--driver-session needs one printable session ID of at most 256 bytes".into(),
+            );
+        }
+        if (worker_model.is_some()
+            || worker_responses > 0
+            || worker_authorization.is_some()
+            || driver_session.is_some())
             && (!home || sdlc_root.is_none())
         {
             return Err("worker options require --sdlc-root with --home or seed start".into());
@@ -480,6 +502,10 @@ impl Launch {
         let operator = options.value("--operator");
         let confirmation = GoalConfirmation::terminal(operator)?;
         let agent = operator == Some("agent");
+        // Only agent admissions are recorded, so a human launch would drop the link silently.
+        if driver_session.is_some() && !agent {
+            return Err("--driver-session requires --operator agent".into());
+        }
         let home = std::env::var_os("HOME");
         let mut roots = DataRoots::from_home(home.as_deref());
         if let Some(root) = options.path("--record-root") {
@@ -612,6 +638,7 @@ impl Launch {
             codex_report,
             worker,
             worker_authorization: worker::Relay::read(worker_authorization.as_deref()),
+            driver_session,
         };
         Ok((launch, controls))
     }
@@ -682,7 +709,8 @@ impl Launch {
                     review,
                     self.roots.records.clone(),
                     self.worker.clone(),
-                    crate::worker::Gate::new(self.agent, self.worker_authorization.clone()),
+                    crate::worker::Gate::new(self.agent, self.worker_authorization.clone())
+                        .driven_by(self.driver_session.clone()),
                 )?;
                 println!("{}", serde_json::to_string_pretty(&started)?);
                 return Ok(());
