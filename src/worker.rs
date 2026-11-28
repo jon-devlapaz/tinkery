@@ -732,9 +732,14 @@ fn prepare(run: &Run, step: &str, config: &Config) -> Result<Snapshot, String> {
 
 /// A new step for a run whose current step can do nothing more. The build checkout is the one
 /// on the run's own branch; a start refused before stage 3 left only the intake checkout.
-fn next_step(gate: &Gate, run: &Run, pin: Pin, config: &Config) -> Result<Snapshot, String> {
-    let value = current(run)?;
-    let observed = snapshot_from(run, &value)?;
+fn next_step(
+    gate: &Gate,
+    run: &Run,
+    value: &sdlc::Run,
+    pin: Pin,
+    config: &Config,
+) -> Result<Snapshot, String> {
+    let observed = snapshot_from(run, value)?;
     if observed.fingerprint != pin.step {
         return Err(
             "The worker changed since it was read. Nothing was prepared; read it again.".into(),
@@ -829,7 +834,7 @@ fn act(gate: &Gate, run: &Run, action: Action) -> Result<Snapshot, String> {
         require_seed(&value)?;
     }
     if let Action::Next { pin, config } = action {
-        return next_step(gate, run, pin, &config);
+        return next_step(gate, run, &value, pin, &config);
     }
     let name = value
         .steps
@@ -842,10 +847,10 @@ fn act(gate: &Gate, run: &Run, action: Action) -> Result<Snapshot, String> {
     match action {
         Action::Refresh | Action::Next { .. } => {}
         Action::Launch(pin) => {
-            admit(gate, run, &name, pin, true)?;
+            admit(gate, run, snapshot_from(run, &value)?, pin, true)?;
         }
         Action::Resume(pin) => {
-            admit(gate, run, &name, pin, false)?;
+            admit(gate, run, snapshot_from(run, &value)?, pin, false)?;
         }
         Action::Finish => {
             // Only a machine-checked pass finishes; pending judgments are not passing checks.
@@ -889,8 +894,8 @@ fn act(gate: &Gate, run: &Run, action: Action) -> Result<Snapshot, String> {
     snapshot(run)
 }
 
-fn admit(gate: &Gate, run: &Run, step: &str, pin: Pin, launch: bool) -> Result<(), String> {
-    let observed = snapshot(run)?;
+fn admit(gate: &Gate, run: &Run, observed: Snapshot, pin: Pin, launch: bool) -> Result<(), String> {
+    let step = &observed.step;
     if observed.fingerprint != pin.step {
         return Err("The worker's model, allowance, session or contract changed. Admission refused; inspect it again.".into());
     }
