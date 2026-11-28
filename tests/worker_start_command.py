@@ -116,6 +116,15 @@ def needs_allowance_and_checkout():
              '--seed-session-root', str(fixture.sessions), 'seed', 'start', str(fixture.session)],
             cwd=fixture.project, env=fixture.env, capture_output=True, text=True, timeout=60)
         assert rootless.returncode != 0 and 'needs --sdlc-root' in rootless.stderr, rootless
+        # --snapshot promises no model requests, so it never starts a worker.
+        snapshot = subprocess.run(
+            [str(REPO / 'target/debug/tinkery'), '--operator', 'agent', '--snapshot',
+             '--sdlc-root', str(fixture.project), '--seed-session-root', str(fixture.sessions),
+             '--worker-authorization', str(path), '--worker-model', MODEL,
+             '--worker-responses', str(CAP), 'seed', 'start', str(fixture.session)],
+            cwd=fixture.project, env=fixture.env, capture_output=True, text=True, timeout=60)
+        assert snapshot.returncode != 0 and 'drop --snapshot' in snapshot.stderr, snapshot
+        assert not fixture.mutations() and not fixture.admissions(), 'a --snapshot start created work'
         assert not fixture.mutations()
         # A second start of the same Tink is refused, as Approve refuses it.
         first = command(fixture, path)
