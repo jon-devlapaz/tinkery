@@ -23,6 +23,10 @@ pub struct ReadySeed {
     pub target: Option<SeedTarget>,
     /// The confirmed goal exactly as recorded.
     pub goal: String,
+    /// The decisions still requiring operator judgment in this verified revision.
+    pub(crate) gray: Vec<String>,
+    /// The run name derived from the same verified contract bytes.
+    pub(crate) run_name: Option<String>,
     /// The confirmed seed revision.
     pub revision: String,
     /// The acceptance section, including its heading and original whitespace.
@@ -40,23 +44,44 @@ pub(crate) fn path(session: &Path) -> std::path::PathBuf {
     session.join(super::files::SEED)
 }
 
-/// Read the confirmed seed from its recorded path, refusing changed or unconfirmed session files.
-/// The caller must separately establish that these seed bytes belong to its run.
-pub(crate) fn confirmed(seed: &Path) -> Result<ReadySeed, String> {
-    let session = seed
+/// Read a run's confirmed seed only when its canonical source and verified digest match intake.
+pub(crate) fn confirmed(imported: &crate::sdlc::Seed) -> Result<ReadySeed, String> {
+    let source = imported.source();
+    let session = source
         .parent()
         .ok_or("The Tink Contract has no session folder.")?;
-    if path(session) != seed {
-        return Err("The source is not this session's Tink Contract.".into());
+    if path(session) != source
+        || source
+            .canonicalize()
+            .map_err(|e| e.to_string())?
+            .as_os_str()
+            != source.as_os_str()
+    {
+        return Err("The source is not this session's canonical Tink Contract.".into());
     }
-    read(session, None)?.ok_or("The original Tink's confirmation cannot be verified.".into())
+    read_verified(session, None, Some(imported.sha256()))?
+        .ok_or("The original Tink's confirmation cannot be verified.".into())
 }
 
 /// Read a confirmed seed without mutation. `None` means not verified ready; errors mean unavailable.
 /// Blocks on disk reads, so callers must use a worker, never an input or paint path.
 pub fn read(session: &Path, root: Option<&Path>) -> Result<Option<ReadySeed>, String> {
+    read_verified(session, root, None)
+}
+
+fn read_verified(
+    session: &Path,
+    root: Option<&Path>,
+    imported_sha256: Option<&str>,
+) -> Result<Option<ReadySeed>, String> {
     super::migration::refuse_old_root(session)?;
-    read_with(session, root, || standing(session))
+    read_with(session, root, |bytes, seed| {
+        let shaped = from_ledger(session, super::ledger::parse_bytes(bytes)?, Some(seed))?;
+        if imported_sha256.is_some_and(|digest| shaped.status["seed"]["sha256"] != digest) {
+            return Err("The original Tink Contract differs from the run.".into());
+        }
+        Ok(shaped)
+    })
 }
 
 /// Attribution and intake requirement of an agent-confirmed seed; never operator confirmation.
@@ -69,6 +94,10 @@ pub(crate) struct Standing {
     pub(crate) ledger: super::ledger::Value,
     /// The same ledger as JSON.
     pub(crate) json: Value,
+    /// The bytes used to classify and verify this contract, including an unreadable draft.
+    pub(crate) seed_bytes: Option<Vec<u8>>,
+    /// Checks whose rendered section matches the contract in this reading.
+    pub(crate) checks: Option<super::ledger::Acceptance>,
     /// The verified status, with each node's review flags, revisability and what it waits on.
     pub(crate) status: Value,
     /// Where the seed stands.
@@ -113,72 +142,89 @@ pub(crate) enum Stand {
 
 /// Read where `session`'s seed stands. Blocks on disk reads, so callers must use a worker.
 pub(crate) fn standing(session: &Path) -> Result<Standing, String> {
-    let read = || -> Result<Standing, String> {
+    super::ledger::read_consistent(session, || {
         let ledger = super::ledger::load(session)?;
-        let flags = super::ledger::review_flags(&ledger["nodes"]);
-        let status = super::ledger::status_from_ledger(session, &ledger)?;
-        let revisable: Vec<_> = ledger["nodes"]
-            .array()
-            .unwrap_or(&[])
-            .iter()
-            .filter_map(|n| n["id"].string())
-            .filter(|id| super::ledger::can_revise(&ledger, id))
-            .map(str::to_owned)
-            .collect();
-        let waits: serde_json::Map<String, Value> = ledger["nodes"]
-            .array()
-            .unwrap_or(&[])
-            .iter()
-            .filter_map(|node| {
-                let id = node["id"].string()?;
-                Some((
-                    id.to_owned(),
-                    serde_json::json!(super::ledger::waiting_on(&ledger["nodes"], id)),
-                ))
-            })
-            .collect();
-        let json = ledger.to_json()?;
-        let mut status = status.value().to_json()?;
-        status["review_flags"] = flags.to_json()?;
-        status["revisable"] = serde_json::json!(revisable);
-        status["waiting_on"] = Value::Object(waits);
-        let stand = stand(&json, &status);
-        let retry = super::retry::base(&ledger)?;
-        let ready = matches!(stand, Stand::Ready { .. });
-        let target = ready
-            .then(|| {
-                Some(SeedTarget {
-                    session: session.canonicalize().ok()?,
-                    session_id: json["session_id"]
-                        .as_str()
-                        .filter(|id| super::session::valid_id(id))?
-                        .to_owned(),
-                    retry: retry.clone(),
-                    version: json.get("version").and_then(Value::as_u64)?,
-                    sha256: status["seed"]["sha256"].as_str()?.to_owned(),
-                })
-            })
-            .flatten();
-        if ready && retry.is_some() && target.is_none() {
-            return Err("The retry has no verified session identity.".into());
-        }
-        let deferred = match stand {
-            Stand::Waiting => super::ledger::deferred_prerequisite(&ledger)?,
-            _ => None,
-        };
-        let note = (ready && status["handoff"]["operator"] == "agent").then_some(AGENT_NOTE);
-        Ok(Standing {
-            ledger,
-            json,
-            status,
-            stand,
-            retry,
-            target,
-            note,
-            deferred,
+        let seed = super::ledger::read_seed_bytes(session)?;
+        from_ledger(session, ledger, seed)
+    })
+    .map_err(|reason| format!("Tinkery refused: {reason}"))
+}
+
+fn from_ledger(
+    session: &Path,
+    ledger: super::ledger::Value,
+    seed: Option<Vec<u8>>,
+) -> Result<Standing, String> {
+    let flags = super::ledger::review_flags(&ledger["nodes"]);
+    let captured = super::ledger::status_from_bytes(session, &ledger, seed)?;
+    let revisable: Vec<_> = ledger["nodes"]
+        .array()
+        .unwrap_or(&[])
+        .iter()
+        .filter_map(|n| n["id"].string())
+        .filter(|id| super::ledger::can_revise(&ledger, id))
+        .map(str::to_owned)
+        .collect();
+    let waits: serde_json::Map<String, Value> = ledger["nodes"]
+        .array()
+        .unwrap_or(&[])
+        .iter()
+        .filter_map(|node| {
+            let id = node["id"].string()?;
+            Some((
+                id.to_owned(),
+                serde_json::json!(super::ledger::waiting_on(&ledger["nodes"], id)),
+            ))
         })
+        .collect();
+    let json = ledger.to_json()?;
+    let mut status = captured.value().to_json()?;
+    status["review_flags"] = flags.to_json()?;
+    status["revisable"] = serde_json::json!(revisable);
+    status["waiting_on"] = Value::Object(waits);
+    let stand = stand(&json, &status);
+    let checks = match stand {
+        Stand::Drafted(Some(_)) => captured.read_draft_checks(session),
+        Stand::Ready { .. } => captured.checks,
+        _ => None,
     };
-    read().map_err(|reason| format!("Tinkery refused: {reason}"))
+    let seed_bytes = captured.seed_bytes;
+    let retry = super::retry::base(&ledger)?;
+    let ready = matches!(stand, Stand::Ready { .. });
+    let target = ready
+        .then(|| {
+            Some(SeedTarget {
+                session: session.canonicalize().ok()?,
+                session_id: json["session_id"]
+                    .as_str()
+                    .filter(|id| super::session::valid_id(id))?
+                    .to_owned(),
+                retry: retry.clone(),
+                version: json.get("version").and_then(Value::as_u64)?,
+                sha256: status["seed"]["sha256"].as_str()?.to_owned(),
+            })
+        })
+        .flatten();
+    if ready && retry.is_some() && target.is_none() {
+        return Err("The retry has no verified session identity.".into());
+    }
+    let deferred = match stand {
+        Stand::Waiting => super::ledger::deferred_prerequisite(&ledger)?,
+        _ => None,
+    };
+    let note = (ready && status["handoff"]["operator"] == "agent").then_some(AGENT_NOTE);
+    Ok(Standing {
+        ledger,
+        json,
+        seed_bytes,
+        checks,
+        status,
+        stand,
+        retry,
+        target,
+        note,
+        deferred,
+    })
 }
 
 /// Where the seed stands, from the ledger and its verified `status`. An open question comes
@@ -268,27 +314,38 @@ pub(crate) fn stand(ledger: &Value, status: &Value) -> Stand {
 fn read_with(
     session: &Path,
     root: Option<&Path>,
-    inspect: impl FnOnce() -> Result<Standing, String>,
+    inspect: impl FnOnce(&[u8], Vec<u8>) -> Result<Standing, String>,
 ) -> Result<Option<ReadySeed>, String> {
     let seed_path = path(session);
-    let seed = match super::files::read_seed_text(&seed_path) {
-        Ok(seed) => seed,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(e) => return Err(format!("Cannot read the Tink Contract: {e}")),
-    };
-    if super::files::status(&seed) != Some(super::files::Status::Confirmed) {
+    let shaped = super::ledger::read_consistent(session, || {
+        let seed = match super::files::read_seed_text(&seed_path) {
+            Ok(seed) => seed,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(format!("Cannot read the Tink Contract: {e}")),
+        };
+        if super::files::status(&seed) != Some(super::files::Status::Confirmed) {
+            return Ok(None);
+        }
+        let ledger = super::ledger::read_bytes(session)
+            .map_err(|e| format!("Cannot read the ledger: {e}"))?;
+        let shaped = inspect(&ledger, seed.into_bytes())?;
+        if Some(
+            super::files::read_seed(&seed_path)
+                .map_err(|e| e.to_string())?
+                .as_slice(),
+        ) != shaped.seed_bytes.as_deref()
+            || super::ledger::read_bytes(session).map_err(|e| e.to_string())? != ledger
+        {
+            return Err(
+                "The session changed while being read. Return to the menu and reopen Approve."
+                    .into(),
+            );
+        }
+        Ok(Some(shaped))
+    })?;
+    let Some(shaped) = shaped else {
         return Ok(None);
-    }
-    let ledger =
-        super::ledger::read_bytes(session).map_err(|e| format!("Cannot read the ledger: {e}"))?;
-    let shaped = inspect()?;
-    if super::files::read_seed(&seed_path).map_err(|e| e.to_string())? != seed.as_bytes()
-        || super::ledger::read_bytes(session).map_err(|e| e.to_string())? != ledger
-    {
-        return Err(
-            "The session changed while being read. Return to the menu and reopen Approve.".into(),
-        );
-    }
+    };
     let Stand::Ready { revision, .. } = shaped.stand else {
         return Ok(None);
     };
@@ -306,16 +363,24 @@ fn read_with(
         )),
         _ => Ok(false),
     };
+    let seed = std::str::from_utf8(
+        shaped
+            .seed_bytes
+            .as_deref()
+            .ok_or("The verified Tink Contract is missing.")?,
+    )
+    .map_err(|e| e.to_string())?;
+    let run_name =
+        super::files::title(seed).and_then(|title| run_name(title, shaped.target.as_ref()));
     let commands = if matches!(retry_started, Ok(false)) {
         root.and_then(|named| {
-            let title = super::files::title(&seed)?;
-            let run = run_name(title, shaped.target.as_ref())?;
+            let run = run_name.as_deref()?;
             let checkout = retry.map_or(named, |base| base.checkout.as_path());
             crate::sdlc::installed(checkout).then_some(())?;
             intake(
                 session,
                 &std::env::current_exe().ok()?,
-                &run,
+                run,
                 checkout,
                 retry.map(|base| (base, named)),
             )
@@ -329,9 +394,23 @@ fn read_with(
             .filter(|g| !g.trim().is_empty())
             .ok_or("The verified Tink has no goal.")?
             .to_owned(),
+        gray: super::ledger::gray_decisions(&shaped.json)
+            .map(|decision| {
+                decision["label"]
+                    .as_str()
+                    .or_else(|| decision["id"].as_str())
+                    .unwrap_or_default()
+                    .to_owned()
+            })
+            .collect(),
+        run_name,
         target: shaped.target,
         revision: revision.ok_or("The verified Tink has no revision.")?,
-        acceptance: acceptance(&seed)?,
+        acceptance: seed[shaped
+            .checks
+            .ok_or("The verified Tink has no acceptance section.")?
+            .section]
+            .to_owned(),
         commands,
         retry_started,
         confirmation_note: shaped.note.map(Into::into),
@@ -405,29 +484,22 @@ impl Intake {
 
 /// Revalidate the exact selected seed and return argv data, never parsed shell text.
 /// Disk reads belong on an explicitly requested worker, not the input or paint path.
-pub(crate) fn execution(target: &SeedTarget, root: &Path) -> Result<(Intake, String), String> {
-    use sha2::{Digest, Sha256};
+pub(crate) fn execution(target: &SeedTarget, root: &Path) -> Result<(Intake, ReadySeed), String> {
     let ready = read(&target.session, None)?
         .filter(|ready| ready.target.as_ref() == Some(target))
         .ok_or("The selected Tink changed or is no longer confirmed. Reopen Approve.")?;
-    let bytes =
-        super::files::read_seed(&path(&target.session)).map_err(|error| error.to_string())?;
-    if format!("{:x}", Sha256::digest(&bytes)) != target.sha256 {
-        return Err("The selected Tink changed before intake. Reopen Approve.".into());
-    }
-    let text = std::str::from_utf8(&bytes).map_err(|error| error.to_string())?;
-    let title = super::files::title(text);
-    let run = title
-        .and_then(|title| run_name(title, Some(target)))
+    let run = ready
+        .run_name
+        .as_deref()
         .ok_or("The selected Tink has no usable run name.")?;
     let executable = std::env::current_exe().map_err(|error| error.to_string())?;
     let checkout = target
         .retry
         .as_ref()
         .map_or(root, |base| base.checkout.as_path());
-    let intake = Intake::new(&target.session, &executable, &run, checkout)
+    let intake = Intake::new(&target.session, &executable, run, checkout)
         .ok_or("The checkout, Tink Contract or Tinkery executable cannot be resolved safely.")?;
-    Ok((intake, ready.goal))
+    Ok((intake, ready))
 }
 
 fn run_name(title: &str, target: Option<&SeedTarget>) -> Option<String> {
@@ -463,30 +535,6 @@ fn slug(title: &str) -> Option<String> {
         }
     }
     (!slug.is_empty()).then_some(slug)
-}
-
-fn acceptance(seed: &str) -> Result<String, String> {
-    let mut section = String::new();
-    let mut found = false;
-    let mut inside = false;
-    for line in seed.split_inclusive('\n') {
-        if line.trim_end_matches(['\r', '\n']) == "## Acceptance criteria" {
-            if found {
-                return Err("The Tink Contract repeats its acceptance section.".into());
-            }
-            found = true;
-            inside = true;
-        } else if line.starts_with("## ") {
-            inside = false;
-        }
-        if inside {
-            section.push_str(line);
-        }
-    }
-    if !found {
-        return Err("The Tink Contract has no acceptance section.".into());
-    }
-    Ok(section)
 }
 
 #[cfg(test)]
@@ -706,8 +754,12 @@ mod tests {
         for file in ["seed-contract.md", "ledger.json"] {
             let (_root, session) = fixture(true);
             assert!(
-                read_with(&session, Some(&session), || {
-                    let shaped = standing(&session)?;
+                read_with(&session, Some(&session), |ledger, seed| {
+                    let shaped = from_ledger(
+                        &session,
+                        super::super::ledger::parse_bytes(ledger)?,
+                        Some(seed),
+                    )?;
                     fs::write(session.join(file), "TEST changed").unwrap();
                     Ok(shaped)
                 })
@@ -745,8 +797,12 @@ mod tests {
                 }
             });
             let started = Instant::now();
-            let result = read_with(&session, None, || {
-                let shaped = standing(&session)?;
+            let result = read_with(&session, None, |ledger, bytes| {
+                let shaped = from_ledger(
+                    &session,
+                    super::super::ledger::parse_bytes(ledger)?,
+                    Some(bytes),
+                )?;
                 fs::remove_file(&seed).unwrap();
                 let name = CString::new(seed.as_os_str().as_encoded_bytes()).unwrap();
                 assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
@@ -797,13 +853,32 @@ mod tests {
     }
 
     #[test]
-    fn acceptance_bytes_are_never_trimmed_or_rewritten() {
-        let section = "## Acceptance criteria\n\n- TEST café  \n  continuation\n\n";
+    fn approve_reads_the_verified_acceptance_section_even_with_a_fenced_example() {
+        let (_root, session) = fixture(true);
+        let path = path(&session);
+        let original = fs::read_to_string(&path).unwrap();
+        let draft = original.replacen("status: confirmed for intake", "status: draft", 1);
+        let draft = draft
+            .lines()
+            .filter(|line| !line.starts_with("Confirmed by:"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        fs::write(
+            &path,
+            format!("{draft}\n\n```markdown\n## Acceptance criteria\nExample only.\n```\n"),
+        )
+        .unwrap();
+        super::super::ledger::confirm_seed(
+            &session,
+            "r1",
+            "TEST confirmation only",
+            "2026-10-19T00:00:00+00:00",
+        )
+        .unwrap();
+        let verified = read(&session, None).unwrap().unwrap();
         assert_eq!(
-            acceptance(&format!("# TEST\n{section}## Evidence\nTEST\n")).unwrap(),
-            section
+            verified.acceptance,
+            "## Acceptance criteria\n\nTEST exact café  \nyou judge: TEST exact café  \n\n"
         );
-        assert!(acceptance("# TEST no section").is_err());
-        assert!(acceptance(&format!("{section}{section}")).is_err());
     }
 }

@@ -617,6 +617,17 @@ pub(super) fn require_seed_checks(
 ) -> Result<Value> {
     let records = read_checks(directory)?;
     let body = super::seed::seed_lines(directory)?.concat();
+    require_match(&body, ledger, &records, allow_legacy)?;
+    Ok(records)
+}
+
+/// Require the actual Acceptance section to render these records, including its exact boundaries.
+pub(super) fn require_match(
+    body: &str,
+    ledger: &Value,
+    records: &Value,
+    allow_legacy: bool,
+) -> Result<std::ops::Range<usize>> {
     require(
         !body
             .as_bytes()
@@ -625,7 +636,7 @@ pub(super) fn require_seed_checks(
             .any(|(i, c)| *c == b'\r' && body.as_bytes().get(i + 1) != Some(&b'\n')),
         "checks refuse lone CR: seed line endings must be LF or CRLF",
     )?;
-    let headings = headings(&body, &super::seed::goal_lines(ledger)?)
+    let headings = headings(body, &super::seed::goal_lines(ledger)?)
         .map_err(|error| error.rule.to_string())?;
     require(
         headings.first().is_some_and(|(_, s)| {
@@ -649,10 +660,11 @@ pub(super) fn require_seed_checks(
         .iter()
         .position(|(_, s)| s == Section::Acceptance.heading())
         .unwrap();
-    let section = &body[headings[index].0..headings.get(index + 1).map_or(body.len(), |h| h.0)];
+    let range = headings[index].0..headings.get(index + 1).map_or(body.len(), |h| h.0);
+    let section = &body[range.clone()];
     require(
-        section == checks_block(&records)? || (allow_legacy && section == legacy_block(&records)?),
+        section == checks_block(records)? || (allow_legacy && section == legacy_block(records)?),
         "checks do not match the rendered Acceptance criteria section; use `seed checks render`",
     )?;
-    Ok(records)
+    Ok(range)
 }

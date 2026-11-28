@@ -16,6 +16,7 @@ if not os.environ.get('TINKERY_TEST_SEED_FIXTURE'):
                         '--example', 'seed_fixture'], cwd=REPO, env=ENV, check=True)
     os.environ['TINKERY_TEST_SEED_FIXTURE'] = str(REPO / 'target/debug/examples/seed_fixture')
 
+import session_fixture as ledger
 from worker_terminal import (CAP, END, F2, F10, MODEL, Fixture, Terminal,
                              open_review, real_runtime_journey)
 
@@ -62,6 +63,16 @@ def authorization(fixture, case):
     return path
 
 
+def complete_reviewed_tink(session):
+    # The ledger revision changes while the confirmed bytes and the lack of gray items survive.
+    old = ledger.status(session)
+    ledger.end(session, 'completed', 'TEST complete after worker review')
+    updated = ledger.status(session)
+    assert updated['version'] > old['version']
+    assert updated['seed']['sha256'] == old['seed']['sha256']
+    assert updated['handoff']['verified']
+
+
 def journey(case, operator='agent', size=(100, 30), mono=True):
     with tempfile.TemporaryDirectory(prefix='tinkery-TEST-worker-relay-') as directory:
         fixture = Fixture(Path(directory).resolve(), gray=case == 'standing-gray')
@@ -79,7 +90,7 @@ def journey(case, operator='agent', size=(100, 30), mono=True):
                        'standing-undated': 'needs its date as YYYY-MM-DD'}
             if operator == 'agent' and case in reasons:
                 assert reasons[case] in terminal.flat(), terminal.screen.text()
-            if case == 'standing' and operator == 'agent':
+            if case in ('standing', 'standing-stale') and operator == 'agent':
                 assert 'Authority: operator, standing grant, relayed' in terminal.flat(), terminal.screen.text()
                 assert 'Gray items: none' in terminal.flat()
                 assert 'Granted: 2026-11-19' in terminal.flat()
@@ -99,6 +110,9 @@ def journey(case, operator='agent', size=(100, 30), mono=True):
             terminal.send(F10, '1 think')
             terminal.send(b'b', 'esc back')
             terminal.send(END, 'F2 start worker')
+            if case == 'standing-stale':
+                complete_reviewed_tink(fixture.session)
+                originals['ledger.json'] = (fixture.session / 'ledger.json').read_bytes()
             assert not fixture.mutations(), 'navigation or confirmed seed created work'
             os.write(terminal.master, F2)
             terminal.wait(lambda: 'Request refused or uncertain:' in terminal.flat()
@@ -208,9 +222,11 @@ def existing_journey(action, case, operator='agent', agent_start=False, record_b
                 assert 'TEST operator words:  budget OK: 200' in terminal.screen.text()
                 assert 'Start only this reviewed builder.' in terminal.flat()
             if operator == 'agent' and case.startswith('standing'):
-                # This panel has not read the ledger, so it must not claim the Tink has no gray item.
+                # The current action has not checked the standing grant yet.
                 assert 'Gray items: checked at each start, launch and resume' in terminal.flat(), terminal.screen.text()
                 assert 'Gray items: none' not in terminal.flat()
+            if case == 'standing-stale':
+                complete_reviewed_tink(fixture.session)
             refused = operator == 'agent' and (case not in ('matching', 'standing') or record_block)
             os.write(terminal.master, b'l' if action == 'launch' else b'u')
             terminal.wait(lambda: 'Request in progress' not in terminal.flat() and
@@ -224,6 +240,14 @@ def existing_journey(action, case, operator='agent', agent_start=False, record_b
                 assert len(fixture.mutations()) == mutations, 'unauthorized admission: agent existing action mutated SDLC'
                 if not record_block:
                     assert (record.read_bytes() if record.exists() else b'') == before
+                if case == 'standing-stale':
+                    os.write(terminal.master, b'r')
+                    keys = ('End to launch', 'l launch prepared') if action == 'launch' else ('End to resume', 'u resume')
+                    terminal.wait(lambda: any(key in terminal.flat() for key in keys))
+                    terminal.send(END + (b'l' if action == 'launch' else b'u'),
+                                  'Worker: turn ended;' if action == 'launch' else 'Worker: running')
+                    assert len(fixture.admissions()) == count + 1
+                    assert json.loads(record.read_text().splitlines()[-1])['action'] == action
             else:
                 assert len(fixture.admissions()) == count + 1, fixture.calls()
                 if operator == 'agent':
@@ -247,7 +271,7 @@ def existing_journey(action, case, operator='agent', agent_start=False, record_b
 def reversion_probe():
     source = REPO / 'src/worker.rs'
     original = source.read_text()
-    start_guard = '        request.authorization.check(Some(&request.target), &request.config)?;\n'
+    start_guard = '        request.authorization.check(&seed, &request.config, STEP)?;\n'
     begin = original.index('    gate.record(\n', original.index('fn admit('))
     end = original.index('    command(\n', begin)
     existing_guard = original[begin:end]
@@ -256,7 +280,7 @@ def reversion_probe():
     begin_retry = retry_original.index('        if target.retry.is_some() {')
     end_retry = retry_original.index('        Ok(Some(relay))', begin_retry)
     retry_guard = retry_original[begin_retry:end_retry]
-    assert original.count(start_guard) == 1
+    assert original.count(start_guard) >= 1
     try:
         for guard, mode, assertion in (
                 (start_guard, '--unauthorized-only', 'unauthorized admission: agent F2 created work'),
@@ -273,13 +297,13 @@ def reversion_probe():
             print(f'PASS guard reversion detected: {mode}')
         source.write_text(original)
         retry_source.write_text(retry_original.replace(retry_guard, ''))
-        result = subprocess.run(['python3', 'scripts/rust-tests.py',
+        result = subprocess.run(['cargo', '+stable', 'test', '--locked', '--lib',
                                  'agent_retry_with_matching_relay_refuses_before_creation'],
                                 cwd=REPO, env=ENV, capture_output=True, text=True)
         print(result.stdout + result.stderr)
         assert result.returncode != 0 and 'agent_retry_with_matching_relay_refuses_before_creation ... FAILED' in result.stdout
         print('PASS retry guard reversion detected')
-        begin_gray = retry_original.index('        if let Relay::Standing(_) = relay {')
+        begin_gray = retry_original.index('        if matches!(relay, Relay::Standing(_)) && !seed.gray.is_empty() {')
         end_gray = retry_original.index('        if target.retry.is_some() {', begin_gray)
         retry_source.write_text(retry_original.replace(retry_original[begin_gray:end_gray], ''))
         subprocess.run(['cargo', '+stable', 'build', '--locked', '--bin', 'tinkery'],
@@ -291,6 +315,16 @@ def reversion_probe():
         print(result.stdout + result.stderr)
         assert result.returncode != 0 and 'AssertionError' in result.stderr
         print('PASS zero-gray guard reversion detected')
+        retry_source.write_text(retry_original)
+        compare = '    if seed.target.as_ref() != Some(target) {'
+        assert original.count(compare) == 1
+        source.write_text(original.replace(compare, '    if false {'))
+        subprocess.run(['cargo', '+stable', 'build', '--locked', '--bin', 'tinkery'],
+                       cwd=REPO, env=ENV, check=True)
+        result = subprocess.run([sys.executable, __file__, '--stale-standing-only'], cwd=REPO,
+                                env=ENV, capture_output=True, text=True)
+        assert result.returncode != 0 and 'unauthorized admission: agent existing action launched work' in result.stderr, result.stderr
+        print('PASS stale reviewed Tink reversion detected')
     finally:
         source.write_text(original)
         retry_source.write_text(retry_original)
@@ -305,6 +339,10 @@ if __name__ == '__main__':
         journey('absent')
     elif sys.argv[1:] == ['--gray-only']:
         journey('standing-gray')
+    elif sys.argv[1:] == ['--stale-standing-only']:
+        journey('standing-stale')
+        for action in ('launch', 'resume'):
+            existing_journey(action, 'standing-stale')
     elif sys.argv[1:] == ['--unauthorized-existing-only']:
         existing_journey('launch', 'absent')
     else:
@@ -313,7 +351,7 @@ if __name__ == '__main__':
         for case in ('absent', 'seed', 'model', 'cap', 'unreadable', 'empty', 'type', 'unknown',
                      'malformed', 'oversized', 'fifo', 'directory'):
             journey(case)
-        for case in ('standing', 'standing-gray', 'standing-large', 'standing-oneway', 'standing-undated'):
+        for case in ('standing', 'standing-gray', 'standing-stale', 'standing-large', 'standing-oneway', 'standing-undated'):
             journey(case)
         journey('standing', operator='human')
         journey('matching', size=(80, 24), mono=False)
@@ -328,7 +366,7 @@ if __name__ == '__main__':
                 existing_journey(action, case)
             for operator in ('human', None):
                 existing_journey(action, 'absent', operator=operator)
-            for case in ('standing', 'standing-gray'):
+            for case in ('standing', 'standing-gray', 'standing-stale'):
                 existing_journey(action, case)
             existing_journey(action, 'matching', agent_start=True)
             existing_journey(action, 'matching', record_block=True)

@@ -280,14 +280,94 @@ fn status_ignores_viewer_records_and_corrupt_snapshots_without_mutation() {
     }
 }
 #[test]
+fn captured_contract_bytes_supply_the_digest_actor_and_checked_acceptance() {
+    let root = draft();
+    let directory = root.path();
+    ledger::confirm_as(
+        directory,
+        "r1",
+        "TEST named agent",
+        STAMP,
+        terminal_agent().actor().unwrap(),
+    )
+    .unwrap();
+    let ledger = load(directory).unwrap();
+    let original = fs::read(directory.join(FILE)).unwrap();
+    let checks = ledger::read_checks(directory).unwrap();
+    fs::write(directory.join(FILE), b"status: draft\nrevision: r2\n").unwrap();
+    let saved = status_from_bytes(directory, &ledger, Some(original.clone())).unwrap();
+    assert!(saved.handoff.verified);
+    assert_eq!(saved.handoff.operator.as_deref(), Some("agent"));
+    assert_eq!(
+        saved.seed["sha256"].string(),
+        Some(sha256(&original).as_str())
+    );
+    assert_eq!(saved.seed_bytes.as_deref(), Some(original.as_slice()));
+    let acceptance = saved.checks.unwrap();
+    assert_eq!(
+        &original[acceptance.section],
+        checks::checks_block(&checks).unwrap().as_bytes()
+    );
+    assert_eq!(acceptance.records, checks);
+    assert!(
+        !status_from_ledger(directory, &ledger)
+            .unwrap()
+            .handoff
+            .verified
+    );
+}
+
+#[test]
+fn a_draft_summarizes_exact_bytes_and_only_exposes_current_utf8_acceptance_cards() {
+    let root = draft();
+    let directory = root.path();
+    let ledger = load(directory).unwrap();
+    let records = ledger::read_checks(directory).unwrap();
+    let current = fs::read_to_string(directory.join(FILE)).unwrap();
+    let status = status_from_ledger(directory, &ledger).unwrap();
+    assert!(status.checks.is_none());
+    let acceptance = status.read_draft_checks(directory).unwrap();
+    assert_eq!(
+        &current[acceptance.section],
+        checks::checks_block(&records).unwrap()
+    );
+    assert_eq!(acceptance.records, records);
+
+    let legacy = current.replace(
+        &checks::checks_block(&records).unwrap(),
+        &checks::legacy_block(&records).unwrap(),
+    );
+    assert_ne!(current, legacy);
+    let viewed = status_from_bytes(directory, &ledger, Some(legacy.into_bytes())).unwrap();
+    assert!(viewed.seed["line_1"].is(DRAFT));
+    assert!(viewed.read_draft_checks(directory).is_none());
+
+    let mut invalid = current.into_bytes();
+    invalid.push(0xff);
+    let viewed = status_from_bytes(directory, &ledger, Some(invalid.clone())).unwrap();
+    assert!(viewed.seed["line_1"].is(DRAFT));
+    assert!(viewed.seed["revision"].is("r1"));
+    assert_eq!(
+        viewed.seed["sha256"].string(),
+        Some(sha256(&invalid).as_str())
+    );
+    assert_eq!(viewed.seed_bytes, Some(invalid));
+    assert!(viewed.read_draft_checks(directory).is_none());
+}
+
+#[test]
 fn confirming_preserves_seed_mode_and_refuses_a_busy_writer() {
     use std::os::fd::AsRawFd;
     let root = fixture();
     let lock = fs::File::open(root.path().join(".writer.lock")).unwrap();
-    // SAFETY: `lock` owns the descriptor for the lifetime of both refused calls.
+    // SAFETY: `lock` owns the descriptor for the lifetime of the refused calls.
     assert_eq!(
         unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) },
         0
+    );
+    assert_eq!(
+        ledger::status(root.path()).unwrap_err(),
+        "The session is being updated. Reopen it to read the completed change."
     );
     assert_eq!(
         ledger::confirm_seed(root.path(), "r1", "TEST yes", STAMP).unwrap_err(),

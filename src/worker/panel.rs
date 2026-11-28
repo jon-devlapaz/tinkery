@@ -99,11 +99,12 @@ impl Panel {
         gate: Gate,
     ) -> Self {
         let allowance = config.clone();
-        let (start, disclosure, advice) = match (seed.target, config) {
+        let (start, disclosure, advice) = match (seed.target.as_ref(), config) {
             (Some(target), Some(config)) => {
                 let advice = Advice::read(root.clone(), config.responses);
                 let start = Start {
-                    target,
+                    target: target.clone(),
+                    authority_note: gate.disclosure(Some((&seed, &config))),
                     root,
                     record_root,
                     config,
@@ -313,7 +314,7 @@ impl Panel {
         let idle = !self.busy() && !self.help;
         let has_run = idle && self.run.is_some();
         let current = has_run && self.fresh;
-        let pin = self.snapshot.as_ref().and_then(|s| s.pin.as_ref());
+        let snapshot = self.snapshot.as_ref();
         let can_stop = has_run
             && (!current
                 || self
@@ -332,8 +333,9 @@ impl Panel {
                 KeyCode::Char('l'),
                 "l launch prepared",
                 Some("End to launch"),
-                pin.filter(|_| current && self.can_launch())
-                    .map(|pin| run(Action::Launch(pin.clone()))),
+                snapshot
+                    .filter(|_| current && self.can_launch())
+                    .map(|s| run(Action::Launch(s.pin()))),
             ),
             (
                 KeyCode::Char('f'),
@@ -345,8 +347,9 @@ impl Panel {
                 KeyCode::Char('u'),
                 "u resume",
                 Some("End to resume"),
-                pin.filter(|_| current && self.can_resume())
-                    .map(|pin| run(Action::Resume(pin.clone()))),
+                snapshot
+                    .filter(|_| current && self.can_resume())
+                    .map(|s| run(Action::Resume(s.pin()))),
             ),
             (
                 KeyCode::Char('n'),
@@ -357,7 +360,7 @@ impl Panel {
                     .filter(|_| current && self.can_start_new_step() && self.advice.is_none())
                     .map(|config| {
                         run(Action::Next {
-                            pin: pin.cloned(),
+                            pin: snapshot.expect("offered new step").pin(),
                             config,
                         })
                     }),
@@ -442,7 +445,7 @@ impl Panel {
     fn can_launch(&self) -> bool {
         self.snapshot
             .as_ref()
-            .is_some_and(|s| s.state == State::Prepared && s.pin.is_some())
+            .is_some_and(|s| s.state == State::Prepared)
     }
 
     fn scroll(&mut self, code: KeyCode) {

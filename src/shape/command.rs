@@ -88,7 +88,15 @@ pub fn new_goal(
 /// default, so the operator can overrule any of them, and `gray`, as [`ledger::gray`] defines
 /// it. Read-only.
 pub fn show(session: &Path) -> Result<serde_json::Value, String> {
-    let shaping = shaping::read(session)?;
+    let standing = seed_me::ready::standing(session)?;
+    let gray = ledger::gray(&standing.json);
+    let assumed = standing.json["assumed"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|a| serde_json::json!({"what": a["text"], "why": a["why"], "authority": "assumed"}))
+        .collect::<Vec<_>>();
+    let shaping = shaping::from_standing(standing);
     let now = match &shaping.stage {
         Shaped::Question {
             id,
@@ -124,9 +132,6 @@ pub fn show(session: &Path) -> Result<serde_json::Value, String> {
         }
         other => serde_json::json!({"stage": "other", "what": format!("{other:?}")}),
     };
-    let ledger: serde_json::Value =
-        serde_json::from_str(&seed_me::ledger::load(session)?.pretty()?)
-            .map_err(|e| e.to_string())?;
     let decided_without_you = shaping
         .decided
         .iter()
@@ -134,11 +139,8 @@ pub fn show(session: &Path) -> Result<serde_json::Value, String> {
         .map(
             |d| serde_json::json!({"what": d.title, "decided": d.answer, "authority": d.authority.word()}),
         )
-        .chain(ledger["assumed"].as_array().into_iter().flatten().map(
-            |a| serde_json::json!({"what": a["text"], "why": a["why"], "authority": "assumed"}),
-        ))
+        .chain(assumed)
         .collect::<Vec<_>>();
-    let gray = ledger::gray(&ledger);
     Ok(serde_json::json!({
         "goal": shaping.goal, "version": shaping.version, "open": shaping.open, "now": now,
         "decided_without_you": decided_without_you, "gray": gray,

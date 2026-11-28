@@ -1002,6 +1002,8 @@ tinkery [options] seed step DIR look|delegate|answer WORDS|answer --relayed FILE
   was shown it. It calls no model and confirms no seed.
 - `show` prints the goal, the ledger version, the open questions and the one current thing as JSON:
   a question with its findings and suggestion, a draft with its text and SHA-256, or a ready seed.
+  The screen and command read one published revision for the ledger, contract text and matching checks.
+  If a writer is publishing a change, reopen the screen or repeat the command after it finishes.
   `decided_without_you` lists each settled answer whose authority is not `user`, with that
   authority, then each assumed default as `assumed`. `gray` lists each decision in the ledger,
   asked or added by a change to the draft, that the operator has not answered in their own words: open, or settled or deferred with any

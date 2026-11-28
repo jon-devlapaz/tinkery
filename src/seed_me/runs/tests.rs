@@ -53,6 +53,15 @@ fn canonical_source_and_verified_current_bytes_join_the_exact_goal() {
 }
 
 #[test]
+fn a_valid_confirmation_for_other_bytes_cannot_supply_the_run_goal() {
+    let (_root, source, mut run) = fixture();
+    let session = source.parent().unwrap();
+    assert!(ready::read(session, None).unwrap().is_some());
+    run["seed_contract"]["sha256"] = "0".repeat(64).into();
+    assert_eq!(goal(&sdlc::Run::parse(&run)), Goal::Unknown);
+}
+
+#[test]
 fn unchanged_seed_bytes_cannot_lend_a_changed_ledger_goal() {
     let (_root, source, run) = fixture();
     let ledger_path = source.parent().unwrap().join("ledger.json");
