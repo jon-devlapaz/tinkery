@@ -81,18 +81,32 @@ fn step(root: &Path, slug: &str, name: &str, logs: &[(&str, usize)]) {
         json!({"session": format!("s-{name}")}).to_string(),
     )
     .unwrap();
-    for (kind, answers) in logs {
-        let mut text = json!({"type": "session", "id": format!("s-{name}")}).to_string() + "\n";
-        for _ in 0..*answers {
-            text += &(json!({"type": "message_end", "message": {"role": "assistant"}}).to_string()
-                + "\n");
-            text += &(json!({"type": "message_end", "message": {"role": "toolResult"}})
-                .to_string()
-                + "\n");
-        }
-        text += "pi-launcher: a note that is not an event\n";
-        fs::write(steps.join(format!("{name}.{kind}.pi.log")), text).unwrap();
+    if logs.is_empty() {
+        return;
     }
+    // Pi's session file, where launch and resume answers of one session accumulate.
+    let sessions = root.join("TEST-pi-sessions").join(slug).join(name);
+    fs::create_dir_all(&sessions).unwrap();
+    let mut text = json!({"type": "session", "id": format!("s-{name}")}).to_string() + "\n";
+    text += &(json!({"type": "model_change", "provider": "TEST"}).to_string() + "\n");
+    for (kind, answers) in logs {
+        for _ in 0..*answers {
+            for role in ["assistant", "toolResult"] {
+                text += &(json!({"type": "message", "message": {"role": role}}).to_string() + "\n");
+            }
+        }
+        fs::write(
+            steps.join(format!("{name}.{kind}.pi.log")),
+            "pi-launcher: a note that is not an event\n",
+        )
+        .unwrap();
+    }
+    fs::write(sessions.join(format!("s-{name}.jsonl")), text).unwrap();
+    fs::write(
+        steps.join(format!("{name}.session-dir")),
+        sessions.to_str().unwrap(),
+    )
+    .unwrap();
 }
 
 fn checkout() -> tempfile::TempDir {

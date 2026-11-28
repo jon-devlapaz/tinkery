@@ -273,7 +273,7 @@ impl Trace {
 
     /// One kept Pi session file, by path and hash, timed by its header.
     fn model_transcript(&mut self, stage: &str, path: &Path) {
-        let at = header(path).and_then(|h| h["timestamp"].as_str().map(str::to_owned));
+        let at = crate::sdlc::header(path).and_then(|h| h["timestamp"].as_str().map(str::to_owned));
         let fields = json!({ "source": link(path) });
         self.event(stage, "model transcript", at, Some("model"), fields);
     }
@@ -373,7 +373,11 @@ impl Trace {
                 "step": step, "state": value["state"], "model": value["model"],
                 "max_responses": value["max_responses"], "pi_session": value["session"], "source": link(&contract),
             })));
-            match transcript(&contract, value["session"].as_str()) {
+            match value["session"]
+                .as_str()
+                .ok_or_else(|| "The step records no Pi session.".to_string())
+                .and_then(|session| crate::sdlc::transcript(&contract, session))
+            {
                 Ok(path) => self.event(
                     "worker",
                     "transcript",
@@ -559,38 +563,6 @@ fn runs(checkout: &Path) -> Vec<(PathBuf, Value)> {
         .collect();
     found.sort_by(|a, b| a.0.cmp(&b.0));
     found
-}
-
-/// The worker's Pi session file: the folder launch recorded beside the step contract, and the
-/// file whose header names the step's session.
-fn transcript(contract: &Path, session: Option<&str>) -> Result<PathBuf, String> {
-    let session = session.ok_or("The step records no Pi session.")?;
-    let recorded = contract.with_extension("session-dir");
-    let folder = regular_file::read_text(&recorded, "not a regular file")
-        .map_err(|e| format!("{}: {e}", recorded.display()))?;
-    let folder = PathBuf::from(folder.trim_end_matches('\n'));
-    files(&folder, "jsonl")
-        .into_iter()
-        .map(|(_, path)| path)
-        .find(|path| header(path).is_some_and(|h| h["type"] == "session" && h["id"] == session))
-        .ok_or_else(|| format!("No Pi session {session} in {}.", folder.display()))
-}
-
-/// The first line of a Pi session file, read alone: a session file can be very large.
-fn header(path: &Path) -> Option<Value> {
-    use std::io::{BufRead, Read};
-    let file = regular_file::open(
-        std::fs::OpenOptions::new().read(true),
-        libc::O_NOFOLLOW,
-        path,
-        "not a regular file",
-    )
-    .ok()?;
-    let mut line = String::new();
-    std::io::BufReader::new(file.take(64 * 1024))
-        .read_line(&mut line)
-        .ok()?;
-    serde_json::from_str(&line).ok()
 }
 
 /// A line's `at`, when it has one that reads as RFC 3339.

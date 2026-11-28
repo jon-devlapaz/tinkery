@@ -26,7 +26,7 @@ pub(super) const HELP: &str = concat!(
     "The 20 most recently closed runs, newest first. Nothing is saved.\n\n",
     "gates: your decide receipts. Agent and automatic receipts show in details only.\n",
     "corrections: correction labels.\n",
-    "pi: Pi answers in each step's launch logs. ? when any step has no readable log.\n",
+    "pi: Pi answers in each step's session file. ? when any step has no readable one.\n",
     "held: not reverted on HEAD and closed 14+ days ago; too recent under that.\n",
     "? means unknown, never zero. The driving agent's responses are not recorded.\n",
     "No averages, rates, targets or scores.\n\n",
@@ -309,7 +309,8 @@ fn details(run: &Closed) -> String {
         lines.push(format!(
             "  {}: {}",
             crate::shown_line(step),
-            n.map_or("unknown, no readable launch log".into(), |n| n.to_string())
+            n.map_or("unknown, no readable session file".into(), |n| n
+                .to_string())
         ));
     }
     lines.push("Driving agent responses: not recorded".into());
