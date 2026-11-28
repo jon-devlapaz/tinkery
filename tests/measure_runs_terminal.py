@@ -45,8 +45,12 @@ def checkout(root):
     steps = root / 'runs/TEST-held/steps'
     steps.mkdir(parents=True)
     (steps / 'build.json').write_text(json.dumps({'session': 's-build'}))
-    events = [{'type': 'session', 'id': 's-build'}] + [{'type': 'message_end', 'message': {'role': 'assistant'}}] * 4
-    (steps / 'build.launch-1.pi.log').write_text(''.join(json.dumps(e) + '\n' for e in events))
+    # Pi's session file holds the answers; the launch log names the launch.
+    events = [{'type': 'session', 'id': 's-build'}] + [{'type': 'message', 'message': {'role': 'assistant'}}] * 4
+    (root / 'TEST-pi-sessions').mkdir()
+    (root / 'TEST-pi-sessions/s-build.jsonl').write_text(''.join(json.dumps(e) + '\n' for e in events))
+    (steps / 'build.session-dir').write_text(str(root / 'TEST-pi-sessions'))
+    (steps / 'build.launch-1.pi.log').write_text('pi-launcher: TEST launched\n')
     labels = [{'kind': 'correction', 'words': 'TEST it edited the locked test'}, {'kind': 'accepted', 'words': 'TEST looks right'}]
     (root / 'runs/TEST-held/labels.jsonl').write_text(''.join(json.dumps(l) + '\n' for l in labels))
     (root / 'runs/TEST-reverted').mkdir()

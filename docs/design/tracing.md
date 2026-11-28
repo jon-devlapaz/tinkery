@@ -253,9 +253,15 @@ same 90-day prune over each `think-` folder there, then removes any that is left
 files at the root, so the folder never reads as a record. A record without `transcripts` keeps its old bytes.
 Known limit: if Tinkery crashes before confirm, the visit's temporary folder can stay in the system temporary folder.
 
+Measure and cap advice now read each step's Pi session file through one reader, `sdlc::Transcript`, which also
+finds the trace's worker transcript. Cap advice takes a launch's messages from its start time up to the step's next
+resume. A step with no `.session-dir`, as in runs from before Pi sessions were recorded, counts as unknown.
+`.pi.log` is still read for the launcher's own cap note, never for messages.
+
 Not yet built:
 
-- One worker transcript copy. Pi Durable's mirror and `.pi.log` belong to tink-sdlc.
+- One worker transcript copy. Pi Durable still prints `message_end` events into `.pi.log`; tink-sdlc removes that
+  emit after this reader ships.
 
 Narrower than first proposed: one session per call on stdout instead of an export folder, no `coding.csv`, and no
 OpenTelemetry names yet. `gen_ai.evaluation.result` is still unchecked, so no line uses it.

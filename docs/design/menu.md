@@ -148,7 +148,7 @@ effort proposals [#155](https://github.com/jon-devlapaz/tinkery/issues/155) and
 `p` from the Measure start screen reads closed tink-sdlc runs in the launch repo: what went
 wrong and where the operator stepped in, without Taste carrying it
 ([#680](https://github.com/jon-devlapaz/tinkery/issues/680)). It reads `sdlc.py status --json`,
-then each closed run's status, its `labels.jsonl`, its steps' Pi launch logs and Git. It writes
+then each closed run's status, its `labels.jsonl`, its steps' Pi session files and Git. It writes
 nothing, contacts no network or provider and adds no store. The read has one 30-second deadline,
 and leaving cancels it. Only `p` reads or rereads.
 
@@ -159,7 +159,7 @@ each number appears beside the one that checks it:
 |---|---|---|
 | gates | the run's `decide` receipts. Agent-recorded and automatic seed receipts are listed in details, not counted | never; no receipts reads 0 |
 | corrections | `correction` labels in `labels.jsonl` | the file's records don't match the run's label count |
-| Pi responses | assistant `message_end` events in each step's `*.pi.log`, bound to the step contract's session | any step has no log or an unreadable one; details show the steps that were counted |
+| Pi responses | assistant messages in each step's Pi session file, which `<step>.session-dir` and the contract's session name | any step has no session file or an unreadable line; details show the steps that were counted |
 | held | `closure.json`'s merge commit and this checkout's `HEAD` history | the merge commit isn't in `HEAD`'s history or Git fails |
 
 A gate is a planned decision, so it is not counted as a correction. Held has four states:

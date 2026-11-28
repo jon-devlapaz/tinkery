@@ -1,5 +1,6 @@
-//! Estimate room for a first edit and a first commit from recent, run-bound Pi launch logs.
-//! A missing log, a resume, a different session or a failed tool call establishes neither.
+//! Estimate room for a first edit and a first commit from recent, run-bound Pi launches, read
+//! from each step's session file. A missing file, a resume, a different session or a failed tool
+//! call establishes neither.
 
 use super::{Run, identity, read_status};
 use crate::{process, sdlc};
@@ -45,8 +46,8 @@ struct Seen {
 }
 
 /// Advisory only. Sample at most five recent Pi launches in the named repository and warn
-/// when `cap` is below what they needed. Never inspect Pi's session store, send log contents
-/// or alter the allowance.
+/// when `cap` is below what they needed. Reads only the session file each step names; never
+/// sends its contents or alters the allowance.
 pub(crate) fn cap_advice(root: &Path, cap: usize, cancel: &AtomicBool) -> String {
     let folders = entries(&root.join("runs")).unwrap_or_default();
     if folders.is_empty() {
@@ -187,15 +188,6 @@ fn collect_logs(root: &Path, slug: &str, logs: &mut Vec<Launch>) {
 }
 
 #[derive(Deserialize)]
-#[serde(tag = "type")]
-enum Event {
-    #[serde(rename = "message_end")]
-    End { message: Message },
-    #[serde(other)]
-    Other,
-}
-
-#[derive(Deserialize)]
 #[serde(tag = "role")]
 enum Message {
     #[serde(rename = "assistant")]
@@ -230,25 +222,31 @@ enum Content {
     Other,
 }
 
-fn cap_marker(cap: Option<u64>, line: &str) -> bool {
-    cap.is_some_and(|n| line.starts_with(&format!("pi-launcher: response cap {n} reached;")))
+/// Whether a launch log holds the launcher's own note that it stopped the worker at `cap`.
+fn cap_marked(files: &sdlc::RunFiles, log: &sdlc::Log, cap: Option<u64>) -> bool {
+    let marker = cap.map(|n| format!("pi-launcher: response cap {n} reached;"));
+    marker.is_some_and(|marker| {
+        files
+            .lines(&format!("steps/{}", log.name))
+            .is_some_and(|lines| lines.iter().flatten().any(|line| line.starts_with(&marker)))
+    })
 }
 
-// The one place a Pi log is checked: contract identity, session header and size caps.
-fn open_log(
+// The one place a step transcript is checked: contract identity and session header.
+fn open_transcript(
     files: &sdlc::RunFiles,
-    log: &sdlc::Log,
+    step: &str,
     run: &Run,
-) -> Option<(Option<u64>, impl Iterator<Item = Option<String>>)> {
+) -> Option<(Option<u64>, sdlc::Transcript)> {
+    let name = format!("steps/{step}.json");
     let contract = sdlc::StepContract::read(
-        serde_json::from_slice(&files.read(&format!("steps/{}.json", log.step)).ok()?).ok()?,
+        serde_json::from_slice(&files.read(&name).ok()?).ok()?,
         &run.id,
         &run.root,
     )?;
     let session = contract.session.as_deref().filter(|s| !s.is_empty())?;
-    let mut lines = files.lines(&format!("steps/{}", log.name))?.into_iter();
-    // Pi may print warnings before the header; the header is the first JSON line.
-    let header: Value = lines.find_map(|line| serde_json::from_str(&line?).ok())?;
+    let transcript = sdlc::Transcript::read(&files.folder().join(name), session)?;
+    let header = &transcript.header;
     if header["type"] != "session"
         || header["version"] != 3
         || header["id"] != session
@@ -257,42 +255,32 @@ fn open_log(
         return None;
     }
     let cap = contract.max_responses.filter(|n| *n > 0);
-    Some((cap, lines))
+    Some((cap, transcript))
 }
 
-/// True only if the step's launch and resume logs all pass the same checks as cap advice and
-/// the newest ends with the launcher's cap marker after at least the contract's cap of answers.
-/// Any doubt gives false. Never writes.
+/// True only if the step's session file passes the same checks as cap advice, holds at least
+/// the contract's cap of answers, and its newest launch or resume log ends with the launcher's
+/// cap marker. Any doubt gives false. Never writes.
 pub(crate) fn stopped_at_cap(run: &Run, step: &str) -> bool {
     let Some(files) = sdlc::RunFiles::open(&run.root, &run.slug) else {
         return false;
     };
     let mut logs = files.logs(true, true).unwrap_or_default();
     logs.retain(|log| log.step == step);
-    logs.sort_by(|a, b| (a.time, &a.name).cmp(&(b.time, &b.name)));
-    // The launcher's cap is cumulative per session, so answers count across launch and resume logs.
-    let mut responses = 0;
-    for (n, log) in logs.iter().enumerate() {
-        let Some((cap, lines)) = open_log(&files, log, run) else {
-            return false;
-        };
-        for line in lines {
-            let Some(line) = line else { return false };
-            if n + 1 == logs.len()
-                && cap_marker(cap, &line)
-                && cap.is_some_and(|c| responses as u64 >= c)
-            {
-                return true;
-            }
-            let Ok(Event::End { message }) = serde_json::from_str(&line) else {
-                continue;
-            };
-            if matches!(message, Message::Assistant { .. }) {
-                responses += 1;
-            }
-        }
-    }
-    false
+    let Some(newest) = logs
+        .iter()
+        .max_by(|a, b| (a.time, &a.name).cmp(&(b.time, &b.name)))
+    else {
+        return false;
+    };
+    let Some((cap, transcript)) = open_transcript(&files, step, run) else {
+        return false;
+    };
+    // The launcher's cap is cumulative per session, so answers count across launch and resume.
+    transcript
+        .responses()
+        .is_some_and(|n| cap.is_some_and(|c| n as u64 >= c))
+        && cap_marked(&files, newest, cap)
 }
 
 fn observe(launch: &Launch, run: &Run, value: &sdlc::Run, cancel: &AtomicBool) -> Option<Seen> {
@@ -312,7 +300,19 @@ fn observe(launch: &Launch, run: &Run, value: &sdlc::Run, cancel: &AtomicBool) -
     }
     let stopped_at_cap =
         step.state.is(sdlc::StepState::Stopped) && step.stopped_by.is(sdlc::StopReason::Cap);
-    let (cap, lines) = open_log(&launch.files, &launch.log, run)?;
+    let (cap, transcript) = open_transcript(&launch.files, &launch.log.step, run)?;
+    // This launch's messages: from its start to the step's next resume, if any. Both are whole
+    // seconds, so a message in the same second a resume starts reads as the resume's; that can
+    // only shorten this sample, which is advice.
+    let next = launch
+        .files
+        .logs(true, true)?
+        .into_iter()
+        .filter(|log| log.step == launch.log.step && log.time > launch.log.time)
+        .map(|log| log.time)
+        .min();
+    let start = i64::try_from(launch.log.time).ok()?;
+    let end = next.and_then(|t| i64::try_from(t).ok());
     // A shell `git commit` that starts a command and whose tool result succeeded is the first
     // commit. Global options such as `-C dir` or `-c user.name=x` may come before `commit`.
     // Unclear cases (`sudo git commit`, a message naming --dry-run) count as no commit, which
@@ -325,65 +325,75 @@ fn observe(launch: &Launch, run: &Run, value: &sdlc::Run, cancel: &AtomicBool) -
     let mut commits = HashSet::new();
     let (mut edit, mut commit) = (None, None);
     let mut responses = 0;
-    for line in lines {
+    for said in &transcript.said {
         if cancel.load(Ordering::SeqCst) {
             return None;
         }
-        // An unreadable line ends the reading; what came before it still counts.
-        let Some(line) = line else { break };
-        if stopped_at_cap && cap_marker(cap, &line) {
-            if !cap.is_some_and(|n| responses as u64 >= n) {
-                return None;
-            }
-            let through = Some(Observation::NoneThrough(responses));
-            return Some(Seen {
-                edit: edit.or(through),
-                commit: commit.or(through),
-            });
-        }
-        let Ok(event) = serde_json::from_str::<Event>(&line) else {
+        // An unreadable or undated line ends the reading; what came before it still counts.
+        let Some(at) = said.as_ref().and_then(|said| said.at) else {
             break;
         };
-        if let Event::End { message } = event {
-            match message {
-                Message::Assistant { content } => {
-                    responses += 1;
-                    for part in content {
-                        if let Content::Call {
-                            id,
-                            name,
-                            arguments,
-                        } = part
-                            && name == "bash"
-                            && !id.is_empty()
-                            && arguments["command"].as_str().is_some_and(|c| {
-                                commit_command
-                                    .captures_iter(c)
-                                    .any(|m| !dry_run.is_match(&m[1]))
-                            })
-                        {
-                            commits.insert(id);
-                        }
+        if at < start {
+            continue;
+        }
+        if end.is_some_and(|end| at >= end) {
+            break;
+        }
+        let Some(said) = said else { break };
+        let Ok(message) = Message::deserialize(&said.message) else {
+            break;
+        };
+        match message {
+            Message::Assistant { content } => {
+                responses += 1;
+                for part in content {
+                    if let Content::Call {
+                        id,
+                        name,
+                        arguments,
+                    } = part
+                        && name == "bash"
+                        && !id.is_empty()
+                        && arguments["command"].as_str().is_some_and(|c| {
+                            commit_command
+                                .captures_iter(c)
+                                .any(|m| !dry_run.is_match(&m[1]))
+                        })
+                    {
+                        commits.insert(id);
                     }
                 }
-                Message::Tool {
-                    tool_name,
-                    is_error: false,
-                    tool_call_id,
-                } if responses > 0 => {
-                    if edit.is_none() && matches!(tool_name.as_str(), "edit" | "write") {
-                        edit = Some(Observation::At(responses));
-                    }
-                    if commit.is_none() && commits.contains(&tool_call_id) {
-                        commit = Some(Observation::At(responses));
-                    }
-                }
-                _ => {}
             }
+            Message::Tool {
+                tool_name,
+                is_error: false,
+                tool_call_id,
+            } if responses > 0 => {
+                if edit.is_none() && matches!(tool_name.as_str(), "edit" | "write") {
+                    edit = Some(Observation::At(responses));
+                }
+                if commit.is_none() && commits.contains(&tool_call_id) {
+                    commit = Some(Observation::At(responses));
+                }
+            }
+            _ => {}
         }
         if edit.is_some() && commit.is_some() {
             break;
         }
+    }
+    if stopped_at_cap
+        && (edit.is_none() || commit.is_none())
+        && cap_marked(&launch.files, &launch.log, cap)
+    {
+        if !cap.is_some_and(|n| responses as u64 >= n) {
+            return None;
+        }
+        let through = Some(Observation::NoneThrough(responses));
+        return Some(Seen {
+            edit: edit.or(through),
+            commit: commit.or(through),
+        });
     }
     (edit.is_some() || commit.is_some()).then_some(Seen { edit, commit })
 }

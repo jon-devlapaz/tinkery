@@ -210,19 +210,20 @@ only after that. If the reading thread ends without guidance, the review shows
 `Cap guidance unavailable.` and offers F2. It selects up to five
 recent Pi launches by the start time in each log filename. Only runs in the named
 checkout and their matching Git worktrees are considered. Empty run folders add
-no samples. It reads log contents only in the checkout each run reports. A log must match that run's step contract,
-session and checkout. The review counts Pi responses up to the first successful `edit`
+no samples. It reads each launch's messages from the step's Pi session file, which `<step>.session-dir` names, from the
+launch's start to the step's next resume. That file must match the run's step contract, session and checkout. A launch
+log in the checkout each run reports supplies only the start time and the launcher's cap note. The review counts Pi responses up to the first successful `edit`
 or `write` tool result, and up to the first successful shell call that runs `git … commit`,
 and names the source step of each. Shell commands can also change files, so the edit count
 measures only those two tools. The suggested minimum leaves one response after the latest
 observed first edit or first commit. If the launch itself reached its cap without one,
 allow one response for it and one to follow up. The strongest of these observations sets
 the suggestion. Smaller caps show a warning; the start still uses the exact configured cap.
-A line that cannot be read ends that log's reading; what came before it still counts.
+A line that cannot be read, or has no time, ends that launch's reading; what came before it still counts.
 When `n` is offered with an allowance, the screen reads the same guidance for the run's
 checkout and offers `n` only once it lands (#1016). Missing usable evidence leaves
-the minimum unknown. Resumes and Pi's private session store are outside this read;
-the reader keeps no logs and sends none to a provider.
+the minimum unknown. Resumes and Pi Durable's SQLite store are outside this read;
+the reader keeps no copy and sends none to a provider.
 
 F2 requests one bounded transaction through the installed SDLC runtime: recheck the
 selected seed and origin, require committed project source, create the run, import

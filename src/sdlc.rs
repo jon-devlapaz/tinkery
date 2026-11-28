@@ -7,7 +7,7 @@ pub(crate) mod source;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use files::{FileGap, Log, MAX_ENTRIES, RunFiles};
+pub(crate) use files::{FileGap, Log, MAX_ENTRIES, RunFiles, Transcript, header, transcript};
 pub(crate) use run::{DEADLINE, SCRIPT, read, refusal, run as command};
 use serde_json::Value;
 use std::{

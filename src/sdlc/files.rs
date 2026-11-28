@@ -11,6 +11,8 @@ use std::{
 const LIMIT: u64 = 8 * 1024 * 1024;
 /// The most entries listed in a steps folder; more is refused, never sampled in listing order.
 pub(crate) const MAX_ENTRIES: usize = 256;
+/// The most bytes read from one Pi session file; a larger one is refused, never truncated.
+const TRANSCRIPT_LIMIT: u64 = 64 * 1024 * 1024;
 
 /// Why a run file has no readable content.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -159,5 +161,98 @@ impl RunFiles {
                 })
                 .collect(),
         )
+    }
+}
+
+/// The Pi session file a step's contract names: in the folder `<contract>.session-dir` records,
+/// the `.jsonl` whose header is `session`. The one place a worker transcript is found.
+pub(crate) fn transcript(contract: &Path, session: &str) -> Result<PathBuf, String> {
+    let recorded = contract.with_extension("session-dir");
+    let folder = crate::regular_file::read_text(&recorded, "not a regular file")
+        .map_err(|e| format!("{}: {e}", recorded.display()))?;
+    let folder = PathBuf::from(folder.trim_end_matches('\n'));
+    let mut found: Vec<_> = fs::read_dir(&folder)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().is_some_and(|e| e == "jsonl"))
+        .collect();
+    found.sort();
+    found
+        .into_iter()
+        .find(|path| header(path).is_some_and(|h| h["type"] == "session" && h["id"] == session))
+        .ok_or_else(|| format!("No Pi session {session} in {}.", folder.display()))
+}
+
+/// The first line of a Pi session file, read alone: a session file can be very large.
+pub(crate) fn header(path: &Path) -> Option<serde_json::Value> {
+    use std::io::{BufRead, Read};
+    let file = crate::regular_file::open(
+        fs::OpenOptions::new().read(true),
+        libc::O_NOFOLLOW,
+        path,
+        "not a regular file",
+    )
+    .ok()?;
+    let mut line = String::new();
+    std::io::BufReader::new(file.take(64 * 1024))
+        .read_line(&mut line)
+        .ok()?;
+    serde_json::from_str(&line).ok()
+}
+
+/// One message in a step's Pi session file.
+pub(crate) struct Said {
+    /// When the file says it was written, in whole seconds since 1970.
+    pub(crate) at: Option<i64>,
+    /// Pi's message object, as stored.
+    pub(crate) message: serde_json::Value,
+}
+
+/// A step's worker transcript: its session header and each message in file order. `None` for
+/// a line that is not one JSON value; other entries, such as model changes, are left out.
+pub(crate) struct Transcript {
+    /// The header line.
+    pub(crate) header: serde_json::Value,
+    /// The messages, oldest first.
+    pub(crate) said: Vec<Option<Said>>,
+}
+
+impl Transcript {
+    /// Read the session file the step contract at `contract` names; `None` when it is missing,
+    /// unreadable, over the size limit, or not that session.
+    pub(crate) fn read(contract: &Path, session: &str) -> Option<Self> {
+        let path = transcript(contract, session).ok()?;
+        let bytes =
+            crate::regular_file::read_bounded(&path, TRANSCRIPT_LIMIT, "not a regular file")
+                .ok()?
+                .bytes?;
+        let mut lines = bytes.split(|&b| b == b'\n').filter(|line| !line.is_empty());
+        let header: serde_json::Value = serde_json::from_slice(lines.next()?).ok()?;
+        let said = lines
+            .filter_map(
+                |line| match serde_json::from_slice::<serde_json::Value>(line) {
+                    Err(_) => Some(None),
+                    Ok(entry) if entry["type"] == "message" => Some(Some(Said {
+                        at: entry["timestamp"]
+                            .as_str()
+                            .and_then(crate::calendar::parse)
+                            .map(|at| at.unix_timestamp()),
+                        message: entry["message"].clone(),
+                    })),
+                    Ok(_) => None,
+                },
+            )
+            .collect();
+        Some(Self { header, said })
+    }
+
+    /// Assistant answers; `None` if any line is not JSON.
+    pub(crate) fn responses(&self) -> Option<usize> {
+        self.said.iter().try_fold(0, |n, said| {
+            let said = said.as_ref()?;
+            Some(n + usize::from(said.message["role"] == "assistant"))
+        })
     }
 }

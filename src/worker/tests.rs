@@ -1133,13 +1133,23 @@ fn stop_records_cap_only_for_a_bound_log_with_the_marker_after_the_cap() {
             .to_string(),
         )
         .unwrap();
-        let mut log = format!(
-            "Warning: No project session found with id 'TEST-exact-session'; creating a new session with that id.\n{}\n",
+        let sessions = run.root.join("TEST-pi-sessions");
+        fs::create_dir_all(&sessions).unwrap();
+        let mut transcript = format!(
+            "{}\n",
             json!({"type": "session", "version": 3, "id": "TEST-exact-session", "cwd": run.root})
         );
         for _ in 0..answers {
-            log.push_str("{\"type\":\"message_end\",\"message\":{\"role\":\"assistant\"}}\n");
+            transcript.push_str(&format!(
+                "{}\n",
+                json!({"type": "message", "timestamp": "1970-01-01T00:02:00Z",
+                       "message": {"role": "assistant"}})
+            ));
         }
+        fs::write(sessions.join("TEST-exact-session.jsonl"), transcript).unwrap();
+        fs::write(steps.join("build.session-dir"), sessions.to_str().unwrap()).unwrap();
+        let mut log =
+            "Warning: No project session found with id 'TEST-exact-session'.\n".to_owned();
         if marker {
             log.push_str("pi-launcher: response cap 3 reached; stopped process group 1.\n");
         }

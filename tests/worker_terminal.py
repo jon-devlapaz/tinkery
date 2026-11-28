@@ -765,23 +765,34 @@ def cap_review(case):
             contract = dict(schema=1, checkout=str(checkout), run_id=run_id,
                             session=session, max_responses=responses)
             (steps / f'{step}.json').write_text(json.dumps(contract))
-            events = [dict(type='session', version=3, id=session if match else 'another-session',
-                           cwd=str(checkout))]
+            stamp = 200 if op == 'resume' else 100
+            # Pi's session file: launch and resume of one session append to it, each message dated.
+            sessions = fixture.root / 'TEST-pi-sessions'
+            sessions.mkdir(exist_ok=True)
+            (steps / f'{step}.session-dir').write_text(str(sessions))
+            transcript = sessions / f'{session}.jsonl'
+            if not transcript.exists():
+                transcript.write_text(json.dumps(dict(type='session', version=3, id=session if match else 'another-session',
+                                                      cwd=str(checkout))) + '\n')
+            events = []
+            at = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(stamp + 10))
             for n in range(1, responses + 1):
                 # `commits` maps a response to its shell command and whether that call failed.
                 tool = 'bash' if n in commits else 'edit' if n == 1 else ('write' if n == responses and edit else 'read')
                 call = dict(type='toolCall', id=f'call-{n}', name=tool,
                             arguments=dict(command=commits[n][0]) if n in commits else {})
                 message = dict(role='assistant', content=[call], stopReason='toolUse')
-                events.extend([dict(type='message_start', message=message), dict(type='message_end', message=message)])
                 result = dict(role='toolResult', toolName=tool, toolCallId=f'call-{n}',
                               isError=commits[n][1] if n in commits else n == 1)
-                events.extend([dict(type='message_end', message=result),
-                               dict(type='turn_end', message=message, toolResults=[result])])
-            content = ''.join(json.dumps(event) + '\n' for event in events)
+                events.extend([dict(type='message', timestamp=at, message=message),
+                               dict(type='message', timestamp=at, message=result)])
+            with transcript.open('a') as file:
+                file.write(''.join(json.dumps(event) + '\n' for event in events))
+            # The launch log keeps only the launcher's own notes.
+            content = 'pi-launcher: TEST launched\n'
             if cap_stop:
                 content += f'pi-launcher: response cap {responses} reached; stopped process group 123.\n'
-            path = steps / f'{step}.{op}-100.pi.log'
+            path = steps / f'{step}.{op}-{stamp}.pi.log'
             path.write_text(content)
             return path
 
@@ -857,16 +868,26 @@ def cap_review(case):
 
 
 def write_logs(build, run_id, marker, name='build.launch-100.pi.log', responses=CAP):
-    """Fixture Pi log for the worker step: a bound header, `responses` assistant responses, then optionally the launcher's cap marker."""
+    """Fixture Pi run for the worker step: `responses` assistant responses appended to the step's bound session file,
+    and a launch log with only the launcher's notes, ending with its cap marker when `marker`."""
     steps = build / 'runs' / 'test-worker' / 'steps'
     steps.mkdir(parents=True, exist_ok=True)
     session = 'tsdlc-TEST-build'
     (steps / 'build.json').write_text(json.dumps(dict(schema=1, run_id=run_id, checkout=str(build),
                                                       session=session, max_responses=CAP)))
     message = dict(role='assistant', content=[], stopReason='toolUse')
+    sessions = build / 'TEST-pi-sessions'
+    sessions.mkdir(exist_ok=True)
+    (steps / 'build.session-dir').write_text(str(sessions))
+    transcript = sessions / f'{session}.jsonl'
+    if not transcript.exists():
+        transcript.write_text(json.dumps(dict(type='session', version=3, id=session, cwd=str(build))) + '\n')
+    with transcript.open('a') as file:
+        # Each message is dated just after its launch or resume, named by the log's time stamp.
+        at = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(int(name.split('-')[-1].split('.')[0]) + 10))
+        file.write(''.join(json.dumps(dict(type='message', timestamp=at, message=message)) + '\n'
+                           for _ in range(responses)))
     text = f"Warning: No project session found with id '{session}'; creating a new session with that id.\n"
-    text += json.dumps(dict(type='session', version=3, id=session, cwd=str(build))) + '\n'
-    text += ''.join(json.dumps(dict(type='message_end', message=message)) + '\n' for _ in range(responses))
     if marker:
         text += f'pi-launcher: response cap {CAP} reached; stopped process group 123.\n'
     (steps / name).write_text(text)

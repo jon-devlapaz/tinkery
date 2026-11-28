@@ -238,55 +238,29 @@ fn labels(files: Option<&sdlc::RunFiles>, count: Option<u64>) -> Result<Vec<Labe
 }
 
 fn steps(files: Option<&sdlc::RunFiles>, run: &sdlc::Run) -> Vec<(String, Option<usize>)> {
-    let logs = files.and_then(|files| files.logs(true, false));
     let mut steps: Vec<_> = run
         .steps
         .iter()
         .flatten()
         .filter_map(|s| s.data["name"].as_str())
         .map(|name| {
-            let responses = files.zip(logs.as_ref()).and_then(|(files, logs)| {
-                responses(files, logs.iter().filter(|log| log.step == name), name)
-            });
-            (name.to_owned(), responses)
+            (
+                name.to_owned(),
+                files.and_then(|files| responses(files, name)),
+            )
         })
         .collect();
     steps.sort();
     steps
 }
 
-/// Assistant answers across a step's launch and resume logs, bound to its contract's session.
-/// No log, a foreign session or an unreadable event makes the step unknown.
-fn responses<'a>(
-    files: &sdlc::RunFiles,
-    logs: impl Iterator<Item = &'a sdlc::Log>,
-    step: &str,
-) -> Option<usize> {
-    let contract: Value =
-        serde_json::from_slice(&files.read(&format!("steps/{step}.json")).ok()?).ok()?;
+/// Assistant answers in the step's Pi session file, bound to its contract's session.
+/// No session file, a foreign session or an unreadable line makes the step unknown.
+fn responses(files: &sdlc::RunFiles, step: &str) -> Option<usize> {
+    let name = format!("steps/{step}.json");
+    let contract: Value = serde_json::from_slice(&files.read(&name).ok()?).ok()?;
     let session = contract["session"].as_str().filter(|s| !s.is_empty())?;
-    let mut total = None;
-    for log in logs {
-        let mut lines = files.lines(&format!("steps/{}", log.name))?.into_iter();
-        let header: Value = serde_json::from_str(&lines.next()??).ok()?;
-        if header["type"] != "session" || header["id"] != session {
-            return None;
-        }
-        let mut count = 0;
-        for line in lines {
-            let line = line?;
-            // The launcher's own notes share the log; only JSON events are Pi's.
-            if !line.starts_with('{') {
-                continue;
-            }
-            let event: Value = serde_json::from_str(&line).ok()?;
-            if event["type"] == "message_end" && event["message"]["role"] == "assistant" {
-                count += 1;
-            }
-        }
-        total = Some(total.unwrap_or(0) + count);
-    }
-    total
+    sdlc::Transcript::read(&files.folder().join(name), session)?.responses()
 }
 
 fn held(
