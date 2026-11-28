@@ -68,6 +68,7 @@ detail. [The architecture check](../../tests/architecture.rs) fails if this tabl
 | `trace` | shared | One goal's records from Think to Taste, joined by its `session_id`, read-only. Transcripts appear by path and SHA-256 only. |
 | `thought` | shared | Repository-bound thought storage with exact-byte deduplication. No goal authority. |
 | `voice` | shared | Local dictation: consent, setup, takes and their text. |
+| `wait` | shared | `seed wait`: blocks until a Tink's driving agent is needed, then names the event and next action. Read-only. |
 | `watch` | watch | The runs in one named tink-sdlc checkout, read-only. |
 | `worker` | shared | Explicit, bounded worker actions through SDLC. SDLC owns gates, sessions and caps. |
 | `words` | shared | The exact-word editor Shape uses. No save or agent policy. |

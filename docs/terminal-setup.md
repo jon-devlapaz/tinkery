@@ -200,6 +200,7 @@ A read-only command writes nothing. A command that acts makes one explicit chang
 | `tinkery seed checks DIR` | Read-only: prints the strict check records. Before a draft, it refuses. | None |
 | `tinkery seed show DIR` | Read-only: prints what Shape shows now, as JSON. | None |
 | `tinkery [--record-root DIR] [--sdlc-root ROOT] seed trace DIR` | Read-only: prints the goal's records from Think to Taste, one JSON line each, in order. | None |
+| `tinkery [--sdlc-root ROOT] [--wait-seconds N] seed wait DIR` | Read-only: blocks until the agent is needed, then prints one JSON result. | None |
 | `tinkery [options] seed new GOAL_FILE [ORIGIN]` | Acts: saves the file's words as a confirmed goal and prints the session folder. | None |
 | `tinkery [options] seed step DIR confirm DRAFT_SHA256` | Acts: confirms only the draft with that SHA-256. | None |
 | `tinkery [options] seed step DIR look\|delegate\|answer WORDS\|answer --relayed FILE` | Acts: takes one Shape step. | Needs `--shape-pi`, `--model` and an approved `--shape-budget` |
@@ -212,6 +213,11 @@ refuses what Approve refuses, and it starts a Tink only once. With `--operator a
 the operator's relayed words in `--worker-authorization FILE`, as F2 does. An agent can add
 `--driver-session ID`, its own session ID, which each admission records for [the trace](design/tracing.md#second-slice). Launch, resume,
 verify, finish and stop still use the worker screen.
+
+`seed wait` replaces polling. It returns once the agent is needed: a confirmed Tink with no run,
+a session change before a run, or a worker that is neither running nor being verified. Its JSON
+`event` names what happened and `next` the next allowed action. It exits 0 for an event and 2 for
+a timeout. It does not follow GitHub CI.
 
 This example makes no model calls. From the repository root, it builds once, then runs every
 command with a temporary TEST HOME and TEST roots, away from operator data and saved setup:

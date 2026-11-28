@@ -32,6 +32,7 @@ fn seed_read(
     args: Vec<String>,
     records: Option<std::path::PathBuf>,
     checkout: Option<std::path::PathBuf>,
+    wait_seconds: Option<usize>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use std::path::Path;
     use tinkery::data_roots::DataRoots;
@@ -60,6 +61,14 @@ fn seed_read(
             }
             return Ok(());
         }
+        ["wait", directory] => {
+            let seconds = wait_seconds.unwrap_or(tinkery::wait::DEFAULT_SECONDS);
+            let outcome =
+                tinkery::wait::session(Path::new(directory), checkout, seconds).map_err(refused)?;
+            println!("{}", serde_json::to_string_pretty(&outcome.result)?);
+            // A timeout is not an event: exit 2, so a driver cannot read it as one.
+            std::process::exit(if outcome.happened { 0 } else { 2 });
+        }
         ["checks", directory] => {
             let directory = std::path::Path::new(directory);
             ledger::load(directory).map_err(refused)?;
@@ -81,7 +90,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             args,
             records,
             checkout,
-        } => return seed_read(args, records, checkout),
+            wait_seconds,
+        } => return seed_read(args, records, checkout, wait_seconds),
         launch::Args::Run(options) => options,
     };
     let (launch, controls) = Launch::resolve(&options)?;

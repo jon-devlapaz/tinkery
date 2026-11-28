@@ -52,7 +52,7 @@ const fn opt(flag: &'static str, help: &'static str, takes: Takes) -> Opt {
 }
 
 /// Every option, in `--help` order.
-const OPTIONS: [Opt; 20] = [
+const OPTIONS: [Opt; 21] = [
     opt(
         "--home",
         "--home       Open the home menu (the tinkery launcher passes it)",
@@ -117,6 +117,11 @@ const OPTIONS: [Opt; 20] = [
         Takes::Path("--sdlc-root needs a tink-sdlc checkout path"),
     ),
     opt(
+        "--wait-seconds",
+        "--wait-seconds N  How long seed wait blocks before it reports a timeout (default 1800)",
+        Takes::Value("--wait-seconds needs a number of seconds"),
+    ),
+    opt(
         "--worker-model",
         "--worker-model PIN  Exact Pi provider/model:thinking for an explicit worker start",
         Takes::Value("--worker-model needs provider/model:thinking"),
@@ -170,6 +175,7 @@ const OPTIONS: [Opt; 20] = [
 /// How `seed` is used, for every refusal of its arguments.
 pub const SEED_USAGE: &str = "usage: tinkery seed status --json DIR | tinkery seed checks DIR | tinkery seed show DIR | \
     tinkery [--record-root DIR] [--sdlc-root ROOT] seed trace DIR | \
+    tinkery [--sdlc-root ROOT] [--wait-seconds N] seed wait DIR | \
     tinkery [options] seed new GOAL_FILE [ORIGIN] | \
     tinkery [options] seed step DIR look|delegate|answer WORDS|answer --relayed FILE|confirm DRAFT_SHA256 | \
     tinkery [options] seed start DIR";
@@ -190,7 +196,8 @@ pub fn help() -> String {
 pub enum Args {
     /// `--help` or `-h`: print [`help`] and stop.
     Help,
-    /// `seed show`, `seed status`, `seed checks` or `seed trace`: a read that needs no launch.
+    /// `seed show`, `seed status`, `seed checks`, `seed trace` or `seed wait`: a read that needs
+    /// no launch.
     SeedRead {
         /// The words after `seed`.
         args: Vec<String>,
@@ -198,6 +205,8 @@ pub enum Args {
         records: Option<PathBuf>,
         /// `--sdlc-root`, when given before `seed`.
         checkout: Option<PathBuf>,
+        /// `--wait-seconds`, when given before `seed`.
+        wait_seconds: Option<usize>,
     },
     /// Open Tinkery, or run `seed new`, `seed step` or `seed start`, with these options.
     Run(Options),
@@ -267,6 +276,7 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args, String> {
                     args: rest,
                     records: options.path("--record-root"),
                     checkout: options.path("--sdlc-root"),
+                    wait_seconds: options.count("--wait-seconds")?,
                 });
             }
             options.seed = Some(rest);
@@ -294,7 +304,9 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args, String> {
             ("--operator", Some(v)) => drop(GoalConfirmation::terminal(Some(v))?),
             ("--codex-report", Some(v)) => drop(CodexReport::parse(v)?),
             ("--harness", Some(v)) => drop(Harness::parse(v)?),
-            ("--worker-responses" | "--shape-budget", Some(v)) if v.parse::<usize>().is_err() => {
+            ("--worker-responses" | "--shape-budget" | "--wait-seconds", Some(v))
+                if v.parse::<usize>().is_err() =>
+            {
                 return Err(missing(opt.flag));
             }
             _ => {}
