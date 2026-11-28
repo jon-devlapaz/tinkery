@@ -161,6 +161,7 @@ const OPTIONS: [Opt; 19] = [
 
 /// How `seed` is used, for every refusal of its arguments.
 pub const SEED_USAGE: &str = "usage: tinkery seed status --json DIR | tinkery seed checks DIR | tinkery seed show DIR | \
+    tinkery [--record-root DIR] [--sdlc-root ROOT] seed trace DIR | \
     tinkery [options] seed new GOAL_FILE [ORIGIN] | \
     tinkery [options] seed step DIR look|delegate|answer WORDS|answer --relayed FILE|confirm DRAFT_SHA256 | \
     tinkery [options] seed start DIR";
@@ -181,8 +182,15 @@ pub fn help() -> String {
 pub enum Args {
     /// `--help` or `-h`: print [`help`] and stop.
     Help,
-    /// `seed show`, `seed status` or `seed checks`: a read that needs no launch.
-    SeedRead(Vec<String>),
+    /// `seed show`, `seed status`, `seed checks` or `seed trace`: a read that needs no launch.
+    SeedRead {
+        /// The words after `seed`.
+        args: Vec<String>,
+        /// `--record-root`, when given before `seed`.
+        records: Option<PathBuf>,
+        /// `--sdlc-root`, when given before `seed`.
+        checkout: Option<PathBuf>,
+    },
     /// Open Tinkery, or run `seed new`, `seed step` or `seed start`, with these options.
     Run(Options),
 }
@@ -247,7 +255,11 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args, String> {
                 rest.first().map(String::as_str),
                 Some("new" | "step" | "start")
             ) {
-                return Ok(Args::SeedRead(rest));
+                return Ok(Args::SeedRead {
+                    args: rest,
+                    records: options.path("--record-root"),
+                    checkout: options.path("--sdlc-root"),
+                });
             }
             options.seed = Some(rest);
             continue;

@@ -65,6 +65,7 @@ detail. [The architecture check](../../tests/architecture.rs) fails if this tabl
 | `tend` | tend | The garden of saved goals and thoughts, needs links and Think history. Never edits a session. |
 | `think` | think | Turning a brain dump into a goal the operator confirms, then saving it. Reads no files or repository. |
 | `think_record` | shared | The one record of each confirmed Think session, written by the same `confirm` that saves the goal. |
+| `trace` | shared | One goal's records from Think to Taste, joined by its `session_id`, read-only. Transcripts appear by path and SHA-256 only. |
 | `thought` | shared | Repository-bound thought storage with exact-byte deduplication. No goal authority. |
 | `voice` | shared | Local dictation: consent, setup, takes and their text. |
 | `watch` | watch | The runs in one named tink-sdlc checkout, read-only. |

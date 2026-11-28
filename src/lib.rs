@@ -46,6 +46,7 @@ pub mod tend;
 pub mod think;
 pub mod think_record;
 pub(crate) mod thought;
+pub mod trace;
 pub mod voice;
 pub mod watch;
 pub(crate) mod words;

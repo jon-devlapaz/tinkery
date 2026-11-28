@@ -65,6 +65,7 @@ const MODULES: &[(&str, &str)] = &[
     ("tend", "tend"),
     ("think", "think"),
     ("think_record", "shared"),
+    ("trace", "shared"),
     ("thought", "shared"),
     ("voice", "shared"),
     ("watch", "watch"),
