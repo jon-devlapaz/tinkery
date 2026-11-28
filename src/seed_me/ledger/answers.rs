@@ -30,8 +30,8 @@ pub struct DeferredPrerequisite {
     pub id: String,
     /// Its recorded label, or ID.
     pub title: String,
-    /// Its original question.
-    pub question: String,
+    /// The question to revisit, with its recorded alternatives.
+    pub question: super::QuestionView,
     /// The operator's exact reason for deferring.
     pub reason: String,
     /// The operator's exact condition for revisiting.
@@ -75,10 +75,14 @@ pub fn deferred_prerequisite(ledger: &Value) -> Result<Option<DeferredPrerequisi
         if !validate(&state)?.iter().any(|ready| ready == id) {
             continue;
         }
+        let mut question = super::read_question(&node.to_json()?)?;
+        if node["question"].string().is_none() {
+            question.ask = id.into();
+        }
         return Ok(Some(DeferredPrerequisite {
             id: id.into(),
             title: node["label"].string().unwrap_or(id).into(),
-            question: node["question"].string().unwrap_or(id).into(),
+            question,
             reason: node["defer_reason"].string().unwrap().into(),
             revisit: node["revisit_condition"].string().unwrap().into(),
         }));

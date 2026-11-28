@@ -136,6 +136,42 @@ impl From<String> for PublishError {
     }
 }
 
+/// Read a complete publication without creating a lock in an old or newly initialized session.
+pub(in crate::seed_me) fn read_consistent<T>(
+    directory: &Path,
+    read: impl FnOnce() -> Result<T, String>,
+) -> Result<T, String> {
+    let path = directory.join(".writer.lock");
+    let busy = "The session is being updated. Reopen it to read the completed change.";
+    let lock = match crate::regular_file::open(
+        OpenOptions::new().read(true),
+        0,
+        &path,
+        "the session's writer lock is not a regular file",
+    ) {
+        Ok(file) => {
+            // The open descriptor holds the shared lock until the captured read finishes.
+            if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_SH | libc::LOCK_NB) } != 0 {
+                let error = io::Error::last_os_error();
+                return Err(if error.kind() == io::ErrorKind::WouldBlock {
+                    busy.into()
+                } else {
+                    error.to_string()
+                });
+            }
+            Some(file)
+        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => None,
+        Err(error) => return Err(error.to_string()),
+    };
+    let result = read()?;
+    // The first writer creates its lock before it can publish anything and keeps the lock file.
+    if lock.is_none() && path.try_exists().map_err(|e| e.to_string())? {
+        return Err(busy.into());
+    }
+    Ok(result)
+}
+
 struct Writer(File);
 impl Writer {
     fn acquire(directory: &Path) -> Result<Self, PublishError> {

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import session_fixture as helper
 import test_launch as subprocess
-from shape_answer_terminal import BINARY, GOAL, HOST, QUESTION, SEED
+from shape_answer_terminal import BINARY, GOAL, HOST, QUESTION, SEED, make
 
 
 class Run:
@@ -286,6 +286,70 @@ def readings():
     print('seed command readings passed: a listed reading is asked with no suggestion, stays gray, clears on the operator\'s words; 2 stub calls')
 
 
+def question_options():
+    """A fresh process must recover the question and its options as separate values."""
+    choices = [{'choice': 'Private', 'tradeoff': 'needs permission', 'undo': 'cheap'},
+               {'choice': 'Public', 'tradeoff': 'others can keep copies', 'undo': 'hard'}]
+    shown_options = ['Option A: Private; needs permission. Undo cost: cheap.',
+                     'Option B: Public; others can keep copies. Undo cost: hard.']
+    question = {**QUESTION, 'question': 'Which label do you use?\nOption A: is written on the box.\n'
+                                       'Against my suggestion: is another label.',
+                'options': choices, 'against': 'Both labels appear on the box.'}
+    malformed = {'choice': 'Unknown', 'tradeoff': 'no undo cost given'}
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-question-options-') as directory:
+        invalid_pairs = [[choices[1], malformed], [*choices, malformed], [choices[1]]]
+        literal = '\n'.join(['  What is printed below?', *shown_options, 'Against my suggestion: printed words.', ''])
+        replies = [{**question, 'options': pair} for pair in invalid_pairs]
+        plain_question = {**QUESTION, 'question': literal}
+        plain_replies = [plain_question, {**plain_question, 'options': []}]
+        replies.extend([question, *plain_replies])
+        run = Run(directory, replies, agent=True)
+        session = make(run.sessions, question=False, operator='agent')
+        before = run.files()
+        for _ in invalid_pairs:
+            refused = run.seed('step', session, 'look')
+            assert refused.returncode and not refused.stdout, refused.stdout.decode()
+            assert 'options' in refused.stderr.decode().lower(), refused.stderr.decode()
+            assert QUESTION['suggestion'] not in refused.stderr.decode()
+            assert run.files() == before, 'A malformed question changed the saved session'
+            assert json.loads(run.ok('show', session, drafting=False))['now']['stage'] == 'waiting'
+        step = run.seed('step', session, 'look')
+        assert step.returncode == 0, step.stderr.decode()
+        suggestion = QUESTION['suggestion'].encode()
+        assert suggestion not in step.stdout and suggestion not in step.stderr, (step.stdout, step.stderr)
+        now = json.loads(run.ok('show', session, drafting=False))['now']
+        assert now['question'] == question['question'], now
+        assert now['hard_to_undo'] is True and now['suggestion'] is None, now
+        assert now['options'] == shown_options and now['against'] == question['against'], now
+        for _ in plain_replies:
+            plain = make(run.sessions, question=False, operator='agent')
+            run.ok('step', plain, 'look')
+            now = json.loads(run.ok('show', plain, drafting=False))['now']
+            assert now['question'] == literal and now['options'] == [] and now['against'] is None, now
+            assert now['hard_to_undo'] is False and now['suggestion'] == QUESTION['suggestion'], now
+        assert len(run.calls()) == len(replies), 'Reading a saved question called the model'
+
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-legacy-options-') as directory:
+        run = Run(directory, [], budget=0, agent=True)
+        session = make(run.sessions, operator='agent')
+        ask = 'Which label is missing?'
+        literal = ask + '\nOption A: is printed on the box.'
+        old = '\n'.join([ask, *shown_options, 'Against my suggestion: TEST old case.'])
+        for recorded, prompt, options, against in [(old, ask, shown_options, 'TEST old case.'),
+                                                    (literal, literal, [], None)]:
+            saved = helper.load(session)
+            state = helper.editable(saved)
+            current = next(n for n in state['nodes'] if n['id'] == state['current_question'])
+            current['question'] = recorded
+            helper.publish(session, state, saved['version'], 'TEST historical question format')
+            before = run.files()
+            now = json.loads(run.ok('show', session, drafting=False))['now']
+            assert now['question'] == prompt and now['options'] == options and now['against'] == against, now
+            assert now['hard_to_undo'] == bool(options), now
+            assert run.files() == before and not run.calls(), 'Reading legacy question text wrote or called'
+    print('seed command question options passed: malformed replies refused, exact questions and legacy choices preserved')
+
+
 def capped():
     """#950: a reply on the last allowed response is kept even when Pi exits slowly; tool calls are not."""
     for stops, linger, kept in [(['toolUse', 'toolUse', 'stop'], 4, True), (['toolUse'] * 3, 30, False)]:
@@ -311,5 +375,6 @@ if __name__ == '__main__':
     commandless()
     relayed()
     readings()
+    question_options()
     capped()
     refusals()

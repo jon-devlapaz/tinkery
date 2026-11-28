@@ -56,7 +56,7 @@ fn deferred_recovery_preserves_originals_and_asks_the_unanswered_dependent() {
     ));
     let target = shown.deferred.unwrap();
     assert_eq!(target.id, "a");
-    assert_eq!(target.question, "TEST exact question café?");
+    assert_eq!(target.question.ask, "TEST exact question café?");
     assert_eq!(target.reason, "  TEST reason café  ");
     assert_eq!(target.revisit, "TEST condition 中");
     let words = "  TEST exact answer café\n中  ";

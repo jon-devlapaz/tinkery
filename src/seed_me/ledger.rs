@@ -24,7 +24,10 @@ mod checks;
 mod unknowns;
 pub use unknowns::{resolve_unknowns, resolved_unknown};
 mod questions;
-pub use questions::{next_question, queue_question, waiting_on};
+pub(crate) use questions::read_question;
+pub use questions::{
+    Alternative, Choices, QuestionView, Undo, next_question, queue_question, waiting_on,
+};
 #[cfg(test)]
 pub(crate) mod fixtures;
 mod seed;
@@ -35,8 +38,9 @@ pub(crate) use checks::{
     validate_new_draft_checks,
 };
 pub use checks::{checks_block, read_checks, readable_acceptance, validate_checks};
-pub(crate) use seed::status_from_ledger;
+pub(crate) use seed::{Acceptance, read_seed_bytes, status_from_bytes};
 pub use seed::{Handoff, decisions_block, seed_summary, status, verify_handoff};
+pub(super) use storage::read_consistent;
 pub use storage::{
     PublishError, PublishKind, SaveState, confirm_as, confirm_displayed_as, confirm_seed, end,
     initialize, publish, record_teach_back, respond, revalidate, set_checks,
@@ -79,6 +83,7 @@ const NODE: &[&str] = &[
     "authority_source",
     "label",
     "question",
+    "choices",
     "owner",
     "gate",
     "recommendation",
@@ -407,6 +412,7 @@ pub fn validate(state: &Value) -> Result<Vec<String>> {
                 )?;
             }
         }
+        questions::validate_choices(node)?;
         if node["kind"].is("decision") {
             require(
                 text(&node["owner"]) && text(&node["gate"]),
@@ -622,8 +628,13 @@ pub(super) fn read_bytes(directory: &Path) -> std::io::Result<Vec<u8>> {
 /// malformed history refuse; duplicate JSON keys keep their first position and last value.
 pub fn load(directory: &Path) -> Result<Value> {
     super::migration::refuse_old_root(directory)?;
-    let input = String::from_utf8(read_bytes(directory).map_err(|e| e.to_string())?)
-        .map_err(|_| "stream did not contain valid UTF-8".to_owned())?;
+    parse_bytes(&read_bytes(directory).map_err(|e| e.to_string())?)
+}
+
+/// Parse and validate the captured ledger bytes with the original numeric and newline rules.
+pub(super) fn parse_bytes(bytes: &[u8]) -> Result<Value> {
+    let input =
+        std::str::from_utf8(bytes).map_err(|_| "stream did not contain valid UTF-8".to_owned())?;
     let input = input.replace("\r\n", "\n").replace('\r', "\n");
     let ledger = Value::parse(&input)?;
     validate_stored(&ledger)?;
@@ -691,6 +702,7 @@ fn validate_stored(ledger: &Value) -> Result<()> {
                     && entry["state"]["kind"] == node["kind"],
                 "invalid historical node",
             )?;
+            questions::validate_choices(&entry["state"])?;
         }
     }
     require(
@@ -949,6 +961,7 @@ pub fn transition(
         "prerequisites",
         "predicate",
         "question",
+        "choices",
         "owner",
         "gate",
         "claim",
@@ -958,15 +971,13 @@ pub fn transition(
         .items()
         .iter()
         .filter(|n| {
+            let next = find(new, n["id"].string().unwrap());
             n["status"].is("settled")
-                && premise.iter().any(|f| {
-                    !(**f == *"claim" && n[f] == Value::Null)
-                        && if *f == "evidence" {
-                            teach_back::evidence(n)
-                                != teach_back::evidence(find(new, n["id"].string().unwrap()))
-                        } else {
-                            n[f] != find(new, n["id"].string().unwrap())[f]
-                        }
+                && premise.iter().any(|f| match *f {
+                    "claim" if n[f] == Value::Null => false,
+                    "evidence" => teach_back::evidence(n) != teach_back::evidence(next),
+                    "choices" => n.get(f) != next.get(f),
+                    _ => n[f] != next[f],
                 })
         })
         .map(|n| n["id"].string().unwrap().to_owned())
@@ -1140,14 +1151,20 @@ pub fn transition(
 /// decision was settled without the operator; a gray choice Shape neither asked nor listed as a
 /// draft reading is not detected.
 pub fn gray(ledger: &serde_json::Value) -> Vec<serde_json::Value> {
-    let probes = [PRE_MORTEM, REAL_SAMPLE];
+    gray_decisions(ledger)
+        .map(|n| serde_json::json!({"id": n["id"], "label": n["label"], "status": n["status"], "authority": n["authority"]}))
+        .collect()
+}
+
+/// The original nodes that still require the operator’s own decision, in their recorded order.
+pub(crate) fn gray_decisions(
+    ledger: &serde_json::Value,
+) -> impl Iterator<Item = &serde_json::Value> {
     ledger["nodes"]
         .as_array()
         .into_iter()
         .flatten()
         .filter(|n| n["kind"] == "decision" && n["id"] != "goal")
-        .filter(|n| !probes.iter().any(|p| n["id"] == *p))
+        .filter(|n| n["id"] != PRE_MORTEM && n["id"] != REAL_SAMPLE)
         .filter(|n| n["status"] == "unresolved" || n["authority"] != "user")
-        .map(|n| serde_json::json!({"id": n["id"], "label": n["label"], "status": n["status"], "authority": n["authority"]}))
-        .collect()
 }

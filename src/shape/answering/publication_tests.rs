@@ -104,8 +104,7 @@ fn every_shape_ledger_action_works_without_launching_the_helper() {
                 text: "TEST default".into(),
                 why: "TEST same".into(),
             }],
-            options: vec![],
-            against: None,
+            choices: None,
         },
         root.path(),
     )

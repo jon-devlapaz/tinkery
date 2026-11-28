@@ -32,8 +32,7 @@ fn question(id: &str, after: &[&str]) -> Ask {
         prerequisites: (!after.is_empty()).then(|| json!(after)),
         suggestion: None,
         assumed: vec![],
-        options: vec![],
-        against: None,
+        choices: None,
     }
 }
 

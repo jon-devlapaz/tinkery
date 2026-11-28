@@ -88,21 +88,27 @@ pub fn new_goal(
 /// default, so the operator can overrule any of them, and `gray`, as [`ledger::gray`] defines
 /// it. Read-only.
 pub fn show(session: &Path) -> Result<serde_json::Value, String> {
-    let shaping = shaping::read(session)?;
+    let standing = seed_me::ready::standing(session)?;
+    let gray = ledger::gray(&standing.json);
+    let assumed = standing.json["assumed"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|a| serde_json::json!({"what": a["text"], "why": a["why"], "authority": "assumed"}))
+        .collect::<Vec<_>>();
+    let shaping = shaping::from_standing(standing);
     let now = match &shaping.stage {
         Shaped::Question {
             id,
             title,
-            ask,
+            question,
             found,
             suggestion,
-            options,
-            against,
-            hard,
             ..
         } => serde_json::json!({
-            "stage": "question", "id": id, "label": title, "question": ask, "found": found,
-            "suggestion": suggestion, "options": options, "against": against, "hard_to_undo": hard,
+            "stage": "question", "id": id, "label": title, "question": question.ask, "found": found,
+            "suggestion": suggestion, "options": question.options.iter().map(|(line, _)| line).collect::<Vec<_>>(),
+            "against": question.against, "hard_to_undo": question.hard(),
         }),
         Shaped::Review {
             id,
@@ -126,9 +132,6 @@ pub fn show(session: &Path) -> Result<serde_json::Value, String> {
         }
         other => serde_json::json!({"stage": "other", "what": format!("{other:?}")}),
     };
-    let ledger: serde_json::Value =
-        serde_json::from_str(&seed_me::ledger::load(session)?.pretty()?)
-            .map_err(|e| e.to_string())?;
     let decided_without_you = shaping
         .decided
         .iter()
@@ -136,23 +139,17 @@ pub fn show(session: &Path) -> Result<serde_json::Value, String> {
         .map(
             |d| serde_json::json!({"what": d.title, "decided": d.answer, "authority": d.authority.word()}),
         )
-        .chain(ledger["assumed"].as_array().into_iter().flatten().map(
-            |a| serde_json::json!({"what": a["text"], "why": a["why"], "authority": "assumed"}),
-        ))
+        .chain(assumed)
         .collect::<Vec<_>>();
-    let gray = ledger::gray(&ledger);
     Ok(serde_json::json!({
         "goal": shaping.goal, "version": shaping.version, "open": shaping.open, "now": now,
         "decided_without_you": decided_without_you, "gray": gray,
     }))
 }
 
-/// Take `action` on `session` from a fresh read, through the same step the screen runs. Returns
-/// what the caller must read that the ledger does not hold: the folder a model step reads, why
-/// Think's answers are not sent if so,
-/// assumed defaults and a withheld suggestion. Confirming calls no model and needs no `agent`;
-/// every other action refuses without one. An action that does not fit where the seed stands
-/// changes nothing.
+/// Take one action through the same step as the screen. Report the model's read scope and
+/// assumed defaults. A withheld suggestion expires with the command. Confirmation needs no
+/// agent. An action that does not fit the current state changes nothing.
 pub fn step(
     session: &Path,
     agent: Option<&Agent>,
@@ -247,11 +244,6 @@ pub fn step(
                     .assumed
                     .into_iter()
                     .map(|a| format!("Assumed: {} ({})", a.text, a.why)),
-            )
-            .chain(
-                asked
-                    .withheld
-                    .map(|s| format!("Suggestion, not recorded: {s}")),
             )
             .collect()),
         Ok(_) => Ok(notes),

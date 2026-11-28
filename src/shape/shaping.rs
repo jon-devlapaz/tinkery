@@ -2,9 +2,7 @@
 //! findings, decisions, review lines and draft text Shape shows. Read-only: it never publishes,
 //! confirms or ends anything, and keeps no copy of the ledger.
 
-use super::answering::{
-    AGAINST, Authority, NOTHING_FOUND, OPTION_LABELS, UNFOUND, Undo, claim_suffix,
-};
+use super::answering::{Authority, NOTHING_FOUND, UNFOUND, claim_suffix};
 use crate::seed_me::{
     ledger,
     ready::{self, Stand},
@@ -159,7 +157,7 @@ pub struct Decided {
 /// Where a session's seed stands. Each says only what the ledger's files show; nothing is guessed.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Shaped {
-    /// The current question, as the ledger records it. The ledger keeps no options.
+    /// The current question and any recorded choices, shared by the screen and command.
     Question {
         /// The node's id, which an answer settles.
         id: String,
@@ -167,18 +165,12 @@ pub enum Shaped {
         title: String,
         /// What this question settles, available before answering or deferring.
         gate: String,
-        /// The question, or the decision to make when no question is recorded.
-        ask: String,
+        /// The question and its alternatives, with the undo costs that govern disclosure.
+        question: ledger::QuestionView,
         /// The node's evidence, one entry per line: what was checked, then what was observed.
         found: Vec<String>,
         /// The recorded suggestion, when one is recorded.
         suggestion: Option<String>,
-        /// Each option's line, as recorded in the question: its choice, trade-off and undo cost.
-        options: Vec<String>,
-        /// The strongest case against the suggestion, when recorded.
-        against: Option<String>,
-        /// Whether an option is hard to undo, so the operator's instinct comes first.
-        hard: bool,
     },
     /// A settled node flagged by the ledger, shown before any question or seed.
     Review {
@@ -237,37 +229,39 @@ pub fn read(session: &Path) -> Result<Shaping, String> {
 
 /// Include the retry checkout in the same reading, so Shape uses the source it displays.
 pub(crate) fn read_with_base(session: &Path) -> Result<(Shaping, Option<Base>), String> {
-    let standing = ready::standing(session)?;
-    let mut shaping = classify(&standing.json, &standing.status);
+    let mut standing = ready::standing(session)?;
+    let retry = standing.retry.take();
+    Ok((from_standing(standing), retry))
+}
+
+/// Project the contract and its matching checks from a single verified read. Opens no files.
+pub(super) fn from_standing(standing: ready::Standing) -> Shaping {
+    let mut shaping = classify(&standing.json, &standing.status, standing.stand);
     shaping.ready_target = standing.target;
     shaping.confirmation = ledger::confirmation_summary(&standing.ledger);
     shaping.deferred = standing.deferred;
     shaping.confirmation_note = standing.note.map(Into::into);
-    if matches!(shaping.stage, Shaped::Ready { .. })
-        && let Ok(records) = ledger::read_checks(session)
-    {
-        shaping.signoff = ledger::human_signoff(&records);
+    if let Some(checks) = &standing.checks {
+        shaping.signoff = ledger::human_signoff(&checks.records);
     }
     if let Shaped::Drafted { text, revision } = &mut shaping.stage {
-        *text =
-            crate::seed_me::files::read_seed_text(&session.join(crate::seed_me::files::SEED)).ok();
+        *text = standing
+            .seed_bytes
+            .and_then(|bytes| String::from_utf8(bytes).ok());
         if let (Some(seed), Some(revision)) = (text.as_ref(), revision.as_ref()) {
-            if let Ok(records) = ledger::read_checks(session)
-                && ledger::checks_block(&records).is_ok_and(|block| seed.contains(&block))
-            {
-                shaping.signoff = ledger::human_signoff(&records);
-                shaping.checks = ledger::draft_checks(&records).collect();
+            if let Some(checks) = &standing.checks {
+                shaping.checks = ledger::draft_checks(&checks.records).collect();
             }
             shaping.teach_back = ledger::teach_back_report(&standing.ledger, revision, seed);
             shaping.review = ledger::completion_review(&standing.ledger, revision, seed);
         }
     }
-    Ok((shaping, standing.retry))
+    shaping
 }
 
 /// Where the seed stands, from the ledger and its verified `status`. An open question comes
 /// before a seed, so a reopened decision is never hidden behind an older draft.
-fn classify(ledger: &Value, status: &Value) -> Shaping {
+fn classify(ledger: &Value, status: &Value, stand: Stand) -> Shaping {
     let text = |value: &Value, key: &str| {
         value
             .get(key)
@@ -328,7 +322,7 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
         review: None,
         signoff: None,
     };
-    let stage = match ready::stand(ledger, status) {
+    let stage = match stand {
         Stand::Unknown(what) => Shaped::Unknown { what: what.into() },
         Stand::Ended(status) => Shaped::Ended { status },
         Stand::Ready { revision, ended } => Shaped::Ready { revision, ended },
@@ -376,22 +370,10 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
                 .iter()
                 .find(|n| text(n, "id").as_deref() == Some(&id))
                 .unwrap_or(&Value::Null);
-            let asked = text(node, "question")
-                .or_else(|| text(node, "gate"))
-                .unwrap_or_default();
-            // Options and the case against are lines Tinkery adds under the ask; see `answering::Ask`.
-            let (mut ask, mut options, mut against) = (Vec::new(), Vec::new(), None);
-            for line in asked.lines() {
-                if OPTION_LABELS.iter().any(|l| line.starts_with(l)) {
-                    options.push(line.to_owned());
-                } else if let Some(case) = line.strip_prefix(AGAINST) {
-                    against = Some(case.to_owned());
-                } else {
-                    ask.push(line);
-                }
-            }
-            let ask = ask.join("\n");
-            let hard = options.iter().any(|o| Undo::of_line(o) == Some(Undo::Hard));
+            let question = match ledger::read_question(node) {
+                Ok(question) => question,
+                Err(what) => return shaping(goal, Shaped::Unknown { what }),
+            };
             let found = std::iter::once(node)
                 .chain(
                     node["supported_by"]
@@ -412,12 +394,9 @@ fn classify(ledger: &Value, status: &Value) -> Shaping {
                 gate: text(node, "gate").unwrap_or_default(),
                 title: text(node, "label").unwrap_or_else(|| id.clone()),
                 id,
-                ask,
+                question,
                 found,
                 suggestion: text(node, "recommendation"),
-                options,
-                against,
-                hard,
             }
         }
     };
@@ -490,6 +469,10 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    fn classify(ledger: &Value, status: &Value) -> Shaping {
+        super::classify(ledger, status, ready::stand(ledger, status))
+    }
+
     fn ledger() -> Value {
         json!({"goal": "TEST goal\nWhy: it matters.", "nodes": [
             {"id": "goal", "kind": "decision", "status": "settled"},
@@ -533,15 +516,16 @@ mod tests {
                 id: "storage".into(),
                 gate: "storage choice".into(),
                 title: "Where records live".into(),
-                ask: "Keep records local or synced?".into(),
+                question: ledger::QuestionView {
+                    ask: "Keep records local or synced?".into(),
+                    options: vec![],
+                    against: None,
+                },
                 found: vec![
                     "README.md:3 says local only".into(),
                     "no sync client found".into()
                 ],
                 suggestion: Some("Local, matching the README.".into()),
-                options: vec![],
-                against: None,
-                hard: false,
             }
         );
         let mut bare = ledger();
@@ -555,12 +539,13 @@ mod tests {
                 id: "storage".into(),
                 gate: "storage choice".into(),
                 title: "storage".into(),
-                ask: "storage choice".into(),
+                question: ledger::QuestionView {
+                    ask: "storage choice".into(),
+                    options: vec![],
+                    against: None,
+                },
                 found: vec![],
                 suggestion: None,
-                options: vec![],
-                against: None,
-                hard: false,
             }
         );
     }

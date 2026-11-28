@@ -878,20 +878,26 @@ The [drafting prompt](../../src/shape/prompt.txt) offers options only for a genu
 with supported trade-offs and undo costs. Compatible properties or unknown costs use the
 existing question without options; the unresolved operator decision still gets asked.
 
-A question reply may give exactly two options, each with its trade-off and undo cost (`cheap`,
-`moderate` or `hard`), the strongest case against the suggestion, and a confidence. Anything
-else gives no options. The ledger has no options field, so Tinkery records them as
-`Option A:`/`Option B:` lines, then `Against my suggestion:`, under the question text, and reads them back from there.
-The ledger has no separate confidence field. Reply confidence is not stored or shown;
-Shape renders the recorded suggestion, not the transient reply. No schema field is added.
-None of the options or case against reaches the seed.
+A question can omit options or give an empty list. An offer must contain exactly two choices.
+Each choice needs a trade-off and an undo cost of `cheap`, `moderate` or `hard`.
+Shape refuses a malformed offer before saving the question, its findings or its suggestion.
+A previous answer saved in the same step stays saved.
+
+Shape stores the literal question apart from the choices, their costs and the optional case against.
+The screen and `seed show` read the same record. The command keeps its existing option display strings.
+Changing a display label cannot change a new question’s undo cost. Confidence stays out of the record.
+The Tink Contract excludes the options and case against.
+
+Older ledgers stored options inside the question text. Only the compatibility reader interprets that format.
+Reading an old question preserves its stored bytes and any confirmation that covers them.
+Earlier Tinkery releases cannot read decisions that use the new field.
 
 - When either option is `hard`, The instinct-first rule applies: the question is recorded
   without its recommendation, and Shape shows the question and its finding with
   `This is hard to undo, so what's your instinct? F1 shows the options and my suggestion.`
 - F1's **Show the options and suggestion** records the withheld suggestion through `publish`, then shows the options, the case
   against and the suggestion. The withheld suggestion lives only in this run; after a restart it
-  shows the options and says no suggestion was kept.
+  shows the options and says no suggestion was kept. A headless step discards the withheld suggestion when it exits.
 - Cheap and moderate questions show everything at once.
 
 ### Probes
@@ -996,6 +1002,8 @@ tinkery [options] seed step DIR look|delegate|answer WORDS|answer --relayed FILE
   was shown it. It calls no model and confirms no seed.
 - `show` prints the goal, the ledger version, the open questions and the one current thing as JSON:
   a question with its findings and suggestion, a draft with its text and SHA-256, or a ready seed.
+  The screen and command read one published revision for the ledger, contract text and matching checks.
+  If a writer is publishing a change, reopen the screen or repeat the command after it finishes.
   `decided_without_you` lists each settled answer whose authority is not `user`, with that
   authority, then each assumed default as `assumed`. `gray` lists each decision in the ledger,
   asked or added by a change to the draft, that the operator has not answered in their own words: open, or settled or deferred with any

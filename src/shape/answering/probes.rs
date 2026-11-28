@@ -49,7 +49,7 @@ pub fn probe(session: &Path, expected: u64) -> Result<Option<u64>, Refusal> {
             "id": id, "kind": "decision", "status": "unresolved", "prerequisites": [],
             "evidence": [], "owner": "User",
             "gate": "A real example to check against, or your word that there is none",
-            "label": "Probe: real sample", "question": question,
+            "label": "Probe: real sample", "question": question, "choices": null,
         });
         (node, "Shape asks the operator for a real sample.")
     } else if !asked(UNOBSERVED.0)
@@ -65,7 +65,7 @@ pub fn probe(session: &Path, expected: u64) -> Result<Option<u64>, Refusal> {
             "id": id, "kind": "decision", "status": "unresolved", "prerequisites": [],
             "evidence": [], "owner": "User",
             "gate": "Who needs this, or your choice to build it with no observed need",
-            "label": "Unobserved need", "question": question,
+            "label": "Unobserved need", "question": question, "choices": null,
         });
         (
             node,
@@ -81,7 +81,7 @@ pub fn probe(session: &Path, expected: u64) -> Result<Option<u64>, Refusal> {
         let node = json!({
             "id": id, "kind": "decision", "status": "unresolved", "prerequisites": [],
             "evidence": [], "owner": "User", "gate": "Your own answer to the pre-mortem, or skip it",
-            "label": "Probe: pre-mortem", "question": question,
+            "label": "Probe: pre-mortem", "question": question, "choices": null,
         });
         (node, "Shape puts the pre-mortem probe to the operator.")
     } else {

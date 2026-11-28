@@ -50,14 +50,7 @@ pub(crate) fn confirmed(run: &sdlc::Run) -> Result<ReadySeed, Goal> {
         .map_err(|_| Goal::Unknown)?
         .as_ref()
         .ok_or(Goal::NoSeed)?;
-    let matched = || {
-        if !matches(seed, seed.source()).ok()? {
-            return None;
-        }
-        let ready = ready::confirmed(seed.source()).ok()?;
-        matches(seed, seed.source()).ok()?.then_some(ready)
-    };
-    matched().ok_or(Goal::Unknown)
+    ready::confirmed(seed).map_err(|_| Goal::Unknown)
 }
 
 /// Read the named checkout once with the shared deadline and cancellation; missing records or

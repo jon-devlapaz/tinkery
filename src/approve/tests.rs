@@ -5,6 +5,8 @@ use ratatui::{Terminal, backend::TestBackend};
 fn seed(goal: &str) -> Reading {
     Reading {
         seed: ReadySeed {
+            gray: vec![],
+            run_name: None,
             target: None,
             goal: goal.into(),
             revision: "r1".into(),

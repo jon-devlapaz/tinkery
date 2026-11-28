@@ -23,8 +23,8 @@ Failed discovery and unreadable seeds stay unavailable;
 an incomplete scan cannot claim there are no waiting seeds.
 
 `seed_me::ready` owns the handoff reading: exact confirmed goal, revision and the
-seed's Acceptance criteria section, including original whitespace. It uses the
-same ledger verification as Shape and owns the one canonical, shell-quoted intake command.
+seed's Acceptance criteria section, including original whitespace. It uses the same verified contract revision as Shape for the acceptance section and the
+list of gray decisions. It owns the one canonical, shell-quoted intake command.
 Seed and ledger bytes are checked before and after verification; observed changes
 refuse the reading. This is a snapshot, not a live freshness claim. Return to the
 menu and reopen to read again. Unsafe terminal controls are escaped only for display.
@@ -182,8 +182,9 @@ other door or radius, a date not in `YYYY-MM-DD` form or a blank reason refuses 
 Tink has a `gray` item, as `tinkery seed show` lists it; the refusal names each one, for the
 operator. The model pin and response cap must still match; the cap applies to each start. The
 review shows authority `operator, standing grant, relayed`, the date, the agent's class and
-"Gray items: none". A panel for an existing run has not read the ledger, so it says the gray
-check runs at each start, launch and resume. The record cites the grant words, date and class. Stop works as for any worker.
+"Gray items: none" when the verified list is empty. A worker review pins the session, ledger version
+and contract hash. Start, launch, resume and a new step require that same verified revision.
+If it changes, open the review again. Stop remains available. The record cites the grant words, date and class.
 Missing, unreadable, malformed or mismatched authorization refuses before run creation
 for F2 and before any SDLC mutation for `l` and `u`. An unreadable run seed also refuses.
 The review shows the verbatim words, the declared agent operator and authority
