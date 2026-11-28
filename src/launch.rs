@@ -446,6 +446,10 @@ impl Launch {
         if starts && options.home {
             return Err("seed start runs without a screen; drop --home".into());
         }
+        // --snapshot promises no writes and no model requests; every seed write acts.
+        if options.snapshot && options.seed.is_some() {
+            return Err("seed new, seed step and seed start act; drop --snapshot".into());
+        }
         if !home && sdlc_root.is_some() {
             return Err("--sdlc-root requires --home or seed start".into());
         }

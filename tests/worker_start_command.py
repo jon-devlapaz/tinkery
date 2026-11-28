@@ -116,7 +116,15 @@ def needs_allowance_and_checkout():
              '--seed-session-root', str(fixture.sessions), 'seed', 'start', str(fixture.session)],
             cwd=fixture.project, env=fixture.env, capture_output=True, text=True, timeout=60)
         assert rootless.returncode != 0 and 'needs --sdlc-root' in rootless.stderr, rootless
-        assert not fixture.mutations()
+        # --snapshot promises no model requests, so it never starts a worker.
+        snapshot = subprocess.run(
+            [str(REPO / 'target/debug/tinkery'), '--operator', 'agent', '--snapshot',
+             '--sdlc-root', str(fixture.project), '--seed-session-root', str(fixture.sessions),
+             '--worker-authorization', str(path), '--worker-model', MODEL,
+             '--worker-responses', str(CAP), 'seed', 'start', str(fixture.session)],
+            cwd=fixture.project, env=fixture.env, capture_output=True, text=True, timeout=60)
+        assert snapshot.returncode != 0 and 'drop --snapshot' in snapshot.stderr, snapshot
+        assert not fixture.mutations() and not fixture.admissions(), 'a --snapshot start created work'
         # A second start of the same Tink is refused, as Approve refuses it.
         first = command(fixture, path)
         assert first.returncode == 0, first
@@ -126,7 +134,26 @@ def needs_allowance_and_checkout():
     print('PASS seed start needs an allowance, a declaration and a checkout, and starts once')
 
 
+def a_human_types_the_start():
+    """A human's typed `seed start` is their own start: no relayed words and no screen."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-start-human-') as directory:
+        fixture = Fixture(Path(directory).resolve())
+        result = command(fixture, None, operator='human')
+        assert result.returncode == 0, result
+        started = json.loads(result.stdout)
+        assert started['run'] == 'test-worker' and started['model'] == MODEL, started
+        assert 'Tink Contract SHA-256:' in result.stderr, 'the F2 disclosure was not shown'
+        assert len(fixture.admissions()) == 1, fixture.admissions()
+    # The same command from an agent without relayed words starts nothing.
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-start-human-') as directory:
+        fixture = Fixture(Path(directory).resolve())
+        agent = command(fixture, None)
+        assert agent.returncode != 0 and not fixture.mutations() and not fixture.admissions(), agent
+    print('PASS seed start by a human needs only the typed command; an agent needs relayed words')
+
+
 if __name__ == '__main__':
     needs_allowance_and_checkout()
+    a_human_types_the_start()
     for case in (*ALLOWED, *REFUSED):
         same_as_screen(case)
