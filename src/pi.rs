@@ -309,6 +309,7 @@ impl Drafting {
                 read_only_tools: true,
                 folder: None,
                 timeout: Duration::from_secs(300),
+                keep: None,
             },
             budget,
         })
@@ -335,7 +336,14 @@ pub struct Call {
     pub folder: Option<PathBuf>,
     /// The request stops after this long.
     pub timeout: Duration,
+    /// Where Pi's session files stay after the request, one folder per request named from
+    /// [`KEPT`], so a trace can link them. `None`, and every Claude Code request, keeps nothing.
+    /// The caller owns the folder and its retention.
+    pub keep: Option<PathBuf>,
 }
+
+/// The start of every folder a kept request makes. A retention prune deletes nothing else.
+pub(crate) const KEPT: &str = "pi-";
 
 /// A prompt file as the model reads it. Notes (lines starting with `#`) are dropped, lines in a
 /// paragraph are joined with one space, and each blank line becomes one newline.
@@ -456,13 +464,29 @@ impl Call {
             return Err("Request cancelled.".into());
         }
         let (slot, cap) = budget.reserve(label)?;
-        let sessions = tempfile::Builder::new()
-            .prefix("tinkery-pi-sessions-")
-            .tempdir()
-            .map_err(|error| format!("Cannot prepare Pi's session folder: {error}"));
+        let keep = self.keep.as_ref().filter(|_| self.harness == Harness::Pi);
+        let sessions = match keep {
+            Some(folder) => std::fs::create_dir_all(folder).and_then(|()| {
+                tempfile::Builder::new()
+                    .prefix(&format!(
+                        "{KEPT}{}-",
+                        crate::calendar::utc(std::time::SystemTime::now(), '-').0
+                    ))
+                    .tempdir_in(folder)
+            }),
+            None => tempfile::Builder::new()
+                .prefix("tinkery-pi-sessions-")
+                .tempdir(),
+        }
+        .map_err(|error| format!("Cannot prepare Pi's session folder: {error}"));
         let mut responses = 0;
-        let result = sessions
-            .and_then(|dir| self.run(input, prompt, cancelled, cap, dir.path(), &mut responses));
+        let result = sessions.and_then(|dir| {
+            let result = self.run(input, prompt, cancelled, cap, dir.path(), &mut responses);
+            if keep.is_some() {
+                let _ = dir.keep();
+            }
+            result
+        });
         budget.finish(slot, &result, responses);
         result
     }
@@ -566,7 +590,8 @@ impl Call {
     }
 
     /// Pi's command line, and the folder guard it must keep until Pi exits. Pi records its
-    /// session in `sessions`, a fresh folder Tinkery deletes, so its responses can be counted.
+    /// session in `sessions`, a fresh folder, so its responses can be counted. Tinkery deletes
+    /// the folder unless the call keeps it.
     fn pi(&self, sessions: &Path) -> Result<(Command, Held), String> {
         let mut command = Command::new(&self.program);
         command.args(["--print", "--session-dir"]).arg(sessions);
@@ -845,6 +870,7 @@ mod tests {
             read_only_tools: false,
             folder: Some(fixture.root().into()),
             timeout: Duration::from_secs(10),
+            keep: None,
         };
         let budget = CallBudget::new(1);
         let result = call.complete(
@@ -898,7 +924,52 @@ mod tests {
             read_only_tools: false,
             folder: None,
             timeout: Duration::from_secs(20),
+            keep: None,
         }
+    }
+
+    #[test]
+    fn a_kept_request_leaves_its_session_in_its_own_folder_and_no_keep_leaves_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let keep = dir.path().join("TEST-session/transcripts");
+        let budget = CallBudget::new(2);
+        let call = Call {
+            keep: Some(keep.clone()),
+            ..counting_pi(dir.path(), 1, true, 0)
+        };
+        let ask = |call: &Call| {
+            call.complete(
+                &budget,
+                "TEST",
+                b"TEST".to_vec(),
+                "TEST".into(),
+                &AtomicBool::new(false),
+            )
+            .unwrap()
+        };
+        assert_eq!(ask(&call), "TEST reply\n");
+        assert_eq!(
+            budget.used(),
+            1,
+            "a kept session still counts its responses"
+        );
+        let made: Vec<_> = std::fs::read_dir(&keep)
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .collect();
+        assert_eq!(made.len(), 1, "{made:?}");
+        let name = made[0].file_name().unwrap().to_str().unwrap();
+        assert!(name.starts_with(KEPT), "{name}");
+        assert!(
+            made[0].join("TEST.jsonl").is_file(),
+            "the request's session must stay"
+        );
+        ask(&counting_pi(dir.path(), 1, true, 0));
+        assert_eq!(
+            std::fs::read_dir(&keep).unwrap().count(),
+            1,
+            "a request without keep kept a folder"
+        );
     }
 
     #[test]
@@ -989,6 +1060,7 @@ mod tests {
             read_only_tools: false,
             folder: None,
             timeout: Duration::from_secs(10),
+            keep: None,
         };
         let budget = CallBudget::new(4);
         let request = || {
@@ -1042,6 +1114,7 @@ mod tests {
             read_only_tools: true,
             folder: None,
             timeout: Duration::from_secs(1),
+            keep: None,
         };
         let budget = CallBudget::new(1);
         let words = vec![b'x'; REQUEST_LIMIT + 1];
@@ -1120,6 +1193,7 @@ time.sleep(10)
                 read_only_tools: true,
                 folder: Some(directory.path().into()),
                 timeout: Duration::from_secs(3),
+                keep: None,
             };
             let cancelled = Arc::new(AtomicBool::new(false));
             let ready = {
@@ -1250,6 +1324,7 @@ sys.exit({exit})
                 read_only_tools,
                 folder: Some(self.directory.path().into()),
                 timeout: Duration::from_secs(10),
+                keep: None,
             }
         }
 

@@ -13,6 +13,8 @@ import tempfile
 import session_fixture as helper
 import test_launch as subprocess
 from shape_terminal import make, seed
+from seed_command import Run
+from shape_answer_terminal import QUESTION
 
 REPO = Path(__file__).resolve().parents[1]
 BINARY = REPO / 'target/debug/tinkery'
@@ -51,7 +53,8 @@ def run_folder(checkout, session, transcripts, slug='TEST-run', run_id=RUN_ID, f
     source = session / 'seed-contract.md'
     (run / 'run.json').write_text(json.dumps({'schema': 1, 'run_id': run_id, 'seed_contract': {
         'path': f'runs/{slug}/seed-contract.md', 'source': str(source),
-        'sha256': hashlib.sha256(source.read_bytes()).hexdigest()}}))
+        'sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+        'confirmation': json.loads((session / 'seed-confirmation.json').read_text())}}))
     (run / 'decisions/3-1764291600000000000-aa.json').write_text(json.dumps({
         'decision': 'approved', 'reviewer': 'TEST reviewer', 'source': 'TEST gate', 'reason': 'TEST reason'}))
     (run / 'worker-authorization.jsonl').write_text(json.dumps({
@@ -202,7 +205,74 @@ def missing_transcripts():
     return unknown
 
 
+def kept_shape_transcript():
+    """A real `seed step` with a stub Pi keeps Pi's session under the session, and the trace links it."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-trace-shape-') as directory:
+        reply = {'TEST_SESSION': ['stop'], 'linger': 0, 'reply': QUESTION}
+        run = Run(directory, [reply], agent=True)
+        session = Path(run.ok('new', 'goal.txt', 'TEST tracing', drafting=False).strip())
+        run.ok('step', str(session), 'look')
+        run.ok('step', str(session), 'answer', 'TEST eval: no sample')
+        run.ok('step', str(session), 'answer', 'TEST nobody asked; build it to learn')
+        assert not (session / 'transcripts').exists(), 'a probe with no model kept a transcript'
+        run.ok('step', str(session), 'answer', 'skip')
+        assert len(run.calls()) == 1, run.calls()
+        kept = sorted((session / 'transcripts').glob('pi-*/TEST.jsonl'))
+        assert len(kept) == 1, sorted((session / 'transcripts').rglob('*'))
+        _, lines = trace(session, run.cwd, '--record-root', run.cwd / 'TEST-records')
+        shape = [line for line in lines if line['stage'] == 'shape' and line['name'] == 'model transcript']
+        assert [(line['kind'], line['source']['path']) for line in shape] == [('event', str(kept[0]))], shape
+        assert shape[0]['source']['sha256'] == hashlib.sha256(kept[0].read_bytes()).hexdigest()
+    print('seed trace Shape transcript: a real seed step kept 1 Pi session under the session; the trace links it by hash')
+
+
+def run_order():
+    """A run's timed lines read in time order; untimed lines keep their stage's place."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-trace-order-') as directory:
+        root = Path(directory).resolve()
+        checkout = root / 'TEST-checkout'
+        session = make(root / 'TEST-sessions', 'ready', goal=GOAL, question=False)
+        seed(session, confirm=True)
+        run = run_folder(checkout, session, transcripts=True)
+        # The gate is decided after the PR is recorded, so it reads after the PR.
+        gate = next((run / 'decisions').iterdir())
+        gate.rename(gate.with_name('5-1764291850000000000-aa.json'))
+        _, lines = trace(session, root, '--record-root', root / 'TEST-records', '--sdlc-root', checkout)
+        timed = [(line['stage'], line['name']) for line in lines if line.get('run') and line['at']]
+        assert timed == [('worker', 'step'), ('pr', 'pull request'), ('gate', 'decision'), ('taste', 'verdict')], timed
+        named = [(line['stage'], line['name']) for line in lines if line.get('run')]
+        assert named.index(('worker', 'authorization')) < named.index(('verify', 'verification')), named
+    print('seed trace order: timed run lines in time order, untimed lines in place')
+
+
+def moved_session():
+    """An archived session still joins its run by the session identity intake recorded."""
+    with tempfile.TemporaryDirectory(prefix='tinkery-TEST-trace-moved-') as directory:
+        root = Path(directory).resolve()
+        checkout = root / 'TEST-checkout'
+        session = make(root / 'TEST-sessions', 'ready', goal=GOAL, question=False)
+        seed(session, confirm=True)
+        run_folder(checkout, session, transcripts=True)
+        archived = root / 'TEST-archive' / session.name
+        archived.parent.mkdir()
+        session.rename(archived)
+        _, lines = trace(archived, root, '--record-root', root / 'TEST-records', '--sdlc-root', checkout)
+        runs = [line for line in lines if line['name'] == 'run']
+        assert [(r['run'], r['seed_matches'], r['seed_source']) for r in runs] == [
+            ('TEST-run', True, str(session / 'seed-contract.md'))], runs
+        assert ('unknown', 'run', 'runs') not in steps(lines)
+        # Another session never takes this run, even with the same goal.
+        other = make(root / 'TEST-sessions', 'ready', goal=GOAL, question=False)
+        seed(other, confirm=True)
+        _, lines = trace(other, root, '--record-root', root / 'TEST-records', '--sdlc-root', checkout)
+        assert ('unknown', 'run', 'runs') in steps(lines), steps(lines)
+    print('seed trace moved session: an archived session still joins its run by session_id; another session does not')
+
+
 if __name__ == '__main__':
+    moved_session()
+    kept_shape_transcript()
+    run_order()
     full_run()
     retry()
     missing_transcripts()

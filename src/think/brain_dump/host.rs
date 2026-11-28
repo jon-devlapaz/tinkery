@@ -135,6 +135,7 @@ impl ModelHost {
             read_only_tools: false,
             folder: None,
             timeout: self.timeout,
+            keep: None,
         }
         .complete(&self.budget, kind.label(), input, prompt, cancelled);
         *self.active_call.lock().unwrap() = None;

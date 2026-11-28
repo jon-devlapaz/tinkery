@@ -11,6 +11,58 @@ pub(crate) const SEED: &str = "seed-contract.md";
 pub(crate) const CHECKS: &str = "seed-checks.json";
 /// The receipt that binds a confirmed Tink Contract.
 pub(crate) const CONFIRMATION: &str = "seed-confirmation.json";
+/// Shape's kept model sessions, one folder per request. Local only, never part of the handoff.
+pub(crate) const TRANSCRIPTS: &str = "transcripts";
+/// How many days a kept model session stays before [`prune_transcripts`] deletes it.
+pub(crate) const KEEP_DAYS: u64 = 90;
+
+/// The folder where a model request for `session` keeps its Pi session, after
+/// [`prune_transcripts`] has run over every session beside it.
+pub(crate) fn keep_transcripts(session: &Path) -> std::path::PathBuf {
+    if let Some(sessions) = session.parent() {
+        prune_transcripts(sessions);
+    }
+    session.join(TRANSCRIPTS)
+}
+
+/// Delete every kept model session folder older than [`KEEP_DAYS`] in any session under
+/// `sessions`: only `<session>/transcripts/<pi-…>` real folders, by their last change. Never a
+/// file, a link, another name or anything outside those folders; never follows a link. A folder
+/// that cannot be read or removed stays.
+pub(crate) fn prune_transcripts(sessions: &Path) {
+    let Some(cutoff) = std::time::SystemTime::now()
+        .checked_sub(std::time::Duration::from_secs(KEEP_DAYS * 24 * 60 * 60))
+    else {
+        return;
+    };
+    let folders = |path: &Path| {
+        std::fs::read_dir(path)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
+            .collect::<Vec<_>>()
+    };
+    for session in folders(sessions) {
+        let transcripts = session.path().join(TRANSCRIPTS);
+        if !std::fs::symlink_metadata(&transcripts).is_ok_and(|meta| meta.is_dir()) {
+            continue;
+        }
+        for kept in folders(&transcripts) {
+            let old = kept
+                .file_name()
+                .to_str()
+                .is_some_and(|name| name.starts_with(crate::pi::KEPT))
+                && kept
+                    .metadata()
+                    .and_then(|meta| meta.modified())
+                    .is_ok_and(|changed| changed < cutoff);
+            if old {
+                let _ = std::fs::remove_dir_all(kept.path());
+            }
+        }
+    }
+}
 
 /// The first line of an unconfirmed Tink Contract.
 pub(crate) const DRAFT: &str = "status: draft";
@@ -154,4 +206,82 @@ pub(crate) fn read_seed(path: &Path) -> std::io::Result<Vec<u8>> {
 /// Read regular seed bytes as UTF-8, refusing invalid text without changing the bytes.
 pub(crate) fn read_seed_text(path: &Path) -> std::io::Result<String> {
     super::read_regular_text(path, "original Tink Contract")
+}
+
+#[cfg(test)]
+mod prune_tests {
+    use super::*;
+    use std::time::{Duration, SystemTime};
+
+    fn age(path: &Path, when: SystemTime) {
+        let path = std::ffi::CString::new(path.as_os_str().as_encoded_bytes()).unwrap();
+        let secs = when
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as libc::time_t;
+        let times = [libc::timespec {
+            tv_sec: secs,
+            tv_nsec: 0,
+        }; 2];
+        // SAFETY: a valid C path and two valid times; this sets only that entry's own times.
+        let set = unsafe {
+            libc::utimensat(
+                libc::AT_FDCWD,
+                path.as_ptr(),
+                times.as_ptr(),
+                libc::AT_SYMLINK_NOFOLLOW,
+            )
+        };
+        assert_eq!(set, 0);
+    }
+
+    #[test]
+    fn prune_deletes_only_old_kept_folders_in_every_sessions_transcripts() {
+        let dir = tempfile::tempdir().unwrap();
+        let (sessions, outside) = (
+            dir.path().join("TEST-sessions"),
+            dir.path().join("TEST-outside"),
+        );
+        let old = SystemTime::now() - Duration::from_secs((KEEP_DAYS + 1) * 24 * 60 * 60);
+        let (mine, sibling) = (
+            sessions.join("session-TEST-a"),
+            sessions.join("session-TEST-b"),
+        );
+        let made = [
+            mine.join("transcripts/pi-TEST-old"),
+            mine.join("transcripts/pi-TEST-recent"),
+            mine.join("transcripts/TEST-old-unnamed"),
+            mine.join("pi-TEST-old-not-in-transcripts"),
+            sibling.join("transcripts/pi-TEST-old-sibling"),
+            outside.join("pi-TEST-old-outside"),
+            outside.join("transcripts/pi-TEST-old-behind-link"),
+        ];
+        for folder in &made {
+            std::fs::create_dir_all(folder).unwrap();
+        }
+        std::fs::write(mine.join("transcripts/pi-TEST-old-file"), "TEST").unwrap();
+        std::os::unix::fs::symlink(&outside, mine.join("transcripts/pi-TEST-old-link")).unwrap();
+        std::os::unix::fs::symlink(&outside, sessions.join("session-TEST-link")).unwrap();
+        for path in made.iter().filter(|p| !p.ends_with("pi-TEST-recent")) {
+            age(path, old);
+        }
+        for path in [
+            "transcripts/pi-TEST-old-file",
+            "transcripts/pi-TEST-old-link",
+        ] {
+            age(&mine.join(path), old);
+        }
+        let kept = keep_transcripts(&mine);
+        assert_eq!(kept, mine.join(TRANSCRIPTS));
+        assert!(!made[0].exists(), "this session's old kept folder must go");
+        assert!(
+            !made[4].exists(),
+            "a sibling session's old kept folder must go"
+        );
+        for stays in [&made[1], &made[2], &made[3], &made[5], &made[6]] {
+            assert!(stays.is_dir(), "{} must stay", stays.display());
+        }
+        assert!(mine.join("transcripts/pi-TEST-old-file").is_file());
+        assert!(std::fs::symlink_metadata(mine.join("transcripts/pi-TEST-old-link")).is_ok());
+    }
 }

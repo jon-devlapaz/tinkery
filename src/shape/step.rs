@@ -814,6 +814,7 @@ fn look(
     }
     let call = Call {
         folder: Some(folder.to_path_buf()),
+        keep: Some(crate::seed_me::files::keep_transcripts(session)),
         ..agent.drafting.call.clone()
     };
     let contract = answering::contract().map_err(refused(answer_saved))?;

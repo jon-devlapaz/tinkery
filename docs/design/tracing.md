@@ -212,8 +212,10 @@ authorization, steps and transcripts, verify items as scores, review, PR, Taste 
 Each line has `session`, `kind` (`event`, `score` or `unknown`), `stage`, `name`, `at` and `actor`, plus the
 record's own fields. Its format is `tinkery.trace/1`, named on the first line.
 
-- **Runs.** A run belongs to the session when its `seed_contract.source` is the session's `seed-contract.md`.
-  `seed_matches` says whether the bytes still match the intake hash. Runs come from `--sdlc-root`, else from the
+- **Runs.** A run belongs to the session when its intake recorded this `session_id`
+  (`seed_contract.confirmation.session_id`), so a moved or archived session still finds its runs. A run with no recorded
+  identity joins by its `seed_contract.source` path. `seed_matches` says whether the session's seed bytes still match the
+  intake hash, and `seed_source` reports the recorded path. Runs come from `--sdlc-root`, else from the
   repository that the Think record names.
 - **Retries.** A retry is a new session. Its goal evidence holds the Taste rejection words and the rejected
   `run_id` (`src/seed_me/retry.rs`). The trace prints both, then the prior session, or `unknown` when the run is
@@ -221,15 +223,32 @@ record's own fields. Its format is `tinkery.trace/1`, named on the first line.
 - **Content.** Operator words are verbatim. A transcript, ledger, log or review file is only a path and SHA-256.
   A Pi session file is opened only to read its first line, the header that names its session.
   A verify `error` is tink-sdlc's own message (the failed check's argv and a pointer to its log), never check output.
-- **Unknown lines today:** Think model transcript, Shape model transcript, driver session, and any worker
-  transcript whose step records no session folder. These are the scope of slice 2.
+- **Unknown lines today:** Think model transcript, driver session, and any worker transcript whose step records no
+  session folder. A Shape model transcript is `unknown` only for older sessions or a Claude Code harness.
+
+### Second slice
+
+**Shipped:** Shape keeps Pi's session files. Each Shape or teach-back request on Pi writes into its own
+`<session>/transcripts/pi-<UTC time>-<random>/` folder, and the folder stays. The trace links each file there by path and
+SHA-256. Before each kept request, Tinkery deletes every `pi-` folder in any session's `transcripts` folder whose last
+change is more than 90 days old (`KEEP_DAYS` in `src/seed_me/files.rs`), so a goal that is never shaped again is
+pruned too. It deletes nothing else: no file, no link, no other name, and nothing outside those folders. It never
+follows a link. Claude Code requests still keep nothing.
+
+A run's timed lines now read in time order. An untimed line keeps its stage's place.
+
+Not yet built:
+
+- Think transcripts. Think drafts before any session folder exists, so it has no place to keep them yet.
+- The driver session link. No command records the driver's session ID today.
+- One worker transcript copy. Pi Durable's mirror and `.pi.log` belong to tink-sdlc.
 
 Narrower than first proposed: one session per call on stdout instead of an export folder, no `coding.csv`, and no
 OpenTelemetry names yet. `gen_ai.evaluation.result` is still unchecked, so no line uses it.
 
 ### Later slices, each a separate decision
 
-2. Keep Shape and Think model transcripts in the session folder instead of deleting them.
+2. Keep Think model transcripts, link the driver session, and keep one worker transcript copy.
 3. Move Measure and cap advice onto the trace reader, then delete the `.pi.log` emit and both parsers.
 4. A structured review-findings format in tink-sdlc, so findings become scores.
 5. The coding sheet's count command.
