@@ -202,12 +202,14 @@ A read-only command writes nothing. A command that acts makes one explicit chang
 | `tinkery [options] seed new GOAL_FILE [ORIGIN]` | Acts: saves the file's words as a confirmed goal and prints the session folder. | None |
 | `tinkery [options] seed step DIR confirm DRAFT_SHA256` | Acts: confirms only the draft with that SHA-256. | None |
 | `tinkery [options] seed step DIR look\|delegate\|answer WORDS\|answer --relayed FILE` | Acts: takes one Shape step. | Needs `--shape-pi`, `--model` and an approved `--shape-budget` |
+| `tinkery --operator human\|agent --sdlc-root ROOT --worker-model PIN --worker-responses N [--worker-authorization FILE] seed start DIR` | Acts: does what F2 does for the Tink in DIR, then prints the worker as JSON. | Starts a worker that sends the Tink to its model within the response cap |
 
-[Shape without a screen](design/shape-and-handoff.md#without-a-screen) states what each `seed`
-command promises and refuses. No command starts a worker. A worker starts only from Approve's
-screen with F2, `l` or `u` ([start a worker](design/approve.md#start-a-worker)).
-A headless worker start is proposed in [#956](https://github.com/jon-devlapaz/tinkery/issues/956)
-and is not available.
+[Shape without a screen](design/shape-and-handoff.md#without-a-screen) states what each Shape
+`seed` command promises and refuses. [Start a worker](design/approve.md#start-a-worker) states
+it for `seed start`, which uses the same authorization and checks as F2. It prints F2's disclosure on stderr. It
+refuses what Approve refuses, and it starts a Tink only once. With `--operator agent`, it needs
+the operator's relayed words in `--worker-authorization FILE`, as F2 does. Launch, resume,
+verify, finish and stop still use the worker screen.
 
 This example makes no model calls. From the repository root, it builds once, then runs every
 command with a temporary TEST HOME and TEST roots, away from operator data and saved setup:
@@ -234,6 +236,11 @@ HOME="$test_root/home" "$tinkery" --operator agent seed step "$session" look
 # There is no draft to confirm.
 HOME="$test_root/home" "$tinkery" --operator agent seed step "$session" \
   confirm 0000000000000000000000000000000000000000000000000000000000000000
+# There is no confirmed Tink to start.
+mkdir "$test_root/project"
+HOME="$test_root/home" "$tinkery" --operator agent --seed-session-root "$test_root/sessions" \
+  --sdlc-root "$test_root/project" --worker-model test/model:off --worker-responses 1 \
+  seed start "$session"
 ```
 
 A real `look`, `answer` or `delegate` sends the goal to a model and can cost money. Run it

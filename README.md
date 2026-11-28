@@ -73,7 +73,7 @@ Copying a prompt authorizes none of them and starts no agent. Voice is local dic
   confirming), the options on a hard-to-undo question after your instinct, and ending a
   session, which asks once more. Tinkery owns the ledger, Tink Contract checks,
   confirmation, verification and ending; no viewer or network read is involved.
-  Without a screen, `tinkery seed` commands read intake JSON, save a goal's exact words or take one explicit step.
+  Without a screen, `tinkery seed` commands read intake JSON, save a goal's exact words, take one explicit step or start a confirmed Tink's worker as F2 does.
   [Headless commands](docs/terminal-setup.md#headless-commands) lists them, with runnable examples.
   With `--operator agent`, `answer --relayed FILE` records the operator's relayed words as their own answer, origin unverified.
   `tinkery seed show DIR` lists what was decided without you (answers not recorded as yours, and assumed defaults) and `gray`, the questions it asked that you have not answered;

@@ -162,7 +162,8 @@ const OPTIONS: [Opt; 19] = [
 /// How `seed` is used, for every refusal of its arguments.
 pub const SEED_USAGE: &str = "usage: tinkery seed status --json DIR | tinkery seed checks DIR | tinkery seed show DIR | \
     tinkery [options] seed new GOAL_FILE [ORIGIN] | \
-    tinkery [options] seed step DIR look|delegate|answer WORDS|answer --relayed FILE|confirm DRAFT_SHA256";
+    tinkery [options] seed step DIR look|delegate|answer WORDS|answer --relayed FILE|confirm DRAFT_SHA256 | \
+    tinkery [options] seed start DIR";
 
 /// The `--help` text, with one line per option from the same table that parses them.
 pub fn help() -> String {
@@ -172,7 +173,7 @@ pub fn help() -> String {
         .collect::<Vec<_>>()
         .join("\n");
     format!(
-        "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi [--harness pi|claude-code] --model MODEL\n       tinkery seed status --json DIR\n       tinkery seed checks DIR\n       tinkery [options] seed new GOAL_FILE [ORIGIN]\n       tinkery seed show DIR\n       tinkery [options] seed step DIR look|delegate|answer WORDS|answer --relayed FILE|confirm DRAFT_SHA256\n\nWithout a model, think is practice: replies are simulated and nothing leaves your machine.\nWith one, your words go to the model you chose and may cost money. Choose it with m on the menu\n(saved in ~/.config/tinkery/model.json for later launches) or with --shape-pi for one launch.\nNothing runs on its own. Only typing confirm or `seed new` saves a goal, and saving starts no work.\nInside, F2 runs the action the key bar names, F1 lists the rest by number, and Esc goes back.\n\n{options}\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
+        "Tinkery: a calm terminal front door for agentic work.\n\nUsage: tinkery [--home] [--no-color] [--snapshot]\n       tinkery --shape-pi [--harness pi|claude-code] --model MODEL\n       tinkery seed status --json DIR\n       tinkery seed checks DIR\n       tinkery [options] seed new GOAL_FILE [ORIGIN]\n       tinkery seed show DIR\n       tinkery [options] seed step DIR look|delegate|answer WORDS|answer --relayed FILE|confirm DRAFT_SHA256\n       tinkery --operator human|agent --sdlc-root ROOT --worker-model PIN --worker-responses N [--worker-authorization FILE] seed start DIR\n\nWithout a model, think is practice: replies are simulated and nothing leaves your machine.\nWith one, your words go to the model you chose and may cost money. Choose it with m on the menu\n(saved in ~/.config/tinkery/model.json for later launches) or with --shape-pi for one launch.\nNothing runs on its own. Only typing confirm or `seed new` saves a goal, and saving starts no work.\nInside, F2 runs the action the key bar names, F1 lists the rest by number, and Esc goes back.\n\n{options}\nTINKERY_NODE Node for local voice (otherwise found on PATH). Voice stays on your machine; installing it asks first."
     )
 }
 
@@ -182,7 +183,7 @@ pub enum Args {
     Help,
     /// `seed show`, `seed status` or `seed checks`: a read that needs no launch.
     SeedRead(Vec<String>),
-    /// Open Tinkery, or run `seed new` / `seed step`, with these options.
+    /// Open Tinkery, or run `seed new`, `seed step` or `seed start`, with these options.
     Run(Options),
 }
 
@@ -197,7 +198,7 @@ pub struct Options {
     pub no_color: bool,
     /// `--full-redraw`.
     pub full_redraw: bool,
-    /// `seed new` or `seed step` and its words, when given.
+    /// `seed new`, `seed step` or `seed start` and its words, when given.
     pub seed: Option<Vec<String>>,
     switches: Vec<&'static str>,
     values: Vec<(&'static str, String)>,
@@ -242,7 +243,10 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Args, String> {
         if arg == "seed" {
             let rest = args.by_ref().collect::<Vec<_>>();
             // Reads return here, before any launch setup can touch stored state.
-            if !matches!(rest.first().map(String::as_str), Some("new" | "step")) {
+            if !matches!(
+                rest.first().map(String::as_str),
+                Some("new" | "step" | "start")
+            ) {
                 return Ok(Args::SeedRead(rest));
             }
             options.seed = Some(rest);
@@ -433,16 +437,28 @@ impl Launch {
         let worker_responses = options.count("--worker-responses")?.unwrap_or(0);
         let worker_authorization = options.path("--worker-authorization");
         // Watch, Approve and Taste live in the home menu; Think alone would ignore their inputs.
-        if !options.home && sdlc_root.is_some() {
-            return Err("--sdlc-root requires --home".into());
+        // `seed start` is the one command that uses them without a screen.
+        let starts = options
+            .seed
+            .as_ref()
+            .is_some_and(|args| args.first().map(String::as_str) == Some("start"));
+        let home = options.home || starts;
+        if starts && options.home {
+            return Err("seed start runs without a screen; drop --home".into());
+        }
+        if !home && sdlc_root.is_some() {
+            return Err("--sdlc-root requires --home or seed start".into());
         }
         if codex_report.is_some() && (!options.home || sdlc_root.is_none()) {
             return Err("--codex-report requires --home and --sdlc-root".into());
         }
         if (worker_model.is_some() || worker_responses > 0 || worker_authorization.is_some())
-            && (!options.home || sdlc_root.is_none())
+            && (!home || sdlc_root.is_none())
         {
-            return Err("worker options require --home and --sdlc-root".into());
+            return Err("worker options require --sdlc-root with --home or seed start".into());
+        }
+        if starts && sdlc_root.is_none() {
+            return Err("seed start needs --sdlc-root naming the project checkout".into());
         }
         let sdlc_root = sdlc_root.map(absolute).transpose()?;
         let operator = options.value("--operator");
@@ -606,14 +622,15 @@ impl Launch {
         crate::seed_me::migration::migrate(std::env::var_os("HOME").as_deref(), write)
     }
 
-    /// `seed new` and `seed step`: one explicit write each, attributed to this launch's
-    /// declaration. Prints the new session, or the session as it stands after the step.
+    /// `seed new`, `seed step` and `seed start`: one explicit write each, attributed to this
+    /// launch's declaration. Prints the new session, the session after the step, or the started
+    /// worker. `seed start` is F2 without the screen: the same authorization and checks.
     pub fn seed_write(&self, args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         use crate::shape::command::{self, Action};
         // No screen shows who is acting, so a write never falls back to the operator.
         if !self.declared {
             return Err(
-                "seed new and seed step need --operator human|agent before seed; nothing was changed"
+                "seed new, seed step and seed start need --operator human|agent before seed; nothing was changed"
                     .into(),
             );
         }
@@ -635,6 +652,23 @@ impl Launch {
                     &self.confirmation,
                 )?;
                 println!("{}", session.display());
+                return Ok(());
+            }
+            ["start", directory] => {
+                let root = self
+                    .sdlc_root
+                    .clone()
+                    .ok_or("seed start needs --sdlc-root")?;
+                let review =
+                    crate::approve::review(Path::new(directory), root, self.roots.records.clone())
+                        .map_err(|why| format!("{why} Nothing was started."))?;
+                let started = crate::worker::start_command(
+                    review,
+                    self.roots.records.clone(),
+                    self.worker.clone(),
+                    crate::worker::Gate::new(self.agent, self.worker_authorization.clone()),
+                )?;
+                println!("{}", serde_json::to_string_pretty(&started)?);
                 return Ok(());
             }
             ["step", directory, action @ ..] => {

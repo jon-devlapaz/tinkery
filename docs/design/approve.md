@@ -147,7 +147,13 @@ hides worker actions while a request is pending.
 allowance for this launch. The default is zero. Drafting calls never supply it.
 One response may already be in flight at the cap. Configuration is not permission to start on navigation.
 
-With `--operator agent`, F2, `l`, `u` and `n` share one relayed-authorization door requiring
+`tinkery [options] seed start DIR` is F2 without the screen. It reads the Tink in DIR as
+Approve does, refuses what Approve refuses, prints F2's disclosure on stderr, and starts through
+the same checks and authorization record. It prints the started worker as JSON. The typed
+command is the start action itself: no screen shows the disclosure first, so the person or the
+relayed words must already cover this Tink.
+
+With `--operator agent`, F2, `seed start`, `l`, `u` and `n` share one relayed-authorization door requiring
 `--worker-authorization FILE`. The operator
 supplies their explicit start authorization through the relay. The agent must not create
 consent or infer a budget from the words. The file is a UTF-8 JSON object, at most 16 KiB,
